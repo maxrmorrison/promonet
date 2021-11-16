@@ -18,7 +18,10 @@ import utils
 from data_utils import (
   TextAudioSpeakerLoader,
   TextAudioSpeakerCollate,
-  DistributedBucketSampler
+  PPGAudioSpeakerLoader,
+  PPGAudioSpeakerCollate,
+  DistributedBucketSampler,
+  RandomBucketSampler
 )
 from models import (
   SynthesizerTrn,
@@ -34,7 +37,6 @@ from mel_processing import mel_spectrogram_torch, spec_to_mel_torch
 from text.symbols import symbols
 
 
-import pdb; pdb.set_trace()
 torch.backends.cudnn.benchmark = True
 global_step = 0
 NUM_WORKERS = 0
@@ -110,15 +112,31 @@ def train(rank, world_size, hps, checkpoint=None, gpu=None):
     device = torch.device('cpu' if gpu is None else f'cuda:{gpu}')
     torch.cuda.set_device(device)
 
-    train_dataset = TextAudioSpeakerLoader(hps.data.training_files, hps.data)
-    train_sampler = DistributedBucketSampler(
-        train_dataset,
-        hps.train.batch_size,
-        [32,300,400,500,600,700,800,900,1000],
-        num_replicas=world_size,
-        rank=rank,
-        shuffle=True)
-    collate_fn = TextAudioSpeakerCollate()
+    #######################
+    # Create data loaders #
+    #######################
+
+    if hps.model.use_ppg:
+        train_dataset = PPGAudioSpeakerLoader(hps.data.training_files, hps.data)
+        collate_fn = PPGAudioSpeakerCollate()
+    else:
+        train_dataset = TextAudioSpeakerLoader(hps.data.training_files, hps.data)
+        collate_fn = TextAudioSpeakerCollate()
+
+    boundaries = [32,300,400,500,600,700,800,900,1000]
+    if rank is None:
+        train_sampler = RandomBucketSampler(
+            train_dataset,
+            hps.train.batch_size,
+            boundaries)
+    else:
+      train_sampler = DistributedBucketSampler(
+          train_dataset,
+          hps.train.batch_size,
+          boundaries,
+          num_replicas=world_size,
+          rank=rank,
+          shuffle=True)
     train_loader = DataLoader(
         train_dataset,
         num_workers=NUM_WORKERS,
@@ -137,6 +155,10 @@ def train(rank, world_size, hps, checkpoint=None, gpu=None):
             drop_last=False,
             collate_fn=collate_fn)
 
+    #################
+    # Create models #
+    #################
+
     net_g = SynthesizerTrn(
         len(symbols),
         hps.data.filter_length // 2 + 1,
@@ -154,8 +176,9 @@ def train(rank, world_size, hps, checkpoint=None, gpu=None):
         hps.train.learning_rate,
         betas=hps.train.betas,
         eps=hps.train.eps)
-    net_g = DDP(net_g, device_ids=[rank])
-    net_d = DDP(net_d, device_ids=[rank])
+    if rank is not None:
+      net_g = DDP(net_g, device_ids=[rank])
+      net_d = DDP(net_d, device_ids=[rank])
 
     try:
         _, _, _, epoch_str = utils.load_checkpoint(utils.latest_checkpoint_path(hps.model_dir, "G_*.pth"), net_g, optim_g)
@@ -165,21 +188,64 @@ def train(rank, world_size, hps, checkpoint=None, gpu=None):
         epoch_str = 1
         global_step = 0
 
-    scheduler_g = torch.optim.lr_scheduler.ExponentialLR(optim_g, gamma=hps.train.lr_decay, last_epoch=epoch_str-2)
-    scheduler_d = torch.optim.lr_scheduler.ExponentialLR(optim_d, gamma=hps.train.lr_decay, last_epoch=epoch_str-2)
+    ############################################
+    # Schedulers and automatic mixed precision #
+    ############################################
 
+    scheduler_g = torch.optim.lr_scheduler.ExponentialLR(
+        optim_g,
+        gamma=hps.train.lr_decay,
+        last_epoch=epoch_str-2)
+    scheduler_d = torch.optim.lr_scheduler.ExponentialLR(
+        optim_d,
+        gamma=hps.train.lr_decay,
+        last_epoch=epoch_str-2)
     scaler = GradScaler(enabled=hps.train.fp16_run)
+
+    #########
+    # Train #
+    #########
 
     for epoch in range(epoch_str, hps.train.epochs + 1):
         if rank==0:
-            train_and_evaluate(rank, epoch, hps, [net_g, net_d], [optim_g, optim_d], [scheduler_g, scheduler_d], scaler, [train_loader, eval_loader], logger, [writer, writer_eval])
+            train_and_evaluate(
+                rank,
+                epoch,
+                hps,
+                [net_g, net_d],
+                [optim_g, optim_d],
+                [scheduler_g, scheduler_d],
+                scaler,
+                [train_loader, eval_loader],
+                logger,
+                [writer, writer_eval])
         else:
-            train_and_evaluate(rank, epoch, hps, [net_g, net_d], [optim_g, optim_d], [scheduler_g, scheduler_d], scaler, [train_loader, None], None, None)
+            train_and_evaluate(
+                rank,
+                epoch,
+                hps,
+                [net_g, net_d],
+                [optim_g, optim_d],
+                [scheduler_g, scheduler_d],
+                scaler,
+                [train_loader, None],
+                None,
+                None)
         scheduler_g.step()
         scheduler_d.step()
 
 
-def train_and_evaluate(rank, epoch, hps, nets, optims, schedulers, scaler, loaders, logger, writers):
+def train_and_evaluate(
+    rank,
+    epoch,
+    hps,
+    nets,
+    optims,
+    schedulers,
+    scaler,
+    loaders,
+    logger,
+    writers):
   net_g, net_d = nets
   optim_g, optim_d = optims
   scheduler_g, scheduler_d = schedulers
@@ -356,8 +422,9 @@ def parse_args():
     """Parse command-line arguments"""
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        'config',
+        '--config_file',
         type=Path,
+        required=True,
         help='The configuration file')
     parser.add_argument(
         '--checkpoint',
