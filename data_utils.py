@@ -3,6 +3,7 @@ import random
 import numpy as np
 import torch
 import torch.utils.data
+from pathlib import Path
 
 import commons
 from mel_processing import spectrogram_torch
@@ -142,15 +143,10 @@ class TextAudioCollate():
         return text_padded, text_lengths, spec_padded, spec_lengths, wav_padded, wav_lengths
 
 
-"""Multi speaker version"""
 class PPGAudioSpeakerLoader(torch.utils.data.Dataset):
-    """
-        1) loads audio, speaker_id, ppg pairs
-        2) computes spectrograms from audio files.
-    """
 
-    def __init__(self, audiopaths_sid_ppg, hparams):
-        self.audiopaths_sid_ppg = load_filepaths_and_text(audiopaths_sid_ppg)
+    def __init__(self, audiopaths_sid_text, hparams):
+        self.audiopaths_sid_text = load_filepaths_and_text(audiopaths_sid_text)
         self.max_wav_value = hparams.max_wav_value
         self.sampling_rate = hparams.sampling_rate
         self.filter_length = hparams.filter_length
@@ -159,18 +155,19 @@ class PPGAudioSpeakerLoader(torch.utils.data.Dataset):
         self.sampling_rate = hparams.sampling_rate
 
         random.seed(1234)
-        random.shuffle(self.audiopaths_sid_ppg)
+        random.shuffle(self.audiopaths_sid_text)
 
         # Store spectrogram lengths for bucketing
         self.lengths = [
             os.path.getsize(path) // (2 * self.hop_length)
-            for path in self.audiopaths_sid_ppg]
+            for path, _, _ in self.audiopaths_sid_text]
 
-    def get_audio_ppg_speaker_pair(self, audiopath_sid_ppg):
+    def get_audio_ppg_speaker_pair(self, audiopath_sid_text):
         # Separate filenames and speaker_id
-        audiopath, sid, ppgpath = audiopath_sid_ppg
+        audiopath, sid, text = audiopath_sid_text
         spec, wav = self.get_audio(audiopath)
-        ppg = self.get_ppg(ppgpath, spec.shape[2])
+        ppgpath = Path(audiopath).parent / f'{Path(audiopath).stem}-ppg.npy'
+        ppg = self.get_ppg(ppgpath, spec.shape[1])
         sid = torch.LongTensor([int(sid)])
         return (ppg, spec, wav, sid)
 
@@ -197,7 +194,7 @@ class PPGAudioSpeakerLoader(torch.utils.data.Dataset):
         ppg = torch.from_numpy(np.load(filename))
 
         # Maybe resample length
-        if ppg.shape[2] != length:
+        if ppg.shape[1] != length:
             # TODO - should we be using nearest or linear interpolation?
             ppg = torch.nn.functional.interpolate(
                 ppg[None],
@@ -207,51 +204,49 @@ class PPGAudioSpeakerLoader(torch.utils.data.Dataset):
         return ppg
 
     def __getitem__(self, index):
-        return self.get_audio_ppg_speaker_pair(self.audiopaths_sid_ppg[index])
+        return self.get_audio_ppg_speaker_pair(self.audiopaths_sid_text[index])
 
     def __len__(self):
-        return len(self.audiopaths_sid_ppg)
+        return len(self.audiopaths_sid_text)
 
 
-# TODO - PPG collate
 class PPGAudioSpeakerCollate():
-    """Zero-pads model inputs and targets"""
 
     def __call__(self, batch):
-        """Collate's training batch from normalized text, audio and speaker identities
+        """Collates training batch from ppg, audio and speaker identities
         PARAMS
         ------
         batch: [ppg, spec_normalized, wav_normalized, sid]
         """
-        ppg, spec, wav = zip(*batch)
+        ppg, spec, wav, sid = zip(*batch)
 
         # Right zero-pad all one-hot text sequences to max input length
         _, ids_sorted_decreasing = torch.sort(
             torch.LongTensor([x[1].size(1) for x in batch]),
             dim=0, descending=True)
 
-        max_text_len = max([len(x[0]) for x in batch])
+        max_ppg_len = max([x[0].size(1) for x in batch])
         max_spec_len = max([x[1].size(1) for x in batch])
         max_wav_len = max([x[2].size(1) for x in batch])
 
-        text_lengths = torch.LongTensor(len(batch))
+        ppg_lengths = torch.LongTensor(len(batch))
         spec_lengths = torch.LongTensor(len(batch))
         wav_lengths = torch.LongTensor(len(batch))
         sid = torch.LongTensor(len(batch))
 
-        text_padded = torch.LongTensor(len(batch), max_text_len)
+        ppg_padded = torch.FloatTensor(len(batch), ppg[0].size(0), max_ppg_len)
         spec_padded = torch.FloatTensor(
-            len(batch), batch[0][1].size(0), max_spec_len)
+            len(batch), spec[0].size(0), max_spec_len)
         wav_padded = torch.FloatTensor(len(batch), 1, max_wav_len)
-        text_padded.zero_()
+        ppg_padded.zero_()
         spec_padded.zero_()
         wav_padded.zero_()
         for i in range(len(ids_sorted_decreasing)):
             row = batch[ids_sorted_decreasing[i]]
 
-            text = row[0]
-            text_padded[i, :text.size(0)] = text
-            text_lengths[i] = text.size(0)
+            ppg = row[0]
+            ppg_padded[i, :, :ppg.size(1)] = ppg
+            ppg_lengths[i] = ppg.size(1)
 
             spec = row[1]
             spec_padded[i, :, :spec.size(1)] = spec
@@ -263,7 +258,7 @@ class PPGAudioSpeakerCollate():
 
             sid[i] = row[3]
 
-        return text_padded, text_lengths, spec_padded, spec_lengths, wav_padded, wav_lengths, sid
+        return ppg_padded, ppg_lengths, spec_padded, spec_lengths, wav_padded, wav_lengths, sid
 
 
 """Multi speaker version"""

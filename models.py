@@ -140,7 +140,7 @@ class PPGEncoder(nn.Module):
       n_layers,
       kernel_size,
       p_dropout,
-      ppg_dim=140):
+      ppg_dim=144):
     super().__init__()
     self.out_channels = out_channels
     self.hidden_channels = hidden_channels
@@ -170,7 +170,7 @@ class PPGEncoder(nn.Module):
     x_mask = torch.unsqueeze(commons.sequence_mask(x_lengths, x.size(2)), 1).to(x.dtype)
 
     # Embed masked ppgs
-    x = self.encoder(self.input_proj(x))
+    x = self.encoder(self.input_proj(x) * x_mask, x_mask)
 
     # Compute mean and variance used for constructing the prior distribution
     stats = self.proj(x) * x_mask
@@ -402,7 +402,6 @@ class DiscriminatorS(torch.nn.Module):
 
     def forward(self, x):
         fmap = []
-
         for l in self.convs:
             x = l(x)
             x = F.leaky_relu(x, modules.LRELU_SLOPE)
@@ -486,7 +485,7 @@ class SynthesizerTrn(nn.Module):
     self.n_speakers = n_speakers
     self.gin_channels = gin_channels
     self.use_sdp = use_sdp
-    self.use_sdp = use_ppg
+    self.use_ppg = use_ppg
 
     # Text feature encoding
     if use_ppg:
@@ -507,6 +506,23 @@ class SynthesizerTrn(nn.Module):
           n_layers,
           kernel_size,
           p_dropout)
+
+      # Text-to-duration predictor
+      if use_sdp:
+        self.dp = StochasticDurationPredictor(
+          hidden_channels,
+          192,
+          3,
+          0.5,
+          4,
+          gin_channels=gin_channels)
+      else:
+        self.dp = DurationPredictor(
+          hidden_channels,
+          256,
+          3,
+          0.5,
+          gin_channels=gin_channels)
 
     # HiFi-GAN generator
     self.dec = Generator(
@@ -538,30 +554,12 @@ class SynthesizerTrn(nn.Module):
       4,
       gin_channels=gin_channels)
 
-    # Text-to-duration predictor
-    if use_sdp:
-      self.dp = StochasticDurationPredictor(
-        hidden_channels,
-        192,
-        3,
-        0.5,
-        4,
-        gin_channels=gin_channels)
-    else:
-      self.dp = DurationPredictor(
-        hidden_channels,
-        256,
-        3,
-        0.5,
-        gin_channels=gin_channels)
-
     # Speaker embedding
     if n_speakers > 1:
       self.emb_g = nn.Embedding(n_speakers, gin_channels)
 
   def forward(self, x, x_lengths, y, y_lengths, sid=None):
     """Forward pass through the network"""
-    import pdb; pdb.set_trace()
     # Encode text to text embedding and statistics for the flow model
     x, m_p, logs_p, x_mask = self.enc_p(x, x_lengths)
 
@@ -578,18 +576,20 @@ class SynthesizerTrn(nn.Module):
     z_p = self.flow(z, y_mask, g=g)
 
     # Compute attention mask
-    attn_mask = torch.unsqueeze(x_mask, 2) * torch.unsqueeze(y_mask, -1)
+    attn_mask = x_mask.permute(0, 2, 1) * y_mask
 
     # Optionally use PPGs instead of phonemes
     if self.use_ppg:
-      shape = (x.shape[0], x.shape[2], x.shape[2])
-      attn = torch.zeros(shape, dtype=x.dtype, device=x.device)
-      for i in len(x.shape[2]):
-        attn[i, :x_lengths[i], :x_lengths[i]] = torch.eye(
-          x_lengths[i],
-          dtype=x.dtype,
-          device=x.device)
-      l_length = torch.zeros(x.shape[0], dtype=x.dtype, device=x.device)
+      with torch.no_grad():
+        shape = (x.shape[0], x.shape[2], x.shape[2])
+        attn = torch.zeros(shape, dtype=x.dtype, device=x.device)
+        for i in range(x.shape[0]):
+          attn[i, :x_lengths[i], :x_lengths[i]] = torch.eye(
+            x_lengths[i],
+            dtype=x.dtype,
+            device=x.device)
+        attn = attn.detach()
+        l_length = None
 
     else:
       # Compute monotonic alignment
@@ -600,7 +600,7 @@ class SynthesizerTrn(nn.Module):
         neg_cent3 = torch.matmul(z_p.transpose(1, 2), (m_p * s_p_sq_r)) # [b, t_t, d] x [b, d, t_s] = [b, t_t, t_s]
         neg_cent4 = torch.sum(-0.5 * (m_p ** 2) * s_p_sq_r, [1], keepdim=True) # [b, 1, t_s]
         neg_cent = neg_cent1 + neg_cent2 + neg_cent3 + neg_cent4
-        attn = monotonic_align.maximum_path(neg_cent, attn_mask.squeeze(1)).unsqueeze(1).detach()
+        attn = monotonic_align.maximum_path(neg_cent, attn_mask).unsqueeze(1).detach()
 
       # Calcuate duration of each phoneme
       w = attn.sum(2)
@@ -636,13 +636,15 @@ class SynthesizerTrn(nn.Module):
 
     # Optionally use PPGs instead of phonemes
     if self.use_ppg:
-      shape = (x.shape[0], x.shape[2], x.shape[2])
-      attn = torch.zeros(shape, dtype=x.dtype, device=x.device)
-      for i in len(x.shape[2]):
-        attn[i, :x_lengths[i], :x_lengths[i]] = torch.eye(
+      with torch.no_grad():
+        shape = (x.shape[0], x.shape[2], x.shape[2])
+        attn = torch.zeros(shape, dtype=x.dtype, device=x.device)
+        for i in range(x.shape[0]):
+          attn[i, :x_lengths[i], :x_lengths[i]] = torch.eye(
             x_lengths[i],
             dtype=x.dtype,
             device=x.device)
+        attn = attn.detach()
       y_lengths = x_lengths
       y_mask = torch.unsqueeze(commons.sequence_mask(y_lengths, None), 1)
       y_mask = y_mask.to(x_mask.dtype)

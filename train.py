@@ -242,7 +242,7 @@ def evaluate(hps, generator, eval_loader, writer_eval):
         y = y[:1]
         y_lengths = y_lengths[:1]
         break
-      y_hat, attn, mask, *_ = generator.module.infer(x, x_lengths, max_len=1000)
+      y_hat, attn, mask, *_ = generator.infer(x, x_lengths, max_len=1000)
       y_hat_lengths = mask.sum([1,2]).long() * hps.data.hop_length
 
       mel = spec_to_mel_torch(
@@ -266,11 +266,10 @@ def evaluate(hps, generator, eval_loader, writer_eval):
       "gen/mel": utils.plot_spectrogram_to_numpy(y_hat_mel[0].cpu().numpy())
     }
     audio_dict = {
-      "gen/audio": y_hat[0,:,:y_hat_lengths[0]]
-    }
+      f"gen/audio-{i}": y_hat[i,:,:y_hat_lengths[i]] for i in range(8)}
     if global_step == 0:
       image_dict.update({"gt/mel": utils.plot_spectrogram_to_numpy(mel[0].cpu().numpy())})
-      audio_dict.update({"gt/audio": y[0,:,:y_lengths[0]]})
+      audio_dict.update({f"gt/audio-{i}": y[i,:,:y_lengths[i]] for i in range(8)})
 
     utils.summarize(
       writer=writer_eval,
