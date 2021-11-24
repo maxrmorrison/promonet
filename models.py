@@ -498,7 +498,8 @@ class SynthesizerTrn(nn.Module):
         kernel_size,
         p_dropout)
     else:
-      self.enc_p = TextEncoder(n_vocab,
+      self.enc_p = TextEncoder(
+          n_vocab,
           inter_channels,
           hidden_channels,
           filter_channels,
@@ -588,7 +589,7 @@ class SynthesizerTrn(nn.Module):
             x_lengths[i],
             dtype=x.dtype,
             device=x.device)
-        attn = attn.detach()
+        attn = attn.unsqueeze(1).detach()
         l_length = None
 
     else:

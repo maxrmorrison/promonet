@@ -32,7 +32,7 @@
     "add_blank": true,
     "n_speakers": 109,
     "cleaned_text": true,
-    "interp_method": "nearest"
+    "interp_method": "linear"
   },
   "model": {
     "inter_channels": 192,
