@@ -1,3 +1,33 @@
+from pathlib import Path
+
+
+###############################################################################
+# Directories
+###############################################################################
+
+
+# Location of preprocessed features
+CACHE_DIR = Path(__file__).parent.parent / 'data' / 'cache'
+
+# Location of datasets on disk
+DATA_DIR = Path(__file__).parent.parent / 'data' / 'datasets'
+
+# Location to save assets to be bundled with pip release
+ASSETS_DIR = Path(__file__).parent / 'assets'
+
+# Location to save dataset partitions
+PARTITION_DIR = ASSETS_DIR / 'partitions'
+
+# Location to save logs, checkpoints, and configurations
+RUNS_DIR = Path(__file__).parent.parent / 'runs'
+
+# Location to save evaluation artifacts
+EVAL_DIR = Path(__file__).parent.parent / 'eval'
+
+# Default checkpoint for inference
+DEFAULT_CHECKPOINT = ASSETS_DIR / 'checkpoints' / 'promovits.pt'
+
+
 ###############################################################################
 # Audio parameters
 ###############################################################################
@@ -42,6 +72,12 @@ MAX_TEXT_LEN = 190
 # Training parameters
 ###############################################################################
 
+
+# Batch size (per gpu)
+BATCH_SIZE = 64
+
+# Number of data loading worker threads
+NUM_WORKERS = 8
 
 # Seed for all random number generators
 RANDOM_SEED = 1234

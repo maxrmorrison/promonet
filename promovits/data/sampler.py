@@ -1,5 +1,7 @@
 import torch
 
+import promovits
+
 
 ###############################################################################
 # Samplers
@@ -11,29 +13,25 @@ class BucketSampler(torch.utils.data.Sampler):
     def __init__(
         self,
         dataset,
-        batch_size,
         boundaries):
         super().__init__(dataset)
-        self.batch_size = batch_size
         self.boundaries = boundaries
         self.buckets, self.samples_per_bucket = self.create_buckets(
             dataset.lengths,
-            boundaries,
-            batch_size)
+            boundaries)
         self.total_size = sum(self.samples_per_bucket)
 
     def __iter__(self):
         self.batches = make_batches(
             self.buckets,
             self.samples_per_bucket,
-            self.batch_size,
             self.epoch,
             False)
         return iter(self.batches)
 
     def __len__(self):
         """Retrieve the number of batches in an epoch"""
-        return self.total_size // self.batch_size
+        return self.total_size // promovits.BATCH_SIZE
 
     def set_epoch(self, epoch):
         self.epoch = epoch
@@ -51,7 +49,6 @@ class DistributedBucketSampler(torch.utils.data.distributed.DistributedSampler):
     def __init__(
         self,
         dataset,
-        batch_size,
         boundaries,
         num_replicas=None,
         rank=None,
@@ -61,12 +58,10 @@ class DistributedBucketSampler(torch.utils.data.distributed.DistributedSampler):
             num_replicas=num_replicas,
             rank=rank,
             shuffle=shuffle)
-        self.batch_size = batch_size
         self.boundaries = boundaries
         self.buckets, self.samples_per_bucket = create_buckets(
             dataset.lengths,
             boundaries,
-            batch_size,
             num_replicas)
         self.total_size = sum(self.samples_per_bucket)
         self.num_samples = self.total_size // self.num_replicas
@@ -75,7 +70,6 @@ class DistributedBucketSampler(torch.utils.data.distributed.DistributedSampler):
       self.batches = make_batches(
           self.buckets,
           self.samples_per_bucket,
-          self.batch_size,
           self.epoch,
           self.shuffle,
           self.rank,
@@ -83,36 +77,29 @@ class DistributedBucketSampler(torch.utils.data.distributed.DistributedSampler):
       return iter(self.batches)
 
     def __len__(self):
-        return self.num_samples // self.batch_size
+        return self.num_samples // promovits.BATCH_SIZE
 
 
 class RandomBucketSampler(torch.utils.data.RandomSampler):
 
-    def __init__(
-            self,
-            dataset,
-            batch_size,
-            boundaries):
+    def __init__(self, dataset, boundaries):
         super().__init__(dataset)
-        self.batch_size = batch_size
         self.boundaries = boundaries
         self.buckets, self.samples_per_bucket = create_buckets(
             dataset.lengths,
-            boundaries,
-            batch_size)
+            boundaries)
         self.total_size = sum(self.samples_per_bucket)
 
     def __iter__(self):
         self.batches = make_batches(
             self.buckets,
             self.samples_per_bucket,
-            self.batch_size,
             self.epoch)
         return iter(self.batches)
 
     def __len__(self):
         """Retrieve the number of batches in an epoch"""
-        return self.total_size // self.batch_size
+        return self.total_size // promovits.BATCH_SIZE
 
     def set_epoch(self, epoch):
         self.epoch = epoch
@@ -138,7 +125,7 @@ def bisect(x, boundaries, lo=0, hi=None):
     return -1
 
 
-def create_buckets(lengths, boundaries, batch_size, num_replicas=1):
+def create_buckets(lengths, boundaries, num_replicas=1):
     buckets = [[] for _ in range(len(boundaries) - 1)]
     for i in range(len(lengths)):
         length = lengths[i]
@@ -154,7 +141,7 @@ def create_buckets(lengths, boundaries, batch_size, num_replicas=1):
     samples_per_bucket = []
     for i in range(len(buckets)):
         len_bucket = len(buckets[i])
-        total_batch_size = num_replicas * batch_size
+        total_batch_size = num_replicas * promovits.BATCH_SIZE
         rem = (total_batch_size - (len_bucket %
                 total_batch_size)) % total_batch_size
         samples_per_bucket.append(len_bucket + rem)
@@ -164,7 +151,6 @@ def create_buckets(lengths, boundaries, batch_size, num_replicas=1):
 def make_batches(
     buckets,
     samples_per_bucket,
-    batch_size,
     epoch,
     shuffle=True,
     rank=None,
@@ -197,9 +183,9 @@ def make_batches(
         ids_bucket = ids_bucket[rank::num_replicas]
 
         # Batch
-        for j in range(len(ids_bucket) // batch_size):
+        for j in range(len(ids_bucket) // promovits.BATCH_SIZE):
             batch = [bucket[idx]
-                     for idx in ids_bucket[j*batch_size:(j+1)*batch_size]]
+                     for idx in ids_bucket[j*promovits.BATCH_SIZE:(j+1)*promovits.BATCH_SIZE]]
             batches.append(batch)
 
     if shuffle:

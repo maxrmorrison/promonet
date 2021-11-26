@@ -15,13 +15,6 @@ import torchinfo
 
 import commons
 import utils
-from data_utils import (
-    TextAudioSpeakerLoader,
-    TextAudioSpeakerCollate,
-    PPGAudioSpeakerLoader,
-    PPGAudioSpeakerCollate,
-    DistributedBucketSampler,
-    RandomBucketSampler)
 from models import (
     SynthesizerTrn,
     MultiPeriodDiscriminator)
@@ -31,7 +24,6 @@ import promovits
 
 global_step = 0
 printed = False
-NUM_WORKERS = 8
 
 
 def train(rank, world_size, hps, gpu=None):
@@ -50,64 +42,8 @@ def train(rank, world_size, hps, gpu=None):
     # Create data loaders #
     #######################
 
-    # Get training dataset and collate function
-    if hps.model.use_ppg:
-        train_dataset = PPGAudioSpeakerLoader(
-            hps.data.training_files,
-            hps.data)
-        collate_fn = PPGAudioSpeakerCollate()
-    else:
-        train_dataset = TextAudioSpeakerLoader(
-            hps.data.training_files,
-            hps.data)
-        collate_fn = TextAudioSpeakerCollate()
-
-    # Get sampler
-    boundaries = [32,300,400,500,600,700,800,900,1000]
-    if rank is None:
-        train_sampler = RandomBucketSampler(
-            train_dataset,
-            hps.train.batch_size,
-            boundaries)
-    else:
-        train_sampler = DistributedBucketSampler(
-            train_dataset,
-            hps.train.batch_size,
-            boundaries,
-            num_replicas=world_size,
-            rank=rank,
-            shuffle=True)
-
-    # Make training loader
-    train_loader = DataLoader(
-        train_dataset,
-        num_workers=NUM_WORKERS,
-        shuffle=False,
-        pin_memory=gpu is not None,
-        collate_fn=collate_fn,
-        batch_sampler=train_sampler)
-
-    if not rank:
-
-        # Get evaluation dataset
-        if hps.model.use_ppg:
-            eval_dataset = PPGAudioSpeakerLoader(
-                hps.data.validation_files,
-                hps.data)
-        else:
-            eval_dataset = TextAudioSpeakerLoader(
-                hps.data.validation_files,
-                hps.data)
-
-        # Make evaluation loader
-        eval_loader = DataLoader(
-            eval_dataset,
-            num_workers=NUM_WORKERS,
-            shuffle=False,
-            batch_size=hps.train.batch_size,
-            pin_memory=gpu is not None,
-            drop_last=False,
-            collate_fn=collate_fn)
+    # TODO - args
+    train_loader, eval_loader = promovits.data.loaders()
 
     #################
     # Create models #
@@ -257,7 +193,7 @@ def train_and_evaluate(
         optim_d.zero_grad()
         scaler.scale(loss_disc_all).backward()
         scaler.unscale_(optim_d)
-        grad_norm_d = commons.clip_grad_value_(net_d.parameters(), None)
+        grad_norm_d = clip_gradients(net_d.parameters(), None)
         scaler.step(optim_d)
 
         with autocast(enabled=hps.train.fp16_run):
@@ -276,7 +212,7 @@ def train_and_evaluate(
         optim_g.zero_grad()
         scaler.scale(loss_gen_all).backward()
         scaler.unscale_(optim_g)
-        grad_norm_g = commons.clip_grad_value_(net_g.parameters(), None)
+        grad_norm_g = commons.clip_gradients(net_g.parameters(), None)
         scaler.step(optim_g)
         scaler.update()
 
@@ -415,6 +351,28 @@ def ddp_context(rank, world_size):
 
         # Close ddp
         torch.distributed.destroy_process_group()
+
+
+###############################################################################
+# Entry point
+###############################################################################
+
+
+def clip_gradients(parameters, clip_value, norm_type=2):
+    if isinstance(parameters, torch.Tensor):
+        parameters = [parameters]
+    parameters = list(filter(lambda p: p.grad is not None, parameters))
+    norm_type = float(norm_type)
+    if clip_value is not None:
+        clip_value = float(clip_value)
+
+    total_norm = 0
+    for p in parameters:
+        param_norm = p.grad.data.norm(norm_type)
+        total_norm += param_norm.item() ** norm_type
+        if clip_value is not None:
+            p.grad.data.clamp_(min=-clip_value, max=clip_value)
+    return total_norm ** (1. / norm_type)
 
 
 ###############################################################################

@@ -1,13 +1,18 @@
-DUMMY1
-DUMMY2
-DUMMY3
-data/
-!promovits/data/
-logs
-__pycache__
+*.egg-info
+__pycache__/
 .ipynb_checkpoints
-.*.swp
+build/
+dist/
 
-build
+data/cache/*
+!data/cache/.gitkeep
+data/datasets/*
+!data/datasets/.gitkeep
+eval/*
+!eval/.gitkeep
+runs/*
+!runs/.gitkeep
+
+.*.swp
 *.c
 monotonic_align/monotonic_align
