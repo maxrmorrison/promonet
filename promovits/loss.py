@@ -1,7 +1,12 @@
 import torch
 
 
-def feature_loss(fmap_r, fmap_g):
+###############################################################################
+# Loss functions
+###############################################################################
+
+
+def feature_matching(fmap_r, fmap_g):
   loss = 0
   for dr, dg in zip(fmap_r, fmap_g):
     for rl, gl in zip(dr, dg):
@@ -12,7 +17,7 @@ def feature_loss(fmap_r, fmap_g):
   return loss * 2
 
 
-def discriminator_loss(disc_real_outputs, disc_generated_outputs):
+def discriminator(disc_real_outputs, disc_generated_outputs):
   loss = 0
   r_losses = []
   g_losses = []
@@ -28,7 +33,7 @@ def discriminator_loss(disc_real_outputs, disc_generated_outputs):
   return loss, r_losses, g_losses
 
 
-def generator_loss(disc_outputs):
+def generator(disc_outputs):
   loss = 0
   gen_losses = []
   for dg in disc_outputs:
@@ -40,7 +45,7 @@ def generator_loss(disc_outputs):
   return loss, gen_losses
 
 
-def kl_loss(z_p, logs_q, m_p, logs_p, z_mask):
+def kl(z_p, logs_q, m_p, logs_p, z_mask):
   """
   z_p, logs_q: [b, h, t_t]
   m_p, logs_p: [b, h, t_t]

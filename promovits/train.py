@@ -25,14 +25,9 @@ from data_utils import (
 from models import (
     SynthesizerTrn,
     MultiPeriodDiscriminator)
-from losses import (
-    generator_loss,
-    discriminator_loss,
-    feature_loss,
-    kl_loss)
-from mel_processing import mel_spectrogram_torch, spec_to_mel_torch
-from text.symbols import symbols
 
+
+import promovits
 
 global_step = 0
 printed = False
@@ -48,7 +43,7 @@ def train(rank, world_size, hps, gpu=None):
         writer = SummaryWriter(log_dir=hps.log_dir)
         writer_eval = SummaryWriter(log_dir=os.path.join(hps.log_dir, "eval"))
 
-    torch.manual_seed(hps.train.seed)
+    torch.manual_seed(promovits.RANDOM_SEED)
     device = torch.device('cpu' if gpu is None else f'cuda:{gpu}')
 
     #######################
@@ -119,7 +114,7 @@ def train(rank, world_size, hps, gpu=None):
     #################
 
     net_g = SynthesizerTrn(
-        len(symbols),
+        len(promovits.preprocess.text.symbols()),
         hps.data.filter_length // 2 + 1,
         hps.train.segment_size // hps.data.hop_length,
         n_speakers=hps.data.n_speakers,
@@ -231,25 +226,13 @@ def train_and_evaluate(
             y_hat, l_length, attn, ids_slice, x_mask, z_mask,\
             (z, z_p, m_p, logs_p, m_q, logs_q) = net_g(x, x_lengths, spec, spec_lengths, speakers)
 
-            # Linear to mel
-            mel = spec_to_mel_torch(
-                spec,
-                hps.data.filter_length,
-                hps.data.n_mel_channels,
-                hps.data.sampling_rate,
-                hps.data.mel_fmin,
-                hps.data.mel_fmax)
+            # Convert to mels
+            mel = promovits.preprocess.spectrogram.linear_to_mel(spec)
 
             y_mel = commons.slice_segments(mel, ids_slice, hps.train.segment_size // hps.data.hop_length)
-            y_hat_mel = mel_spectrogram_torch(
-                y_hat.squeeze(1),
-                hps.data.filter_length,
-                hps.data.n_mel_channels,
-                hps.data.sampling_rate,
-                hps.data.hop_length,
-                hps.data.win_length,
-                hps.data.mel_fmin,
-                hps.data.mel_fmax)
+            y_hat_mel = promovits.preprocess.spectrogram.from_audio(
+                y_hat,
+                True)
 
             y = commons.slice_segments(y, ids_slice * hps.data.hop_length, hps.train.segment_size) # slice
 
@@ -268,7 +251,7 @@ def train_and_evaluate(
             # Discriminator
             y_d_hat_r, y_d_hat_g, _, _ = net_d(y, y_hat.detach())
             with autocast(enabled=False):
-                loss_disc, losses_disc_r, losses_disc_g = discriminator_loss(y_d_hat_r, y_d_hat_g)
+                loss_disc, losses_disc_r, losses_disc_g = promovits.loss.discriminator(y_d_hat_r, y_d_hat_g)
                 loss_disc_all = loss_disc
 
         optim_d.zero_grad()
@@ -286,9 +269,9 @@ def train_and_evaluate(
                 else:
                     loss_dur = 0
                 loss_mel = F.l1_loss(y_mel, y_hat_mel) * hps.train.c_mel
-                loss_kl = kl_loss(z_p, logs_q, m_p, logs_p, z_mask) * hps.train.c_kl
-                loss_fm = feature_loss(fmap_r, fmap_g)
-                loss_gen, losses_gen = generator_loss(y_d_hat_g)
+                loss_kl = promovits.loss.kl(z_p, logs_q, m_p, logs_p, z_mask) * hps.train.c_kl
+                loss_fm = promovits.loss.feature_matching(fmap_r, fmap_g)
+                loss_gen, losses_gen = promovits.loss.generator(y_d_hat_g)
                 loss_gen_all = loss_gen + loss_fm + loss_mel + loss_dur + loss_kl
         optim_g.zero_grad()
         scaler.scale(loss_gen_all).backward()
@@ -376,22 +359,13 @@ def evaluate(hps, generator, eval_loader, writer_eval, device):
                 max_len=1000)
             y_hat_lengths = mask.sum([1,2]).long() * hps.data.hop_length
 
-            mel = spec_to_mel_torch(
-                spec[i:i + 1, :, :spec_lengths[i]],
-                hps.data.filter_length,
-                hps.data.n_mel_channels,
-                hps.data.sampling_rate,
-                hps.data.mel_fmin,
-                hps.data.mel_fmax)
-            y_hat_mel = mel_spectrogram_torch(
-                y_hat.squeeze(1).float(),
-                hps.data.filter_length,
-                hps.data.n_mel_channels,
-                hps.data.sampling_rate,
-                hps.data.hop_length,
-                hps.data.win_length,
-                hps.data.mel_fmin,
-                hps.data.mel_fmax)
+            # Get true and predicted mels
+            mel = promovits.preprocess.spectrogram.linear_to_mel(
+                spec[i:i + 1, :, :spec_lengths[i]])
+            y_hat_mel = promovits.preprocess.spectrogram.from_audio(
+                y_hat.float(),
+                True)
+
             image_dict[f"gen/mel-{i}"] = utils.plot_spectrogram_to_numpy(
                 y_hat_mel[0].cpu().numpy())
             audio_dict[f"gen/audio-{i}"] = y_hat[0,:,:y_hat_lengths[0]]
