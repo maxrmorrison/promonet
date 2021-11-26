@@ -241,35 +241,37 @@ def train_and_evaluate(
                 hps.data.mel_fmax)
 
             y_mel = commons.slice_segments(mel, ids_slice, hps.train.segment_size // hps.data.hop_length)
-            y_hat_mel = mel_spectrogram_torch(
-                y_hat.squeeze(1),
-                hps.data.filter_length,
-                hps.data.n_mel_channels,
-                hps.data.sampling_rate,
-                hps.data.hop_length,
-                hps.data.win_length,
-                hps.data.mel_fmin,
-                hps.data.mel_fmax)
 
-            y = commons.slice_segments(y, ids_slice * hps.data.hop_length, hps.train.segment_size) # slice
+        y_hat = y_hat.float()
+        y_hat_mel = mel_spectrogram_torch(
+            y_hat.squeeze(1),
+            hps.data.filter_length,
+            hps.data.n_mel_channels,
+            hps.data.sampling_rate,
+            hps.data.hop_length,
+            hps.data.win_length,
+            hps.data.mel_fmin,
+            hps.data.mel_fmax)
 
-            # Print model summaries first time
-            if not printed:
-                print(torchinfo.summary(
-                net_g,
-                input_data=(x, x_lengths, spec, spec_lengths, speakers),
-                device=device))
-                print(torchinfo.summary(
-                net_d,
-                input_data=(y, y_hat.detach()),
-                device=device))
-                printed = True
+        y = commons.slice_segments(y, ids_slice * hps.data.hop_length, hps.train.segment_size) # slice
 
-            # Discriminator
-            y_d_hat_r, y_d_hat_g, _, _ = net_d(y, y_hat.detach())
-            with autocast(enabled=False):
-                loss_disc, losses_disc_r, losses_disc_g = discriminator_loss(y_d_hat_r, y_d_hat_g)
-                loss_disc_all = loss_disc
+        # Print model summaries first time
+        if not printed:
+            print(torchinfo.summary(
+            net_g,
+            input_data=(x, x_lengths, spec, spec_lengths, speakers),
+            device=device))
+            print(torchinfo.summary(
+            net_d,
+            input_data=(y, y_hat.detach()),
+            device=device))
+            printed = True
+
+        # Discriminator
+        y_d_hat_r, y_d_hat_g, _, _ = net_d(y, y_hat.detach())
+        with autocast(enabled=False):
+            loss_disc, losses_disc_r, losses_disc_g = discriminator_loss(y_d_hat_r, y_d_hat_g)
+            loss_disc_all = loss_disc
 
         optim_d.zero_grad()
         scaler.scale(loss_disc_all).backward()
