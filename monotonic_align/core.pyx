@@ -1,10 +1,9 @@
 cimport cython
-from cython.parallel import prange
 
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
-cdef void maximum_path_each(int[:,::1] path, float[:,::1] value, int t_y, int t_x, float max_neg_val=-1e9) nogil:
+cdef void maximum_path_each(int[:,::1] path, float[:,::1] value, int t_y, int t_x, float max_neg_val=-1e9):
   cdef int x
   cdef int y
   cdef float v_prev
@@ -35,8 +34,8 @@ cdef void maximum_path_each(int[:,::1] path, float[:,::1] value, int t_y, int t_
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
-cpdef void maximum_path_c(int[:,:,::1] paths, float[:,:,::1] values, int[::1] t_ys, int[::1] t_xs) nogil:
+cpdef void maximum_path_c(int[:,:,::1] paths, float[:,:,::1] values, int[::1] t_ys, int[::1] t_xs):
   cdef int b = paths.shape[0]
   cdef int i
-  for i in prange(b, nogil=True):
+  for i in range(b):
     maximum_path_each(paths[i], values[i], t_ys[i], t_xs[i])
