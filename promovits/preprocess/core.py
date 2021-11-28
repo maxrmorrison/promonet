@@ -1,24 +1,58 @@
-from pathlib import Path
-
 import promovits
 
 
-def dataset(name):
-    # TODO
-    for filelist in args.filelists:
-        print("START:", filelist)
-        filepaths_and_text = load_filepaths_and_text(filelist)
-        for i in range(len(filepaths_and_text)):
-            text = filepaths_and_text[i][args.text_index]
-            cleaned_text = promovits.preprocess.text.from_string(text)
-            filepaths_and_text[i][args.text_index] = cleaned_text
-
-        new_filelist = filelist + "." + args.out_extension
-        with open(new_filelist, "w", encoding="utf-8") as f:
-            f.writelines(["|".join(x) + "\n" for x in filepaths_and_text])
+###############################################################################
+# Constants
+###############################################################################
 
 
-def load_filepaths_and_text(filename, split="|"):
-    with open(filename, encoding='utf-8') as f:
-        filepaths_and_text = [line.strip().split(split) for line in f]
-    return [f for f in filepaths_and_text if Path(f[0]).exists()]
+ALL_FEATURES = ['phonemes', 'pitch', 'ppg', 'spectrogram']
+
+
+###############################################################################
+# Data preprocessing
+###############################################################################
+
+
+def dataset(name, features=ALL_FEATURES, gpu=None):
+    """Preprocess a dataset"""
+    directory = promovits.CACHE_DIR / name
+
+    # Get text and audio files
+    text_files = directory.glob('*.txt')
+    audio_files = directory.glob('*.wav')
+
+    # Change directory
+    with promovits.data.chdir(directory):
+
+        # Preprocess phonemes from text
+        if 'phonemes' in features:
+            phoneme_files = [
+                f'{file.stem}-phonemes.pt' for file in text_files]
+            promovits.preprocess.text.from_files_to_files(
+                text_files,
+                phoneme_files)
+
+        # Preprocess spectrograms
+        if 'spectrogram' in features:
+            spectrogram_files = [
+                f'{file.stem}-spectrogram.pt' for file in audio_files]
+            promovits.preprocess.spectrogram.from_files_to_files(
+                audio_files,
+                spectrogram_files)
+
+        # Preprocess phonetic posteriorgrams
+        if 'ppg' in features:
+            ppg_files = [f'{file.stem}-ppg.pt' for file in audio_files]
+            promovits.preprocess.ppg.from_files_to_files(
+                audio_files,
+                ppg_files,
+                gpu)
+
+        # Preprocess pitch
+        if 'pitch' in features:
+            prefixes = [file.stem for file in audio_files]
+            promovits.preprocess.pitch.from_files_to_files(
+                audio_files,
+                prefixes,
+                gpu)

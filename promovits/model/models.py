@@ -3,14 +3,13 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 
-import commons
 import modules
-import attentions
 import monotonic_align
 
 from torch.nn import Conv1d, ConvTranspose1d, Conv2d
 from torch.nn.utils import weight_norm, remove_weight_norm, spectral_norm
-from commons import init_weights, get_padding
+
+import promovits
 
 
 class StochasticDurationPredictor(nn.Module):
@@ -156,7 +155,7 @@ class PPGEncoder(nn.Module):
       kernel_size,
       1,
       kernel_size // 2)
-    self.encoder = attentions.Encoder(
+    self.encoder = promovits.model.attentions.Encoder(
       hidden_channels,
       filter_channels,
       n_heads,
@@ -167,7 +166,7 @@ class PPGEncoder(nn.Module):
 
   def forward(self, x, x_lengths):
     # Construct binary mask from lengths
-    x_mask = torch.unsqueeze(commons.sequence_mask(x_lengths, x.size(2)), 1).to(x.dtype)
+    x_mask = torch.unsqueeze(promovits.model.sequence_mask(x_lengths, x.size(2)), 1).to(x.dtype)
 
     # Embed masked ppgs
     x = self.encoder(self.input_proj(x) * x_mask, x_mask)
@@ -202,7 +201,7 @@ class TextEncoder(nn.Module):
     self.emb = nn.Embedding(n_vocab, hidden_channels)
     nn.init.normal_(self.emb.weight, 0.0, hidden_channels**-0.5)
 
-    self.encoder = attentions.Encoder(
+    self.encoder = promovits.model.attentions.Encoder(
       hidden_channels,
       filter_channels,
       n_heads,
@@ -217,7 +216,7 @@ class TextEncoder(nn.Module):
 
     # Construct binary mask from lengths
     x = torch.transpose(x, 1, -1) # [b, h, t]
-    x_mask = torch.unsqueeze(commons.sequence_mask(x_lengths, x.size(2)), 1).to(x.dtype)
+    x_mask = torch.unsqueeze(promovits.model.sequence_mask(x_lengths, x.size(2)), 1).to(x.dtype)
 
     # Encode masked phonemes
     x = self.encoder(x * x_mask, x_mask)
@@ -285,7 +284,7 @@ class PosteriorEncoder(nn.Module):
     self.proj = nn.Conv1d(hidden_channels, out_channels * 2, 1)
 
   def forward(self, x, x_lengths, g=None):
-    x_mask = torch.unsqueeze(commons.sequence_mask(x_lengths, x.size(2)), 1).to(x.dtype)
+    x_mask = torch.unsqueeze(promovits.model.sequence_mask(x_lengths, x.size(2)), 1).to(x.dtype)
     x = self.pre(x) * x_mask
     x = self.enc(x, x_mask, g=g)
     stats = self.proj(x) * x_mask
@@ -294,9 +293,9 @@ class PosteriorEncoder(nn.Module):
     return z, m, logs, x_mask
 
 
-class Generator(torch.nn.Module):
+class HiFiGANGenerator(torch.nn.Module):
     def __init__(self, initial_channel, resblock, resblock_kernel_sizes, resblock_dilation_sizes, upsample_rates, upsample_initial_channel, upsample_kernel_sizes, gin_channels=0):
-        super(Generator, self).__init__()
+        super().__init__()
         self.num_kernels = len(resblock_kernel_sizes)
         self.num_upsamples = len(upsample_rates)
         self.conv_pre = Conv1d(initial_channel, upsample_initial_channel, 7, 1, padding=3)
@@ -315,7 +314,7 @@ class Generator(torch.nn.Module):
                 self.resblocks.append(resblock(ch, k, d))
 
         self.conv_post = Conv1d(ch, 1, 7, 1, padding=3, bias=False)
-        self.ups.apply(init_weights)
+        self.ups.apply(promovits.model.init_weights)
 
         if gin_channels != 0:
             self.cond = nn.Conv1d(gin_channels, upsample_initial_channel, 1)
@@ -356,11 +355,11 @@ class DiscriminatorP(torch.nn.Module):
         self.use_spectral_norm = use_spectral_norm
         norm_f = weight_norm if use_spectral_norm == False else spectral_norm
         self.convs = nn.ModuleList([
-            norm_f(Conv2d(1, 32, (kernel_size, 1), (stride, 1), padding=(get_padding(kernel_size, 1), 0))),
-            norm_f(Conv2d(32, 128, (kernel_size, 1), (stride, 1), padding=(get_padding(kernel_size, 1), 0))),
-            norm_f(Conv2d(128, 512, (kernel_size, 1), (stride, 1), padding=(get_padding(kernel_size, 1), 0))),
-            norm_f(Conv2d(512, 1024, (kernel_size, 1), (stride, 1), padding=(get_padding(kernel_size, 1), 0))),
-            norm_f(Conv2d(1024, 1024, (kernel_size, 1), 1, padding=(get_padding(kernel_size, 1), 0))),
+            norm_f(Conv2d(1, 32, (kernel_size, 1), (stride, 1), padding=(promovits.model.get_padding(kernel_size, 1), 0))),
+            norm_f(Conv2d(32, 128, (kernel_size, 1), (stride, 1), padding=(promovits.model.get_padding(kernel_size, 1), 0))),
+            norm_f(Conv2d(128, 512, (kernel_size, 1), (stride, 1), padding=(promovits.model.get_padding(kernel_size, 1), 0))),
+            norm_f(Conv2d(512, 1024, (kernel_size, 1), (stride, 1), padding=(promovits.model.get_padding(kernel_size, 1), 0))),
+            norm_f(Conv2d(1024, 1024, (kernel_size, 1), 1, padding=(promovits.model.get_padding(kernel_size, 1), 0))),
         ])
         self.conv_post = norm_f(Conv2d(1024, 1, (3, 1), 1, padding=(1, 0)))
 
@@ -413,9 +412,9 @@ class DiscriminatorS(torch.nn.Module):
         return x, fmap
 
 
-class MultiPeriodDiscriminator(torch.nn.Module):
+class Discriminator(torch.nn.Module):
     def __init__(self, use_spectral_norm=False):
-        super(MultiPeriodDiscriminator, self).__init__()
+        super().__init__()
         periods = [2,3,5,7,11]
         discs = [DiscriminatorS(use_spectral_norm=use_spectral_norm)]
         discs = discs + [DiscriminatorP(i, use_spectral_norm=use_spectral_norm) for i in periods]
@@ -437,10 +436,7 @@ class MultiPeriodDiscriminator(torch.nn.Module):
         return y_d_rs, y_d_gs, fmap_rs, fmap_gs
 
 
-class SynthesizerTrn(nn.Module):
-  """
-  Synthesizer for Training
-  """
+class Generator(nn.Module):
 
   def __init__(self,
     n_vocab,
@@ -525,8 +521,7 @@ class SynthesizerTrn(nn.Module):
           0.5,
           gin_channels=gin_channels)
 
-    # HiFi-GAN generator
-    self.dec = Generator(
+    self.dec = HiFiGANGenerator(
       inter_channels,
       resblock,
       resblock_kernel_sizes,
@@ -620,7 +615,7 @@ class SynthesizerTrn(nn.Module):
     logs_p = torch.matmul(attn.squeeze(1), logs_p.transpose(1, 2)).transpose(1, 2)
 
     # Feed random extracts of latent representations to the decoder
-    z_slice, ids_slice = commons.rand_slice_segments(z, y_lengths, self.segment_size)
+    z_slice, ids_slice = promovits.model.rand_slice_segments(z, y_lengths, self.segment_size)
     o = self.dec(z_slice, g=g)
 
     return o, l_length, attn, ids_slice, x_mask, y_mask, (z, z_p, m_p, logs_p, m_q, logs_q)
@@ -647,7 +642,7 @@ class SynthesizerTrn(nn.Module):
             device=x.device)
         attn = attn.detach()
       y_lengths = x_lengths
-      y_mask = torch.unsqueeze(commons.sequence_mask(y_lengths, None), 1)
+      y_mask = torch.unsqueeze(promovits.model.sequence_mask(y_lengths, None), 1)
       y_mask = y_mask.to(x_mask.dtype)
 
     else:
@@ -661,11 +656,11 @@ class SynthesizerTrn(nn.Module):
 
       # Get total duration and sequence masks
       y_lengths = torch.clamp_min(torch.sum(w_ceil, [1, 2]), 1).long()
-      y_mask = torch.unsqueeze(commons.sequence_mask(y_lengths, None), 1).to(x_mask.dtype)
+      y_mask = torch.unsqueeze(promovits.model.sequence_mask(y_lengths, None), 1).to(x_mask.dtype)
 
       # Compute attention between variable length input and output sequences
       attn_mask = torch.unsqueeze(x_mask, 2) * torch.unsqueeze(y_mask, -1)
-      attn = commons.generate_path(w_ceil, attn_mask)
+      attn = promovits.model.generate_path(w_ceil, attn_mask)
 
     # Expand sequence using predicted durations
     m_p = torch.matmul(attn.squeeze(1), m_p.transpose(1, 2)).transpose(1, 2) # [b, t', t], [b, t, d] -> [b, d, t']
@@ -681,14 +676,3 @@ class SynthesizerTrn(nn.Module):
     o = self.dec((z * y_mask)[:,:,:max_len], g=g)
 
     return o, attn, y_mask, (z, z_p, m_p, logs_p)
-
-  def voice_conversion(self, y, y_lengths, sid_src, sid_tgt):
-    assert self.n_speakers > 0, "n_speakers have to be larger than 0."
-    g_src = self.emb_g(sid_src).unsqueeze(-1)
-    g_tgt = self.emb_g(sid_tgt).unsqueeze(-1)
-    z, m_q, logs_q, y_mask = self.enc_q(y, y_lengths, g=g_src)
-    z_p = self.flow(z, y_mask, g=g_src)
-    z_hat = self.flow(z_p, y_mask, g=g_tgt, reverse=True)
-    o_hat = self.dec(z_hat * y_mask, g=g_tgt)
-    return o_hat, y_mask, (z, z_p, z_hat)
-

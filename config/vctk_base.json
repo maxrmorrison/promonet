@@ -18,7 +18,7 @@
   "data": {
     "training_files":"filelists/vctk_audio_sid_text_train_filelist.txt.cleaned",
     "validation_files":"filelists/vctk_audio_sid_text_val_filelist.txt.cleaned",
-    "n_speakers": 109,
+    "n_speakers": 109
   },
   "model": {
     "inter_channels": 192,

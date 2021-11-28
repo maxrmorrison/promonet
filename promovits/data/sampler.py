@@ -8,35 +8,6 @@ import promovits
 ###############################################################################
 
 
-class BucketSampler(torch.utils.data.Sampler):
-
-    def __init__(
-        self,
-        dataset,
-        boundaries):
-        super().__init__(dataset)
-        self.boundaries = boundaries
-        self.buckets, self.samples_per_bucket = self.create_buckets(
-            dataset.lengths,
-            boundaries)
-        self.total_size = sum(self.samples_per_bucket)
-
-    def __iter__(self):
-        self.batches = make_batches(
-            self.buckets,
-            self.samples_per_bucket,
-            self.epoch,
-            False)
-        return iter(self.batches)
-
-    def __len__(self):
-        """Retrieve the number of batches in an epoch"""
-        return self.total_size // promovits.BATCH_SIZE
-
-    def set_epoch(self, epoch):
-        self.epoch = epoch
-
-
 class DistributedBucketSampler(torch.utils.data.distributed.DistributedSampler):
     """
     Maintain similar input lengths in a batch.
@@ -50,30 +21,26 @@ class DistributedBucketSampler(torch.utils.data.distributed.DistributedSampler):
         self,
         dataset,
         boundaries,
-        num_replicas=None,
-        rank=None,
         shuffle=True):
-        super().__init__(
-            dataset,
-            num_replicas=num_replicas,
-            rank=rank,
-            shuffle=shuffle)
+        super().__init__(dataset, shuffle=shuffle)
         self.boundaries = boundaries
         self.buckets, self.samples_per_bucket = create_buckets(
             dataset.lengths,
-            boundaries,
-            num_replicas)
+            boundaries)
         self.total_size = sum(self.samples_per_bucket)
-        self.num_samples = self.total_size // self.num_replicas
+
+        if torch.distributed.is_initialized():
+            world_size = torch.distributed.get_world_size()
+            self.num_samples = self.total_size // world_size
+        else:
+            self.num_samples = self.total_size
 
     def __iter__(self):
       self.batches = make_batches(
           self.buckets,
           self.samples_per_bucket,
           self.epoch,
-          self.shuffle,
-          self.rank,
-          self.num_replicas)
+          self.shuffle)
       return iter(self.batches)
 
     def __len__(self):
@@ -125,7 +92,8 @@ def bisect(x, boundaries, lo=0, hi=None):
     return -1
 
 
-def create_buckets(lengths, boundaries, num_replicas=1):
+def create_buckets(lengths, boundaries):
+    # TODO - get lengths here instead of Dataset
     buckets = [[] for _ in range(len(boundaries) - 1)]
     for i in range(len(lengths)):
         length = lengths[i]
@@ -138,10 +106,15 @@ def create_buckets(lengths, boundaries, num_replicas=1):
             buckets.pop(i)
             boundaries.pop(i+1)
 
+    if torch.distributed.is_initialized():
+        world_size = torch.distributed.get_world_size()
+    else:
+        world_size = 1
+
     samples_per_bucket = []
     for i in range(len(buckets)):
         len_bucket = len(buckets[i])
-        total_batch_size = num_replicas * promovits.BATCH_SIZE
+        total_batch_size = world_size * promovits.BATCH_SIZE
         rem = (total_batch_size - (len_bucket %
                 total_batch_size)) % total_batch_size
         samples_per_bucket.append(len_bucket + rem)
@@ -152,9 +125,7 @@ def make_batches(
     buckets,
     samples_per_bucket,
     epoch,
-    shuffle=True,
-    rank=None,
-    num_replicas=None):
+    shuffle=True):
     # Deterministic shuffling based on current epoch
     g = torch.Generator()
     g.manual_seed(epoch)
@@ -180,7 +151,10 @@ def make_batches(
             (rem // len_bucket) + ids_bucket[:(rem % len_bucket)]
 
         # Subsample
-        ids_bucket = ids_bucket[rank::num_replicas]
+        if torch.distributed.is_initialized():
+                rank = torch.distributed.get_rank()
+                world_size = torch.distributed.get_world_size()
+                ids_bucket = ids_bucket[rank::world_size]
 
         # Batch
         for j in range(len(ids_bucket) // promovits.BATCH_SIZE):

@@ -81,6 +81,12 @@ def from_file_to_file(input_file, output_prefix, gpu=None):
     torch.save(periodicity, f'{output_prefix}-periodicity.pt')
 
 
+def from_files_to_files(input_files, output_prefixes, gpu=None):
+    """Preprocess pitch from files and save to disk"""
+    for input_file, output_prefix in zip(input_files, output_prefixes):
+        from_file_to_file(input_file, output_prefix, gpu)
+
+
 ###############################################################################
 # Pitch utilities
 ###############################################################################

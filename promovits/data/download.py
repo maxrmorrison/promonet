@@ -2,6 +2,7 @@ import argparse
 import urllib
 import shutil
 import ssl
+import tarfile
 import zipfile
 from pathlib import Path
 
@@ -17,11 +18,59 @@ import promovits
 ###############################################################################
 
 
-def datasets_from_cloud(datasets):
-    """Download datasets from cloud storage"""
+def datasets(datasets):
+    """Download datasets"""
+    # Download and format daps dataset
+    if 'daps' in datasets:
+        daps()
+
     # Download and format vctk dataset
     if 'vctk' in datasets:
         vctk()
+
+
+def daps():
+    """Download daps dataset"""
+    # TODO - text files
+    # TODO - organize by speaker
+
+    # Download
+    url = 'https://zenodo.org/record/4783456/files/daps-segmented.tar.gz?download=1'
+    file = promovits.DATA_DIR / 'daps.tar.gz'
+    download_file(url, file)
+
+    # Unzip
+    input_directory = promovits.DATA_DIR / 'daps'
+    input_directory.mkdir(exist_ok=True, parents=True)
+    with tarfile.open(file, 'r:gz') as tfile:
+        tfile.extractall(input_directory)
+
+    # Get audio files
+    audio_files = list(input_directory.rglob('*.wav'))
+
+    # Write audio to cache
+    output_directory = promovits.CACHE_DIR / 'daps'
+    output_directory.mkdir(exist_ok=True, parents=True)
+    with promovits.data.chdir(output_directory):
+
+        # Iterate over files
+        iterator = tqdm.tqdm(
+            enumerate(audio_files),
+            desc='Formatting daps',
+            dynamic_ncols=True,
+            total=len(audio_files))
+        for i, audio_file in iterator:
+
+            # Convert to 22.05k
+            audio = promovits.load.audio(audio_file)
+
+            # If audio is too quiet, increase the volume
+            maximum = torch.abs(audio).max()
+            if maximum < .35:
+                audio *= .35 / maximum
+
+            # Save to disk
+            torchaudio.save(f'{i:06d}.wav', audio, promovits.SAMPLE_RATE)
 
 
 def vctk():
@@ -48,6 +97,7 @@ def vctk():
     text_files = sorted(list(text_directory.rglob('*.txt')))
 
     # Write audio to cache
+    speaker_count = {}
     output_directory = promovits.CACHE_DIR / 'vctk'
     output_directory.mkdir(exist_ok=True, parents=True)
     with promovits.data.chdir(output_directory):
@@ -61,8 +111,11 @@ def vctk():
         for audio_file, text_file in iterator:
 
             # Organize by speaker
-            speaker_dir = Path(audio_file.stem.split('_')[0])
-            speaker_dir.mkdir(exist_ok=True, parents=True)
+            speaker = Path(audio_file.stem.split('_')[0])
+            if speaker not in speaker_count:
+                speaker_count[speaker] = 0
+            index = speaker_count[speaker]
+            speaker_count[speaker] += 1
 
             # Convert to 22.05k wav
             audio = promovits.load.audio(audio_file)
@@ -73,14 +126,14 @@ def vctk():
                 audio *= .35 / maximum
 
             # Save to disk
-            output_audio_file = f'{len(list(speaker_dir.glob("*"))):06d}.wav'
+            output_audio_file = f'{speaker:04d}-{index:06d}.wav'
             torchaudio.save(
-                speaker_dir / output_audio_file,
+                output_directory / output_audio_file,
                 audio,
                 promovits.SAMPLE_RATE)
             shutil.copyfile(
                 text_file,
-                (speaker_dir / output_audio_file).with_suffix('.txt'))
+                (output_directory / output_audio_file).with_suffix('.txt'))
 
 
 ###############################################################################
@@ -112,4 +165,4 @@ def parse_args():
 
 
 if __name__ == '__main__':
-    datasets_from_cloud(**vars(parse_args()))
+    datasets(**vars(parse_args()))

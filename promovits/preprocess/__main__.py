@@ -9,12 +9,22 @@ import promovits
 
 
 def parse_args():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--out_extension", default="cleaned")
-    parser.add_argument("--text_index", default=1, type=int)
-    parser.add_argument("--filelists", nargs="+", default=["filelists/ljs_audio_text_val_filelist.txt", "filelists/ljs_audio_text_test_filelist.txt"])
+    parser = argparse.ArgumentParser(description='Preprocess a dataset')
+    parser.add_argument(
+        '--dataset',
+        default='vctk',
+        help='The name of the dataset to use')
+    parser.add_argument(
+        '--features',
+        default=promovits.preprocess.ALL_FEATURES,
+        nargs='+',
+        help='The features to preprocess')
+    parser.add_argument(
+        '--gpu',
+        type=int,
+        help='The index of the gpu to use')
     return parser.parse_args()
 
 
 if __name__ == '__main__':
-  promovits.preprocess.dataset(**vars(parse_args()))
+    promovits.preprocess.dataset(**vars(parse_args()))

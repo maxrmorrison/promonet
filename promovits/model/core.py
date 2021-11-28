@@ -1,7 +1,4 @@
-import math
-import numpy as np
 import torch
-from torch import nn
 from torch.nn import functional as F
 
 
@@ -13,12 +10,6 @@ def init_weights(m, mean=0.0, std=0.01):
 
 def get_padding(kernel_size, dilation=1):
     return int((kernel_size*dilation - dilation)/2)
-
-
-def intersperse(lst, item):
-    result = [item] * (len(lst) * 2 + 1)
-    result[1::2] = lst
-    return result
 
 
 def slice_segments(x, ids_str, segment_size=4):
@@ -74,5 +65,6 @@ def generate_path(duration, mask):
     cum_duration_flat = cum_duration.view(b * t_x)
     path = sequence_mask(cum_duration_flat, t_y).to(mask.dtype)
     path = path.view(b, t_x, t_y)
-    path = path - F.pad(path, convert_pad_shape([[0, 0], [1, 0], [0, 0]]))[:, :-1]
+    pad_shape = convert_pad_shape([[0, 0], [1, 0], [0, 0]])
+    path = path - torch.nn.functional.pad(path, pad_shape)[:, :-1]
     return path.unsqueeze(1).transpose(2,3) * mask
