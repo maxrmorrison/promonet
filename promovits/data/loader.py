@@ -13,37 +13,30 @@ def loaders(dataset, gpu=None, use_ppg=False, interp_method='nearest'):
     """Setup data loaders"""
     # Get dataset and collate function
     if use_ppg:
-        train_dataset = promovits.data.datasets.PPGAudioSpeakerLoader(
+        train_dataset = promovits.data.datasets.PPGDataset(
             dataset,
             'train',
             interp_method)
-        valid_dataset = promovits.data.datasets.PPGAudioSpeakerLoader(
+        valid_dataset = promovits.data.datasets.PPGDataset(
             dataset,
             'valid',
             interp_method)
-        collate_fn = promovits.data.collate.PPGAudioSpeakerCollate()
+        collate_fn = promovits.data.collate.PPGCollate()
     else:
-        train_dataset = promovits.data.datasets.TextAudioSpeakerLoader(
-            dataset,
-            'train')
-        valid_dataset = promovits.data.datasets.TextAudioSpeakerLoader(
-            dataset,
-            'valid')
-        collate_fn = promovits.data.collate.TextAudioSpeakerCollate()
+        train_dataset = promovits.data.datasets.TextDataset(dataset, 'train')
+        valid_dataset = promovits.data.datasets.TextDataset(dataset, 'valid')
+        collate_fn = promovits.data.collate.TextCollate()
 
     # Get sampler
-    boundaries = [32,300,400,500,600,700,800,900,1000]
     if torch.distributed.is_initialized():
-        train_sampler = promovits.data.sampler.DistributedBucketSampler(
+        train_sampler = promovits.data.sampler.DistributedSampler(
             train_dataset,
             promovits.BATCH_SIZE,
-            boundaries,
             shuffle=True)
     else:
-        train_sampler = promovits.data.sampler.RandomBucketSampler(
+        train_sampler = promovits.data.sampler.Sampler(
             train_dataset,
-            promovits.BATCH_SIZE,
-            boundaries)
+            promovits.BATCH_SIZE)
 
     # Create loaders
     train_loader = torch.data.utils.DataLoader(

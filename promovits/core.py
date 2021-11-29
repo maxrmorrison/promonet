@@ -1,5 +1,3 @@
-import json
-
 import pypar
 import torch
 import torchaudio
@@ -21,7 +19,7 @@ def from_audio(
     target_pitch=None,
     checkpoint_file=promovits.DEFAULT_CHECKPOINT,
     gpu=None):
-    """Edit speech"""
+    """Perform prosody editing"""
     # Maybe resample
     if sample_rate != promovits.SAMPLE_RATE:
         resample_fn = torchaudio.transforms.Resample(
@@ -66,7 +64,7 @@ def from_audio(
     return audio
 
 def from_file(
-    hps,
+    config_file,
     audio_file,
     target_alignment_file=None,
     target_pitch_file=None,
@@ -74,6 +72,9 @@ def from_file(
     gpu=None):
     """Edit speech on disk"""
     audio = promovits.load.audio(audio_file)
+
+    # Load config
+
 
     # Load alignment
     if target_alignment_file:
@@ -99,7 +100,7 @@ def from_file(
 
 
 def from_file_to_file(
-    hps,
+    config_file,
     audio_file,
     output_file,
     target_alignment_file=None,
@@ -108,7 +109,7 @@ def from_file_to_file(
     gpu=None):
     """Edit speech on disk and save to disk"""
     generated = from_file(
-        hps,
+        config_file,
         audio_file,
         target_alignment_file,
         target_pitch_file,
@@ -152,9 +153,3 @@ class HParams():
 
     def __repr__(self):
         return self.__dict__.__repr__()
-
-
-def get_hparams_from_file(config_file):
-    """Load hyperparameters from file"""
-    with open(config_file) as file:
-        return HParams(**json.load(file))

@@ -8,25 +8,20 @@ import promovits
 ###############################################################################
 
 
-class DistributedBucketSampler(torch.utils.data.distributed.DistributedSampler):
-    """
-    Maintain similar input lengths in a batch.
-    Length groups are specified by boundaries.
-    Ex) boundaries = [b1, b2, b3] -> any batch is included either {x | b1 < length(x) <=b2} or {x | b2 < length(x) <= b3}.
+BOUNDARIES = [32, 300, 400, 500, 600, 700, 800, 900, 1000]
 
-    It removes samples which are not included in the boundaries.
-    Ex) boundaries = [b1, b2, b3] -> any x s.t. length(x) <= b1 or length(x) > b3 are discarded.
-    """
-    def __init__(
-        self,
-        dataset,
-        boundaries,
-        shuffle=True):
+
+###############################################################################
+# Samplers
+###############################################################################
+
+
+class DistributedSampler(torch.utils.data.distributed.DistributedSampler):
+
+    def __init__(self, dataset, shuffle=True):
         super().__init__(dataset, shuffle=shuffle)
-        self.boundaries = boundaries
         self.buckets, self.samples_per_bucket = create_buckets(
-            dataset.lengths,
-            boundaries)
+            dataset.spectrogram_lengths)
         self.total_size = sum(self.samples_per_bucket)
 
         if torch.distributed.is_initialized():
@@ -47,14 +42,12 @@ class DistributedBucketSampler(torch.utils.data.distributed.DistributedSampler):
         return self.num_samples // promovits.BATCH_SIZE
 
 
-class RandomBucketSampler(torch.utils.data.RandomSampler):
+class Sampler(torch.utils.data.RandomSampler):
 
-    def __init__(self, dataset, boundaries):
+    def __init__(self, dataset):
         super().__init__(dataset)
-        self.boundaries = boundaries
         self.buckets, self.samples_per_bucket = create_buckets(
-            dataset.lengths,
-            boundaries)
+            dataset.spectrogram_lengths)
         self.total_size = sum(self.samples_per_bucket)
 
     def __iter__(self):
@@ -77,23 +70,25 @@ class RandomBucketSampler(torch.utils.data.RandomSampler):
 ###############################################################################
 
 
-def bisect(x, boundaries, lo=0, hi=None):
+def bisect(x, lo=0, hi=None):
     if hi is None:
-        hi = len(boundaries) - 1
+        hi = len(BOUNDARIES) - 1
 
     if hi > lo:
         mid = (hi + lo) // 2
-        if boundaries[mid] < x and x <= boundaries[mid+1]:
+        if BOUNDARIES[mid] < x and x <= BOUNDARIES[mid+1]:
             return mid
-        elif x <= boundaries[mid]:
-            return bisect(x, boundaries, lo, mid)
+        elif x <= BOUNDARIES[mid]:
+            return bisect(x, BOUNDARIES, lo, mid)
         else:
-            return bisect(x, boundaries, mid + 1, hi)
+            return bisect(x, BOUNDARIES, mid + 1, hi)
     return -1
 
 
-def create_buckets(lengths, boundaries):
-    # TODO - get lengths here instead of Dataset
+def create_buckets(lengths):
+    # Don't modify in-place
+    boundaries = BOUNDARIES.copy()
+
     buckets = [[] for _ in range(len(boundaries) - 1)]
     for i in range(len(lengths)):
         length = lengths[i]
@@ -121,11 +116,7 @@ def create_buckets(lengths, boundaries):
     return buckets, samples_per_bucket
 
 
-def make_batches(
-    buckets,
-    samples_per_bucket,
-    epoch,
-    shuffle=True):
+def make_batches(buckets, samples_per_bucket, epoch, shuffle=True):
     # Deterministic shuffling based on current epoch
     g = torch.Generator()
     g.manual_seed(epoch)
@@ -158,8 +149,9 @@ def make_batches(
 
         # Batch
         for j in range(len(ids_bucket) // promovits.BATCH_SIZE):
-            batch = [bucket[idx]
-                     for idx in ids_bucket[j*promovits.BATCH_SIZE:(j+1)*promovits.BATCH_SIZE]]
+            batch = [
+                bucket[idx]
+                for idx in ids_bucket[j*promovits.BATCH_SIZE:(j+1)*promovits.BATCH_SIZE]]
             batches.append(batch)
 
     if shuffle:

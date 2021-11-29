@@ -1,26 +1,21 @@
 import argparse
 import contextlib
-import glob
-import json
 import os
 import shutil
-import subprocess
 from pathlib import Path
 
 import torch
 from torch.utils.tensorboard import SummaryWriter
 import torchinfo
 
-import utils
-
 import promovits
+
 
 global_step = 0
 printed = False
 
 
 def train(dataset, directory, hps, gpu=None):
-    # TODO - update directory locations
     # Get DDP rank
     if torch.distributed.is_initialized():
         rank = torch.distributed.get_rank()
@@ -29,10 +24,7 @@ def train(dataset, directory, hps, gpu=None):
 
     global global_step
     if not rank:
-        logger = utils.get_logger(directory)
-        logger.info(hps)
-        utils.check_git_hash(directory)
-        # TODO - one writer
+        print(hps)
         writer = SummaryWriter(log_dir=directory)
 
     torch.manual_seed(promovits.RANDOM_SEED)
@@ -79,14 +71,18 @@ def train(dataset, directory, hps, gpu=None):
             device_ids=[rank])
 
     try:
-        _, _, _, epoch_str = utils.load_checkpoint(
-            utils.latest_checkpoint_path(directory, "G_*.pth"), net_g, optim_g)
-        _, _, _, epoch_str = utils.load_checkpoint(
-            utils.latest_checkpoint_path(directory, "D_*.pth"), net_d, optim_d)
-        global_step = (epoch_str - 1) * len(train_loader)
+        net_g, optim_g, epoch = promovits.load.checkpoint(
+            latest_checkpoint_path(directory, "G_*.pth"),
+            net_g,
+            optim_g)
+        net_d, optim_d, epoch = promovits.load.checkpoint(
+            latest_checkpoint_path(directory, "D_*.pth"),
+            net_d,
+            optim_d)
+        global_step = (epoch - 1) * len(train_loader)
     except:
         # TODO - fix bad checkpointing (maybe epochs vs steps?)
-        epoch_str = 1
+        epoch = 1
         global_step = 0
 
     ############################################
@@ -96,56 +92,45 @@ def train(dataset, directory, hps, gpu=None):
     scheduler_g = torch.optim.lr_scheduler.ExponentialLR(
         optim_g,
         gamma=hps.train.lr_decay,
-        last_epoch=epoch_str-2)
+        last_epoch=epoch-2)
     scheduler_d = torch.optim.lr_scheduler.ExponentialLR(
         optim_d,
         gamma=hps.train.lr_decay,
-        last_epoch=epoch_str-2)
+        last_epoch=epoch-2)
     scaler = torch.cuda.amp.GradScaler(enabled=hps.train.fp16_run)
 
     #########
     # Train #
     #########
 
-    for epoch in range(epoch_str, hps.train.epochs + 1):
-        if not rank:
-            train_and_evaluate(
-                rank,
-                epoch,
-                hps,
-                [net_g, net_d],
-                [optim_g, optim_d],
-                scaler,
-                [train_loader, eval_loader],
-                logger,
-                writer,
-                device)
-        else:
-            train_and_evaluate(
-                rank,
-                epoch,
-                hps,
-                [net_g, net_d],
-                [optim_g, optim_d],
-                scaler,
-                [train_loader, None],
-                None,
-                None,
-                device)
+    while epoch < hps.train.epochs + 1:
+        train_and_evaluate(
+            rank,
+            directory,
+            epoch,
+            hps,
+            [net_g, net_d],
+            [optim_g, optim_d],
+            scaler,
+            [train_loader, eval_loader],
+            writer,
+            device)
+
         scheduler_g.step()
         scheduler_d.step()
+        epoch += 1
 
 
 # TODO - merge with train()
 def train_and_evaluate(
     rank,
+    directory,
     epoch,
     hps,
     nets,
     optims,
     scaler,
     loaders,
-    logger,
     writer,
     device):
     net_g, net_d = nets
@@ -187,13 +172,13 @@ def train_and_evaluate(
             # Print model summaries first time
             if not printed:
                 print(torchinfo.summary(
-                net_g,
-                input_data=(x, x_lengths, spec, spec_lengths, speakers),
-                device=device))
+                    net_g,
+                    input_data=(x, x_lengths, spec, spec_lengths, speakers),
+                    device=device))
                 print(torchinfo.summary(
-                net_d,
-                input_data=(y, y_hat.detach()),
-                device=device))
+                    net_d,
+                    input_data=(y, y_hat.detach()),
+                    device=device))
                 printed = True
 
             # Discriminator
@@ -237,10 +222,10 @@ def train_and_evaluate(
             if global_step % hps.train.log_interval == 0:
                 lr = optim_g.param_groups[0]['lr']
                 losses = [loss_disc, loss_gen, loss_fm, loss_mel, loss_dur, loss_kl]
-                logger.info('Train Epoch: {} [{:.0f}%]'.format(
+                print('Train Epoch: {} [{:.0f}%]'.format(
                     epoch,
                     100. * batch_idx / len(train_loader)))
-                logger.info(
+                print(
                     [torch.tensor(x).item() for x in losses] + [global_step, lr])
 
                 scalar_dict = {
@@ -265,7 +250,7 @@ def train_and_evaluate(
                     "slice/mel_gen": promovits.evaluate.plot.spectrogram(y_hat_mel[0].data.cpu().numpy()),
                     "all/mel": promovits.evaluate.plot.spectrogram(mel[0].data.cpu().numpy()),
                     "all/attn": promovits.evaluate.plot.alignment(attn[0,0].data.cpu().numpy())}
-                utils.summarize(
+                summarize(
                     writer=writer,
                     global_step=global_step,
                     images=image_dict,
@@ -283,20 +268,20 @@ def train_and_evaluate(
             ###################
 
             if global_step % hps.train.checkpoint_interval == 0:
-                utils.save_checkpoint(
+                save_checkpoint(
                     net_g,
                     optim_g,
                     epoch,
-                    os.path.join(hps.log_dir, "G_{}.pth".format(global_step)))
-                utils.save_checkpoint(
+                    directory / f'G_{global_step}.pth')
+                save_checkpoint(
                     net_d,
                     optim_d,
                     epoch,
-                    os.path.join(hps.log_dir, "D_{}.pth".format(global_step)))
+                    directory / f'D_{global_step}.pth')
         global_step += 1
 
     if not rank:
-        logger.info('====> Epoch: {}'.format(epoch))
+        print('====> Epoch: {}'.format(epoch))
 
 
 def evaluate(hps, generator, eval_loader, writer, device):
@@ -334,7 +319,7 @@ def evaluate(hps, generator, eval_loader, writer, device):
                     mel[0].cpu().numpy())
                 audio_dict[f"gt/audio-{i}"] = y[i,:,:y_lengths[i]]
 
-    utils.summarize(
+    summarize(
         writer=writer,
         global_step=global_step,
         images=image_dict,
@@ -382,26 +367,6 @@ def ddp_context(rank, world_size):
 ###############################################################################
 
 
-def check_git_hash(model_dir):
-    source_dir = os.path.dirname(os.path.realpath(__file__))
-    if not os.path.exists(os.path.join(source_dir, ".git")):
-        print("{} is not a git repository. Skipping git hash check.".format(
-            source_dir))
-        return
-
-    cur_hash = subprocess.getoutput("git rev-parse HEAD")
-
-    path = os.path.join(model_dir, "githash")
-    if os.path.exists(path):
-        saved_hash = open(path).read()
-        if saved_hash != cur_hash:
-            print(
-                "git hash values are different. {}(saved) != {}(current)".format(
-                saved_hash[:8], cur_hash[:8]))
-    else:
-        open(path, "w").write(cur_hash)
-
-
 def clip_gradients(parameters, clip_value, norm_type=2):
     if isinstance(parameters, torch.Tensor):
         parameters = [parameters]
@@ -419,22 +384,11 @@ def clip_gradients(parameters, clip_value, norm_type=2):
     return total_norm ** (1. / norm_type)
 
 
-def get_hparams_from_dir(model_dir):
-    """Load hyperparameters from checkpoint directory"""
-    config_file = os.path.join(model_dir, 'config.json')
-    with open(config_file) as file:
-        hparams = promovits.HParams(**file)
-    hparams.model_dir = model_dir
-    return hparams
-
-
-def latest_checkpoint_path(dir_path, regex="G_*.pth"):
-    # TODO - use path
-    f_list = glob.glob(os.path.join(dir_path, regex))
-    f_list.sort(key=lambda f: int("".join(filter(str.isdigit, f))))
-    x = f_list[-1]
-    print(x)
-    return x
+def latest_checkpoint_path(directory, regex="G_*.pth"):
+    """Retrieve the path to the most recent checkpoint"""
+    files = directory.glob(regex)
+    files.sort(key=lambda f: int(''.join(filter(str.isdigit, f))))
+    return files[-1]
 
 
 def save_checkpoint(
@@ -442,6 +396,7 @@ def save_checkpoint(
     optimizer,
     iteration,
     checkpoint_path):
+    """Save training checkpoint to disk"""
     print("Saving model and optimizer state at iteration {} to {}".format(
         iteration, checkpoint_path))
     checkpoint = {
@@ -458,6 +413,7 @@ def summarize(
     histograms={},
     images={},
     audios={}):
+    """Add assets to Tensorboard"""
     for k, v in scalars.items():
         writer.add_scalar(k, v, global_step)
     for k, v in histograms.items():
@@ -484,8 +440,7 @@ def main(config_file, dataset, gpus=None):
     shutil.copyfile(config_file, directory / config_file.name)
 
     # Load configuration
-    with open(config_file) as file:
-        hps=utils.HParams(**json.load(file))
+    hps = promovits.load.config(config_file)
 
     if gpus is None:
         # CPU training

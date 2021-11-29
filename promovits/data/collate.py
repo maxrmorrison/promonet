@@ -6,7 +6,7 @@ import torch
 ###############################################################################
 
 
-class PPGAudioSpeakerCollate():
+class PPGCollate():
 
     def __call__(self, batch):
         """Collates training batch from ppg, audio and speaker identities
@@ -57,7 +57,7 @@ class PPGAudioSpeakerCollate():
         return ppg_padded, ppg_lengths, spec_padded, spec_lengths, wav_padded, wav_lengths, sid
 
 
-class TextAudioSpeakerCollate():
+class TextCollate():
 
     def __call__(self, batch):
         """Collate's training batch from normalized text, audio and speaker identities

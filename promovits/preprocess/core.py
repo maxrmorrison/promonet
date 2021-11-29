@@ -14,45 +14,48 @@ ALL_FEATURES = ['phonemes', 'pitch', 'ppg', 'spectrogram']
 ###############################################################################
 
 
-def dataset(name, features=ALL_FEATURES, gpu=None):
+def datasets(datasets, features=ALL_FEATURES, gpu=None):
     """Preprocess a dataset"""
-    directory = promovits.CACHE_DIR / name
+    for dataset in datasets:
 
-    # Get text and audio files
-    text_files = directory.glob('*.txt')
-    audio_files = directory.glob('*.wav')
+        # Get cache directory
+        directory = promovits.CACHE_DIR / dataset
 
-    # Change directory
-    with promovits.data.chdir(directory):
+        # Get text and audio files
+        text_files = directory.glob('*.txt')
+        audio_files = directory.glob('*.wav')
 
-        # Preprocess phonemes from text
-        if 'phonemes' in features:
-            phoneme_files = [
-                f'{file.stem}-phonemes.pt' for file in text_files]
-            promovits.preprocess.text.from_files_to_files(
-                text_files,
-                phoneme_files)
+        # Change directory
+        with promovits.data.chdir(directory):
 
-        # Preprocess spectrograms
-        if 'spectrogram' in features:
-            spectrogram_files = [
-                f'{file.stem}-spectrogram.pt' for file in audio_files]
-            promovits.preprocess.spectrogram.from_files_to_files(
-                audio_files,
-                spectrogram_files)
+            # Preprocess phonemes from text
+            if 'phonemes' in features:
+                phoneme_files = [
+                    f'{file.stem}-phonemes.pt' for file in text_files]
+                promovits.preprocess.text.from_files_to_files(
+                    text_files,
+                    phoneme_files)
 
-        # Preprocess phonetic posteriorgrams
-        if 'ppg' in features:
-            ppg_files = [f'{file.stem}-ppg.pt' for file in audio_files]
-            promovits.preprocess.ppg.from_files_to_files(
-                audio_files,
-                ppg_files,
-                gpu)
+            # Preprocess spectrograms
+            if 'spectrogram' in features:
+                spectrogram_files = [
+                    f'{file.stem}-spectrogram.pt' for file in audio_files]
+                promovits.preprocess.spectrogram.from_files_to_files(
+                    audio_files,
+                    spectrogram_files)
 
-        # Preprocess pitch
-        if 'pitch' in features:
-            prefixes = [file.stem for file in audio_files]
-            promovits.preprocess.pitch.from_files_to_files(
-                audio_files,
-                prefixes,
-                gpu)
+            # Preprocess phonetic posteriorgrams
+            if 'ppg' in features:
+                ppg_files = [f'{file.stem}-ppg.pt' for file in audio_files]
+                promovits.preprocess.ppg.from_files_to_files(
+                    audio_files,
+                    ppg_files,
+                    gpu)
+
+            # Preprocess pitch
+            if 'pitch' in features:
+                prefixes = [file.stem for file in audio_files]
+                promovits.preprocess.pitch.from_files_to_files(
+                    audio_files,
+                    prefixes,
+                    gpu)

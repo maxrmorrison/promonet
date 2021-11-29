@@ -1,5 +1,4 @@
 import json
-import logging
 
 import torch
 import torchaudio
@@ -45,6 +44,11 @@ def checkpoint(checkpoint_path, model, optimizer=None):
         iteration))
 
     return model, optimizer, iteration
+
+
+def config(file):
+    with open(file) as file:
+        return promovits.HParams(**json.load(file))
 
 
 def partition(dataset):

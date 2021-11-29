@@ -11,7 +11,7 @@ import promovits
 def parse_args():
     parser = argparse.ArgumentParser(description='Preprocess a dataset')
     parser.add_argument(
-        '--dataset',
+        '--datasets',
         default='vctk',
         help='The name of the dataset to use')
     parser.add_argument(
@@ -27,4 +27,4 @@ def parse_args():
 
 
 if __name__ == '__main__':
-    promovits.preprocess.dataset(**vars(parse_args()))
+    promovits.preprocess.datasets(**vars(parse_args()))
