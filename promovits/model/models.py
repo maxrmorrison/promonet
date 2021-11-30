@@ -3,9 +3,6 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 
-import modules
-import monotonic_align
-
 from torch.nn import Conv1d, ConvTranspose1d, Conv2d
 from torch.nn.utils import weight_norm, remove_weight_norm, spectral_norm
 
@@ -23,25 +20,25 @@ class StochasticDurationPredictor(nn.Module):
     self.n_flows = n_flows
     self.gin_channels = gin_channels
 
-    self.log_flow = modules.Log()
+    self.log_flow = promovits.model.modules.Log()
     self.flows = nn.ModuleList()
-    self.flows.append(modules.ElementwiseAffine(2))
+    self.flows.append(promovits.model.modules.ElementwiseAffine(2))
     for i in range(n_flows):
-      self.flows.append(modules.ConvFlow(2, filter_channels, kernel_size, n_layers=3))
-      self.flows.append(modules.Flip())
+      self.flows.append(promovits.model.modules.ConvFlow(2, filter_channels, kernel_size, n_layers=3))
+      self.flows.append(promovits.model.modules.Flip())
 
     self.post_pre = nn.Conv1d(1, filter_channels, 1)
     self.post_proj = nn.Conv1d(filter_channels, filter_channels, 1)
-    self.post_convs = modules.DDSConv(filter_channels, kernel_size, n_layers=3, p_dropout=p_dropout)
+    self.post_convs = promovits.model.modules.DDSConv(filter_channels, kernel_size, n_layers=3, p_dropout=p_dropout)
     self.post_flows = nn.ModuleList()
-    self.post_flows.append(modules.ElementwiseAffine(2))
+    self.post_flows.append(promovits.model.modules.ElementwiseAffine(2))
     for i in range(4):
-      self.post_flows.append(modules.ConvFlow(2, filter_channels, kernel_size, n_layers=3))
-      self.post_flows.append(modules.Flip())
+      self.post_flows.append(promovits.model.modules.ConvFlow(2, filter_channels, kernel_size, n_layers=3))
+      self.post_flows.append(promovits.model.modules.Flip())
 
     self.pre = nn.Conv1d(in_channels, filter_channels, 1)
     self.proj = nn.Conv1d(filter_channels, filter_channels, 1)
-    self.convs = modules.DDSConv(filter_channels, kernel_size, n_layers=3, p_dropout=p_dropout)
+    self.convs = promovits.model.modules.DDSConv(filter_channels, kernel_size, n_layers=3, p_dropout=p_dropout)
     if gin_channels != 0:
       self.cond = nn.Conv1d(gin_channels, filter_channels, 1)
 
@@ -91,43 +88,6 @@ class StochasticDurationPredictor(nn.Module):
       z0, z1 = torch.split(z, [1, 1], 1)
       logw = z0
       return logw
-
-
-class DurationPredictor(nn.Module):
-  def __init__(self, in_channels, filter_channels, kernel_size, p_dropout, gin_channels=0):
-    super().__init__()
-
-    self.in_channels = in_channels
-    self.filter_channels = filter_channels
-    self.kernel_size = kernel_size
-    self.p_dropout = p_dropout
-    self.gin_channels = gin_channels
-
-    self.drop = nn.Dropout(p_dropout)
-    self.conv_1 = nn.Conv1d(in_channels, filter_channels, kernel_size, padding=kernel_size//2)
-    self.norm_1 = modules.LayerNorm(filter_channels)
-    self.conv_2 = nn.Conv1d(filter_channels, filter_channels, kernel_size, padding=kernel_size//2)
-    self.norm_2 = modules.LayerNorm(filter_channels)
-    self.proj = nn.Conv1d(filter_channels, 1, 1)
-
-    if gin_channels != 0:
-      self.cond = nn.Conv1d(gin_channels, in_channels, 1)
-
-  def forward(self, x, x_mask, g=None):
-    x = torch.detach(x)
-    if g is not None:
-      g = torch.detach(g)
-      x = x + self.cond(g)
-    x = self.conv_1(x * x_mask)
-    x = torch.relu(x)
-    x = self.norm_1(x)
-    x = self.drop(x)
-    x = self.conv_2(x * x_mask)
-    x = torch.relu(x)
-    x = self.norm_2(x)
-    x = self.drop(x)
-    x = self.proj(x * x_mask)
-    return x * x_mask
 
 
 class PPGEncoder(nn.Module):
@@ -248,8 +208,8 @@ class ResidualCouplingBlock(nn.Module):
 
     self.flows = nn.ModuleList()
     for i in range(n_flows):
-      self.flows.append(modules.ResidualCouplingLayer(channels, hidden_channels, kernel_size, dilation_rate, n_layers, gin_channels=gin_channels, mean_only=True))
-      self.flows.append(modules.Flip())
+      self.flows.append(promovits.model.modules.ResidualCouplingLayer(channels, hidden_channels, kernel_size, dilation_rate, n_layers, gin_channels=gin_channels, mean_only=True))
+      self.flows.append(promovits.model.modules.Flip())
 
   def forward(self, x, x_mask, g=None, reverse=False):
     if not reverse:
@@ -280,7 +240,7 @@ class PosteriorEncoder(nn.Module):
     self.gin_channels = gin_channels
 
     self.pre = nn.Conv1d(in_channels, hidden_channels, 1)
-    self.enc = modules.WN(hidden_channels, kernel_size, dilation_rate, n_layers, gin_channels=gin_channels)
+    self.enc = promovits.model.modules.WN(hidden_channels, kernel_size, dilation_rate, n_layers, gin_channels=gin_channels)
     self.proj = nn.Conv1d(hidden_channels, out_channels * 2, 1)
 
   def forward(self, x, x_lengths, g=None):
@@ -299,7 +259,7 @@ class HiFiGANGenerator(torch.nn.Module):
         self.num_kernels = len(resblock_kernel_sizes)
         self.num_upsamples = len(upsample_rates)
         self.conv_pre = Conv1d(initial_channel, upsample_initial_channel, 7, 1, padding=3)
-        resblock = modules.ResBlock1 if resblock == '1' else modules.ResBlock2
+        resblock = promovits.model.modules.ResBlock1 if resblock == '1' else promovits.model.modules.ResBlock2
 
         self.ups = nn.ModuleList()
         for i, (u, k) in enumerate(zip(upsample_rates, upsample_kernel_sizes)):
@@ -325,7 +285,7 @@ class HiFiGANGenerator(torch.nn.Module):
           x = x + self.cond(g)
 
         for i in range(self.num_upsamples):
-            x = F.leaky_relu(x, modules.LRELU_SLOPE)
+            x = F.leaky_relu(x, promovits.model.modules.LRELU_SLOPE)
             x = self.ups[i](x)
             xs = None
             for j in range(self.num_kernels):
@@ -376,7 +336,7 @@ class DiscriminatorP(torch.nn.Module):
 
         for l in self.convs:
             x = l(x)
-            x = F.leaky_relu(x, modules.LRELU_SLOPE)
+            x = F.leaky_relu(x, promovits.model.modules.LRELU_SLOPE)
             fmap.append(x)
         x = self.conv_post(x)
         fmap.append(x)
@@ -403,7 +363,7 @@ class DiscriminatorS(torch.nn.Module):
         fmap = []
         for l in self.convs:
             x = l(x)
-            x = F.leaky_relu(x, modules.LRELU_SLOPE)
+            x = F.leaky_relu(x, promovits.model.modules.LRELU_SLOPE)
             fmap.append(x)
         x = self.conv_post(x)
         fmap.append(x)
@@ -457,7 +417,6 @@ class Generator(nn.Module):
     upsample_kernel_sizes,
     n_speakers=0,
     gin_channels=0,
-    use_sdp=True,
     use_ppg=False,
     **kwargs):
 
@@ -480,7 +439,6 @@ class Generator(nn.Module):
     self.segment_size = segment_size
     self.n_speakers = n_speakers
     self.gin_channels = gin_channels
-    self.use_sdp = use_sdp
     self.use_ppg = use_ppg
 
     # Text feature encoding
@@ -505,21 +463,13 @@ class Generator(nn.Module):
           p_dropout)
 
       # Text-to-duration predictor
-      if use_sdp:
-        self.dp = StochasticDurationPredictor(
-          hidden_channels,
-          192,
-          3,
-          0.5,
-          4,
-          gin_channels=gin_channels)
-      else:
-        self.dp = DurationPredictor(
-          hidden_channels,
-          256,
-          3,
-          0.5,
-          gin_channels=gin_channels)
+      self.dp = StochasticDurationPredictor(
+        hidden_channels,
+        192,
+        3,
+        0.5,
+        4,
+        gin_channels=gin_channels)
 
     self.dec = HiFiGANGenerator(
       inter_channels,
@@ -572,6 +522,7 @@ class Generator(nn.Module):
     z_p = self.flow(z, y_mask, g=g)
 
     # Compute attention mask
+    # TODO - is this correct?
     attn_mask = x_mask.permute(0, 2, 1) * y_mask
 
     # Optionally use PPGs instead of phonemes
@@ -596,19 +547,14 @@ class Generator(nn.Module):
         neg_cent3 = torch.matmul(z_p.transpose(1, 2), (m_p * s_p_sq_r)) # [b, t_t, d] x [b, d, t_s] = [b, t_t, t_s]
         neg_cent4 = torch.sum(-0.5 * (m_p ** 2) * s_p_sq_r, [1], keepdim=True) # [b, 1, t_s]
         neg_cent = neg_cent1 + neg_cent2 + neg_cent3 + neg_cent4
-        attn = monotonic_align.maximum_path(neg_cent, attn_mask).unsqueeze(1).detach()
+        attn = promovits.model.monotonic_align.maximum_path(neg_cent, attn_mask).unsqueeze(1).detach()
 
       # Calcuate duration of each phoneme
       w = attn.sum(2)
 
       # Predict durations from text
-      if self.use_sdp:
-        l_length = self.dp(x, x_mask, w, g=g)
-        l_length = l_length / torch.sum(x_mask)
-      else:
-        logw_ = torch.log(w + 1e-6) * x_mask
-        logw = self.dp(x, x_mask, g=g)
-        l_length = torch.sum((logw - logw_)**2, [1,2]) / torch.sum(x_mask) # for averaging
+      l_length = self.dp(x, x_mask, w, g=g)
+      l_length = l_length / torch.sum(x_mask)
 
     # Expand sequence using predicted durations
     m_p = torch.matmul(attn.squeeze(1), m_p.transpose(1, 2)).transpose(1, 2)
@@ -647,10 +593,7 @@ class Generator(nn.Module):
 
     else:
       # Predict durations from text
-      if self.use_sdp:
-        logw = self.dp(x, x_mask, g=g, reverse=True, noise_scale=noise_scale_w)
-      else:
-        logw = self.dp(x, x_mask, g=g)
+      logw = self.dp(x, x_mask, g=g, reverse=True, noise_scale=noise_scale_w)
       w = torch.exp(logw) * x_mask * length_scale
       w_ceil = torch.ceil(w)
 

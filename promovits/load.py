@@ -47,6 +47,7 @@ def checkpoint(checkpoint_path, model, optimizer=None):
 
 
 def config(file):
+    """Load configuration file"""
     with open(file) as file:
         return promovits.HParams(**json.load(file))
 

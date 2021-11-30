@@ -64,17 +64,18 @@ def from_audio(
     return audio
 
 def from_file(
-    config_file,
+    config,
     audio_file,
     target_alignment_file=None,
     target_pitch_file=None,
     checkpoint_file=promovits.DEFAULT_CHECKPOINT,
     gpu=None):
     """Edit speech on disk"""
+    # Load audio
     audio = promovits.load.audio(audio_file)
 
     # Load config
-
+    hps = promovits.load.config(config)
 
     # Load alignment
     if target_alignment_file:
@@ -100,7 +101,7 @@ def from_file(
 
 
 def from_file_to_file(
-    config_file,
+    config,
     audio_file,
     output_file,
     target_alignment_file=None,
@@ -109,7 +110,7 @@ def from_file_to_file(
     gpu=None):
     """Edit speech on disk and save to disk"""
     generated = from_file(
-        config_file,
+        config,
         audio_file,
         target_alignment_file,
         target_pitch_file,

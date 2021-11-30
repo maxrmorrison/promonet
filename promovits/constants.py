@@ -6,23 +6,29 @@ from pathlib import Path
 ###############################################################################
 
 
+# Location to save assets to be bundled with pip release
+ASSETS_DIR = Path(__file__).parent / 'assets'
+
 # Location of preprocessed features
 CACHE_DIR = Path(__file__).parent.parent / 'data' / 'cache'
 
 # Location of datasets on disk
 DATA_DIR = Path(__file__).parent.parent / 'data' / 'datasets'
 
-# Location to save assets to be bundled with pip release
-ASSETS_DIR = Path(__file__).parent / 'assets'
+# Location to save evaluation artifacts
+EVAL_DIR = Path(__file__).parent.parent / 'eval'
 
 # Location to save dataset partitions
 PARTITION_DIR = ASSETS_DIR / 'partitions'
 
-# Location to save logs, checkpoints, and configurations
+# Location to save training and adaptation artifacts
 RUNS_DIR = Path(__file__).parent.parent / 'runs'
 
-# Location to save evaluation artifacts
-EVAL_DIR = Path(__file__).parent.parent / 'eval'
+# Location to save adaptation artifacts
+ADAPT_DIR = RUNS_DIR / 'adapt'
+
+# Location to save adaptation artifacts
+TRAIN_DIR = RUNS_DIR / 'train'
 
 # Default checkpoint for inference
 DEFAULT_CHECKPOINT = ASSETS_DIR / 'checkpoints' / 'promovits.pt'

@@ -429,18 +429,18 @@ def summarize(
 ###############################################################################
 
 
-def main(config_file, dataset, gpus=None):
+def main(config, dataset, gpus=None):
     # Optionally overwrite training with same name
-    directory = promovits.RUNS_DIR / config_file.stem
+    directory = promovits.TRAIN_DIR / config.stem
 
     # Create output directory
     directory.mkdir(parents=True, exist_ok=True)
 
     # Save configuration
-    shutil.copyfile(config_file, directory / config_file.name)
+    shutil.copyfile(config, directory / config.name)
 
     # Load configuration
-    hps = promovits.load.config(config_file)
+    hps = promovits.load.config(config)
 
     if gpus is None:
         # CPU training
@@ -461,7 +461,7 @@ def parse_args():
     """Parse command-line arguments"""
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        '--config_file',
+        '--config',
         type=Path,
         required=True,
         help='The configuration file')

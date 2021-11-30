@@ -55,20 +55,20 @@ class PPGModel(torch.nn.Module):
             # No frontend and no feature extract
             feats, feats_lengths = speech, speech_lengths
         return feats, feats_lengths
-        
+
 
 def build_model(args):
     normalizer = UtteranceMVN(**args.normalize_conf)
     frontend = DefaultFrontend(**args.frontend_conf)
     encoder = ConformerEncoder(input_size=80, **args.encoder_conf)
     model = PPGModel(frontend, normalizer, encoder)
-    
+
     return model
 
 
 def load_ppg_model(train_config, model_file, device):
-    config_file = Path(train_config)
-    with config_file.open("r", encoding="utf-8") as f:
+    config = Path(train_config)
+    with config.open("r", encoding="utf-8") as f:
         args = yaml.safe_load(f)
 
     args = argparse.Namespace(**args)

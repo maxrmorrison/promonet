@@ -27,7 +27,7 @@ SAMPLE_RATE = 16000
 def from_audio(
     audio,
     sample_rate=promovits.SAMPLE_RATE,
-    config_file=CONFIG_FILE,
+    config=CONFIG_FILE,
     checkpoint_file=CHECKPOINT_FILE,
      gpu=None):
     """Compute PPGs from audio"""
@@ -36,7 +36,7 @@ def from_audio(
     # Cache model
     if not hasattr(from_audio, 'model'):
         from_audio.model = promovits.preprocess.ppg.conformer_ppg_model.build_ppg_model.load_ppg_model(
-        config_file,
+        config,
         checkpoint_file,
         device)
 

@@ -10,9 +10,10 @@ data/datasets/*
 !data/datasets/.gitkeep
 eval/*
 !eval/.gitkeep
-runs/*
-!runs/.gitkeep
+runs/train/*
+!runs/train/.gitkeep
+runs/adapt/*
+!runs/adapt/.gitkeep
 
-.*.swp
 *.c
 monotonic_align/monotonic_align

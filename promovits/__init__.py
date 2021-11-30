@@ -5,7 +5,6 @@ from . import data
 from . import load
 from . import loss
 from . import model
-from . import monotonic_align
 from . import preprocess
 from . import transform
 from . import utils

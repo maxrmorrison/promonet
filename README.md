@@ -153,7 +153,7 @@ Trains a model. Checkpoints and logs are stored in `runs/`.
 
 ```
 python -m promovits.train \
-    --config_file <config_file> \
+    --config <config> \
     --dataset <dataset> \
     --gpus <gpus>
 ```
@@ -164,7 +164,7 @@ automatically be loaded and training will resume from that checkpoint.
 You can monitor training via `tensorboard` as follows.
 
 ```
-tensorboard --logdir runs/ --port <port>
+tensorboard --logdir runs/train/ --port <port>
 ```
 
 
@@ -213,7 +213,7 @@ pytest
 ## Citation
 
 ### IEEE
-M. Morrison, B. Pardo, "Adaptive End-to-End Speech Prosody Modification," Submitted to ICML 2022, July 2022.
+M. Morrison and B. Pardo, "Adaptive End-to-End Speech Prosody Modification," Submitted to ICML 2022, July 2022.
 
 
 ### BibTex
