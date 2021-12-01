@@ -521,10 +521,6 @@ class Generator(nn.Module):
     # Encode embedded spectrogram to ground truth duration embedding
     z_p = self.flow(z, y_mask, g=g)
 
-    # Compute attention mask
-    # TODO - is this correct?
-    attn_mask = x_mask.permute(0, 2, 1) * y_mask
-
     # Optionally use PPGs instead of phonemes
     if self.use_ppg:
       with torch.no_grad():
@@ -539,6 +535,9 @@ class Generator(nn.Module):
         l_length = None
 
     else:
+      # Compute attention mask
+      attn_mask = x_mask * y_mask.permute(0, 2, 1)
+
       # Compute monotonic alignment
       with torch.no_grad():
         s_p_sq_r = torch.exp(-2 * logs_p) # [b, d, t]
