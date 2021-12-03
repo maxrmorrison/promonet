@@ -8,6 +8,14 @@ import promovits
 
 
 ###############################################################################
+# Constants
+###############################################################################
+
+
+SILENCE_THRESHOLD = -60.  # dB
+
+
+###############################################################################
 # Compute pitch representation
 ###############################################################################
 
@@ -48,13 +56,15 @@ def from_audio(audio, sample_rate=promovits.SAMPLE_RATE, gpu=None):
         device='cpu' if gpu is None else f'cuda:{gpu}',
         pad=False)
 
-    # Set low energy frames to unvoiced
-    periodicity = torchcrepe.threshold.Silence()(
-        periodicity,
+    # Compute loudness
+    loudness = torchcrepe.loudness.a_weighted(
         audio,
-        torchcrepe.SAMPLE_RATE,
-        hop_length=hopsize,
-        pad=False)
+        sample_rate,
+        hopsize,
+        False)
+
+    # Set low energy frames to unvoiced
+    periodicity[loudness < SILENCE_THRESHOLD] = 0.
 
     # Potentially resize due to resampled integer hopsize
     if pitch.shape[1] != target_length:
@@ -65,8 +75,10 @@ def from_audio(audio, sample_rate=promovits.SAMPLE_RATE, gpu=None):
             align_corners=False)
         pitch = 2 ** interp_fn(torch.log2(pitch)[None]).squeeze(0)
         periodicity = interp_fn(periodicity[None]).squeeze(0)
+        # TODO - is this the correct interpolation?
+        loudness = interp_fn(loudness[None]).squeeze(0)
 
-    return pitch, periodicity
+    return pitch, periodicity, loudness
 
 
 def from_file(file, gpu=None):
@@ -76,9 +88,10 @@ def from_file(file, gpu=None):
 
 def from_file_to_file(input_file, output_prefix, gpu=None):
     """Preprocess pitch from file and save to disk"""
-    pitch, periodicity = from_file(input_file, gpu)
+    pitch, periodicity, loudness = from_file(input_file, gpu)
     torch.save(pitch, f'{output_prefix}-pitch.pt')
     torch.save(periodicity, f'{output_prefix}-periodicity.pt')
+    torch.save(loudness, f'{output_prefix}-loudness.pt')
 
 
 def from_files_to_files(input_files, output_prefixes, gpu=None):

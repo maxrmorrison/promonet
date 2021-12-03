@@ -1,8 +1,9 @@
 import argparse
-import urllib
+import itertools
 import shutil
 import ssl
 import tarfile
+import urllib
 import zipfile
 from pathlib import Path
 
@@ -75,18 +76,19 @@ def daps():
 
 def vctk():
     """Download vctk dataset"""
-    # Download
-    url = 'https://datashare.ed.ac.uk/download/DS_10283_3443.zip'
-    file = promovits.DATA_DIR / 'vctk.zip'
-    download_file(url, file)
+    # TEMPORARY - suppress download
+    # # Download
+    # url = 'https://datashare.ed.ac.uk/download/DS_10283_3443.zip'
+    # file = promovits.DATA_DIR / 'vctk.zip'
+    # download_file(url, file)
 
-    # Unzip
+    # # Unzip
     directory = promovits.DATA_DIR / 'vctk'
-    with zipfile.ZipFile(file, 'r') as zfile:
-        zfile.extractall(directory)
-    file = next((directory).glob('*.zip'))
-    with zipfile.ZipFile(file) as zfile:
-        zfile.extractall(directory)
+    # with zipfile.ZipFile(file, 'r') as zfile:
+    #     zfile.extractall(directory)
+    # file = next((directory).glob('*.zip'))
+    # with zipfile.ZipFile(file) as zfile:
+    #     zfile.extractall(directory)
 
     # File locations
     audio_directory = directory / 'wav48_silence_trimmed'
@@ -94,7 +96,9 @@ def vctk():
 
     # Get source files
     audio_files = sorted(list(audio_directory.rglob('*.flac')))
-    text_files = sorted(list(text_directory.rglob('*.txt')))
+    text_files = [
+        text_directory / f.parent.name / f'{f.stem[:-5]}.txt'
+        for f in audio_files]
 
     # Write audio to cache
     speaker_count = {}
@@ -110,12 +114,16 @@ def vctk():
             total=len(audio_files))
         for audio_file, text_file in iterator:
 
-            # Organize by speaker
+            # Get speaker ID
             speaker = Path(audio_file.stem.split('_')[0])
             if speaker not in speaker_count:
-                speaker_count[speaker] = 0
-            index = speaker_count[speaker]
-            speaker_count[speaker] += 1
+
+                # Each entry is (index, count)
+                speaker_count[speaker] = [len(speaker_count), 0]
+
+            # Update speaker and get current entry
+            speaker_count[speaker][1] += 1
+            index, count = speaker_count[speaker]
 
             # Convert to 22.05k wav
             audio = promovits.load.audio(audio_file)
@@ -126,7 +134,7 @@ def vctk():
                 audio *= .35 / maximum
 
             # Save to disk
-            output_audio_file = f'{speaker:04d}-{index:06d}.wav'
+            output_audio_file = f'{index:04d}-{count:06d}.wav'
             torchaudio.save(
                 output_directory / output_audio_file,
                 audio,

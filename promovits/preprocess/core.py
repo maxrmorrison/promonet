@@ -52,7 +52,7 @@ def datasets(datasets, features=ALL_FEATURES, gpu=None):
                     ppg_files,
                     gpu)
 
-            # Preprocess pitch
+            # Preprocess pitch, periodicity, and loudness
             if 'pitch' in features:
                 prefixes = [file.stem for file in audio_files]
                 promovits.preprocess.pitch.from_files_to_files(

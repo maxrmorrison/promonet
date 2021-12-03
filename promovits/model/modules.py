@@ -6,9 +6,7 @@ from torch.nn import functional as F
 from torch.nn import Conv1d
 from torch.nn.utils import weight_norm, remove_weight_norm
 
-import commons
-from commons import init_weights, get_padding
-from transforms import piecewise_rational_quadratic_transform
+import promovits
 
 
 LRELU_SLOPE = 0.1
@@ -186,23 +184,23 @@ class ResBlock1(torch.nn.Module):
         super(ResBlock1, self).__init__()
         self.convs1 = nn.ModuleList([
             weight_norm(Conv1d(channels, channels, kernel_size, 1, dilation=dilation[0],
-                               padding=get_padding(kernel_size, dilation[0]))),
+                               padding=promovits.model.get_padding(kernel_size, dilation[0]))),
             weight_norm(Conv1d(channels, channels, kernel_size, 1, dilation=dilation[1],
-                               padding=get_padding(kernel_size, dilation[1]))),
+                               padding=promovits.model.get_padding(kernel_size, dilation[1]))),
             weight_norm(Conv1d(channels, channels, kernel_size, 1, dilation=dilation[2],
-                               padding=get_padding(kernel_size, dilation[2])))
+                               padding=promovits.model.get_padding(kernel_size, dilation[2])))
         ])
-        self.convs1.apply(init_weights)
+        self.convs1.apply(promovits.model.init_weights)
 
         self.convs2 = nn.ModuleList([
             weight_norm(Conv1d(channels, channels, kernel_size, 1, dilation=1,
-                               padding=get_padding(kernel_size, 1))),
+                               padding=promovits.model.get_padding(kernel_size, 1))),
             weight_norm(Conv1d(channels, channels, kernel_size, 1, dilation=1,
-                               padding=get_padding(kernel_size, 1))),
+                               padding=promovits.model.get_padding(kernel_size, 1))),
             weight_norm(Conv1d(channels, channels, kernel_size, 1, dilation=1,
-                               padding=get_padding(kernel_size, 1)))
+                               padding=promovits.model.get_padding(kernel_size, 1)))
         ])
-        self.convs2.apply(init_weights)
+        self.convs2.apply(promovits.model.init_weights)
 
     def forward(self, x, x_mask=None):
         for c1, c2 in zip(self.convs1, self.convs2):
@@ -231,11 +229,11 @@ class ResBlock2(torch.nn.Module):
         super(ResBlock2, self).__init__()
         self.convs = nn.ModuleList([
             weight_norm(Conv1d(channels, channels, kernel_size, 1, dilation=dilation[0],
-                               padding=get_padding(kernel_size, dilation[0]))),
+                               padding=promovits.model.get_padding(kernel_size, dilation[0]))),
             weight_norm(Conv1d(channels, channels, kernel_size, 1, dilation=dilation[1],
-                               padding=get_padding(kernel_size, dilation[1])))
+                               padding=promovits.model.get_padding(kernel_size, dilation[1])))
         ])
-        self.convs.apply(init_weights)
+        self.convs.apply(promovits.model.init_weights)
 
     def forward(self, x, x_mask=None):
         for c in self.convs:
@@ -370,14 +368,13 @@ class ConvFlow(nn.Module):
     unnormalized_heights = h[..., self.num_bins:2*self.num_bins] / math.sqrt(self.filter_channels)
     unnormalized_derivatives = h[..., 2 * self.num_bins:]
 
-    x1, logabsdet = piecewise_rational_quadratic_transform(x1,
+    x1, logabsdet = promovits.transform.piecewise_rational_quadratic_transform(x1,
         unnormalized_widths,
         unnormalized_heights,
         unnormalized_derivatives,
         inverse=reverse,
         tails='linear',
-        tail_bound=self.tail_bound
-    )
+        tail_bound=self.tail_bound)
 
     x = torch.cat([x0, x1], 1) * x_mask
     logdet = torch.sum(logabsdet * x_mask, [1,2])

@@ -17,7 +17,7 @@ def audio(file):
 
     # Maybe resample
     if sample_rate != promovits.SAMPLE_RATE:
-        resample_fn = torchaudio.transform.Resample(
+        resample_fn = torchaudio.transforms.Resample(
             sample_rate,
             promovits.SAMPLE_RATE)
         audio = resample_fn(audio)
