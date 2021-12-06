@@ -31,7 +31,9 @@ def from_audio(
     if hps.model.use_ppg:
         text = promovits.preprocess.ppg.from_audio(audio, gpu)
     else:
-        text = promovits.preprocess.text.from_string(text)
+        # TEMPORARY - text preprocessing is causing deadlock
+        # text = promovits.preprocess.text.from_string(text)
+        raise NotImplementedError()
 
     # Setup model
     device = torch.device('cpu' if gpu is None else f'cuda:{gpu}')

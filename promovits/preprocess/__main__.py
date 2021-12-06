@@ -12,8 +12,9 @@ def parse_args():
     parser = argparse.ArgumentParser(description='Preprocess a dataset')
     parser.add_argument(
         '--datasets',
-        default='vctk',
-        help='The name of the dataset to use')
+        nargs='+',
+        default=['vctk'],
+        help='The name of the datasets to use')
     parser.add_argument(
         '--features',
         default=promovits.preprocess.ALL_FEATURES,

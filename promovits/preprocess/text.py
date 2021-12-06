@@ -2,6 +2,7 @@ import multiprocessing as mp
 import re
 
 import torch
+import tqdm
 
 import phonemizer
 import unidecode
@@ -12,27 +13,30 @@ import unidecode
 ###############################################################################
 
 
-def from_string(text):
-    """Convert text string to sequence of integer indices"""
-    indices = [symbol_to_id(symbol) for symbol in clean_text(text)]
-    return torch.tensor(indices, dtype=torch.long)
+# def from_string(text):
+#     """Convert text string to sequence of integer indices"""
+#     indices = [symbol_to_id(symbol) for symbol in clean_text(text)]
+#     return torch.tensor(indices, dtype=torch.long)
 
 
-def from_file(text_file):
-    """Convert text on disk to sequence of integer indices"""
-    with open(text_file) as file:
-        return from_string(file.read())
+# def from_file(text_file):
+#     """Convert text on disk to sequence of integer indices"""
+#     with open(text_file) as file:
+#         return from_string(file.read())
 
 
-def from_file_to_file(text_file, output_file):
-    """Convert text on disk to sequence of integer indices and save to disk"""
-    torch.save(from_file(text_file), output_file)
+# def from_file_to_file(text_file, output_file):
+#     """Convert text on disk to sequence of integer indices and save to disk"""
+#     torch.save(from_file(text_file), output_file)
 
 
-def from_files_to_files(text_files, output_files):
-    """Convert text files to sequences of integer indices and save to disk"""
-    with mp.Pool() as pool:
-        pool.starmap(from_file_to_file, zip(text_files, output_files))
+# def from_files_to_files(text_files, output_files):
+#     """Convert text files to sequences of integer indices and save to disk"""
+#     # TEMPORARY - remove multiprocessing for debugging
+#     # with mp.Pool() as pool:
+#     #     pool.starmap(from_file_to_file, zip(text_files, output_files))
+#     for text_file, output_file in tqdm.tqdm(zip(text_files, output_files)):
+#         from_file_to_file(text_file, output_file)
 
 
 ###############################################################################
@@ -40,19 +44,22 @@ def from_files_to_files(text_files, output_files):
 ###############################################################################
 
 
-def clean_text(text):
-    """Pipeline for cleaning english text"""
-    text = unidecode.unidecode(text)
-    text = text.lower()
-    text = expand_abbreviations(text)
-    phonemes = phonemizer.phonemize(
-        text,
-        language='en-us',
-        backend='espeak',
-        strip=True,
-        preserve_punctuation=True,
-        with_stress=True)
-    return collapse_whitespace(phonemes)
+# NOTE - This code deadlocks
+#      - Hypothesized cause: espeak calls
+#      - Solution: use, e.g., g2p_en
+# def clean_text(text):
+#     """Pipeline for cleaning english text"""
+#     text = unidecode.unidecode(text)
+#     text = text.lower()
+#     text = expand_abbreviations(text)
+#     phonemes = phonemizer.phonemize(
+#         text,
+#         language='en-us',
+#         backend='espeak',
+#         strip=True,
+#         preserve_punctuation=True,
+#         with_stress=True)
+#     return collapse_whitespace(phonemes)
 
 
 ###############################################################################

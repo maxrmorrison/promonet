@@ -105,14 +105,6 @@ def from_files_to_files(input_files, output_prefixes, gpu=None):
 ###############################################################################
 
 
-def log_hz_to_bins(pitch):
-    """Convert pitch from log hz to bins"""
-    logmin, logmax = torch.log2(promovits.FMIN), torch.log2(promovits.FMAX)
-    pitch = (promovits.PITCH_BINS - 2) * (pitch - logmin) / (logmax - logmin)
-    pitch = torch.clamp(pitch, 0, promovits.PITCH_BINS - 2)
-    return pitch.to(torch.long)
-
-
 def threshold(pitch, periodicity):
     """Voiced/unvoiced hysteresis thresholding"""
     if not hasattr(threshold, 'threshold'):

@@ -18,7 +18,7 @@ def from_audio(audio, mels=False):
     if not hasattr(from_audio, 'window'):
         from_audio.window = torch.hann_window(
             promovits.WINDOW_SIZE,
-            dtype=audio.type,
+            dtype=audio.dtype,
             device=audio.device)
 
     # Pad audio
@@ -59,9 +59,12 @@ def from_file_to_file(audio_file, output_file, mels=False):
 
 def from_files_to_files(audio_files, output_files, mels=False):
     """Compute spectrogram from audio files and save to disk"""
-    preprocess_fn = functools.partial(from_file_to_file, mels=mels)
-    with mp.Pool() as pool:
-        pool.starmap(preprocess_fn, zip(audio_files, output_files))
+    # TEMPORARY - turn off multiprocessing for debugging
+    # preprocess_fn = functools.partial(from_file_to_file, mels=mels)
+    # with mp.Pool() as pool:
+    #     pool.starmap(preprocess_fn, zip(audio_files, output_files))
+    for audio_file, output_file in zip(audio_files, output_files):
+        from_file_to_file(audio_file, output_file, mels)
 
 
 ###############################################################################
