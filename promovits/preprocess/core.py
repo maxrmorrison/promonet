@@ -40,13 +40,12 @@ def datasets(datasets, features=ALL_FEATURES, gpu=None):
             #         phoneme_files)
 
             # Preprocess spectrograms
-            # TEMPORARY - skip spectrogram preprocessing
-            # if 'spectrogram' in features:
-            #     spectrogram_files = [
-            #         f'{file.stem}-spectrogram.pt' for file in audio_files]
-            #     promovits.preprocess.spectrogram.from_files_to_files(
-            #         audio_files,
-            #         spectrogram_files)
+            if 'spectrogram' in features:
+                spectrogram_files = [
+                    f'{file.stem}-spectrogram.pt' for file in audio_files]
+                promovits.preprocess.spectrogram.from_files_to_files(
+                    audio_files,
+                    spectrogram_files)
 
             # Preprocess phonetic posteriorgrams
             if 'ppg' in features:

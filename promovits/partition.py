@@ -23,23 +23,22 @@ def dataset(name):
 
 def daps():
     """Partition the DAPS dataset"""
-    # Get the data indices
-    length = len(promovits.data.Dataset('daps'))
-    indices = list(range(length))
+    # Get stems
+    directory = promovits.CACHE_DIR / 'daps'
+    stems = [file.stem for file in directory.glob('*.wav')]
 
     # Deterministically shuffle indices
     random.seed(promovits.RANDOM_SEED)
-    random.shuffle(indices)
+    random.shuffle(stems)
 
     # Daps is eval-only
-    return {'train': [], 'valid': [], 'test': indices}
+    return {'train': [], 'valid': [], 'test': stems}
 
 
 def vctk():
     """Partition the vctk dataset"""
     # Get list of speakers
     directory = promovits.CACHE_DIR / 'vctk'
-    dataset = promovits.data.Dataset('vctk')
     stems = [file.stem for file in directory.glob('*.wav')]
     speakers = list({stem.split('-')[0] for stem in stems})
 
@@ -86,6 +85,7 @@ def main(datasets, overwrite):
                 continue
 
         # Save to disk
+        file.parent.mkdir(exist_ok=True, parents=True)
         with open(file, 'w') as file:
             json.dump(dataset(name), file, ensure_ascii=False, indent=4)
 

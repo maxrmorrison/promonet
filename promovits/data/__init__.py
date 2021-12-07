@@ -4,3 +4,4 @@ from . import dataset
 from . import download
 from . import loader
 from . import sampler
+from .dataset import PPGDataset, TextDataset
