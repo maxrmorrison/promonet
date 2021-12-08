@@ -32,7 +32,7 @@ class Dataset(torch.utils.data.Dataset):
 ###############################################################################
 
 
-class PPGDataset(torch.utils.data.Dataset):
+class PPGDataset(Dataset):
 
     def __init__(self, dataset, partition, interp_method='nearest'):
         super().__init__(dataset, partition)

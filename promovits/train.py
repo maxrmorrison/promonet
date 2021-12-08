@@ -37,7 +37,7 @@ def train(dataset, directory, hps, gpu=None):
     train_loader, eval_loader = promovits.data.loaders(
         dataset,
         gpu,
-        hps.data.use_ppg,
+        hps.model.use_ppg,
         hps.data.interp_method)
 
     #################
@@ -46,12 +46,11 @@ def train(dataset, directory, hps, gpu=None):
 
     net_g = promovits.model.Generator(
         len(promovits.preprocess.text.symbols()),
-        hps.data.filter_length // 2 + 1,
-        hps.train.segment_size // hps.data.hop_length,
+        promovits.WINDOW_SIZE // 2 + 1,
+        hps.train.segment_size // promovits.HOPSIZE,
         n_speakers=hps.data.n_speakers,
         **hps.model).to(device)
-    net_d = promovits.model.Discriminator(
-        hps.model.use_spectral_norm).to(device)
+    net_d = promovits.model.Discriminator().to(device)
     optim_g = torch.optim.AdamW(
         net_g.parameters(),
         hps.train.learning_rate,

@@ -79,40 +79,40 @@ def bisect(x, lo=0, hi=None):
         if BOUNDARIES[mid] < x and x <= BOUNDARIES[mid+1]:
             return mid
         elif x <= BOUNDARIES[mid]:
-            return bisect(x, BOUNDARIES, lo, mid)
+            return bisect(x, lo, mid)
         else:
-            return bisect(x, BOUNDARIES, mid + 1, hi)
+            return bisect(x, mid + 1, hi)
     return -1
 
 
 def create_buckets(lengths):
-    # Don't modify in-place
-    boundaries = BOUNDARIES.copy()
 
-    buckets = [[] for _ in range(len(boundaries) - 1)]
-    for i in range(len(lengths)):
-        length = lengths[i]
-        idx_bucket = bisect(length, boundaries)
-        if idx_bucket != -1:
-            buckets[idx_bucket].append(i)
+    # Initialize buckets
+    buckets = [[] for _ in range(len(BOUNDARIES) - 1)]
 
-    for i in range(len(buckets) - 1, 0, -1):
-        if len(buckets[i]) == 0:
-            buckets.pop(i)
-            boundaries.pop(i+1)
+    # Populate buckets
+    for i, length in enumerate(lengths):
+        index = bisect(length)
+        if index != -1:
+            buckets[index].append(i)
 
+    # Remove empty buckets
+    buckets = [bucket for bucket in buckets if bucket]
+
+    # Get number of GPUs
     if torch.distributed.is_initialized():
         world_size = torch.distributed.get_world_size()
     else:
         world_size = 1
 
+
     samples_per_bucket = []
-    for i in range(len(buckets)):
-        len_bucket = len(buckets[i])
+    for bucket in buckets:
         total_batch_size = world_size * promovits.BATCH_SIZE
-        rem = (total_batch_size - (len_bucket %
-                total_batch_size)) % total_batch_size
-        samples_per_bucket.append(len_bucket + rem)
+        remainder = (
+            (total_batch_size - (len(bucket) % total_batch_size)) %
+            total_batch_size)
+        samples_per_bucket.append(len(bucket) + remainder)
     return buckets, samples_per_bucket
 
 

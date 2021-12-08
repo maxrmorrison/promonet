@@ -1,2 +1,1 @@
-from . import constant
-from . import variable
+from .core import *

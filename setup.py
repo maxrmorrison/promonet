@@ -26,6 +26,7 @@ setup(
         'torch',
         'torchaudio',
         'torchcrepe',
+        'torchinfo',
         'torchvision',
         'tqdm',
         'Unidecode'],

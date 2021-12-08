@@ -83,7 +83,8 @@ MAX_TEXT_LEN = 190
 BATCH_SIZE = 64
 
 # Number of data loading worker threads
-NUM_WORKERS = 8
+# TEMPORARY - single-threaded debugging
+NUM_WORKERS = 0
 
 # Seed for all random number generators
 RANDOM_SEED = 1234

@@ -13,33 +13,30 @@ def loaders(dataset, gpu=None, use_ppg=False, interp_method='nearest'):
     """Setup data loaders"""
     # Get dataset and collate function
     if use_ppg:
-        train_dataset = promovits.data.datasets.PPGDataset(
+        train_dataset = promovits.data.PPGDataset(
             dataset,
             'train',
             interp_method)
-        valid_dataset = promovits.data.datasets.PPGDataset(
+        valid_dataset = promovits.data.PPGDataset(
             dataset,
             'valid',
             interp_method)
         collate_fn = promovits.data.collate.PPGCollate()
     else:
-        train_dataset = promovits.data.datasets.TextDataset(dataset, 'train')
-        valid_dataset = promovits.data.datasets.TextDataset(dataset, 'valid')
+        train_dataset = promovits.data.TextDataset(dataset, 'train')
+        valid_dataset = promovits.data.TextDataset(dataset, 'valid')
         collate_fn = promovits.data.collate.TextCollate()
 
     # Get sampler
     if torch.distributed.is_initialized():
         train_sampler = promovits.data.sampler.DistributedSampler(
             train_dataset,
-            promovits.BATCH_SIZE,
             shuffle=True)
     else:
-        train_sampler = promovits.data.sampler.Sampler(
-            train_dataset,
-            promovits.BATCH_SIZE)
+        train_sampler = promovits.data.sampler.Sampler(train_dataset)
 
     # Create loaders
-    train_loader = torch.data.utils.DataLoader(
+    train_loader = torch.utils.data.DataLoader(
         train_dataset,
         num_workers=promovits.NUM_WORKERS,
         shuffle=False,

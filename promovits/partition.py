@@ -27,12 +27,36 @@ def daps():
     directory = promovits.CACHE_DIR / 'daps'
     stems = [file.stem for file in directory.glob('*.wav')]
 
-    # Deterministically shuffle indices
+    # We manually select test speakers to ensure gender balance
+    test_speakers = [
+        # Female
+        '0002',
+        '0007',
+        '0010',
+        '0013',
+        '0019',
+
+        # Male
+        '0003',
+        '0005',
+        '0014',
+        '0015',
+        '0017']
+
+    # Get test partition indices
+    test_stems = [
+        stem for stem in stems if stem.split('-')[0] in test_speakers]
+
+    # Shuffle so adjacent indices aren't always same speaker
     random.seed(promovits.RANDOM_SEED)
-    random.shuffle(stems)
+    random.shuffle(test_stems)
+
+    # Get residual indices
+    valid_stems = [stem for stem in stems if stem not in test_stems]
+    random.shuffle(valid_stems)
 
     # Daps is eval-only
-    return {'train': [], 'valid': [], 'test': stems}
+    return {'train': [], 'valid': valid_stems, 'test': test_stems}
 
 
 def vctk():
@@ -40,20 +64,29 @@ def vctk():
     # Get list of speakers
     directory = promovits.CACHE_DIR / 'vctk'
     stems = [file.stem for file in directory.glob('*.wav')]
-    speakers = list({stem.split('-')[0] for stem in stems})
 
-    # Shuffle speakers
-    random.seed(promovits.RANDOM_SEED)
-    random.shuffle(speakers)
+    # We manually select test speakers to ensure gender balance
+    test_speakers = [
+        # Female
+        '0013',
+        '0037',
+        '0070',
+        '0082',
+        '0108',
 
-    # Select test speakers
-    test_speakers = speakers[:8]
+        # Male
+        '0016',
+        '0032',
+        '0047',
+        '0073',
+        '0083']
 
     # Get test partition indices
     test_stems = [
         stem for stem in stems if stem.split('-')[0] in test_speakers]
 
     # Shuffle so adjacent indices aren't always same speaker
+    random.seed(promovits.RANDOM_SEED)
     random.shuffle(test_stems)
 
     # Get residual indices
