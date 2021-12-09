@@ -42,7 +42,9 @@ def from_audio(audio, mels=False):
     spectrogram = torch.sqrt(stft.pow(2).sum(-1) + 1e-6)
 
     # Maybe convert to mels
-    return linear_to_mel(spectrogram) if mels else spectrogram
+    spectrogram = linear_to_mel(spectrogram) if mels else spectrogram
+
+    return spectrogram[0]
 
 
 def from_file(audio_file, mels=False):

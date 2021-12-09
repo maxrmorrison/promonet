@@ -1,5 +1,6 @@
 import argparse
 import contextlib
+import json
 import os
 import shutil
 from pathlib import Path
@@ -15,7 +16,14 @@ global_step = 0
 printed = False
 
 
-def train(dataset, directory, hps, gpu=None):
+def train(
+    dataset,
+    directory,
+    config,
+    train_partition='train',
+    valid_partition='valid',
+    adapt=False,
+    gpu=None):
     # Get DDP rank
     if torch.distributed.is_initialized():
         rank = torch.distributed.get_rank()
@@ -24,7 +32,7 @@ def train(dataset, directory, hps, gpu=None):
 
     global global_step
     if not rank:
-        print(hps)
+        print(json.dumps(config, indent=4, sort_keys=True))
         writer = SummaryWriter(log_dir=directory)
 
     torch.manual_seed(promovits.RANDOM_SEED)
@@ -34,11 +42,13 @@ def train(dataset, directory, hps, gpu=None):
     # Create data loaders #
     #######################
 
-    train_loader, eval_loader = promovits.data.loaders(
+    train_loader, valid_loader = promovits.data.loaders(
         dataset,
+        train_partition,
+        valid_partition,
         gpu,
-        hps.model.use_ppg,
-        hps.data.interp_method)
+        config.model.use_ppg,
+        config.data.interp_method)
 
     #################
     # Create models #
@@ -47,20 +57,21 @@ def train(dataset, directory, hps, gpu=None):
     net_g = promovits.model.Generator(
         len(promovits.preprocess.text.symbols()),
         promovits.WINDOW_SIZE // 2 + 1,
-        hps.train.segment_size // promovits.HOPSIZE,
-        n_speakers=hps.data.n_speakers,
-        **hps.model).to(device)
+        config.train.segment_size // promovits.HOPSIZE,
+        n_speakers=config.data.n_speakers,
+        **config.model).to(device)
     net_d = promovits.model.Discriminator().to(device)
+    # TODO - adaptation optimizers
     optim_g = torch.optim.AdamW(
         net_g.parameters(),
-        hps.train.learning_rate,
-        betas=hps.train.betas,
-        eps=hps.train.eps)
+        config.train.learning_rate,
+        betas=config.train.betas,
+        eps=config.train.eps)
     optim_d = torch.optim.AdamW(
         net_d.parameters(),
-        hps.train.learning_rate,
-        betas=hps.train.betas,
-        eps=hps.train.eps)
+        config.train.learning_rate,
+        betas=config.train.betas,
+        eps=config.train.eps)
     if rank is not None:
         net_g = torch.nn.parallel.DistributedDataParallel(
             net_g,
@@ -90,28 +101,28 @@ def train(dataset, directory, hps, gpu=None):
 
     scheduler_g = torch.optim.lr_scheduler.ExponentialLR(
         optim_g,
-        gamma=hps.train.lr_decay,
+        gamma=config.train.lr_decay,
         last_epoch=epoch-2)
     scheduler_d = torch.optim.lr_scheduler.ExponentialLR(
         optim_d,
-        gamma=hps.train.lr_decay,
+        gamma=config.train.lr_decay,
         last_epoch=epoch-2)
-    scaler = torch.cuda.amp.GradScaler(enabled=hps.train.fp16_run)
+    scaler = torch.cuda.amp.GradScaler(enabled=config.train.fp16_run)
 
     #########
     # Train #
     #########
 
-    while epoch < hps.train.epochs + 1:
+    while epoch < config.train.epochs + 1:
         train_and_evaluate(
             rank,
             directory,
             epoch,
-            hps,
+            config,
             [net_g, net_d],
             [optim_g, optim_d],
             scaler,
-            [train_loader, eval_loader],
+            [train_loader, valid_loader],
             writer,
             device)
 
@@ -125,7 +136,7 @@ def train_and_evaluate(
     rank,
     directory,
     epoch,
-    hps,
+    config,
     nets,
     optims,
     scaler,
@@ -134,7 +145,7 @@ def train_and_evaluate(
     device):
     net_g, net_d = nets
     optim_g, optim_d = optims
-    train_loader, eval_loader = loaders
+    train_loader, valid_loader = loaders
 
     train_loader.batch_sampler.set_epoch(epoch)
     global global_step
@@ -148,7 +159,7 @@ def train_and_evaluate(
         y, y_lengths = y.to(device), y_lengths.to(device)
         speakers = speakers.to(device)
 
-        with torch.cuda.amp.autocast(enabled=hps.train.fp16_run):
+        with torch.cuda.amp.autocast(enabled=config.train.fp16_run):
             # Forward pass through generator
             y_hat, l_length, attn, ids_slice, x_mask, z_mask,\
             (z, z_p, m_p, logs_p, m_q, logs_q) = net_g(x, x_lengths, spec, spec_lengths, speakers)
@@ -159,14 +170,14 @@ def train_and_evaluate(
             y_mel = promovits.model.slice_segments(
                 mel,
                 ids_slice,
-                hps.train.segment_size // hps.data.hop_length)
+                config.train.segment_size // config.data.hop_length)
             y_hat_mel = promovits.preprocess.spectrogram.from_audio(
                 y_hat,
                 True)
             y = promovits.model.slice_segments(
                 y,
-                ids_slice * hps.data.hop_length,
-                hps.train.segment_size)
+                ids_slice * config.data.hop_length,
+                config.train.segment_size)
 
             # Print model summaries first time
             if not printed:
@@ -192,7 +203,7 @@ def train_and_evaluate(
         grad_norm_d = clip_gradients(net_d.parameters(), None)
         scaler.step(optim_d)
 
-        with torch.cuda.amp.autocast(enabled=hps.train.fp16_run):
+        with torch.cuda.amp.autocast(enabled=config.train.fp16_run):
             # Generator
             y_d_hat_r, y_d_hat_g, fmap_r, fmap_g = net_d(y, y_hat)
             with torch.cuda.amp.autocast(enabled=False):
@@ -200,8 +211,8 @@ def train_and_evaluate(
                     loss_dur = torch.sum(l_length.float())
                 else:
                     loss_dur = 0
-                loss_mel = torch.nn.functional.l1_loss(y_mel, y_hat_mel) * hps.train.c_mel
-                loss_kl = promovits.loss.kl(z_p, logs_q, m_p, logs_p, z_mask) * hps.train.c_kl
+                loss_mel = torch.nn.functional.l1_loss(y_mel, y_hat_mel) * config.train.c_mel
+                loss_kl = promovits.loss.kl(z_p, logs_q, m_p, logs_p, z_mask) * config.train.c_kl
                 loss_fm = promovits.loss.feature_matching(fmap_r, fmap_g)
                 loss_gen, losses_gen = promovits.loss.generator(y_d_hat_g)
                 loss_gen_all = loss_gen + loss_fm + loss_mel + loss_dur + loss_kl
@@ -218,7 +229,7 @@ def train_and_evaluate(
             # Logging #
             ###########
 
-            if global_step % hps.train.log_interval == 0:
+            if global_step % config.train.log_interval == 0:
                 lr = optim_g.param_groups[0]['lr']
                 losses = [loss_disc, loss_gen, loss_fm, loss_mel, loss_dur, loss_kl]
                 print('Train Epoch: {} [{:.0f}%]'.format(
@@ -259,14 +270,14 @@ def train_and_evaluate(
             # Evaluate #
             ############
 
-            if global_step % hps.train.eval_interval == 0:
-                evaluate(hps, net_g, eval_loader, writer, device)
+            if global_step % config.train.eval_interval == 0:
+                evaluate(config, net_g, valid_loader, writer, device)
 
             ###################
             # Save checkpoint #
             ###################
 
-            if global_step % hps.train.checkpoint_interval == 0:
+            if global_step % config.train.checkpoint_interval == 0:
                 save_checkpoint(
                     net_g,
                     optim_g,
@@ -283,10 +294,10 @@ def train_and_evaluate(
         print('====> Epoch: {}'.format(epoch))
 
 
-def evaluate(hps, generator, eval_loader, writer, device):
+def evaluate(config, generator, valid_loader, writer, device):
     generator.eval()
     with torch.no_grad():
-        for x, x_lengths, spec, spec_lengths, y, y_lengths, speakers in eval_loader:
+        for x, x_lengths, spec, spec_lengths, y, y_lengths, speakers in valid_loader:
             x, x_lengths = x.to(device), x_lengths.to(device)
             spec, spec_lengths = spec.to(device), spec_lengths.to(device)
             y, y_lengths = y.to(device), y_lengths.to(device)
@@ -301,7 +312,7 @@ def evaluate(hps, generator, eval_loader, writer, device):
                 x_lengths[i:i + 1],
                 speakers[i:i + 1],
                 max_len=1000)
-            y_hat_lengths = mask.sum([1,2]).long() * hps.data.hop_length
+            y_hat_lengths = mask.sum([1,2]).long() * config.data.hop_length
 
             # Get true and predicted mels
             mel = promovits.preprocess.spectrogram.linear_to_mel(
@@ -322,8 +333,7 @@ def evaluate(hps, generator, eval_loader, writer, device):
         writer=writer,
         global_step=global_step,
         images=image_dict,
-        audios=audio_dict,
-        audio_sampling_rate=hps.data.sampling_rate)
+        audios=audio_dict)
     generator.train()
 
 
@@ -332,10 +342,10 @@ def evaluate(hps, generator, eval_loader, writer, device):
 ###############################################################################
 
 
-def train_ddp(rank, dataset, directory, hps, gpus):
+def train_ddp(rank, dataset, directory, config, gpus):
     """Train with distributed data parallelism"""
     with ddp_context(rank, len(gpus)):
-        train(len(gpus), dataset, directory, hps, gpus)
+        train(dataset, directory, config, gpus)
 
 
 @ contextlib.contextmanager
@@ -428,39 +438,66 @@ def summarize(
 ###############################################################################
 
 
-def main(config, dataset, gpus=None):
+def main(
+    config_file,
+    dataset,
+    train_partition='train',
+    valid_partition='valid',
+    adapt=False,
+    gpus=None):
     # Optionally overwrite training with same name
-    directory = promovits.TRAIN_DIR / config.stem
+    directory = promovits.TRAIN_DIR / config_file.stem
 
     # Create output directory
     directory.mkdir(parents=True, exist_ok=True)
 
     # Save configuration
-    shutil.copyfile(config, directory / config.name)
+    shutil.copyfile(config_file, directory / config_file.name)
 
     # Load configuration
-    hps = promovits.load.config(config)
+    config = promovits.load.config(config_file)
 
     if gpus is None:
+
         # CPU training
-        train(dataset, directory, hps)
+        train(dataset, directory, config, train_partition, valid_partition, adapt)
+
     elif len(gpus) > 1:
+
+        args = (
+            dataset,
+            directory,
+            config,
+            train_partition,
+            valid_partition,
+            adapt,
+            gpus)
+
         # Distributed data parallelism
         torch.multiprocessing.spawn(
             train_ddp,
-            args = (dataset, directory, hps, gpus),
-            nprocs = len(gpus),
-            join = True)
+            args=args,
+            nprocs=len(gpus),
+            join=True)
+
     else:
+
         # Single GPU training
-        train(dataset, directory, hps, None if gpus is None else gpus[0])
+        train(
+            dataset,
+            directory,
+            config,
+            train_partition,
+            valid_partition,
+            adapt,
+            None if gpus is None else gpus[0])
 
 
 def parse_args():
     """Parse command-line arguments"""
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        '--config',
+        '--config_file',
         type=Path,
         required=True,
         help='The configuration file')
@@ -468,6 +505,18 @@ def parse_args():
         '--dataset',
         required=True,
         help='The dataset to train on')
+    parser.add_argument(
+        '--train_partition',
+        default='train',
+        help='The data partition to train on')
+    parser.add_argument(
+        '--valid_partition',
+        default='valid',
+        help='The data partition to perform validation on')
+    parser.add_argument(
+        '--adapt',
+        action='store_true',
+        help='Whether to use hyperparameters for speaker adaptation')
     parser.add_argument(
         '--gpus',
         type=int,

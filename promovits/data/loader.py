@@ -9,22 +9,28 @@ import promovits
 ###############################################################################
 
 
-def loaders(dataset, gpu=None, use_ppg=False, interp_method='nearest'):
+def loaders(
+    dataset,
+    train_partition,
+    valid_partition,
+    gpu=None,
+    use_ppg=False,
+    interp_method='nearest'):
     """Setup data loaders"""
     # Get dataset and collate function
     if use_ppg:
         train_dataset = promovits.data.PPGDataset(
             dataset,
-            'train',
+            train_partition,
             interp_method)
         valid_dataset = promovits.data.PPGDataset(
             dataset,
-            'valid',
+            valid_partition,
             interp_method)
         collate_fn = promovits.data.collate.PPGCollate()
     else:
-        train_dataset = promovits.data.TextDataset(dataset, 'train')
-        valid_dataset = promovits.data.TextDataset(dataset, 'valid')
+        train_dataset = promovits.data.TextDataset(dataset, train_partition)
+        valid_dataset = promovits.data.TextDataset(dataset, valid_partition)
         collate_fn = promovits.data.collate.TextCollate()
 
     # Get sampler

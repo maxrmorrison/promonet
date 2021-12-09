@@ -51,14 +51,10 @@ def from_audio(
         text = text.to(device)
         length = torch.tensor([text.shape[-1]], dtype=torch.long, device=device)
 
-        # TODO - speaker ID and adaptation
-        sid = torch.LongTensor([4]).cuda()
-
         # TODO - pitch and ppg inputs
         audio = net_g.infer(
             text,
             length,
-            sid=sid,
             noise_scale=.667,
             noise_scale_w=0.8,
             length_scale=1)[0][0,0].cpu()

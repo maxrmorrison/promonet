@@ -48,7 +48,8 @@ def daps():
         shutil.move('daps-segmented', 'daps')
 
         # Get audio files
-        audio_files = [path.resolve() for path in  Path('daps').rglob('*.wav')]
+        audio_files = sorted(
+            [path.resolve() for path in  Path('daps').rglob('*.wav')])
         text_files = [file.with_suffix('.txt') for file in audio_files]
 
     # Write audio to cache

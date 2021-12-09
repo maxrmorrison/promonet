@@ -53,9 +53,9 @@ class PPGDataset(Dataset):
         # Maybe resample length
         if ppg.shape[1] != length:
             ppg = torch.nn.functional.interpolate(
-                ppg[None],
+                ppg,
                 size=length,
-                mode=self.interp_method)[0]
+                mode=self.interp_method)
 
         return ppg
 

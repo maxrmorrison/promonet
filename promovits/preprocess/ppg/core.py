@@ -54,7 +54,7 @@ def from_audio(
 
     # Infer ppgs
     with torch.no_grad():
-        return from_audio.model(audio, length).T.cpu()
+        return from_audio.model(audio, length)[0].T.cpu()
 
 
 def from_file(audio_file, gpu=None):

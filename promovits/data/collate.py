@@ -9,12 +9,8 @@ import torch
 class PPGCollate():
 
     def __call__(self, batch):
-        """Collates training batch from ppg, audio and speaker identities
-        PARAMS
-        ------
-        batch: [ppg, spec_normalized, wav_normalized, sid]
-        """
-        ppg, spec, wav, sid = zip(*batch)
+        """Collate batch from ppg, spectrograms, waveforms, and speaker ids"""
+        ppg, spec, wav, speakers = zip(*batch)
 
         # Right zero-pad all one-hot text sequences to max input length
         _, ids_sorted_decreasing = torch.sort(
@@ -28,7 +24,6 @@ class PPGCollate():
         ppg_lengths = torch.LongTensor(len(batch))
         spec_lengths = torch.LongTensor(len(batch))
         wav_lengths = torch.LongTensor(len(batch))
-        sid = torch.LongTensor(len(batch))
 
         ppg_padded = torch.FloatTensor(len(batch), ppg[0].size(0), max_ppg_len)
         spec_padded = torch.FloatTensor(
@@ -52,9 +47,14 @@ class PPGCollate():
             wav_padded[i, :, :wav.size(1)] = wav
             wav_lengths[i] = wav.size(1)
 
-            sid[i] = row[3]
-
-        return ppg_padded, ppg_lengths, spec_padded, spec_lengths, wav_padded, wav_lengths, sid
+        return (
+            ppg_padded,
+            ppg_lengths,
+            spec_padded,
+            spec_lengths,
+            wav_padded,
+            wav_lengths,
+            speakers)
 
 
 class TextCollate():
