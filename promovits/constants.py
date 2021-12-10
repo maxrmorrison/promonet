@@ -1,4 +1,7 @@
+import functools
 from pathlib import Path
+
+import torch
 
 
 ###############################################################################
@@ -63,6 +66,15 @@ WINDOW_SIZE = 1024
 
 
 ###############################################################################
+# PPG parameters
+###############################################################################
+
+
+# Number of channels in the phonetic posteriorgram features
+PPG_CHANNELS = 144
+
+
+###############################################################################
 # Text parameters
 ###############################################################################
 
@@ -83,8 +95,14 @@ MAX_TEXT_LEN = 190
 BATCH_SIZE = 64
 
 # Number of data loading worker threads
-# TEMPORARY - single-threaded debugging
-NUM_WORKERS = 0
+NUM_WORKERS = 2
 
 # Seed for all random number generators
 RANDOM_SEED = 1234
+
+# Optimizer for training
+TRAINING_OPTIMIZER = functools.partial(
+    torch.optim.AdamW,
+    lr=2e-4,
+    betas=[0.8, 0.99],
+    eps=1e-9)

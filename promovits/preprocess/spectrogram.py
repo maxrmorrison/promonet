@@ -30,7 +30,7 @@ def from_audio(audio, mels=False):
 
     # Compute stft
     stft = torch.stft(
-        audio,
+        audio.squeeze(1),
         promovits.NUM_FFT,
         hop_length=promovits.HOPSIZE,
         window=from_audio.window,
@@ -44,7 +44,7 @@ def from_audio(audio, mels=False):
     # Maybe convert to mels
     spectrogram = linear_to_mel(spectrogram) if mels else spectrogram
 
-    return spectrogram[0]
+    return spectrogram.squeeze(0)
 
 
 def from_file(audio_file, mels=False):

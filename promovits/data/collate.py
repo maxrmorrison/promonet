@@ -1,5 +1,7 @@
 import torch
 
+import promovits
+
 
 ###############################################################################
 # Batch collation
@@ -10,51 +12,56 @@ class PPGCollate():
 
     def __call__(self, batch):
         """Collate batch from ppg, spectrograms, waveforms, and speaker ids"""
-        ppg, spec, wav, speakers = zip(*batch)
+        batch_size = len(batch)
 
-        # Right zero-pad all one-hot text sequences to max input length
-        _, ids_sorted_decreasing = torch.sort(
-            torch.LongTensor([x[1].size(1) for x in batch]),
-            dim=0, descending=True)
+        # Unpack
+        ppgs, spectrograms, audio, speakers = zip(*batch)
 
-        max_ppg_len = max([x[0].size(1) for x in batch])
-        max_spec_len = max([x[1].size(1) for x in batch])
-        max_wav_len = max([x[2].size(1) for x in batch])
+        # Get lengths in frames
+        lengths = torch.tensor([a.shape[1] for a in audio], dtype=torch.long)
 
-        ppg_lengths = torch.LongTensor(len(batch))
-        spec_lengths = torch.LongTensor(len(batch))
-        wav_lengths = torch.LongTensor(len(batch))
+        # Get batch indices sorted by length
+        _, sorted_indices = torch.sort(lengths, dim=0, descending=True)
 
-        ppg_padded = torch.FloatTensor(len(batch), ppg[0].size(0), max_ppg_len)
-        spec_padded = torch.FloatTensor(
-            len(batch), spec[0].size(0), max_spec_len)
-        wav_padded = torch.FloatTensor(len(batch), 1, max_wav_len)
-        ppg_padded.zero_()
-        spec_padded.zero_()
-        wav_padded.zero_()
-        for i in range(len(ids_sorted_decreasing)):
-            row = batch[ids_sorted_decreasing[i]]
+        # Get tensor size in frames and samples
+        max_length_samples = lengths.max()
+        max_length_frames = max_length_samples // promovits.HOPSIZE
 
-            ppg = row[0]
-            ppg_padded[i, :, :ppg.size(1)] = ppg
-            ppg_lengths[i] = ppg.size(1)
+        # We store original lengths for, e.g., loss evaluation
+        ppg_lengths = torch.zeros((batch_size,), dtype=torch.long)
+        spectrogram_lengths = torch.zeros((batch_size,), dtype=torch.long)
+        audio_lengths = torch.zeros((batch_size,), dtype=torch.long)
 
-            spec = row[1]
-            spec_padded[i, :, :spec.size(1)] = spec
-            spec_lengths[i] = spec.size(1)
+        # Initialize padded tensors
+        padded_ppgs = torch.zeros(
+            (len(batch), promovits.PPG_CHANNELS, max_length_frames),
+            dtype=torch.float)
+        padded_spectrograms = torch.zeros(
+            (len(batch), promovits.NUM_FFT // 2 + 1, max_length_frames),
+            dtype=torch.float)
+        padded_audio = torch.zeros(
+            (len(batch), 1, max_length_samples),
+            dtype=torch.float)
+        for i, index in enumerate(sorted_indices):
 
-            wav = row[2]
-            wav_padded[i, :, :wav.size(1)] = wav
-            wav_lengths[i] = wav.size(1)
+            # Get lengths
+            ppg_lengths[i] = lengths[index] // promovits.HOPSIZE
+            spectrogram_lengths[i] = lengths[index] // promovits.HOPSIZE
+            audio_lengths[i] =  lengths[index]
+
+            # Place in padded tensor
+            padded_ppgs[i, :, :ppg_lengths[i]] = ppgs[index]
+            padded_spectrograms[i, :, :spectrogram_lengths[i]] = spectrograms[index]
+            padded_audio[i, :, :audio_lengths[i]] = audio[index]
 
         return (
-            ppg_padded,
+            padded_ppgs,
             ppg_lengths,
-            spec_padded,
-            spec_lengths,
-            wav_padded,
-            wav_lengths,
-            speakers)
+            padded_spectrograms,
+            spectrogram_lengths,
+            padded_audio,
+            audio_lengths,
+            torch.tensor(speakers, dtype=torch.long))
 
 
 class TextCollate():
@@ -75,16 +82,16 @@ class TextCollate():
         max_wav_len = max([x[2].size(1) for x in batch])
 
         text_lengths = torch.LongTensor(len(batch))
-        spec_lengths = torch.LongTensor(len(batch))
+        spectrogram_lengths = torch.LongTensor(len(batch))
         wav_lengths = torch.LongTensor(len(batch))
         sid = torch.LongTensor(len(batch))
 
         text_padded = torch.LongTensor(len(batch), max_text_len)
-        spec_padded = torch.FloatTensor(len(batch), batch[0][1].size(0), max_spec_len)
-        wav_padded = torch.FloatTensor(len(batch), 1, max_wav_len)
+        padded_spectrograms = torch.FloatTensor(len(batch), batch[0][1].size(0), max_spec_len)
+        padded_audio = torch.FloatTensor(len(batch), 1, max_wav_len)
         text_padded.zero_()
-        spec_padded.zero_()
-        wav_padded.zero_()
+        padded_spectrograms.zero_()
+        padded_audio.zero_()
         for i in range(len(ids_sorted_decreasing)):
             row = batch[ids_sorted_decreasing[i]]
 
@@ -93,13 +100,13 @@ class TextCollate():
             text_lengths[i] = text.size(0)
 
             spec = row[1]
-            spec_padded[i, :, :spec.size(1)] = spec
-            spec_lengths[i] = spec.size(1)
+            padded_spectrograms[i, :, :spec.size(1)] = spec
+            spectrogram_lengths[i] = spec.size(1)
 
             wav = row[2]
-            wav_padded[i, :, :wav.size(1)] = wav
+            padded_audio[i, :, :wav.size(1)] = wav
             wav_lengths[i] = wav.size(1)
 
             sid[i] = row[3]
 
-        return text_padded, text_lengths, spec_padded, spec_lengths, wav_padded, wav_lengths, sid
+        return text_padded, text_lengths, spec_padded, spectrogram_lengths, padded_audio, wav_lengths, sid

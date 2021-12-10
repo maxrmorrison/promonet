@@ -31,8 +31,8 @@ import promovits
 
 
 # Range of allowable test sample lengths
-MIN_TEST_SAMPLE_LENGTH = 5.  # seconds
-MAX_TEST_SAMPLE_LENGTH = 9.  # seconds
+MIN_TEST_SAMPLE_LENGTH = 4.  # seconds
+MAX_TEST_SAMPLE_LENGTH = 10.  # seconds
 
 # Equivalent allowable file sizes for 32-bit floating point PCM audio files
 MIN_TEST_SAMPLE_LENGTH_BYTES = (

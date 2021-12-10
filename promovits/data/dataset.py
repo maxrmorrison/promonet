@@ -1,3 +1,4 @@
+import functools
 import os
 
 import torch
@@ -26,6 +27,11 @@ class Dataset(torch.utils.data.Dataset):
     def __len__(self):
         return len(self.stems)
 
+    @functools.cached_property
+    def speakers(self):
+        """Retrieve the list of speaker ids"""
+        return sorted(list(set(stem.split('-')[0] for stem in self.stems)))
+
 
 ###############################################################################
 # Datasets
@@ -53,9 +59,9 @@ class PPGDataset(Dataset):
         # Maybe resample length
         if ppg.shape[1] != length:
             ppg = torch.nn.functional.interpolate(
-                ppg,
+                ppg[None],
                 size=length,
-                mode=self.interp_method)
+                mode=self.interp_method)[0]
 
         return ppg
 

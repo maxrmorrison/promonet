@@ -5,19 +5,12 @@
     "eval_interval": 1000,
     "seed": 1234,
     "epochs": 10000,
-    "learning_rate": 2e-4,
-    "betas": [0.8, 0.99],
-    "eps": 1e-9,
-    "batch_size": 64,
     "fp16_run": true,
     "lr_decay": 0.999875,
     "segment_size": 8192,
-    "c_mel": 45,
-    "c_kl": 1.0
+    "c_mel": 45
   },
   "data": {
-    "training_files":"filelists/vctk_audio_sid_text_train_filelist.txt.cleaned",
-    "validation_files":"filelists/vctk_audio_sid_text_val_filelist.txt.cleaned",
     "n_speakers": 109,
     "interp_method": "linear"
   },

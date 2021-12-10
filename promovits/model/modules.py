@@ -155,7 +155,7 @@ class WN(torch.nn.Module):
       else:
         g_l = torch.zeros_like(x_in)
 
-      acts = commons.fused_add_tanh_sigmoid_multiply(
+      acts = promovits.model.fused_add_tanh_sigmoid_multiply(
           x_in,
           g_l,
           n_channels_tensor)

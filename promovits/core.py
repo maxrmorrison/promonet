@@ -37,11 +37,13 @@ def from_audio(
 
     # Setup model
     device = torch.device('cpu' if gpu is None else f'cuda:{gpu}')
+    speakers = promovits.data.PPGDataset('vctk').speakers
     net_g = promovits.model.Generator(
         len(promovits.preprocess.text.symbols()),
         hps.data.filter_length // 2 + 1,
         hps.train.segment_size // hps.data.hop_length,
-        n_speakers=hps.data.n_speakers,
+        # TODO - this eventually should be replaced by an embedding
+        n_speakers=max(int(speaker) for speaker in speakers) + 1,
         **hps.model).to(device)
     net_g.eval()
 

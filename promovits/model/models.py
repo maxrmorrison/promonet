@@ -4,7 +4,7 @@ from torch import nn
 from torch.nn import functional as F
 
 from torch.nn import Conv1d, ConvTranspose1d, Conv2d
-from torch.nn.utils import weight_norm, remove_weight_norm, spectral_norm
+from torch.nn.utils import weight_norm, remove_weight_norm
 
 import promovits
 
@@ -98,8 +98,7 @@ class PPGEncoder(nn.Module):
       n_heads,
       n_layers,
       kernel_size,
-      p_dropout,
-      ppg_dim=144):
+      p_dropout):
     super().__init__()
     self.out_channels = out_channels
     self.hidden_channels = hidden_channels
@@ -110,7 +109,7 @@ class PPGEncoder(nn.Module):
     self.p_dropout = p_dropout
 
     self.input_proj = nn.Conv1d(
-      ppg_dim,
+      promovits.PPG_CHANNELS,
       hidden_channels,
       kernel_size,
       1,
