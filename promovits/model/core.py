@@ -1,5 +1,4 @@
 import torch
-from torch.nn import functional as F
 
 
 def init_weights(m, mean=0.0, std=0.01):
@@ -9,10 +8,10 @@ def init_weights(m, mean=0.0, std=0.01):
 
 
 def get_padding(kernel_size, dilation=1):
-    return int((kernel_size*dilation - dilation)/2)
+    return int((kernel_size * dilation - dilation) / 2)
 
 
-def slice_segments(x, ids_str, segment_size=4):
+def slice_segments(x, ids_str, segment_size):
     ret = torch.zeros_like(x[:, :, :segment_size])
     for i in range(x.size(0)):
         idx_str = ids_str[i]
@@ -21,7 +20,7 @@ def slice_segments(x, ids_str, segment_size=4):
     return ret
 
 
-def rand_slice_segments(x, x_lengths=None, segment_size=4):
+def rand_slice_segments(x, x_lengths, segment_size):
     b, d, t = x.size()
     if x_lengths is None:
         x_lengths = t

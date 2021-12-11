@@ -1,5 +1,6 @@
 import argparse
 import contextlib
+import functools
 import os
 import shutil
 from pathlib import Path
@@ -14,10 +15,6 @@ import promovits
 ###############################################################################
 # Training
 ###############################################################################
-
-
-global_step = 0
-printed = False
 
 
 def train(
@@ -35,18 +32,18 @@ def train(
     else:
         rank = None
 
-    global global_step
     if not rank:
         print(config)
         writer = SummaryWriter(log_dir=directory)
 
-    torch.manual_seed(promovits.RANDOM_SEED)
     device = torch.device('cpu' if gpu is None else f'cuda:{gpu}')
 
     #######################
     # Create data loaders #
     #######################
 
+    # TODO - config
+    torch.manual_seed(promovits.RANDOM_SEED)
     train_loader, valid_loader = promovits.data.loaders(
         dataset,
         train_partition,
@@ -59,21 +56,26 @@ def train(
     # Create models #
     #################
 
-    net_g = promovits.model.Generator(
+    # TODO - model config
+    generator = promovits.model.Generator(
         len(promovits.preprocess.text.symbols()),
         promovits.WINDOW_SIZE // 2 + 1,
-        config.train.segment_size // promovits.HOPSIZE,
+        promovits.TRAINING_CHUNK_SIZE // promovits.HOPSIZE,
         # TODO - speaker adaptation
         n_speakers=max(int(speaker) for speaker in train_loader.dataset.speakers) + 1,
         **config.model).to(device)
-    net_d = promovits.model.Discriminator().to(device)
+    discriminators = promovits.model.Discriminator().to(device)
+
+    ##################################################
+    # Maybe setup distributed data parallelism (DDP) #
+    ##################################################
+
     if rank is not None:
-        net_g = torch.nn.parallel.DistributedDataParallel(
-            net_g,
+        ddp_fn = functools.partial(
+            torch.nn.parallel.DistributedDataParallel,
             device_ids=[rank])
-        net_d = torch.nn.parallel.DistributedDataParallel(
-            net_d,
-            device_ids=[rank])
+        generator = ddp_fn(generator)
+        discriminators = ddp_fn(discriminators)
 
     #####################
     # Create optimizers #
@@ -81,254 +83,323 @@ def train(
 
     if adapt:
         # TODO - adaptation optimizers (may also need different loading, saving, logging, etc.)
-        optim_g = promovits.ADAPTATION_OPTIMIZER(net_g.parameters())
-        optim_d = promovits.ADAPTATION_OPTIMIZER(net_d.parameters())
+        generator_optimizer = promovits.ADAPTATION_OPTIMIZER(
+            generator.parameters())
+        discriminator_optimizer = promovits.ADAPTATION_OPTIMIZER(
+            discriminators.parameters())
     else:
-        optim_g = promovits.TRAINING_OPTIMIZER(net_g.parameters())
-        optim_d = promovits.TRAINING_OPTIMIZER(net_d.parameters())
+        generator_optimizer = promovits.TRAINING_OPTIMIZER(
+            generator.parameters())
+        discriminator_optimizer = promovits.TRAINING_OPTIMIZER(
+            discriminators.parameters())
 
     ##############################
     # Maybe load from checkpoint #
     ##############################
 
     try:
-        net_g, optim_g, epoch = promovits.load.checkpoint(
-            latest_checkpoint_path(directory, "G_*.pth"),
-            net_g,
-            optim_g)
-        net_d, optim_d, epoch = promovits.load.checkpoint(
-            latest_checkpoint_path(directory, "D_*.pth"),
-            net_d,
-            optim_d)
-        global_step = (epoch - 1) * len(train_loader)
+
+        # Load generator
+        (
+            generator,
+            generator_optimizer,
+            step
+        ) = promovits.load.checkpoint(
+            latest_checkpoint_path(directory, 'generator-*.pt'),
+            generator,
+            generator_optimizer
+        )
+
+        # Load discriminator
+        (
+            discriminators,
+            discriminator_optimizer,
+            step
+        ) = promovits.load.checkpoint(
+            latest_checkpoint_path(directory, 'discriminator-*.pt'),
+            discriminators,
+            discriminator_optimizer
+        )
+
     except:
-        # TODO - fix bad checkpointing (maybe epochs vs steps?)
-        epoch = 1
-        global_step = 0
+
+        # Train from scratch
+        step = 0
 
     #####################
     # Create schedulers #
     #####################
 
-    scheduler_g = torch.optim.lr_scheduler.ExponentialLR(
-        optim_g,
+    # TODO - config
+    scheduler_fn = functools.partial(
+        torch.optim.lr_scheduler.ExponentialLR,
         gamma=config.train.lr_decay,
-        last_epoch=epoch-2)
-    scheduler_d = torch.optim.lr_scheduler.ExponentialLR(
-        optim_d,
-        gamma=config.train.lr_decay,
-        last_epoch=epoch-2)
+        last_epoch=step // len(train_loader.dataset) if step else -1)
+    generator_scheduler = scheduler_fn(generator_optimizer)
+    discriminator_scheduler = scheduler_fn(discriminator_optimizer)
 
     #########
     # Train #
     #########
 
     # Automatic mixed precision (amp) gradient scaler
-    scaler = torch.cuda.amp.GradScaler(enabled=config.train.fp16_run)
+    scaler = torch.cuda.amp.GradScaler()
 
-    while epoch < config.train.epochs + 1:
-        train_and_evaluate(
-            rank,
-            directory,
-            epoch,
-            config,
-            [net_g, net_d],
-            [optim_g, optim_d],
-            scaler,
-            [train_loader, valid_loader],
-            writer,
-            device)
+    # Print model summaries on the first step
+    printed = False
 
-        scheduler_g.step()
-        scheduler_d.step()
-        epoch += 1
+    while step < promovits.NUM_STEPS + 1:
 
+        # Seed sampler
+        train_loader.batch_sampler.set_epoch(step // len(train_loader.dataset))
 
-# TODO - merge with train()
-def train_and_evaluate(
-    rank,
-    directory,
-    epoch,
-    config,
-    nets,
-    optims,
-    scaler,
-    loaders,
-    writer,
-    device):
-    net_g, net_d = nets
-    optim_g, optim_d = optims
-    train_loader, valid_loader = loaders
+        generator.train()
+        discriminators.train()
+        for batch in train_loader:
 
-    train_loader.batch_sampler.set_epoch(epoch)
-    global global_step
-    global printed
-
-    net_g.train()
-    net_d.train()
-    for batch_index, batch in enumerate(train_loader):
-        (
-            phonemes,
-            phoneme_lengths,
-            spectrograms,
-            spectrogram_lengths,
-            audio,
-            audio_lengths,
-            speakers
-        ) = unpack_to_device(batch, device)
-
-        with torch.cuda.amp.autocast(enabled=config.train.fp16_run):
-
-            # Bundle training input
-            generator_input = (
+            # Unpack batch
+            (
                 phonemes,
                 phoneme_lengths,
                 spectrograms,
                 spectrogram_lengths,
-                speakers)
+                audio,
+                _,
+                speakers
+            ) = unpack_to_device(batch, device)
 
-            # Forward pass through generator
-            generated, l_length, attn, ids_slice, x_mask, z_mask,\
-            (z, z_p, m_p, logs_p, m_q, logs_q) = net_g(*generator_input)
+            with torch.cuda.amp.autocast():
 
-            # Convert to mels
-            mels = promovits.preprocess.spectrogram.linear_to_mel(spectrograms)
-            mel_slices = promovits.model.slice_segments(
-                mels,
-                ids_slice,
-                config.train.segment_size // promovits.HOPSIZE)
+                # Bundle training input
+                generator_input = (
+                    phonemes,
+                    phoneme_lengths,
+                    spectrograms,
+                    spectrogram_lengths,
+                    speakers)
 
-        # Exit autocast context, as ComplexHalf type is not supported
-        # See Github issue https://github.com/jaywalnut310/vits/issues/15
-        generated = generated.float()
-        generated_mels = promovits.preprocess.spectrogram.from_audio(
-            generated,
-            True)
-        audio = promovits.model.slice_segments(
-            audio,
-            ids_slice * promovits.HOPSIZE,
-            config.train.segment_size)
+                # Forward pass through generator
+                generated, l_length, attention, slice_indices, _, z_mask,\
+                    (_, z_p, m_p, logs_p, _, logs_q) = generator(*generator_input)
 
-        # Print model summaries first time
-        if not printed:
-            print(torchinfo.summary(
-                net_g,
-                input_data=generator_input,
-                device=device))
-            print(torchinfo.summary(
-                net_d,
-                input_data=(audio, generated.detach()),
-                device=device))
-            printed = True
+                # Convert to mels
+                mels = promovits.preprocess.spectrogram.linear_to_mel(
+                    spectrograms)
+                mel_slices = promovits.model.slice_segments(
+                    mels,
+                    slice_indices,
+                    promovits.TRAINING_CHUNK_SIZE // promovits.HOPSIZE)
 
-        # Discriminator
-        y_d_hat_r, y_d_hat_g, _, _ = net_d(audio, generated.detach())
-        with torch.cuda.amp.autocast(enabled=False):
-            loss_disc, losses_disc_r, losses_disc_g = promovits.loss.discriminator(y_d_hat_r, y_d_hat_g)
-            loss_disc_all = loss_disc
+            # Exit autocast context, as ComplexHalf type is not supported
+            # See Github issue https://github.com/jaywalnut310/vits/issues/15
+            generated = generated.float()
+            generated_mels = promovits.preprocess.spectrogram.from_audio(
+                generated,
+                True)
+            audio = promovits.model.slice_segments(
+                audio,
+                slice_indices * promovits.HOPSIZE,
+                promovits.TRAINING_CHUNK_SIZE)
 
-        optim_d.zero_grad()
-        scaler.scale(loss_disc_all).backward()
-        scaler.unscale_(optim_d)
-        grad_norm_d = clip_gradients(net_d.parameters(), None)
-        scaler.step(optim_d)
+            # Print model summaries first time
+            if not printed:
+                print(torchinfo.summary(
+                    generator,
+                    input_data=generator_input,
+                    device=device))
+                print(torchinfo.summary(
+                    discriminators,
+                    input_data=(audio, generated.detach()),
+                    device=device))
+                printed = True
 
-        with torch.cuda.amp.autocast(enabled=config.train.fp16_run):
-            # Generator
-            y_d_hat_r, y_d_hat_g, fmap_r, fmap_g = net_d(audio, generated)
-            with torch.cuda.amp.autocast(enabled=False):
-                if l_length is not None:
-                    loss_dur = torch.sum(l_length.float())
-                else:
-                    loss_dur = 0
-                loss_mel = torch.nn.functional.l1_loss(mel_slices, generated_mels) * config.train.c_mel
-                loss_kl = promovits.loss.kl(z_p, logs_q, m_p, logs_p, z_mask)
-                loss_fm = promovits.loss.feature_matching(fmap_r, fmap_g)
-                loss_gen, losses_gen = promovits.loss.generator(y_d_hat_g)
-                loss_gen_all = loss_gen + loss_fm + loss_mel + loss_dur + loss_kl
-        optim_g.zero_grad()
-        scaler.scale(loss_gen_all).backward()
-        scaler.unscale_(optim_g)
-        grad_norm_g = clip_gradients(net_g.parameters(), None)
-        scaler.step(optim_g)
-        scaler.update()
+            #######################
+            # Train discriminator #
+            #######################
 
-        if not rank:
+            real_logits, fake_logits, _, _ = discriminators(
+                audio,
+                generated.detach())
+
+            # Get discriminator loss
+            (
+                discriminator_losses,
+                real_discriminator_losses,
+                fake_discriminator_losses
+            ) = promovits.loss.discriminator(real_logits, fake_logits)
+
+            ##########################
+            # Optimize discriminator #
+            ##########################
+
+            discriminator_optimizer.zero_grad()
+            scaler.scale(discriminator_losses).backward()
+            scaler.unscale_(discriminator_optimizer)
+            discriminator_gradient_norm = clip_gradients(
+                discriminators.parameters(),
+                None)
+            scaler.step(discriminator_optimizer)
+
+            ###################
+            # Train generator #
+            ###################
+
+            with torch.cuda.amp.autocast():
+                (
+                    _,
+                    fake_logits,
+                    real_feature_maps,
+                    fake_feature_maps
+                ) = discriminators(audio, generated)
+
+            ####################
+            # Generator losses #
+            ####################
+
+            # Get duration loss
+            if l_length is not None:
+                duration_loss = torch.sum(l_length.float())
+            else:
+                duration_loss = 0
+
+            # Get melspectrogram loss
+            # TODO - config
+            mel_loss = torch.nn.functional.l1_loss(
+                mel_slices, generated_mels) * config.train.c_mel
+
+            # Get KL divergence loss between phonemes and spectrogram
+            kl_divergence_loss = promovits.loss.kl(z_p, logs_q, m_p, logs_p, z_mask)
+
+            # Get feature matching loss
+            feature_matching_loss = promovits.loss.feature_matching(
+                real_feature_maps,
+                fake_feature_maps)
+
+            # Get adversarial loss
+            adversarial_loss, adversarial_losses = promovits.loss.generator(
+                fake_logits)
+            generator_losses = (
+                adversarial_loss +
+                feature_matching_loss +
+                mel_loss +
+                duration_loss +
+                kl_divergence_loss)
+
+            ######################
+            # Optimize generator #
+            ######################
+
+            generator_optimizer.zero_grad()
+            scaler.scale(generator_losses).backward()
+            scaler.unscale_(generator_optimizer)
+            generator_gradient_norm = clip_gradients(
+                generator.parameters(),
+                None)
+            scaler.step(generator_optimizer)
+            scaler.update()
 
             ###########
             # Logging #
             ###########
 
-            if global_step % config.train.log_interval == 0:
-                lr = optim_g.param_groups[0]['lr']
-                losses = [loss_disc, loss_gen, loss_fm, loss_mel, loss_dur, loss_kl]
-                print('Train Epoch: {} [{:.0f}%]'.format(
-                    epoch,
-                    100. * batch_index / len(train_loader)))
-                print(
-                    [torch.tensor(x).item() for x in losses] + [global_step, lr])
+            if not rank:
 
-                scalar_dict = {
-                    "train/loss/generator/total": loss_gen_all,
-                    "train/loss/discriminator/total": loss_disc_all,
-                    "train/learning_rate": lr,
-                    "train/gradients/discriminator_norm": grad_norm_d,
-                    "train/gradients/generator_norm": grad_norm_g,
-                    "train/loss/generator/feature-matching": loss_fm,
-                    "train/loss/generator/mels": loss_mel,
-                    "train/loss/generator/duration": loss_dur,
-                    "train/loss/generator/kl-divergence": loss_kl}
-                scalar_dict.update(
-                    {"train/loss/generator/{}".format(i): v for i, v in enumerate(losses_gen)})
-                scalar_dict.update(
-                    {"train/loss/discriminator/real/{}".format(i): v for i, v in enumerate(losses_disc_r)})
-                scalar_dict.update(
-                    {"train/loss/discriminator/generated/{}".format(i): v for i, v in enumerate(losses_disc_g)})
+                if step % promovits.LOG_INTERVAL == 0:
+                    print(
+                        f'Training - step ({step}) ' +
+                        f'[{100. * step / promovits.NUM_STEPS:.0f}%]')
 
-                image_dict = {
-                    "train/mels/slice/original": promovits.evaluate.plot.spectrogram(mel_slices[0].data.cpu().numpy()),
-                    "train/mels/slice/generated": promovits.evaluate.plot.spectrogram(generated_mels[0].data.cpu().numpy()),
-                    "train/mels/original": promovits.evaluate.plot.spectrogram(mels[0].data.cpu().numpy()),
-                    "train/attention": promovits.evaluate.plot.alignment(attn[0,0].data.cpu().numpy())}
-                summarize(
-                    writer=writer,
-                    global_step=global_step,
-                    images=image_dict,
-                    scalars=scalar_dict)
+                    # Log losses
+                    scalars = {
+                        'train/loss/generator/total': generator_losses,
+                        'train/loss/discriminator/total': discriminator_losses,
+                        'train/learning_rate':
+                            generator_optimizer.param_groups[0]['lr'],
+                        'train/gradients/discriminator_norm':
+                            discriminator_gradient_norm,
+                        'train/gradients/generator_norm':
+                            generator_gradient_norm,
+                        'train/loss/generator/feature-matching':
+                            feature_matching_loss,
+                        'train/loss/generator/mels': mel_loss,
+                        'train/loss/generator/duration': duration_loss,
+                        'train/loss/generator/kl-divergence':
+                            kl_divergence_loss}
+                    scalars.update(
+                        {f'train/loss/generator/adversarial-{i:02d}': value
+                        for i, value in enumerate(adversarial_losses)})
+                    scalars.update(
+                        {f'train/loss/discriminator/real-{i:02d}': value
+                        for i, value in enumerate(real_discriminator_losses)})
+                    scalars.update(
+                        {f'train/loss/discriminator/fake-{i:02d}': value
+                        for i, value in enumerate(fake_discriminator_losses)})
 
-            ############
-            # Evaluate #
-            ############
+                    # Log mels and attention matrix
+                    images = {
+                        'train/mels/slice/original':
+                            promovits.evaluate.plot.spectrogram(
+                                mel_slices[0].data.cpu().numpy()),
+                        'train/mels/slice/generated':
+                            promovits.evaluate.plot.spectrogram(
+                                generated_mels[0].data.cpu().numpy()),
+                        'train/mels/original':
+                            promovits.evaluate.plot.spectrogram(
+                                mels[0].data.cpu().numpy()),
+                        'train/attention':
+                            promovits.evaluate.plot.alignment(
+                                attention[0, 0].data.cpu().numpy())}
 
-            if global_step % config.train.eval_interval == 0:
-                evaluate(net_g, valid_loader, writer, device)
+                    # Write to tensorboard
+                    summarize(writer, step, images=images, scalars=scalars)
 
-            ###################
-            # Save checkpoint #
-            ###################
+                ############
+                # Evaluate #
+                ############
 
-            if global_step % config.train.checkpoint_interval == 0:
-                save_checkpoint(
-                    net_g,
-                    optim_g,
-                    epoch,
-                    directory / f'G_{global_step}.pth')
-                save_checkpoint(
-                    net_d,
-                    optim_d,
-                    epoch,
-                    directory / f'D_{global_step}.pth')
-        global_step += 1
+                if step % promovits.EVALUATION_INTERVAL == 0:
+                    evaluate(step, generator, valid_loader, writer, device)
 
-    if not rank:
-        print('====> Epoch: {}'.format(epoch))
+                ###################
+                # Save checkpoint #
+                ###################
+
+                if step % promovits.CHECKPOINT_INTERVAL == 0:
+                    save_checkpoint(
+                        generator,
+                        generator_optimizer,
+                        step,
+                        directory / f'generator-{step:08d}.pt')
+                    save_checkpoint(
+                        discriminators,
+                        discriminator_optimizer,
+                        step,
+                        directory / f'discriminator-{step:08d}.pt')
+
+            # Update training step count
+            if step >= promovits.NUM_STEPS:
+                break
+            step += 1
+
+        # Update learning rate every epoch
+        generator_scheduler.step()
+        discriminator_scheduler.step()
 
 
-def evaluate(generator, valid_loader, writer, device):
+###############################################################################
+# Evaluation
+###############################################################################
+
+
+def evaluate(step, generator, valid_loader, writer, device):
+    """Perform model evaluation"""
+    # Prepare generator for evaluation
     generator.eval()
+
+    # Turn off gradient computation
     with torch.no_grad():
 
-        # Get batch
+        # Unpack batch
         (
             phonemes,
             phoneme_lengths,
@@ -339,9 +410,11 @@ def evaluate(generator, valid_loader, writer, device):
             speakers
         ) = unpack_to_device(next(valid_loader), device)
 
-        audio_dict = {}
-        image_dict = {}
+        waveforms = {}
+        images = {}
         for i in range(len(valid_loader.dataset)):
+
+            # Generate speech
             generated, _, mask, *_ = generator.infer(
                 phonemes[i:i + 1, ..., :phoneme_lengths[i]],
                 phoneme_lengths[i:i + 1],
@@ -349,26 +422,34 @@ def evaluate(generator, valid_loader, writer, device):
                 max_len=2048)
             generated_lengths = mask.sum([1,2]).long() * promovits.HOPSIZE
 
-            # Get true and predicted mels
-            mel = promovits.preprocess.spectrogram.linear_to_mel(
-                spectrogram[i:i + 1, :, :spectrogram_lengths[i]])
+            if not step:
+
+                # Log original audio
+                waveforms[f'evaluate/original-{i:02d}'] = \
+                    audio[i, :, :audio_lengths[i]]
+
+                # Log original melspectrogram
+                mels = promovits.preprocess.spectrogram.linear_to_mel(
+                    spectrogram[i:i + 1, :, :spectrogram_lengths[i]])
+                images[f'evaluate/mels/original-{i:02d}'] = \
+                    promovits.evaluate.plot.spectrogram(mels[0].cpu().numpy())
+
+            # Log generated audio
+            waveforms[f'evaluate/generated-{i:02d}'] = \
+                generated[0,:,:generated_lengths[0]]
+
+            # Log generated melspectrogram
             generated_mels = promovits.preprocess.spectrogram.from_audio(
                 generated.float(),
                 True)
+            images[f'evaluate/mels/generated-{i:02d}'] = \
+                promovits.evaluate.plot.spectrogram(
+                    generated_mels.cpu().numpy())
 
-            image_dict[f"gen/mel-{i}"] = promovits.evaluate.plot.spectrogram(
-                generated_mels.cpu().numpy())
-            audio_dict[f"gen/audio-{i}"] = generated[0,:,:generated_lengths[0]]
-            if global_step == 0:
-                image_dict[f"gt/mel-{i}"] = promovits.evaluate.plot.spectrogram(
-                    mel[0].cpu().numpy())
-                audio_dict[f"evaluate/original/{i}"] = audio[i, :, :audio_lengths[i]]
+    # Write to Tensorboard
+    summarize(writer, step, images=images, waveforms=waveforms)
 
-    summarize(
-        writer=writer,
-        global_step=global_step,
-        images=image_dict,
-        audios=audio_dict)
+    # Prepare generator for training
     generator.train()
 
 
@@ -390,8 +471,8 @@ def ddp_context(rank, world_size):
     os.environ['MASTER_ADDR']='localhost'
     os.environ['MASTER_PORT']='12355'
     torch.distributed.init_process_group(
-        "nccl",
-        init_method="env://",
+        'nccl',
+        init_method='env://',
         world_size=world_size,
         rank=rank)
 
@@ -429,44 +510,39 @@ def clip_gradients(parameters, clip_value, norm_type=2):
     return total_norm ** (1. / norm_type)
 
 
-def latest_checkpoint_path(directory, regex="G_*.pth"):
+def latest_checkpoint_path(directory, regex='generator-*.pt'):
     """Retrieve the path to the most recent checkpoint"""
     files = directory.glob(regex)
     files.sort(key=lambda f: int(''.join(filter(str.isdigit, f))))
     return files[-1]
 
 
-def save_checkpoint(
-    model,
-    optimizer,
-    iteration,
-    checkpoint_path):
+def save_checkpoint(model, optimizer, step, file):
     """Save training checkpoint to disk"""
-    print("Saving model and optimizer state at iteration {} to {}".format(
-        iteration, checkpoint_path))
+    print("Saving model and optimizer at step {} to {}".format(step, file))
     checkpoint = {
+        'step': step,
         'model': model.state_dict(),
-        'iteration': iteration,
         'optimizer': optimizer.state_dict()}
-    torch.save(checkpoint, checkpoint_path)
+    torch.save(checkpoint, file)
 
 
 def summarize(
     writer,
-    global_step,
+    step,
     scalars={},
     histograms={},
     images={},
-    audios={}):
+    waveforms={}):
     """Add assets to Tensorboard"""
     for k, v in scalars.items():
-        writer.add_scalar(k, v, global_step)
+        writer.add_scalar(k, v, step)
     for k, v in histograms.items():
-        writer.add_histogram(k, v, global_step)
+        writer.add_histogram(k, v, step)
     for k, v in images.items():
-        writer.add_image(k, v, global_step, dataformats='HWC')
-    for k, v in audios.items():
-        writer.add_audio(k, v, global_step, promovits.SAMPLE_RATE)
+        writer.add_image(k, v, step, dataformats='HWC')
+    for k, v in waveforms.items():
+        writer.add_audio(k, v, step, promovits.SAMPLE_RATE)
 
 
 def unpack_to_device(batch, device):

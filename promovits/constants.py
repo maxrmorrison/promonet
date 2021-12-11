@@ -3,6 +3,8 @@ from pathlib import Path
 
 import torch
 
+# TODO - python config file
+
 
 ###############################################################################
 # Directories
@@ -66,6 +68,30 @@ WINDOW_SIZE = 1024
 
 
 ###############################################################################
+# Logging parameters
+###############################################################################
+
+
+# Number of steps between saving checkpoints
+CHECKPOINT_INTERVAL = 25000  # steps
+
+# Number of steps between logging to Tensorboard
+LOG_INTERVAL = 1000  # steps
+
+# Number of steps between evaluation
+EVALUATION_INTERVAL = 2500  # steps
+
+
+###############################################################################
+# Loss parameters
+###############################################################################
+
+
+# Weight applied to the melspectrogram loss
+MEL_LOSS_WEIGHT = 45.
+
+
+###############################################################################
 # PPG parameters
 ###############################################################################
 
@@ -94,6 +120,9 @@ MAX_TEXT_LEN = 190
 # Batch size (per gpu)
 BATCH_SIZE = 64
 
+# Number of training steps
+NUM_STEPS = 300000
+
 # Number of data loading worker threads
 NUM_WORKERS = 2
 
@@ -106,3 +135,6 @@ TRAINING_OPTIMIZER = functools.partial(
     lr=2e-4,
     betas=[0.8, 0.99],
     eps=1e-9)
+
+# Number of samples generated during training
+TRAINING_CHUNK_SIZE = 8192

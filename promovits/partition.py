@@ -8,13 +8,13 @@ VCTK
     (10 examples)
 * train_adapt_{:02d} - Training dataset for speaker adaptation (10 speakers)
 * test_adapt_{:02d} - Test dataset for speaker adaptation
-    (10 speakers; 10 examples per speaker; 5-9 seconds)
+    (10 speakers; 10 examples per speaker; 4-10 seconds)
 
 DAPS
 ===
 * train_adapt_{:02d} - Training dataset for speaker adaptation (10 speakers)
 * test_adapt_{:02d} - Test dataset for speaker adaptation
-    (10 speakers; 10 examples per speaker; 5-9 seconds)
+    (10 speakers; 10 examples per speaker; 4-10 seconds)
 """
 import argparse
 import functools

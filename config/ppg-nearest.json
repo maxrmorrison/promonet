@@ -1,17 +1,10 @@
 {
   "train": {
-    "checkpoint_interval": 25000,
-    "log_interval": 200,
-    "eval_interval": 1000,
-    "seed": 1234,
-    "epochs": 10000,
-    "fp16_run": true,
     "lr_decay": 0.999875,
     "segment_size": 8192,
     "c_mel": 45
   },
   "data": {
-    "n_speakers": 109,
     "interp_method": "nearest"
   },
   "model": {
