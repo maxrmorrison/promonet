@@ -9,7 +9,12 @@ DEFAULT_MIN_BIN_HEIGHT = 1e-3
 DEFAULT_MIN_DERIVATIVE = 1e-3
 
 
-def piecewise_rational_quadratic_transform(
+###############################################################################
+# Spline transformations
+###############################################################################
+
+
+def piecewise_rational_quadratic(
     inputs,
     unnormalized_widths,
     unnormalized_heights,
@@ -42,24 +47,22 @@ def piecewise_rational_quadratic_transform(
     return outputs, logabsdet
 
 
-def searchsorted(bin_locations, inputs, eps=1e-6):
-    bin_locations[..., -1] += eps
-    return torch.sum(
-        inputs[..., None] >= bin_locations,
-        dim=-1
-    ) - 1
+###############################################################################
+# Spline functions
+###############################################################################
 
 
-def unconstrained_rational_quadratic_spline(inputs,
-                                            unnormalized_widths,
-                                            unnormalized_heights,
-                                            unnormalized_derivatives,
-                                            inverse=False,
-                                            tails='linear',
-                                            tail_bound=1.,
-                                            min_bin_width=DEFAULT_MIN_BIN_WIDTH,
-                                            min_bin_height=DEFAULT_MIN_BIN_HEIGHT,
-                                            min_derivative=DEFAULT_MIN_DERIVATIVE):
+def unconstrained_rational_quadratic_spline(
+    inputs,
+    unnormalized_widths,
+    unnormalized_heights,
+    unnormalized_derivatives,
+    inverse=False,
+    tails='linear',
+    tail_bound=1.,
+    min_bin_width=DEFAULT_MIN_BIN_WIDTH,
+    min_bin_height=DEFAULT_MIN_BIN_HEIGHT,
+    min_derivative=DEFAULT_MIN_DERIVATIVE):
     inside_interval_mask = (inputs >= -tail_bound) & (inputs <= tail_bound)
     outside_interval_mask = ~inside_interval_mask
 
@@ -83,23 +86,27 @@ def unconstrained_rational_quadratic_spline(inputs,
         unnormalized_heights=unnormalized_heights[inside_interval_mask, :],
         unnormalized_derivatives=unnormalized_derivatives[inside_interval_mask, :],
         inverse=inverse,
-        left=-tail_bound, right=tail_bound, bottom=-tail_bound, top=tail_bound,
+        left=-tail_bound,
+        right=tail_bound,
+        bottom=-tail_bound,
+        top=tail_bound,
         min_bin_width=min_bin_width,
         min_bin_height=min_bin_height,
-        min_derivative=min_derivative
-    )
+        min_derivative=min_derivative)
 
     return outputs, logabsdet
 
-def rational_quadratic_spline(inputs,
-                              unnormalized_widths,
-                              unnormalized_heights,
-                              unnormalized_derivatives,
-                              inverse=False,
-                              left=0., right=1., bottom=0., top=1.,
-                              min_bin_width=DEFAULT_MIN_BIN_WIDTH,
-                              min_bin_height=DEFAULT_MIN_BIN_HEIGHT,
-                              min_derivative=DEFAULT_MIN_DERIVATIVE):
+
+def rational_quadratic_spline(
+    inputs,
+    unnormalized_widths,
+    unnormalized_heights,
+    unnormalized_derivatives,
+    inverse=False,
+    left=0., right=1., bottom=0., top=1.,
+    min_bin_width=DEFAULT_MIN_BIN_WIDTH,
+    min_bin_height=DEFAULT_MIN_BIN_HEIGHT,
+    min_derivative=DEFAULT_MIN_DERIVATIVE):
     if torch.min(inputs) < left or torch.max(inputs) > right:
         raise ValueError('Input to a transform is not within its domain')
 
@@ -189,3 +196,16 @@ def rational_quadratic_spline(inputs,
         logabsdet = torch.log(derivative_numerator) - 2 * torch.log(denominator)
 
         return outputs, logabsdet
+
+
+###############################################################################
+# Utilities
+###############################################################################
+
+
+def searchsorted(bin_locations, inputs, eps=1e-6):
+    bin_locations[..., -1] += eps
+    return torch.sum(
+        inputs[..., None] >= bin_locations,
+        dim=-1
+    ) - 1
