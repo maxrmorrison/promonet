@@ -120,6 +120,9 @@ MAX_TEXT_LEN = 190
 # Batch size (per gpu)
 BATCH_SIZE = 64
 
+# Per-epoch decay rate of the learning rate
+LEARNING_RATE_DECAY = .999875
+
 # Number of training steps
 NUM_STEPS = 300000
 

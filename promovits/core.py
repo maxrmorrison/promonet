@@ -11,7 +11,7 @@ import promovits
 
 
 def from_audio(
-    hps,
+    config,
     audio,
     sample_rate=promovits.SAMPLE_RATE,
     text=None,
@@ -28,7 +28,7 @@ def from_audio(
         audio = resample_fn(audio)
 
     # Get phoneme or PPG features
-    if hps.model.use_ppg:
+    if config.model.use_ppg:
         text = promovits.preprocess.ppg.from_audio(audio, gpu)
     else:
         # TEMPORARY - text preprocessing is causing deadlock
@@ -40,11 +40,11 @@ def from_audio(
     speakers = promovits.data.PPGDataset('vctk').speakers
     net_g = promovits.model.Generator(
         len(promovits.preprocess.text.symbols()),
-        hps.data.filter_length // 2 + 1,
-        hps.train.segment_size // hps.data.hop_length,
+        promovits.WINDOW_SIZE // 2 + 1,
+        promovits.TRAINING_CHUNK_SIZE // promovits.HOPSIZE,
         # TODO - this eventually should be replaced by an embedding
         n_speakers=max(int(speaker) for speaker in speakers) + 1,
-        **hps.model).to(device)
+        **config.model).to(device)
     net_g.eval()
 
     net_g = promovits.load.checkpoint(checkpoint_file, net_g)[0]
@@ -75,7 +75,7 @@ def from_file(
     audio = promovits.load.audio(audio_file)
 
     # Load config
-    hps = promovits.load.config(config)
+    config = promovits.load.config(config)
 
     # Load alignment
     if target_alignment_file:
@@ -91,7 +91,7 @@ def from_file(
 
     # Generate
     return from_audio(
-        hps,
+        config,
         audio,
         promovits.SAMPLE_RATE,
         alignment,

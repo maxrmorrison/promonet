@@ -1,9 +1,4 @@
 {
-  "train": {
-    "lr_decay": 0.999875,
-    "segment_size": 8192,
-    "c_mel": 45
-  },
   "data": {
     "interp_method": "linear"
   },

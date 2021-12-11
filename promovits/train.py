@@ -130,10 +130,9 @@ def train(
     # Create schedulers #
     #####################
 
-    # TODO - config
     scheduler_fn = functools.partial(
         torch.optim.lr_scheduler.ExponentialLR,
-        gamma=config.train.lr_decay,
+        gamma=promovits.LEARNING_RATE_DECAY,
         last_epoch=step // len(train_loader.dataset) if step else -1)
     generator_scheduler = scheduler_fn(generator_optimizer)
     discriminator_scheduler = scheduler_fn(discriminator_optimizer)
@@ -263,9 +262,8 @@ def train(
                 duration_loss = 0
 
             # Get melspectrogram loss
-            # TODO - config
             mel_loss = torch.nn.functional.l1_loss(
-                mel_slices, generated_mels) * config.train.c_mel
+                mel_slices, generated_mels) * promovits.MEL_LOSS_WEIGHT
 
             # Get KL divergence loss between phonemes and spectrogram
             kl_divergence_loss = promovits.loss.kl(z_p, logs_q, m_p, logs_p, z_mask)
