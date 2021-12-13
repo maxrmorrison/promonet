@@ -3,8 +3,6 @@ from pathlib import Path
 
 import torch
 
-# TODO - python config file
-
 
 ###############################################################################
 # Directories
