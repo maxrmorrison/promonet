@@ -38,6 +38,9 @@ TRAIN_DIR = RUNS_DIR / 'train'
 # Default checkpoint for inference
 DEFAULT_CHECKPOINT = ASSETS_DIR / 'checkpoints' / 'promovits.pt'
 
+# Default configuration file
+DEFAULT_CONFIGURATION = ASSETS_DIR / 'configs' / 'promovits.py'
+
 
 ###############################################################################
 # Audio parameters

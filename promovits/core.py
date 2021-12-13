@@ -28,7 +28,7 @@ def from_audio(
         audio = resample_fn(audio)
 
     # Get phoneme or PPG features
-    if config.model.use_ppg:
+    if config.use_ppg:
         text = promovits.preprocess.ppg.from_audio(audio, gpu)
     else:
         # TEMPORARY - text preprocessing is causing deadlock
@@ -38,28 +38,29 @@ def from_audio(
     # Setup model
     device = torch.device('cpu' if gpu is None else f'cuda:{gpu}')
     speakers = promovits.data.PPGDataset('vctk').speakers
-    net_g = promovits.model.Generator(
+    generator = promovits.model.Generator(
         len(promovits.preprocess.text.symbols()),
         promovits.WINDOW_SIZE // 2 + 1,
         promovits.TRAINING_CHUNK_SIZE // promovits.HOPSIZE,
-        # TODO - this eventually should be replaced by an embedding
-        n_speakers=max(int(speaker) for speaker in speakers) + 1,
-        **config.model).to(device)
-    net_g.eval()
+        use_ppg=config.use_ppg).to(device)
+    generator.eval()
 
-    net_g = promovits.load.checkpoint(checkpoint_file, net_g)[0]
+    generator = promovits.load.checkpoint(checkpoint_file, generator)[0]
 
     with torch.no_grad():
         text = text.to(device)
-        length = torch.tensor([text.shape[-1]], dtype=torch.long, device=device)
+        length = torch.tensor(
+            [text.shape[-1]],
+            dtype=torch.long,
+            device=device)
 
         # TODO - pitch and ppg inputs
-        audio = net_g.infer(
+        audio = generator.infer(
             text,
             length,
             noise_scale=.667,
             noise_scale_w=0.8,
-            length_scale=1)[0][0,0].cpu()
+            length_scale=1)[0][0].cpu()
 
     return audio
 

@@ -20,7 +20,6 @@ import promovits
 def train(
     dataset,
     directory,
-    config,
     train_partition='train',
     valid_partition='valid',
     adapt=False,
@@ -33,7 +32,6 @@ def train(
         rank = None
 
     if not rank:
-        print(config)
         writer = SummaryWriter(log_dir=directory)
 
     device = torch.device('cpu' if gpu is None else f'cuda:{gpu}')
@@ -42,28 +40,24 @@ def train(
     # Create data loaders #
     #######################
 
-    # TODO - config
     torch.manual_seed(promovits.RANDOM_SEED)
     train_loader, valid_loader = promovits.data.loaders(
         dataset,
         train_partition,
         valid_partition,
         gpu,
-        config.model.use_ppg,
-        config.data.interp_method)
+        promovits.PPG_FEATURES,
+        promovits.PPG_INTERP_METHOD)
 
     #################
     # Create models #
     #################
 
-    # TODO - model config
     generator = promovits.model.Generator(
         len(promovits.preprocess.text.symbols()),
-        promovits.WINDOW_SIZE // 2 + 1,
-        promovits.TRAINING_CHUNK_SIZE // promovits.HOPSIZE,
         # TODO - speaker adaptation
         n_speakers=max(int(speaker) for speaker in train_loader.dataset.speakers) + 1,
-        **config.model).to(device)
+        use_ppg=promovits.PPG_FEATURES).to(device)
     discriminators = promovits.model.Discriminator().to(device)
 
     ##################################################
@@ -178,7 +172,7 @@ def train(
                     speakers)
 
                 # Forward pass through generator
-                generated, l_length, attention, slice_indices, _, z_mask,\
+                generated, durations, attention, slice_indices, _, z_mask,\
                     (_, z_p, m_p, logs_p, _, logs_q) = generator(*generator_input)
 
                 # Convert to mels
@@ -233,10 +227,6 @@ def train(
 
             discriminator_optimizer.zero_grad()
             scaler.scale(discriminator_losses).backward()
-            scaler.unscale_(discriminator_optimizer)
-            discriminator_gradient_norm = clip_gradients(
-                discriminators.parameters(),
-                None)
             scaler.step(discriminator_optimizer)
 
             ###################
@@ -256,8 +246,8 @@ def train(
             ####################
 
             # Get duration loss
-            if l_length is not None:
-                duration_loss = torch.sum(l_length.float())
+            if durations is not None:
+                duration_loss = torch.sum(durations.float())
             else:
                 duration_loss = 0
 
@@ -289,10 +279,6 @@ def train(
 
             generator_optimizer.zero_grad()
             scaler.scale(generator_losses).backward()
-            scaler.unscale_(generator_optimizer)
-            generator_gradient_norm = clip_gradients(
-                generator.parameters(),
-                None)
             scaler.step(generator_optimizer)
             scaler.update()
 
@@ -313,10 +299,6 @@ def train(
                         'train/loss/discriminator/total': discriminator_losses,
                         'train/learning_rate':
                             generator_optimizer.param_groups[0]['lr'],
-                        'train/gradients/discriminator_norm':
-                            discriminator_gradient_norm,
-                        'train/gradients/generator_norm':
-                            generator_gradient_norm,
                         'train/loss/generator/feature-matching':
                             feature_matching_loss,
                         'train/loss/generator/mels': mel_loss,
@@ -456,10 +438,10 @@ def evaluate(step, generator, valid_loader, writer, device):
 ###############################################################################
 
 
-def train_ddp(rank, dataset, directory, config, gpus):
+def train_ddp(rank, dataset, directory, gpus):
     """Train with distributed data parallelism"""
     with ddp_context(rank, len(gpus)):
-        train(dataset, directory, config, gpus)
+        train(dataset, directory, gpus)
 
 
 @ contextlib.contextmanager
@@ -490,24 +472,6 @@ def ddp_context(rank, world_size):
 ###############################################################################
 
 
-def clip_gradients(parameters, clip_value, norm_type=2):
-    # TODO - why is the gradient clipping so complicated here?
-    if isinstance(parameters, torch.Tensor):
-        parameters = [parameters]
-    parameters = list(filter(lambda p: p.grad is not None, parameters))
-    norm_type = float(norm_type)
-    if clip_value is not None:
-        clip_value = float(clip_value)
-
-    total_norm = 0
-    for p in parameters:
-        param_norm = p.grad.data.norm(norm_type)
-        total_norm += param_norm.item() ** norm_type
-        if clip_value is not None:
-            p.grad.data.clamp_(min=-clip_value, max=clip_value)
-    return total_norm ** (1. / norm_type)
-
-
 def latest_checkpoint_path(directory, regex='generator-*.pt'):
     """Retrieve the path to the most recent checkpoint"""
     files = directory.glob(regex)
@@ -517,7 +481,7 @@ def latest_checkpoint_path(directory, regex='generator-*.pt'):
 
 def save_checkpoint(model, optimizer, step, file):
     """Save training checkpoint to disk"""
-    print("Saving model and optimizer at step {} to {}".format(step, file))
+    print(f'Saving model and optimizer at step {step} to {file}')
     checkpoint = {
         'step': step,
         'model': model.state_dict(),
@@ -554,35 +518,31 @@ def unpack_to_device(batch, device):
 
 
 def main(
-    config_file,
+    config,
     dataset,
     train_partition='train',
     valid_partition='valid',
     adapt=False,
     gpus=None):
     # Optionally overwrite training with same name
-    directory = promovits.TRAIN_DIR / config_file.stem
+    directory = promovits.TRAIN_DIR / config.stem
 
     # Create output directory
     directory.mkdir(parents=True, exist_ok=True)
 
     # Save configuration
-    shutil.copyfile(config_file, directory / config_file.name)
-
-    # Load configuration
-    config = promovits.load.config(config_file)
+    shutil.copyfile(config, directory / config.name)
 
     if gpus is None:
 
         # CPU training
-        train(dataset, directory, config, train_partition, valid_partition, adapt)
+        train(dataset, directory, train_partition, valid_partition, adapt)
 
     elif len(gpus) > 1:
 
         args = (
             dataset,
             directory,
-            config,
             train_partition,
             valid_partition,
             adapt,
@@ -601,7 +561,6 @@ def main(
         train(
             dataset,
             directory,
-            config,
             train_partition,
             valid_partition,
             adapt,
@@ -612,13 +571,13 @@ def parse_args():
     """Parse command-line arguments"""
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        '--config_file',
+        '--config',
         type=Path,
-        required=True,
+        default=promovits.DEFAULT_CONFIGURATION,
         help='The configuration file')
     parser.add_argument(
         '--dataset',
-        required=True,
+        default='vctk',
         help='The dataset to train on')
     parser.add_argument(
         '--train_partition',

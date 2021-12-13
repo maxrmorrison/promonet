@@ -11,6 +11,7 @@ import promovits
 ###############################################################################
 
 
+# TODO - merge datasets
 class Dataset(torch.utils.data.Dataset):
 
     def __init__(self, dataset, partition):
