@@ -1,9 +1,0 @@
-{
-  "interp_method": "nearest",
-  "features": {
-    "loudness": false,
-    "periodicity": false,
-    "pitch": false,
-    "ppg": true
-  }
-}

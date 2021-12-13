@@ -41,10 +41,6 @@ class Dataset(torch.utils.data.Dataset):
 
 class PPGDataset(Dataset):
 
-    def __init__(self, dataset, partition, interp_method='nearest'):
-        super().__init__(dataset, partition)
-        self.interp_method = interp_method
-
     def __getitem__(self, index):
         stem = self.stems[index]
         audio = promovits.load.audio(self.cache / f'{stem}.wav')
@@ -62,7 +58,7 @@ class PPGDataset(Dataset):
             ppg = torch.nn.functional.interpolate(
                 ppg[None],
                 size=length,
-                mode=self.interp_method)[0]
+                mode=promovits.PPG_INTERP_METHOD)[0]
 
         return ppg
 

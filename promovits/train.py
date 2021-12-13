@@ -6,7 +6,6 @@ import shutil
 from pathlib import Path
 
 import torch
-from torch.utils.tensorboard import SummaryWriter
 import torchinfo
 
 import promovits
@@ -31,9 +30,6 @@ def train(
     else:
         rank = None
 
-    if not rank:
-        writer = SummaryWriter(log_dir=directory)
-
     device = torch.device('cpu' if gpu is None else f'cuda:{gpu}')
 
     #######################
@@ -45,19 +41,18 @@ def train(
         dataset,
         train_partition,
         valid_partition,
-        gpu,
-        promovits.PPG_FEATURES,
-        promovits.PPG_INTERP_METHOD)
+        gpu)
 
     #################
     # Create models #
     #################
 
-    generator = promovits.model.Generator(
-        len(promovits.preprocess.text.symbols()),
-        # TODO - speaker adaptation
-        n_speakers=max(int(speaker) for speaker in train_loader.dataset.speakers) + 1,
-        use_ppg=promovits.PPG_FEATURES).to(device)
+    # TODO - speaker adaptation
+    n_speakers = 1 + max(
+        int(speaker) for speaker in train_loader.dataset.speakers)
+
+    n_symbols = len(promovits.preprocess.text.symbols())
+    generator = promovits.model.Generator(n_symbols, n_speakers).to(device)
     discriminators = promovits.model.Discriminator().to(device)
 
     ##################################################
@@ -314,9 +309,10 @@ def train(
                     scalars.update(
                         {f'train/loss/discriminator/fake-{i:02d}': value
                         for i, value in enumerate(fake_discriminator_losses)})
+                    promovits.write.scalars(directory, step, scalars)
 
                     # Log mels and attention matrix
-                    images = {
+                    promovits.write.images(directory, step, {
                         'train/mels/slice/original':
                             promovits.evaluate.plot.spectrogram(
                                 mel_slices[0].data.cpu().numpy()),
@@ -328,17 +324,14 @@ def train(
                                 mels[0].data.cpu().numpy()),
                         'train/attention':
                             promovits.evaluate.plot.alignment(
-                                attention[0, 0].data.cpu().numpy())}
-
-                    # Write to tensorboard
-                    summarize(writer, step, images=images, scalars=scalars)
+                                attention[0, 0].data.cpu().numpy())})
 
                 ############
                 # Evaluate #
                 ############
 
                 if step % promovits.EVALUATION_INTERVAL == 0:
-                    evaluate(step, generator, valid_loader, writer, device)
+                    evaluate(directory, step, generator, valid_loader, device)
 
                 ###################
                 # Save checkpoint #
@@ -371,7 +364,7 @@ def train(
 ###############################################################################
 
 
-def evaluate(step, generator, valid_loader, writer, device):
+def evaluate(directory, step, generator, valid_loader, device):
     """Perform model evaluation"""
     # Prepare generator for evaluation
     generator.eval()
@@ -427,7 +420,8 @@ def evaluate(step, generator, valid_loader, writer, device):
                     generated_mels.cpu().numpy())
 
     # Write to Tensorboard
-    summarize(writer, step, images=images, waveforms=waveforms)
+    promovits.write.images(directory, step, images)
+    promovits.write.audio(directory, step, waveforms)
 
     # Prepare generator for training
     generator.train()
@@ -487,24 +481,6 @@ def save_checkpoint(model, optimizer, step, file):
         'model': model.state_dict(),
         'optimizer': optimizer.state_dict()}
     torch.save(checkpoint, file)
-
-
-def summarize(
-    writer,
-    step,
-    scalars={},
-    histograms={},
-    images={},
-    waveforms={}):
-    """Add assets to Tensorboard"""
-    for k, v in scalars.items():
-        writer.add_scalar(k, v, step)
-    for k, v in histograms.items():
-        writer.add_histogram(k, v, step)
-    for k, v in images.items():
-        writer.add_image(k, v, step, dataformats='HWC')
-    for k, v in waveforms.items():
-        writer.add_audio(k, v, step, promovits.SAMPLE_RATE)
 
 
 def unpack_to_device(batch, device):

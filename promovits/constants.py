@@ -69,6 +69,45 @@ WINDOW_SIZE = 1024
 
 
 ###############################################################################
+# Features
+###############################################################################
+
+
+# A-weighted loudness conditioning
+LOUDNESS_FEATURES = False
+
+# Periodicity conditioning
+PERIODICITY_FEATURES = False
+
+# Pitch conditioning
+PITCH_FEATURES = False
+
+# Number of pitch bins
+PITCH_BINS = 256
+
+# Embedding size used to represent each pitch bin
+PITCH_EMBEDDING_SIZE = 128
+
+# Number of channels in the phonetic posteriorgram features
+PPG_CHANNELS = 144
+
+# Phonemic posteriorgram conditioning
+PPG_FEATURES = False
+
+# Type of interpolation method to use to scale PPG features
+# Available method are ['nearest', 'linear']
+PPG_INTERP_METHOD = None
+
+# Number of input features
+# 178 is len(promovits.preprocess.text.symbols())
+NUM_FEATURES = 178 if not PPG_FEATURES else (
+    LOUDNESS_FEATURES +
+    PERIODICITY_FEATURES +
+    PITCH_FEATURES * PITCH_BINS +
+    PPG_FEATURES * PPG_CHANNELS)
+
+
+###############################################################################
 # Logging parameters
 ###############################################################################
 
@@ -90,15 +129,6 @@ EVALUATION_INTERVAL = 2500  # steps
 
 # Weight applied to the melspectrogram loss
 MEL_LOSS_WEIGHT = 45.
-
-
-###############################################################################
-# PPG parameters
-###############################################################################
-
-
-# Number of channels in the phonetic posteriorgram features
-PPG_CHANNELS = 144
 
 
 ###############################################################################

@@ -409,14 +409,13 @@ class Discriminator(torch.nn.Module):
 
 class Generator(nn.Module):
 
-    def __init__(self, n_vocab, n_speakers=0, use_ppg=False):
+    def __init__(self, n_vocab, n_speakers=0):
         super().__init__()
         self.n_vocab = n_vocab
         self.n_speakers = n_speakers
-        self.use_ppg = use_ppg
 
         # Text feature encoding
-        if use_ppg:
+        if promovits.PPG_FEATURES:
             self.enc_p = PPGEncoder(promovits.model.INTER_CHANNELS)
         else:
             self.enc_p = TextEncoder(n_vocab, promovits.model.INTER_CHANNELS)
@@ -483,7 +482,7 @@ class Generator(nn.Module):
         z_p = self.flow(z, y_mask, g=g)
 
         # Optionally use PPGs instead of phonemes
-        if self.use_ppg:
+        if promovits.PPG_FEATURES:
             with torch.no_grad():
                 shape = (x.shape[0], x.shape[2], x.shape[2])
                 attn = torch.zeros(shape, dtype=x.dtype, device=x.device)
@@ -540,7 +539,7 @@ class Generator(nn.Module):
             g = None
 
         # Optionally use PPGs instead of phonemes
-        if self.use_ppg:
+        if promovits.PPG_FEATURES:
             with torch.no_grad():
                 shape = (x.shape[0], x.shape[2], x.shape[2])
                 attn = torch.zeros(shape, dtype=x.dtype, device=x.device)

@@ -1,9 +1,0 @@
-{
-  "interp_method": null,
-  "features": {
-    "loudness": false,
-    "periodicity": false,
-    "pitch": false,
-    "ppg": false
-  }
-}
