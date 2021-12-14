@@ -1,20 +1,17 @@
 import math
 import torch
-from torch import nn
-from torch.nn import functional as F
 
-from torch.nn import Conv1d, ConvTranspose1d, Conv2d
 from torch.nn.utils import weight_norm, remove_weight_norm
 
 import promovits
 
 
-class StochasticDurationPredictor(nn.Module):
+class StochasticDurationPredictor(torch.nn.Module):
 
     def __init__(self, in_channels, filter_channels, p_dropout=.5, n_flows=4):
         super().__init__()
         self.log_flow = promovits.model.modules.Log()
-        self.flows = nn.ModuleList()
+        self.flows = torch.nn.ModuleList()
         self.flows.append(promovits.model.modules.ElementwiseAffine(2))
         for _ in range(n_flows):
             self.flows.append(promovits.model.modules.ConvFlow(
@@ -24,14 +21,14 @@ class StochasticDurationPredictor(nn.Module):
                 n_layers=3))
             self.flows.append(promovits.model.modules.Flip())
 
-        self.post_pre = nn.Conv1d(1, filter_channels, 1)
-        self.post_proj = nn.Conv1d(filter_channels, filter_channels, 1)
+        self.post_pre = torch.nn.Conv1d(1, filter_channels, 1)
+        self.post_proj = torch.nn.Conv1d(filter_channels, filter_channels, 1)
         self.post_convs = promovits.model.modules.DDSConv(
             filter_channels,
             promovits.model.KERNEL_SIZE,
             n_layers=3,
             p_dropout=p_dropout)
-        self.post_flows = nn.ModuleList()
+        self.post_flows = torch.nn.ModuleList()
         self.post_flows.append(promovits.model.modules.ElementwiseAffine(2))
         for _ in range(4):
             self.post_flows.append(promovits.model.modules.ConvFlow(
@@ -41,15 +38,15 @@ class StochasticDurationPredictor(nn.Module):
                 n_layers=3))
             self.post_flows.append(promovits.model.modules.Flip())
 
-        self.pre = nn.Conv1d(in_channels, filter_channels, 1)
-        self.proj = nn.Conv1d(filter_channels, filter_channels, 1)
+        self.pre = torch.nn.Conv1d(in_channels, filter_channels, 1)
+        self.proj = torch.nn.Conv1d(filter_channels, filter_channels, 1)
         self.convs = promovits.model.modules.DDSConv(
             filter_channels,
             promovits.model.KERNEL_SIZE,
             n_layers=3,
             p_dropout=p_dropout)
         if promovits.model.GIN_CHANNELS != 0:
-            self.cond = nn.Conv1d(
+            self.cond = torch.nn.Conv1d(
                 promovits.model.GIN_CHANNELS,
                 filter_channels,
                 1)
@@ -79,8 +76,10 @@ class StochasticDurationPredictor(nn.Module):
             z_u, z1 = torch.split(z_q, [1, 1], 1)
             u = torch.sigmoid(z_u) * x_mask
             z0 = (w - u) * x_mask
-            logdet_tot_q += torch.sum((F.logsigmoid(z_u) + F.logsigmoid(-z_u)) * x_mask, [1,2])
-            logq = torch.sum(-0.5 * (math.log(2*math.pi) + (e_q**2)) * x_mask, [1,2]) - logdet_tot_q
+            logdet_tot_q += torch.sum(
+                (torch.nn.functional.logsigmoid(z_u) + torch.nn.functional.logsigmoid(-z_u)) * x_mask,
+                [1,2])
+            logq = torch.sum(-0.5 * (math.log(2 * math.pi) + (e_q ** 2)) * x_mask, [1, 2]) - logdet_tot_q
 
             logdet_tot = 0
             z0, logdet = self.log_flow(z0, x_mask)
@@ -89,7 +88,7 @@ class StochasticDurationPredictor(nn.Module):
             for flow in flows:
                 z, logdet = flow(z, x_mask, g=x, reverse=reverse)
                 logdet_tot = logdet_tot + logdet
-            nll = torch.sum(0.5 * (math.log(2*math.pi) + (z**2)) * x_mask, [1,2]) - logdet_tot
+            nll = torch.sum(0.5 * (math.log(2 * math.pi) + (z ** 2)) * x_mask, [1, 2]) - logdet_tot
             return nll + logq # [b]
         else:
             flows = list(reversed(self.flows))
@@ -102,14 +101,14 @@ class StochasticDurationPredictor(nn.Module):
             return logw
 
 
-class PPGEncoder(nn.Module):
+class PPGEncoder(torch.nn.Module):
 
     def __init__(self, out_channels):
         super().__init__()
         self.out_channels = out_channels
 
-        self.input_proj = nn.Conv1d(
-            promovits.PPG_CHANNELS,
+        self.input_proj = torch.nn.Conv1d(
+            promovits.NUM_FEATURES,
             promovits.model.HIDDEN_CHANNELS,
             promovits.model.KERNEL_SIZE,
             1,
@@ -121,7 +120,7 @@ class PPGEncoder(nn.Module):
             promovits.model.N_LAYERS,
             promovits.model.KERNEL_SIZE,
             promovits.model.P_DROPOUT)
-        self.projection = nn.Conv1d(
+        self.projection = torch.nn.Conv1d(
             promovits.model.HIDDEN_CHANNELS,
             out_channels * 2,
             1)
@@ -141,13 +140,15 @@ class PPGEncoder(nn.Module):
         return embedded, mean, logstd, mask
 
 
-class TextEncoder(nn.Module):
+class TextEncoder(torch.nn.Module):
 
   def __init__(self, n_vocab, out_channels):
     super().__init__()
     self.out_channels = out_channels
-    self.embedding = nn.Embedding(n_vocab, promovits.model.HIDDEN_CHANNELS)
-    nn.init.normal_(
+    self.embedding = torch.nn.Embedding(
+        n_vocab,
+        promovits.model.HIDDEN_CHANNELS)
+    torch.nn.init.normal_(
         self.embedding.weight,
         0.0,
         promovits.model.HIDDEN_CHANNELS ** -0.5)
@@ -158,7 +159,7 @@ class TextEncoder(nn.Module):
         promovits.model.N_LAYERS,
         promovits.model.KERNEL_SIZE,
         promovits.model.P_DROPOUT)
-    self.projection = nn.Conv1d(
+    self.projection = torch.nn.Conv1d(
         promovits.model.HIDDEN_CHANNELS,
         2 * out_channels,
         1)
@@ -183,7 +184,7 @@ class TextEncoder(nn.Module):
     return embeddings, mean, logstd, mask
 
 
-class ResidualCouplingBlock(nn.Module):
+class ResidualCouplingBlock(torch.nn.Module):
 
     def __init__(
         self,
@@ -195,7 +196,7 @@ class ResidualCouplingBlock(nn.Module):
         n_flows=4,
         gin_channels=0):
         super().__init__()
-        self.flows = nn.ModuleList()
+        self.flows = torch.nn.ModuleList()
         for _ in range(n_flows):
             self.flows.append(promovits.model.modules.ResidualCouplingLayer(
                 channels,
@@ -217,15 +218,14 @@ class ResidualCouplingBlock(nn.Module):
         return x
 
 
-class PosteriorEncoder(nn.Module):
+class PosteriorEncoder(torch.nn.Module):
     def __init__(self,
         in_channels,
         out_channels,
         hidden_channels,
         kernel_size,
         dilation_rate,
-        n_layers,
-        gin_channels=0):
+        n_layers):
         super().__init__()
         self.in_channels = in_channels
         self.out_channels = out_channels
@@ -233,16 +233,15 @@ class PosteriorEncoder(nn.Module):
         self.kernel_size = kernel_size
         self.dilation_rate = dilation_rate
         self.n_layers = n_layers
-        self.gin_channels = gin_channels
 
-        self.pre = nn.Conv1d(in_channels, hidden_channels, 1)
+        self.pre = torch.nn.Conv1d(in_channels, hidden_channels, 1)
         self.enc = promovits.model.modules.WN(
             hidden_channels,
             kernel_size,
             dilation_rate,
             n_layers,
-            gin_channels=gin_channels)
-        self.proj = nn.Conv1d(hidden_channels, out_channels * 2, 1)
+            gin_channels=promovits.model.GIN_CHANNELS)
+        self.proj = torch.nn.Conv1d(hidden_channels, out_channels * 2, 1)
 
     def forward(self, x, x_lengths, g=None):
         x_mask = torch.unsqueeze(promovits.model.sequence_mask(x_lengths, x.size(2)), 1).to(x.dtype)
@@ -269,26 +268,29 @@ class HiFiGANGenerator(torch.nn.Module):
         super().__init__()
         self.num_kernels = len(resblock_kernel_sizes)
         self.num_upsamples = len(upsample_rates)
-        self.conv_pre = Conv1d(initial_channel, upsample_initial_channel, 7, 1, padding=3)
+        self.conv_pre = torch.nn.Conv1d(initial_channel, upsample_initial_channel, 7, 1, padding=3)
         resblock = promovits.model.modules.ResBlock1 if resblock == '1' else promovits.model.modules.ResBlock2
 
-        self.ups = nn.ModuleList()
+        self.ups = torch.nn.ModuleList()
         for i, (u, k) in enumerate(zip(upsample_rates, upsample_kernel_sizes)):
             self.ups.append(weight_norm(
-                ConvTranspose1d(upsample_initial_channel//(2**i), upsample_initial_channel//(2**(i+1)),
+                torch.nn.ConvTranspose1d(upsample_initial_channel//(2**i), upsample_initial_channel//(2**(i+1)),
                                 k, u, padding=(k-u)//2)))
 
-        self.resblocks = nn.ModuleList()
+        self.resblocks = torch.nn.ModuleList()
         for i in range(len(self.ups)):
             ch = upsample_initial_channel//(2**(i+1))
             for j, (k, d) in enumerate(zip(resblock_kernel_sizes, resblock_dilation_sizes)):
                 self.resblocks.append(resblock(ch, k, d))
 
-        self.conv_post = Conv1d(ch, 1, 7, 1, padding=3, bias=False)
+        self.conv_post = torch.nn.Conv1d(ch, 1, 7, 1, padding=3, bias=False)
         self.ups.apply(promovits.model.init_weights)
 
         if gin_channels != 0:
-            self.cond = nn.Conv1d(gin_channels, upsample_initial_channel, 1)
+            self.cond = torch.nn.Conv1d(
+                gin_channels,
+                upsample_initial_channel,
+                1)
 
     def forward(self, x, g=None):
         x = self.conv_pre(x)
@@ -296,7 +298,9 @@ class HiFiGANGenerator(torch.nn.Module):
           x = x + self.cond(g)
 
         for i in range(self.num_upsamples):
-            x = F.leaky_relu(x, promovits.model.modules.LRELU_SLOPE)
+            x = torch.nn.functional.leaky_relu(
+                x,
+                promovits.model.modules.LRELU_SLOPE)
             x = self.ups[i](x)
             xs = None
             for j in range(self.num_kernels):
@@ -305,11 +309,9 @@ class HiFiGANGenerator(torch.nn.Module):
                 else:
                     xs += self.resblocks[i*self.num_kernels+j](x)
             x = xs / self.num_kernels
-        x = F.leaky_relu(x)
+        x = torch.nn.functional.leaky_relu(x)
         x = self.conv_post(x)
-        x = torch.tanh(x)
-
-        return x
+        return torch.tanh(x)
 
     def remove_weight_norm(self):
         print('Removing weight norm...')
@@ -324,79 +326,80 @@ class DiscriminatorP(torch.nn.Module):
     def __init__(self, period, kernel_size=5, stride=3):
         super().__init__()
         self.period = period
-        self.convs = nn.ModuleList([
-            weight_norm(Conv2d(1, 32, (kernel_size, 1), (stride, 1), padding=(promovits.model.get_padding(kernel_size, 1), 0))),
-            weight_norm(Conv2d(32, 128, (kernel_size, 1), (stride, 1), padding=(promovits.model.get_padding(kernel_size, 1), 0))),
-            weight_norm(Conv2d(128, 512, (kernel_size, 1), (stride, 1), padding=(promovits.model.get_padding(kernel_size, 1), 0))),
-            weight_norm(Conv2d(512, 1024, (kernel_size, 1), (stride, 1), padding=(promovits.model.get_padding(kernel_size, 1), 0))),
-            weight_norm(Conv2d(1024, 1024, (kernel_size, 1), 1, padding=(promovits.model.get_padding(kernel_size, 1), 0))),
+        self.convs = torch.nn.ModuleList([
+            weight_norm(torch.nn.Conv2d(1, 32, (kernel_size, 1), (stride, 1), padding=(promovits.model.get_padding(kernel_size, 1), 0))),
+            weight_norm(torch.nn.Conv2d(32, 128, (kernel_size, 1), (stride, 1), padding=(promovits.model.get_padding(kernel_size, 1), 0))),
+            weight_norm(torch.nn.Conv2d(128, 512, (kernel_size, 1), (stride, 1), padding=(promovits.model.get_padding(kernel_size, 1), 0))),
+            weight_norm(torch.nn.Conv2d(512, 1024, (kernel_size, 1), (stride, 1), padding=(promovits.model.get_padding(kernel_size, 1), 0))),
+            weight_norm(torch.nn.Conv2d(1024, 1024, (kernel_size, 1), 1, padding=(promovits.model.get_padding(kernel_size, 1), 0))),
         ])
-        self.conv_post = weight_norm(Conv2d(1024, 1, (3, 1), 1, padding=(1, 0)))
+        self.conv_post = weight_norm(torch.nn.Conv2d(1024, 1, (3, 1), 1, padding=(1, 0)))
 
     def forward(self, x):
-        fmap = []
+        feature_maps = []
 
         # 1d to 2d
         b, c, t = x.shape
         if t % self.period != 0: # pad first
             n_pad = self.period - (t % self.period)
-            x = F.pad(x, (0, n_pad), "reflect")
+            x = torch.nn.functional.pad(x, (0, n_pad), 'reflect')
             t = t + n_pad
         x = x.view(b, c, t // self.period, self.period)
 
         for l in self.convs:
             x = l(x)
-            x = F.leaky_relu(x, promovits.model.modules.LRELU_SLOPE)
-            fmap.append(x)
+            x = torch.nn.functional.leaky_relu(
+                x,
+                promovits.model.modules.LRELU_SLOPE)
+            feature_maps.append(x)
         x = self.conv_post(x)
-        fmap.append(x)
+        feature_maps.append(x)
         x = torch.flatten(x, 1, -1)
 
-        return x, fmap
+        return x, feature_maps
 
 
 class DiscriminatorS(torch.nn.Module):
 
     def __init__(self):
         super().__init__()
-        self.convs = nn.ModuleList([
-            weight_norm(Conv1d(1, 16, 15, 1, padding=7)),
-            weight_norm(Conv1d(16, 64, 41, 4, groups=4, padding=20)),
-            weight_norm(Conv1d(64, 256, 41, 4, groups=16, padding=20)),
-            weight_norm(Conv1d(256, 1024, 41, 4, groups=64, padding=20)),
-            weight_norm(Conv1d(1024, 1024, 41, 4, groups=256, padding=20)),
-            weight_norm(Conv1d(1024, 1024, 5, 1, padding=2)),
+        self.convs = torch.nn.ModuleList([
+            weight_norm(torch.nn.Conv1d(1, 16, 15, 1, padding=7)),
+            weight_norm(torch.nn.Conv1d(16, 64, 41, 4, groups=4, padding=20)),
+            weight_norm(torch.nn.Conv1d(64, 256, 41, 4, groups=16, padding=20)),
+            weight_norm(torch.nn.Conv1d(256, 1024, 41, 4, groups=64, padding=20)),
+            weight_norm(torch.nn.Conv1d(1024, 1024, 41, 4, groups=256, padding=20)),
+            weight_norm(torch.nn.Conv1d(1024, 1024, 5, 1, padding=2)),
         ])
-        self.conv_post = weight_norm(Conv1d(1024, 1, 3, 1, padding=1))
+        self.conv_post = weight_norm(torch.nn.Conv1d(1024, 1, 3, 1, padding=1))
 
     def forward(self, x):
-        fmap = []
+        feature_maps = []
         for l in self.convs:
             x = l(x)
-            x = F.leaky_relu(x, promovits.model.modules.LRELU_SLOPE)
-            fmap.append(x)
+            x = torch.nn.functional.leaky_relu(
+                x,
+                promovits.model.modules.LRELU_SLOPE)
+            feature_maps.append(x)
         x = self.conv_post(x)
-        fmap.append(x)
+        feature_maps.append(x)
         x = torch.flatten(x, 1, -1)
-
-        return x, fmap
+        return x, feature_maps
 
 
 class Discriminator(torch.nn.Module):
 
     def __init__(self):
         super().__init__()
-        periods = [2,3,5,7,11]
-        discs = [DiscriminatorS()]
-        discs = discs + [DiscriminatorP(i) for i in periods]
-        self.discriminators = nn.ModuleList(discs)
+        self.discriminators = torch.nn.ModuleList(
+            [DiscriminatorS()] + [DiscriminatorP(i) for i in [2, 3, 5, 7, 11]])
 
     def forward(self, y, y_hat):
         y_d_rs = []
         y_d_gs = []
         fmap_rs = []
         fmap_gs = []
-        for i, d in enumerate(self.discriminators):
+        for d in self.discriminators:
             y_d_r, fmap_r = d(y)
             y_d_g, fmap_g = d(y_hat)
             y_d_rs.append(y_d_r)
@@ -407,7 +410,7 @@ class Discriminator(torch.nn.Module):
         return y_d_rs, y_d_gs, fmap_rs, fmap_gs
 
 
-class Generator(nn.Module):
+class Generator(torch.nn.Module):
 
     def __init__(self, n_vocab, n_speakers=0):
         super().__init__()
@@ -446,8 +449,7 @@ class Generator(nn.Module):
             promovits.model.HIDDEN_CHANNELS,
             5,
             1,
-            16,
-            gin_channels=promovits.model.GIN_CHANNELS)
+            16)
 
         # Normalizing flow
         self.flow = ResidualCouplingBlock(
@@ -460,9 +462,12 @@ class Generator(nn.Module):
 
         # Speaker embedding
         if n_speakers > 1:
-            self.speaker_embedding = nn.Embedding(
+            self.speaker_embedding = torch.nn.Embedding(
                 n_speakers,
                 promovits.model.GIN_CHANNELS)
+
+        # TODO - pitch embedding
+        pass
 
     def forward(self, x, x_lengths, y, y_lengths, sid=None):
         """Forward pass through the network"""

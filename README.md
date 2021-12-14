@@ -3,7 +3,7 @@
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![Downloads](https://pepy.tech/badge/promovits)](https://pepy.tech/project/promovits) -->
 
-Official code for the paper _Adaptive End-to-End Speech Prosody Modification_ [[paper]](https://www.maxrmorrison.com/pdfs/morrison2022adaptive.pdf) [[companion website]](https://www.maxrmorrison.com/sites/promovits/)
+Official code for the paper _Adaptive End-to-End Voice Modification_ [[paper]](https://www.maxrmorrison.com/pdfs/morrison2022adaptive.pdf) [[companion website]](https://www.maxrmorrison.com/sites/promovits/)
 
 
 ## Table of contents
@@ -106,9 +106,10 @@ Returns
 ## Reproducing results
 
 For the following subsections, the arguments are as follows
-- `checkpoint` - Path to an existing checkpoint on disk
-- `datasets` - A list of datasets to use. Supported datasets are
-  `vctk`, `daps`, and `ravdess`.
+- `config` - The configuration file
+- `checkpoint` - Path to a checkpoint on disk
+- `dataset` - The name of the dataset to use. One of [`vctk` or `daps`].
+- `datasets` - A list of datasets to use
 - `gpu` - The index of the gpu to use
 - `gpus` - A list of indices of gpus to use for distributed data parallelism
   (DDP)
@@ -178,7 +179,7 @@ score. Results are both printed and stored in `eval/objective/`.
 
 ```
 python -m promovits.evaluate.objective \
-    --name <name> \
+    --config <config> \
     --datasets <datasets> \
     --checkpoint <checkpoint> \
     --num <num> \
@@ -213,14 +214,14 @@ pytest
 ## Citation
 
 ### IEEE
-M. Morrison and B. Pardo, "Adaptive End-to-End Speech Prosody Modification," Submitted to ICML 2022, July 2022.
+M. Morrison and B. Pardo, "Adaptive End-to-End Voice Modification," Submitted to ICML 2022, July 2022.
 
 
 ### BibTex
 
 ```
 @inproceedings{morrison2022adaptive,
-    title={Adaptive End-to-End Speech Prosody Modification},
+    title={Adaptive End-to-End Voice Modification},
     author={Morrison, Max and Pardo, Bryan},
     booktitle={Submitted to ICML 2022},
     month={July},

@@ -6,58 +6,41 @@ import torch
 ###############################################################################
 
 
-def feature_matching(fmap_r, fmap_g):
-  """Feature matching loss"""
-  loss = 0
-  for dr, dg in zip(fmap_r, fmap_g):
-    for rl, gl in zip(dr, dg):
-      rl = rl.float().detach()
-      gl = gl.float()
-      loss += torch.mean(torch.abs(rl - gl))
-
-  return loss * 2
+def feature_matching(real_feature_maps, fake_feature_maps):
+    """Feature matching loss"""
+    loss = 0.
+    iterator = zip(real_feature_maps, fake_feature_maps)
+    for real_feature_map, fake_feature_map in iterator:
+        for real, fake in zip(real_feature_map, fake_feature_map):
+            loss += torch.mean(torch.abs(real.float().detach() - fake.float()))
+    return 2. * loss
 
 
-def discriminator(disc_real_outputs, disc_generated_outputs):
-  """Discriminator loss"""
-  loss = 0
-  r_losses = []
-  g_losses = []
-  for dr, dg in zip(disc_real_outputs, disc_generated_outputs):
-    dr = dr.float()
-    dg = dg.float()
-    r_loss = torch.mean((1-dr)**2)
-    g_loss = torch.mean(dg**2)
-    loss += (r_loss + g_loss)
-    r_losses.append(r_loss.item())
-    g_losses.append(g_loss.item())
-
-  return loss, r_losses, g_losses
+def discriminator(real_outputs, fake_outputs):
+    """Discriminator loss"""
+    real_losses = []
+    fake_losses = []
+    for real_output, fake_output in zip(real_outputs, fake_outputs):
+        real_losses.append(torch.mean((1. - real_output.float()) ** 2.))
+        fake_losses.append(torch.mean(fake_output.float() ** 2.))
+    return sum(real_losses) + sum(fake_losses), real_losses, fake_losses
 
 
-def generator(disc_outputs):
-  """Generator adversarial loss"""
-  loss = 0
-  gen_losses = []
-  for dg in disc_outputs:
-    dg = dg.float()
-    l = torch.mean((1-dg)**2)
-    gen_losses.append(l)
-    loss += l
-
-  return loss, gen_losses
+def generator(discriminator_outputs):
+    """Generator adversarial loss"""
+    losses = [
+        torch.mean((1. - output.float()) ** 2.)
+        for output in discriminator_outputs]
+    return sum(losses), losses
 
 
 def kl(z_p, logs_q, m_p, logs_p, z_mask):
-  """KL-divergence loss"""
-  z_p = z_p.float()
-  logs_q = logs_q.float()
-  m_p = m_p.float()
-  logs_p = logs_p.float()
-  z_mask = z_mask.float()
-
-  kl = logs_p - logs_q - 0.5
-  kl += 0.5 * ((z_p - m_p)**2) * torch.exp(-2. * logs_p)
-  kl = torch.sum(kl * z_mask)
-  l = kl / torch.sum(z_mask)
-  return l
+    """KL-divergence loss"""
+    z_p = z_p.float()
+    logs_q = logs_q.float()
+    m_p = m_p.float()
+    logs_p = logs_p.float()
+    z_mask = z_mask.float()
+    kl = logs_p - logs_q - 0.5
+    kl += 0.5 * ((z_p - m_p) ** 2) * torch.exp(-2. * logs_p)
+    return torch.sum(kl * z_mask) / torch.sum(z_mask)

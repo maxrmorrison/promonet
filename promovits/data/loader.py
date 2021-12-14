@@ -12,14 +12,9 @@ import promovits
 def loaders(dataset, train_partition, valid_partition, gpu=None):
     """Setup data loaders"""
     # Get dataset and collate function
-    if promovits.PPG_FEATURES:
-        train_dataset = promovits.data.PPGDataset(dataset, train_partition)
-        valid_dataset = promovits.data.PPGDataset(dataset, valid_partition)
-        collate_fn = promovits.data.collate.PPGCollate()
-    else:
-        train_dataset = promovits.data.TextDataset(dataset, train_partition)
-        valid_dataset = promovits.data.TextDataset(dataset, valid_partition)
-        collate_fn = promovits.data.collate.TextCollate()
+    train_dataset = promovits.data.Dataset(dataset, train_partition)
+    valid_dataset = promovits.data.Dataset(dataset, valid_partition)
+    collate_fn = promovits.data.Collate()
 
     # Get sampler
     if torch.distributed.is_initialized():

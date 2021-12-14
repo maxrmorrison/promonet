@@ -37,12 +37,10 @@ def from_audio(
 
     # Setup model
     device = torch.device('cpu' if gpu is None else f'cuda:{gpu}')
-    speakers = promovits.data.PPGDataset('vctk').speakers
+    speakers = promovits.data.Dataset('vctk').speakers
     generator = promovits.model.Generator(
         len(promovits.preprocess.text.symbols()),
-        promovits.WINDOW_SIZE // 2 + 1,
-        promovits.TRAINING_CHUNK_SIZE // promovits.HOPSIZE,
-        use_ppg=config.use_ppg).to(device)
+        len(speakers)).to(device)
     generator.eval()
 
     generator = promovits.load.checkpoint(checkpoint_file, generator)[0]
