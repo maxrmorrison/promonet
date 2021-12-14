@@ -140,7 +140,7 @@ class WN(torch.nn.Module):
       res_skip_layer = torch.nn.utils.weight_norm(res_skip_layer, name='weight')
       self.res_skip_layers.append(res_skip_layer)
 
-  def forward(self, x, x_mask, g=None, **kwargs):
+  def forward(self, x, x_mask, g=None):
     output = torch.zeros_like(x)
     n_channels_tensor = torch.IntTensor([self.hidden_channels])
 
@@ -151,7 +151,7 @@ class WN(torch.nn.Module):
       x_in = self.in_layers[i](x)
       if g is not None:
         cond_offset = i * 2 * self.hidden_channels
-        g_l = g[:,cond_offset:cond_offset+2*self.hidden_channels,:]
+        g_l = g[:, cond_offset:cond_offset + 2 * self.hidden_channels, :]
       else:
         g_l = torch.zeros_like(x_in)
 
@@ -263,16 +263,16 @@ class Log(nn.Module):
 
 
 class Flip(nn.Module):
-  def forward(self, x, *args, reverse=False, **kwargs):
+
+  def forward(self, x, reverse=False):
     x = torch.flip(x, [1])
     if not reverse:
-      logdet = torch.zeros(x.size(0)).to(dtype=x.dtype, device=x.device)
-      return x, logdet
-    else:
-      return x
+      return x, torch.zeros(x.size(0)).to(dtype=x.dtype, device=x.device)
+    return x
 
 
 class ElementwiseAffine(nn.Module):
+
   def __init__(self, channels):
     super().__init__()
     self.channels = channels
@@ -291,6 +291,7 @@ class ElementwiseAffine(nn.Module):
 
 
 class ResidualCouplingLayer(nn.Module):
+
   def __init__(self,
       channels,
       hidden_channels,
@@ -339,7 +340,15 @@ class ResidualCouplingLayer(nn.Module):
 
 
 class ConvFlow(nn.Module):
-  def __init__(self, in_channels, filter_channels, kernel_size, n_layers, num_bins=10, tail_bound=5.0):
+
+  def __init__(
+    self,
+    in_channels,
+    filter_channels,
+    kernel_size,
+    n_layers,
+    num_bins=10,
+    tail_bound=5.0):
     super().__init__()
     self.in_channels = in_channels
     self.filter_channels = filter_channels
