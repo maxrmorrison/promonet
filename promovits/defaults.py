@@ -21,23 +21,8 @@ DATA_DIR = Path(__file__).parent.parent / 'data' / 'datasets'
 # Location to save evaluation artifacts
 EVAL_DIR = Path(__file__).parent.parent / 'eval'
 
-# Location to save dataset partitions
-PARTITION_DIR = ASSETS_DIR / 'partitions'
-
 # Location to save training and adaptation artifacts
 RUNS_DIR = Path(__file__).parent.parent / 'runs'
-
-# Location to save adaptation artifacts
-ADAPT_DIR = RUNS_DIR / 'adapt'
-
-# Location to save adaptation artifacts
-TRAIN_DIR = RUNS_DIR / 'train'
-
-# Default checkpoint for inference
-DEFAULT_CHECKPOINT = ASSETS_DIR / 'checkpoints' / 'promovits.pt'
-
-# Default configuration file
-DEFAULT_CONFIGURATION = ASSETS_DIR / 'configs' / 'promovits.py'
 
 
 ###############################################################################
@@ -46,11 +31,11 @@ DEFAULT_CONFIGURATION = ASSETS_DIR / 'configs' / 'promovits.py'
 
 
 # Minimum and maximum frequency
-FMIN = 50
-FMAX = 550
+FMIN = 50.  # Hz
+FMAX = 550.  # Hz
 
 # Audio hopsize
-HOPSIZE = 256
+HOPSIZE = 256  # samples
 
 # Maximum sample value of 16-bit audio
 MAX_SAMPLE_VALUE = 32768
@@ -62,7 +47,7 @@ NUM_MELS = 80
 NUM_FFT = 1024
 
 # Audio sample rate
-SAMPLE_RATE = 22050
+SAMPLE_RATE = 22050  # Hz
 
 # Number of spectrogram channels
 WINDOW_SIZE = 1024
@@ -97,14 +82,6 @@ PPG_FEATURES = False
 # Type of interpolation method to use to scale PPG features
 # Available method are ['nearest', 'linear']
 PPG_INTERP_METHOD = None
-
-# Number of input features
-# 178 is len(promovits.preprocess.text.symbols())
-NUM_FEATURES = 178 if not PPG_FEATURES else (
-    LOUDNESS_FEATURES +
-    PERIODICITY_FEATURES +
-    PITCH_FEATURES * PITCH_BINS +
-    PPG_FEATURES * PPG_CHANNELS)
 
 
 ###############################################################################

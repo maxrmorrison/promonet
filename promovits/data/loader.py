@@ -14,7 +14,6 @@ def loaders(dataset, train_partition, valid_partition, gpu=None):
     # Get dataset and collate function
     train_dataset = promovits.data.Dataset(dataset, train_partition)
     valid_dataset = promovits.data.Dataset(dataset, valid_partition)
-    collate_fn = promovits.data.Collate()
 
     # Get sampler
     if torch.distributed.is_initialized():
@@ -30,7 +29,7 @@ def loaders(dataset, train_partition, valid_partition, gpu=None):
         num_workers=promovits.NUM_WORKERS,
         shuffle=False,
         pin_memory=gpu is not None,
-        collate_fn=collate_fn,
+        collate_fn=promovits.data.collate,
         batch_sampler=train_sampler)
     valid_loader = torch.utils.data.DataLoader(
         valid_dataset,
@@ -39,6 +38,6 @@ def loaders(dataset, train_partition, valid_partition, gpu=None):
         batch_size=promovits.BATCH_SIZE,
         pin_memory=gpu is not None,
         drop_last=False,
-        collate_fn=collate_fn)
+        collate_fn=promovits.data.collate)
 
     return train_loader, valid_loader

@@ -46,12 +46,6 @@ def checkpoint(checkpoint_path, model, optimizer=None):
     return model, optimizer, iteration
 
 
-def config(file):
-    """Load configuration file"""
-    with open(file) as file:
-        return promovits.HParams(**json.load(file))
-
-
 def partition(dataset):
     """Load partitions for dataset"""
     with open(promovits.PARTITION_DIR / f'{dataset}.json') as file:

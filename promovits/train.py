@@ -7,6 +7,7 @@ from pathlib import Path
 
 import torch
 import torchinfo
+import tqdm
 
 import promovits
 
@@ -51,8 +52,7 @@ def train(
     n_speakers = 1 + max(
         int(speaker) for speaker in train_loader.dataset.speakers)
 
-    n_symbols = len(promovits.preprocess.text.symbols())
-    generator = promovits.model.Generator(n_symbols, n_speakers).to(device)
+    generator = promovits.model.Generator(n_speakers).to(device)
     discriminators = promovits.model.Discriminator().to(device)
 
     ##################################################
@@ -136,6 +136,11 @@ def train(
     # Print model summaries on the first step
     printed = False
 
+    # Setup progress bar
+    progress = tqdm.tqdm(
+        total=promovits.NUM_STEPS,
+        dynamic_ncols=True,
+        desc=f'Training {directory.stem}')
     while step < promovits.NUM_STEPS + 1:
 
         # Seed sampler
@@ -149,11 +154,12 @@ def train(
             (
                 phonemes,
                 phoneme_lengths,
+                pitch,
+                speakers,
                 spectrograms,
                 spectrogram_lengths,
                 audio,
                 _,
-                speakers
             ) = unpack_to_device(batch, device)
 
             with torch.cuda.amp.autocast():
@@ -162,13 +168,23 @@ def train(
                 generator_input = (
                     phonemes,
                     phoneme_lengths,
+                    pitch,
+                    speakers,
                     spectrograms,
-                    spectrogram_lengths,
-                    speakers)
+                    spectrogram_lengths)
 
                 # Forward pass through generator
-                generated, durations, attention, slice_indices, _, z_mask,\
-                    (_, z_p, m_p, logs_p, _, logs_q) = generator(*generator_input)
+                (
+                    generated,
+                    latent_mask,
+                    slice_indices,
+                    durations,
+                    attention,
+                    prior,
+                    predicted_mean,
+                    predicted_logstd,
+                    true_logstd
+                ) = generator(*generator_input)
 
                 # Convert to mels
                 mels = promovits.preprocess.spectrogram.linear_to_mel(
@@ -247,11 +263,17 @@ def train(
                 duration_loss = 0
 
             # Get melspectrogram loss
-            mel_loss = torch.nn.functional.l1_loss(
-                mel_slices, generated_mels) * promovits.MEL_LOSS_WEIGHT
+            mel_loss = \
+                promovits.MEL_LOSS_WEIGHT * \
+                torch.nn.functional.l1_loss(mel_slices, generated_mels)
 
             # Get KL divergence loss between phonemes and spectrogram
-            kl_divergence_loss = promovits.loss.kl(z_p, logs_q, m_p, logs_p, z_mask)
+            kl_divergence_loss = promovits.loss.kl(
+                prior,
+                true_logstd,
+                predicted_mean,
+                predicted_logstd,
+                latent_mask)
 
             # Get feature matching loss
             feature_matching_loss = promovits.loss.feature_matching(
@@ -297,9 +319,11 @@ def train(
                         'train/loss/generator/feature-matching':
                             feature_matching_loss,
                         'train/loss/generator/mels': mel_loss,
-                        'train/loss/generator/duration': duration_loss,
                         'train/loss/generator/kl-divergence':
                             kl_divergence_loss}
+                    if durations is not None:
+                        scalars['train/loss/generator/duration'] = \
+                            duration_loss
                     scalars.update(
                         {f'train/loss/generator/adversarial-{i:02d}': value
                         for i, value in enumerate(adversarial_losses)})
@@ -312,7 +336,7 @@ def train(
                     promovits.write.scalars(directory, step, scalars)
 
                     # Log mels and attention matrix
-                    promovits.write.images(directory, step, {
+                    images = {
                         'train/mels/slice/original':
                             promovits.evaluate.plot.spectrogram(
                                 mel_slices[0].data.cpu().numpy()),
@@ -321,10 +345,12 @@ def train(
                                 generated_mels[0].data.cpu().numpy()),
                         'train/mels/original':
                             promovits.evaluate.plot.spectrogram(
-                                mels[0].data.cpu().numpy()),
-                        'train/attention':
+                                mels[0].data.cpu().numpy())}
+                    if attention is not None:
+                        images['train/attention'] = \
                             promovits.evaluate.plot.alignment(
-                                attention[0, 0].data.cpu().numpy())})
+                                attention[0, 0].data.cpu().numpy())
+                    promovits.write.images(directory, step, images)
 
                 ############
                 # Evaluate #
@@ -354,10 +380,18 @@ def train(
                 break
             step += 1
 
+            # Update progress bar
+            progress.update()
+
         # Update learning rate every epoch
         generator_scheduler.step()
         discriminator_scheduler.step()
 
+    # Close progress bar
+    progress.close()
+
+    # TODO - evaluate
+    pass
 
 ###############################################################################
 # Evaluation
@@ -376,11 +410,12 @@ def evaluate(directory, step, generator, valid_loader, device):
         (
             phonemes,
             phoneme_lengths,
+            pitch,
+            speakers,
             spectrogram,
             spectrogram_lengths,
             audio,
-            audio_lengths,
-            speakers
+            audio_lengths
         ) = unpack_to_device(next(valid_loader), device)
 
         waveforms = {}
@@ -388,12 +423,12 @@ def evaluate(directory, step, generator, valid_loader, device):
         for i in range(len(valid_loader.dataset)):
 
             # Generate speech
-            generated, _, mask, *_ = generator.infer(
+            generated, mask, *_ = generator(
                 phonemes[i:i + 1, ..., :phoneme_lengths[i]],
                 phoneme_lengths[i:i + 1],
-                speakers[i:i + 1],
-                max_len=2048)
-            generated_lengths = mask.sum([1,2]).long() * promovits.HOPSIZE
+                pitch,
+                speakers[i:i + 1])
+            generated_lengths = mask.sum([1, 2]).long() * promovits.HOPSIZE
 
             if not step:
 
@@ -469,7 +504,7 @@ def ddp_context(rank, world_size):
 def latest_checkpoint_path(directory, regex='generator-*.pt'):
     """Retrieve the path to the most recent checkpoint"""
     files = directory.glob(regex)
-    files.sort(key=lambda f: int(''.join(filter(str.isdigit, f))))
+    files.sort(key=lambda file: int(''.join(filter(str.isdigit, file))))
     return files[-1]
 
 

@@ -17,10 +17,9 @@ NUM_SAMPLES = 50
 ###############################################################################
 
 
-def main(config_file, datasets, checkpoint, gpu=None):
+def main(config, datasets, checkpoint, gpu=None):
     """Generate files"""
-    # Load config
-    config = promovits.load.config(config_file)
+    name = config.stem
 
     # Generate files for each dataset
     for dataset in datasets:
@@ -42,9 +41,9 @@ def parse_args():
     parser = argparse.ArgumentParser(
         description='Generate files for subjective evaluation')
     parser.add_argument(
-        '--config_file',
+        '--config',
         type=Path,
-        required=True,
+        default=promovits.DEFAULT_CONFIGURATION,
         help='The configuration file')
     parser.add_argument(
         '--datasets',

@@ -158,7 +158,8 @@ def adaptation(directory, stems, speakers):
         random.shuffle(adaptation_stems[speaker])
 
         # Partition speaker data
-        test_adapt_stems = list(filter(filter_fn, adaptation_stems[speaker]))[:10]
+        test_adapt_stems = list(
+            filter(filter_fn, adaptation_stems[speaker]))[:10]
         train_adapt_stems = [
             stem for stem in adaptation_stems[speaker]
             if stem not in test_adapt_stems]

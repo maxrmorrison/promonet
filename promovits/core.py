@@ -1,4 +1,5 @@
 import pypar
+import pysodic
 import torch
 import torchaudio
 
@@ -11,11 +12,12 @@ import promovits
 
 
 def from_audio(
-    config,
     audio,
     sample_rate=promovits.SAMPLE_RATE,
     text=None,
     target_alignment=None,
+    target_loudness=None,
+    target_periodicity=None,
     target_pitch=None,
     checkpoint_file=promovits.DEFAULT_CHECKPOINT,
     gpu=None):
@@ -27,45 +29,62 @@ def from_audio(
             promovits.SAMPLE_RATE)
         audio = resample_fn(audio)
 
-    # Get phoneme or PPG features
-    if config.use_ppg:
-        text = promovits.preprocess.ppg.from_audio(audio, gpu)
+    if promovits.PPG_FEATURES:
+
+        # Get prosody features
+        # TODO - Only get these features if needed.
+        #        Otherwise, use argument features.
+        # TODO - Allow generation without text
+        pitch, periodicity, loudness, _ = pysodic.features.from_audio_and_text(
+            audio,
+            promovits.SAMPLE_RATE,
+            text,
+            promovits.HOPSIZE / promovits.SAMPLE_RATE,
+            promovits.WINDOW_SIZE / promovits.SAMPLE_RATE,
+            gpu)
+
+        # Get phonetic posteriorgrams
+        features = promovits.preprocess.ppg.from_audio(audio, gpu)
+
+        # Maybe resample length
+        if features.shape[1] != pitch.shape[1]:
+            features = torch.nn.functional.interpolate(
+                features[None],
+                size=pitch.shape[1],
+                mode=promovits.PPG_INTERP_METHOD)[0]
+
+        # Concatenate features
+        if promovits.LOUDNESS_FEATURES:
+            features = torch.cat((features, loudness))
+        if promovits.PERIODICITY_FEATURES:
+            features = torch.cat((features, periodicity))
+
     else:
         # TEMPORARY - text preprocessing is causing deadlock
-        # text = promovits.preprocess.text.from_string(text)
+        # features = promovits.preprocess.text.from_string(text)
         raise NotImplementedError()
 
     # Setup model
     device = torch.device('cpu' if gpu is None else f'cuda:{gpu}')
-    speakers = promovits.data.Dataset('vctk').speakers
-    generator = promovits.model.Generator(
-        len(promovits.preprocess.text.symbols()),
-        len(speakers)).to(device)
+    generator = promovits.model.Generator().to(device)
+    generator = promovits.load.checkpoint(checkpoint_file, generator)[0]
     generator.eval()
 
-    generator = promovits.load.checkpoint(checkpoint_file, generator)[0]
-
     with torch.no_grad():
-        text = text.to(device)
-        length = torch.tensor(
-            [text.shape[-1]],
-            dtype=torch.long,
-            device=device)
 
-        # TODO - pitch and ppg inputs
-        audio = generator.infer(
-            text,
-            length,
-            noise_scale=.667,
-            noise_scale_w=0.8,
-            length_scale=1)[0][0].cpu()
+        # Generate audio
+        shape = (features.shape[-1],)
+        return generator(
+            features.to(device),
+            torch.tensor(shape, dtype=torch.long, device=device),
+            pitch)[0][0].cpu()
 
-    return audio
 
 def from_file(
-    config,
     audio_file,
     target_alignment_file=None,
+    target_loudness_file=None,
+    target_periodicity_file=None,
     target_pitch_file=None,
     checkpoint_file=promovits.DEFAULT_CHECKPOINT,
     gpu=None):
@@ -73,14 +92,23 @@ def from_file(
     # Load audio
     audio = promovits.load.audio(audio_file)
 
-    # Load config
-    config = promovits.load.config(config)
-
     # Load alignment
     if target_alignment_file:
         alignment = pypar.Alignment(target_alignment_file)
     else:
         alignment = None
+
+    # Load loudness
+    if target_loudness_file:
+        loudness = torch.load(target_loudness_file)
+    else:
+        loudness = None
+
+    # Load periodicity
+    if target_periodicity_file:
+        periodicity = torch.load(target_periodicity_file)
+    else:
+        periodicity = None
 
     # Load pitch
     if target_pitch_file is None:
@@ -90,66 +118,32 @@ def from_file(
 
     # Generate
     return from_audio(
-        config,
         audio,
         promovits.SAMPLE_RATE,
         alignment,
+        loudness,
+        periodicity,
         pitch,
         checkpoint_file,
         gpu)
 
 
 def from_file_to_file(
-    config,
     audio_file,
     output_file,
     target_alignment_file=None,
+    target_loudness_file=None,
+    target_periodicity_file=None,
     target_pitch_file=None,
     checkpoint_file=promovits.DEFAULT_CHECKPOINT,
     gpu=None):
     """Edit speech on disk and save to disk"""
     generated = from_file(
-        config,
         audio_file,
         target_alignment_file,
+        target_loudness_file,
+        target_periodicity_file,
         target_pitch_file,
         checkpoint_file,
         gpu)
     torchaudio.save(output_file, generated, promovits.SAMPLE_RATE)
-
-
-###############################################################################
-# Utilities
-###############################################################################
-
-
-class HParams():
-    def __init__(self, **kwargs):
-        for k, v in kwargs.items():
-            if type(v) == dict:
-                v = HParams(**v)
-            self[k] = v
-
-    def keys(self):
-        return self.__dict__.keys()
-
-    def items(self):
-        return self.__dict__.items()
-
-    def values(self):
-        return self.__dict__.values()
-
-    def __len__(self):
-        return len(self.__dict__)
-
-    def __getitem__(self, key):
-        return getattr(self, key)
-
-    def __setitem__(self, key, value):
-        return setattr(self, key, value)
-
-    def __contains__(self, key):
-        return key in self.__dict__
-
-    def __repr__(self):
-        return self.__dict__.__repr__()

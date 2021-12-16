@@ -34,13 +34,15 @@ def generator(discriminator_outputs):
     return sum(losses), losses
 
 
-def kl(z_p, logs_q, m_p, logs_p, z_mask):
+def kl(prior, true_logstd, predicted_mean, predicted_logstd, latent_mask):
     """KL-divergence loss"""
-    z_p = z_p.float()
-    logs_q = logs_q.float()
-    m_p = m_p.float()
-    logs_p = logs_p.float()
-    z_mask = z_mask.float()
-    kl = logs_p - logs_q - 0.5
-    kl += 0.5 * ((z_p - m_p) ** 2) * torch.exp(-2. * logs_p)
-    return torch.sum(kl * z_mask) / torch.sum(z_mask)
+    # TEMPORARY - see if casts matter
+    # prior = prior.float()
+    # true_logstd = true_logstd.float()
+    # predicted_mean = predicted_mean.float()
+    # predicted_logstd = predicted_logstd.float()
+    # latent_mask = latent_mask.float()
+    divergence = predicted_logstd - true_logstd - 0.5 + \
+        0.5 * ((prior - predicted_mean) ** 2) * \
+        torch.exp(-2. * predicted_logstd)
+    return torch.sum(divergence * latent_mask) / torch.sum(latent_mask)

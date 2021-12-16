@@ -27,7 +27,7 @@ class Dataset(torch.utils.data.Dataset):
     def __getitem__(self, index):
         stem = self.stems[index]
         audio = promovits.load.audio(self.cache / f'{stem}.wav')
-        pitch = torch.load(self.cache / f'{stem}-pitch.pt')
+        pitch = self.get_pitch(stem)
         periodicity = torch.load(self.cache / f'{stem}-periodicity.pt')
         loudness = torch.load(self.cache / f'{stem}-loudness.pt')
         speaker = torch.tensor(int(stem.split('-')[0]), dtype=torch.long)
@@ -35,9 +35,7 @@ class Dataset(torch.utils.data.Dataset):
 
         # Load supervised or unsupervised phoneme features
         if promovits.PPG_FEATURES:
-            phonemes = self.get_ppg(
-                self.cache / f'{stem}-ppg.pt',
-                spectrogram.shape[1])
+            phonemes = self.get_ppg(stem, spectrogram.shape[1])
         else:
             phonemes = promovits.load.phonemes(
                 self.cache / f'{stem}-phonemes.pt')
@@ -54,9 +52,15 @@ class Dataset(torch.utils.data.Dataset):
     def __len__(self):
         return len(self.stems)
 
-    def get_ppg(self, filename, length):
+    def get_pitch(self, stem):
+        """Load pitch features"""
+        pitch = torch.load(self.cache / f'{stem}-pitch.pt')
+        return promovits.convert.hz_to_bins(pitch)
+
+
+    def get_ppg(self, stem, length):
         """Load PPG features"""
-        ppg = torch.load(filename)
+        ppg = torch.load(self.cache / f'{stem}-ppg.pt')
 
         # Maybe resample length
         if ppg.shape[1] != length:
