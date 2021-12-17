@@ -262,7 +262,7 @@ class Log(torch.nn.Module):
 
 class Flip(torch.nn.Module):
 
-    def forward(self, x, reverse=False):
+    def forward(self, x, mask, g=None, reverse=False):
         x = torch.flip(x, [1])
         if not reverse:
             return x, torch.zeros(x.size(0)).to(dtype=x.dtype, device=x.device)

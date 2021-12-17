@@ -91,7 +91,9 @@ class Decoder(torch.nn.Module):
     x: decoder input
     h: encoder output
     """
-    self_attn_mask = promovits.model.subsequent_mask(x_mask.size(2)).to(device=x.device, dtype=x.dtype)
+    self_attn_mask = torch.tril(torch.ones(
+      x_mask.size(2),
+      x_mask.size(2))).to(device=x.device, dtype=x.dtype)[None, None]
     encdec_attn_mask = h_mask.unsqueeze(2) * x_mask.unsqueeze(-1)
     x = x * x_mask
     for i in range(self.n_layers):

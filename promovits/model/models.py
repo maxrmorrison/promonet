@@ -145,10 +145,9 @@ class PhonemeEncoder(torch.nn.Module):
     # Embed features
     embeddings = self.input_layer(features)
     if not promovits.PPG_FEATURES:
-        embeddings *= self.scale  # [b, t, h]
+        embeddings = embeddings.permute(0, 2, 1) * self.scale
 
     # Construct binary mask from lengths
-    embeddings = torch.transpose(embeddings, 1, -1)  # [b, h, t]
     mask = promovits.model.sequence_mask(feature_lengths, embeddings.size(2))
     mask = torch.unsqueeze(mask, 1).to(embeddings.dtype)
 
@@ -451,7 +450,7 @@ class Generator(torch.nn.Module):
         """Forward pass through the network"""
         # Maybe add pitch features
         if promovits.PITCH_FEATURES:
-            pitch_embeddings = self.pitch_embedding(pitch)
+            pitch_embeddings = self.pitch_embedding(pitch).permute(0, 2, 1)
             features = torch.cat((features, pitch_embeddings), dim=1)
 
         # Encode text to text embedding and statistics for the flow model
@@ -522,6 +521,10 @@ class Generator(torch.nn.Module):
             if promovits.PPG_FEATURES:
                 latent_mask = promovits.model.sequence_mask(feature_lengths)
                 latent_mask = latent_mask.unsqueeze(1).to(feature_mask.dtype)
+                slice_indices = None
+                attention = None
+                durations = None
+                true_logstd = None
 
             else:
 
@@ -549,7 +552,11 @@ class Generator(torch.nn.Module):
                 raise NotImplementedError()
 
             # Compute the prior for the flow producing linear spectrograms
-            prior = predicted_mean + torch.randn_like(predicted_mean) * torch.exp(predicted_logstd) * noise_scale
+            prior = (
+                predicted_mean +
+                torch.randn_like(predicted_mean) *
+                torch.exp(predicted_logstd) *
+                noise_scale)
 
             # Compute linear spectrogram from the prior
             latents = self.flow(

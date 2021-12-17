@@ -137,10 +137,11 @@ def train(
     printed = False
 
     # Setup progress bar
-    progress = tqdm.tqdm(
-        total=promovits.NUM_STEPS,
-        dynamic_ncols=True,
-        desc=f'Training {directory.stem}')
+    if not rank:
+        progress = tqdm.tqdm(
+            total=promovits.NUM_STEPS,
+            dynamic_ncols=True,
+            desc=f'Training {directory.stem}')
     while step < promovits.NUM_STEPS + 1:
 
         # Seed sampler
@@ -338,17 +339,17 @@ def train(
                     # Log mels and attention matrix
                     images = {
                         'train/mels/slice/original':
-                            promovits.evaluate.plot.spectrogram(
+                            promovits.plot.spectrogram(
                                 mel_slices[0].data.cpu().numpy()),
                         'train/mels/slice/generated':
-                            promovits.evaluate.plot.spectrogram(
+                            promovits.plot.spectrogram(
                                 generated_mels[0].data.cpu().numpy()),
                         'train/mels/original':
-                            promovits.evaluate.plot.spectrogram(
+                            promovits.plot.spectrogram(
                                 mels[0].data.cpu().numpy())}
                     if attention is not None:
                         images['train/attention'] = \
-                            promovits.evaluate.plot.alignment(
+                            promovits.plot.alignment(
                                 attention[0, 0].data.cpu().numpy())
                     promovits.write.images(directory, step, images)
 
@@ -381,17 +382,20 @@ def train(
             step += 1
 
             # Update progress bar
-            progress.update()
+            if not rank:
+                progress.update()
 
         # Update learning rate every epoch
         generator_scheduler.step()
         discriminator_scheduler.step()
 
     # Close progress bar
-    progress.close()
+    if not rank:
+        progress.close()
 
     # TODO - evaluate
     pass
+
 
 ###############################################################################
 # Evaluation
@@ -406,53 +410,52 @@ def evaluate(directory, step, generator, valid_loader, device):
     # Turn off gradient computation
     with torch.no_grad():
 
-        # Unpack batch
-        (
-            phonemes,
-            phoneme_lengths,
-            pitch,
-            speakers,
-            spectrogram,
-            spectrogram_lengths,
-            audio,
-            audio_lengths
-        ) = unpack_to_device(next(valid_loader), device)
-
         waveforms = {}
         images = {}
-        for i in range(len(valid_loader.dataset)):
+        for batch in valid_loader:
+
+            # Unpack batch
+            (
+                phonemes,
+                phoneme_lengths,
+                pitch,
+                speakers,
+                spectrogram,
+                spectrogram_lengths,
+                audio,
+                audio_lengths
+            ) = unpack_to_device(batch, device)
 
             # Generate speech
             generated, mask, *_ = generator(
-                phonemes[i:i + 1, ..., :phoneme_lengths[i]],
-                phoneme_lengths[i:i + 1],
+                phonemes,
+                phoneme_lengths,
                 pitch,
-                speakers[i:i + 1])
+                speakers)
             generated_lengths = mask.sum([1, 2]).long() * promovits.HOPSIZE
 
             if not step:
 
                 # Log original audio
-                waveforms[f'evaluate/original-{i:02d}'] = \
+                waveforms[f'original/{i:02d}'] = \
                     audio[i, :, :audio_lengths[i]]
 
                 # Log original melspectrogram
                 mels = promovits.preprocess.spectrogram.linear_to_mel(
                     spectrogram[i:i + 1, :, :spectrogram_lengths[i]])
-                images[f'evaluate/mels/original-{i:02d}'] = \
-                    promovits.evaluate.plot.spectrogram(mels[0].cpu().numpy())
+                images[f'mels/{i:02d}-original'] = \
+                    promovits.plot.spectrogram(mels[0].cpu().numpy())
 
             # Log generated audio
-            waveforms[f'evaluate/generated-{i:02d}'] = \
-                generated[0,:,:generated_lengths[0]]
+            waveforms[f'generated/{i:02d}'] = \
+                generated[0, :, :generated_lengths[0]]
 
             # Log generated melspectrogram
             generated_mels = promovits.preprocess.spectrogram.from_audio(
                 generated.float(),
                 True)
-            images[f'evaluate/mels/generated-{i:02d}'] = \
-                promovits.evaluate.plot.spectrogram(
-                    generated_mels.cpu().numpy())
+            images[f'mels/{i:02d}-generated'] = \
+                promovits.plot.spectrogram(generated_mels.cpu().numpy())
 
     # Write to Tensorboard
     promovits.write.images(directory, step, images)
@@ -544,12 +547,7 @@ def main(
     # Save configuration
     shutil.copyfile(config, directory / config.name)
 
-    if gpus is None:
-
-        # CPU training
-        train(dataset, directory, train_partition, valid_partition, adapt)
-
-    elif len(gpus) > 1:
+    if gpus and len(gpus) > 1:
 
         args = (
             dataset,
@@ -568,7 +566,7 @@ def main(
 
     else:
 
-        # Single GPU training
+        # Single GPU or CPU training
         train(
             dataset,
             directory,

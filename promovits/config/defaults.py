@@ -71,7 +71,7 @@ PITCH_FEATURES = False
 PITCH_BINS = 256
 
 # Embedding size used to represent each pitch bin
-PITCH_EMBEDDING_SIZE = 128
+PITCH_EMBEDDING_SIZE = 64
 
 # Number of channels in the phonetic posteriorgram features
 PPG_CHANNELS = 144

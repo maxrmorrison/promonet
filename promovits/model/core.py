@@ -40,6 +40,7 @@ def get_padding(kernel_size, dilation=1):
     return int((kernel_size * dilation - dilation) / 2)
 
 
+# TODO - is this non-default initialization useful?
 def init_weights(m, mean=0.0, std=0.01):
     classname = m.__class__.__name__
     if classname.find("Conv") != -1:
@@ -66,13 +67,10 @@ def sequence_mask(length, max_length=None):
 def slice_segments(segments, start_indices, segment_size):
     """Slice segments along last dimension"""
     slices = torch.zeros_like(segments[..., :segment_size])
-    for i, (segment, start_index) in enumerate(segments, start_indices):
+    iterator = enumerate(zip(segments, start_indices))
+    for i, (segment, start_index) in iterator:
         slices[i] = segment[..., start_index:start_index + segment_size]
     return slices
-
-
-def subsequent_mask(length):
-  return torch.tril(torch.ones(length, length))[None, None]
 
 
 def weight_norm_conv1d(*args, **kwargs):

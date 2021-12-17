@@ -35,7 +35,7 @@ def loaders(dataset, train_partition, valid_partition, gpu=None):
         valid_dataset,
         num_workers=promovits.NUM_WORKERS,
         shuffle=False,
-        batch_size=promovits.BATCH_SIZE,
+        batch_size=1,
         pin_memory=gpu is not None,
         drop_last=False,
         collate_fn=promovits.data.collate)

@@ -55,6 +55,8 @@ class Dataset(torch.utils.data.Dataset):
     def get_pitch(self, stem):
         """Load pitch features"""
         pitch = torch.load(self.cache / f'{stem}-pitch.pt')
+        pitch[pitch < promovits.FMIN] = promovits.FMIN
+        pitch[pitch > promovits.FMAX] = promovits.FMAX
         return promovits.convert.hz_to_bins(pitch)
 
 
