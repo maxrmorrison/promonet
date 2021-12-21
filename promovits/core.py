@@ -19,7 +19,7 @@ def from_audio(
     target_loudness=None,
     target_periodicity=None,
     target_pitch=None,
-    checkpoint_file=promovits.DEFAULT_CHECKPOINT,
+    checkpoint=promovits.DEFAULT_CHECKPOINT,
     gpu=None):
     """Perform prosody editing"""
     # Maybe resample
@@ -35,23 +35,26 @@ def from_audio(
         # TODO - Only get these features if needed.
         #        Otherwise, use argument features.
         # TODO - Allow generation without text
-        pitch, periodicity, loudness, _ = pysodic.features.from_audio_and_text(
-            audio,
-            promovits.SAMPLE_RATE,
-            text,
-            promovits.HOPSIZE / promovits.SAMPLE_RATE,
-            promovits.WINDOW_SIZE / promovits.SAMPLE_RATE,
-            gpu)
+        with promovits.TIMER('features/prosody'):
+            pitch, periodicity, loudness, _ = \
+                pysodic.features.from_audio_and_text(
+                    audio,
+                    promovits.SAMPLE_RATE,
+                    text,
+                    promovits.HOPSIZE / promovits.SAMPLE_RATE,
+                    promovits.WINDOW_SIZE / promovits.SAMPLE_RATE,
+                    gpu)
 
         # Get phonetic posteriorgrams
-        features = promovits.preprocess.ppg.from_audio(audio, gpu)
+        with promovits.TIMER('features/ppgs'):
+            features = promovits.preprocess.ppg.from_audio(audio, gpu)
 
-        # Maybe resample length
-        if features.shape[1] != pitch.shape[1]:
-            features = torch.nn.functional.interpolate(
-                features[None],
-                size=pitch.shape[1],
-                mode=promovits.PPG_INTERP_METHOD)[0]
+            # Maybe resample length
+            if features.shape[1] != pitch.shape[1]:
+                features = torch.nn.functional.interpolate(
+                    features[None],
+                    size=pitch.shape[1],
+                    mode=promovits.PPG_INTERP_METHOD)[0]
 
         # Concatenate features
         if promovits.LOUDNESS_FEATURES:
@@ -67,17 +70,18 @@ def from_audio(
     # Setup model
     device = torch.device('cpu' if gpu is None else f'cuda:{gpu}')
     generator = promovits.model.Generator().to(device)
-    generator = promovits.load.checkpoint(checkpoint_file, generator)[0]
+    generator = promovits.load.checkpoint(checkpoint, generator)[0]
     generator.eval()
 
     with torch.no_grad():
 
         # Generate audio
-        shape = (features.shape[-1],)
-        return generator(
-            features.to(device),
-            torch.tensor(shape, dtype=torch.long, device=device),
-            pitch)[0][0].cpu()
+        with promovits.TIMER('generate'):
+            shape = (features.shape[-1],)
+            return generator(
+                features.to(device),
+                torch.tensor(shape, dtype=torch.long, device=device),
+                pitch)[0][0].cpu()
 
 
 def from_file(
@@ -86,7 +90,7 @@ def from_file(
     target_loudness_file=None,
     target_periodicity_file=None,
     target_pitch_file=None,
-    checkpoint_file=promovits.DEFAULT_CHECKPOINT,
+    checkpoint=promovits.DEFAULT_CHECKPOINT,
     gpu=None):
     """Edit speech on disk"""
     # Load audio
@@ -124,7 +128,7 @@ def from_file(
         loudness,
         periodicity,
         pitch,
-        checkpoint_file,
+        checkpoint,
         gpu)
 
 
@@ -135,7 +139,7 @@ def from_file_to_file(
     target_loudness_file=None,
     target_periodicity_file=None,
     target_pitch_file=None,
-    checkpoint_file=promovits.DEFAULT_CHECKPOINT,
+    checkpoint=promovits.DEFAULT_CHECKPOINT,
     gpu=None):
     """Edit speech on disk and save to disk"""
     generated = from_file(
@@ -144,6 +148,27 @@ def from_file_to_file(
         target_loudness_file,
         target_periodicity_file,
         target_pitch_file,
-        checkpoint_file,
+        checkpoint,
         gpu)
     torchaudio.save(output_file, generated, promovits.SAMPLE_RATE)
+
+
+def from_files_to_files(
+    audio_files,
+    output_files,
+    target_alignment_files=None,
+    target_loudness_files=None,
+    target_periodicity_files=None,
+    target_pitch_files=None,
+    checkpoint=promovits.DEFAULT_CHECKPOINT,
+    gpu=None):
+    """Edit speech on disk and save to disk"""
+    iterator = zip(
+        audio_files,
+        output_files,
+        target_alignment_files,
+        target_loudness_files,
+        target_periodicity_files,
+        target_pitch_files)
+    for item in iterator:
+        from_file_to_file(*item, checkpoint, gpu)

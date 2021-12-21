@@ -23,11 +23,6 @@ def parse_args():
         nargs='+',
         help='The datasets to generate files for')
     parser.add_argument(
-        '--checkpoint',
-        type=Path,
-        required=True,
-        help='The model checkpoint to use for evaluation')
-    parser.add_argument(
         '--gpus',
         type=int,
         help='The indices of the gpus to use for adaptation')

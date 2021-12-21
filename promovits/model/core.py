@@ -10,8 +10,8 @@ def convert_pad_shape(pad_shape):
     return [item for sublist in pad_shape[::-1] for item in sublist]
 
 
-# TODO - is this a multiprocessing issue?
-@torch.jit.script
+# TEMPORARY - see if torch.jit is causing MP issue
+# @torch.jit.script
 def fused_add_tanh_sigmoid_multiply(input_a, input_b, n_channels):
     n_channels_int = n_channels[0]
     in_act = input_a + input_b

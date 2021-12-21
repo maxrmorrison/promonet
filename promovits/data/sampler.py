@@ -151,7 +151,7 @@ def make_batches(buckets, samples_per_bucket, epoch, shuffle=True):
         for j in range(len(ids_bucket) // promovits.BATCH_SIZE):
             batch = [
                 bucket[idx]
-                for idx in ids_bucket[j*promovits.BATCH_SIZE:(j+1)*promovits.BATCH_SIZE]]
+                for idx in ids_bucket[j * promovits.BATCH_SIZE:(j + 1) * promovits.BATCH_SIZE]]
             batches.append(batch)
 
     if shuffle:

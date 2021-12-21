@@ -13,6 +13,48 @@ import promovits
 
 
 ###############################################################################
+# Training interface
+###############################################################################
+
+
+def run(
+    dataset,
+    directory,
+    train_partition='train',
+    valid_partition='valid',
+    adapt=False,
+    gpus=None):
+    """Run model training"""
+    if gpus and len(gpus) > 1:
+
+        args = (
+            dataset,
+            directory,
+            train_partition,
+            valid_partition,
+            adapt,
+            gpus)
+
+        # Distributed data parallelism
+        torch.multiprocessing.spawn(
+            train_ddp,
+            args=args,
+            nprocs=len(gpus),
+            join=True)
+
+    else:
+
+        # Single GPU or CPU training
+        train(
+            dataset,
+            directory,
+            train_partition,
+            valid_partition,
+            adapt,
+            None if gpus is None else gpus[0])
+
+
+###############################################################################
 # Training
 ###############################################################################
 
@@ -31,7 +73,21 @@ def train(
     else:
         rank = None
 
+    # Get torch device
     device = torch.device('cpu' if gpu is None else f'cuda:{gpu}')
+
+    # Maybe setup adaptation directory
+    if not rank:
+        if adapt:
+            adapt_directory = (
+                directory /
+                'adapt' /
+                dataset /
+                train_partition.split('-')[2])
+            adapt_directory.mkdir(exist_ok=True, parents=True)
+        else:
+            None
+
 
     #######################
     # Create data loaders #
@@ -71,7 +127,6 @@ def train(
     #####################
 
     if adapt:
-        # TODO - adaptation optimizers (may also need different loading, saving, logging, etc.)
         generator_optimizer = promovits.ADAPTATION_OPTIMIZER(
             generator.parameters())
         discriminator_optimizer = promovits.ADAPTATION_OPTIMIZER(
@@ -93,8 +148,8 @@ def train(
             generator,
             generator_optimizer,
             step
-        ) = promovits.load.checkpoint(
-            latest_checkpoint_path(directory, 'generator-*.pt'),
+        ) = promovits.checkpoint.load(
+            promovits.checkpoint.latest_path(directory, 'generator-*.pt'),
             generator,
             generator_optimizer
         )
@@ -104,8 +159,8 @@ def train(
             discriminators,
             discriminator_optimizer,
             step
-        ) = promovits.load.checkpoint(
-            latest_checkpoint_path(directory, 'discriminator-*.pt'),
+        ) = promovits.checkpoint.load(
+            promovits.checkpoint.latest_path(directory, 'discriminator-*.pt'),
             discriminators,
             discriminator_optimizer
         )
@@ -160,8 +215,7 @@ def train(
                 spectrograms,
                 spectrogram_lengths,
                 audio,
-                _,
-            ) = unpack_to_device(batch, device)
+            ) = (item.to(device) for item in batch)
 
             with torch.cuda.amp.autocast():
 
@@ -307,32 +361,29 @@ def train(
             if not rank:
 
                 if step % promovits.LOG_INTERVAL == 0:
-                    print(
-                        f'Training - step ({step}) ' +
-                        f'[{100. * step / promovits.NUM_STEPS:.0f}%]')
 
                     # Log losses
                     scalars = {
-                        'train/loss/generator/total': generator_losses,
-                        'train/loss/discriminator/total': discriminator_losses,
-                        'train/learning_rate':
+                        'loss/generator/total': generator_losses,
+                        'loss/discriminator/total': discriminator_losses,
+                        'learning_rate':
                             generator_optimizer.param_groups[0]['lr'],
-                        'train/loss/generator/feature-matching':
+                        'loss/generator/feature-matching':
                             feature_matching_loss,
-                        'train/loss/generator/mels': mel_loss,
-                        'train/loss/generator/kl-divergence':
+                        'loss/generator/mels': mel_loss,
+                        'loss/generator/kl-divergence':
                             kl_divergence_loss}
                     if durations is not None:
-                        scalars['train/loss/generator/duration'] = \
+                        scalars['loss/generator/duration'] = \
                             duration_loss
                     scalars.update(
-                        {f'train/loss/generator/adversarial-{i:02d}': value
+                        {f'loss/generator/adversarial-{i:02d}': value
                         for i, value in enumerate(adversarial_losses)})
                     scalars.update(
-                        {f'train/loss/discriminator/real-{i:02d}': value
+                        {f'loss/discriminator/real-{i:02d}': value
                         for i, value in enumerate(real_discriminator_losses)})
                     scalars.update(
-                        {f'train/loss/discriminator/fake-{i:02d}': value
+                        {f'loss/discriminator/fake-{i:02d}': value
                         for i, value in enumerate(fake_discriminator_losses)})
                     promovits.write.scalars(directory, step, scalars)
 
@@ -365,16 +416,21 @@ def train(
                 ###################
 
                 if step % promovits.CHECKPOINT_INTERVAL == 0:
-                    save_checkpoint(
+
+                    # Maybe save to adaptation directory
+                    checkpoint_directory = \
+                        adapt_directory if adapt else directory
+
+                    promovits.checkpoint.save(
                         generator,
                         generator_optimizer,
                         step,
-                        directory / f'generator-{step:08d}.pt')
-                    save_checkpoint(
+                        checkpoint_directory / f'generator-{step:08d}.pt')
+                    promovits.checkpoint.save(
                         discriminators,
                         discriminator_optimizer,
                         step,
-                        directory / f'discriminator-{step:08d}.pt')
+                        checkpoint_directory / f'discriminator-{step:08d}.pt')
 
             # Update training step count
             if step >= promovits.NUM_STEPS:
@@ -412,7 +468,7 @@ def evaluate(directory, step, generator, valid_loader, device):
 
         waveforms = {}
         images = {}
-        for batch in valid_loader:
+        for i, batch in enumerate(valid_loader):
 
             # Unpack batch
             (
@@ -421,34 +477,30 @@ def evaluate(directory, step, generator, valid_loader, device):
                 pitch,
                 speakers,
                 spectrogram,
-                spectrogram_lengths,
+                _,
                 audio,
-                audio_lengths
-            ) = unpack_to_device(batch, device)
+            ) = (item.to(device) for item in batch)
 
             # Generate speech
-            generated, mask, *_ = generator(
+            generated, *_ = generator(
                 phonemes,
                 phoneme_lengths,
                 pitch,
                 speakers)
-            generated_lengths = mask.sum([1, 2]).long() * promovits.HOPSIZE
 
             if not step:
 
                 # Log original audio
-                waveforms[f'original/{i:02d}'] = \
-                    audio[i, :, :audio_lengths[i]]
+                waveforms[f'original/{i:02d}'] = audio[0]
 
                 # Log original melspectrogram
                 mels = promovits.preprocess.spectrogram.linear_to_mel(
-                    spectrogram[i:i + 1, :, :spectrogram_lengths[i]])
+                    spectrogram[0]).cpu().numpy()
                 images[f'mels/{i:02d}-original'] = \
-                    promovits.plot.spectrogram(mels[0].cpu().numpy())
+                    promovits.plot.spectrogram(mels)
 
             # Log generated audio
-            waveforms[f'generated/{i:02d}'] = \
-                generated[0, :, :generated_lengths[0]]
+            waveforms[f'generated/{i:02d}'] = generated[0]
 
             # Log generated melspectrogram
             generated_mels = promovits.preprocess.spectrogram.from_audio(
@@ -500,33 +552,6 @@ def ddp_context(rank, world_size):
 
 
 ###############################################################################
-# Utilities
-###############################################################################
-
-
-def latest_checkpoint_path(directory, regex='generator-*.pt'):
-    """Retrieve the path to the most recent checkpoint"""
-    files = directory.glob(regex)
-    files.sort(key=lambda file: int(''.join(filter(str.isdigit, file))))
-    return files[-1]
-
-
-def save_checkpoint(model, optimizer, step, file):
-    """Save training checkpoint to disk"""
-    print(f'Saving model and optimizer at step {step} to {file}')
-    checkpoint = {
-        'step': step,
-        'model': model.state_dict(),
-        'optimizer': optimizer.state_dict()}
-    torch.save(checkpoint, file)
-
-
-def unpack_to_device(batch, device):
-    """Unpack batch and place on device"""
-    return (item.to(device) for item in batch)
-
-
-###############################################################################
 # Entry point
 ###############################################################################
 
@@ -539,7 +564,7 @@ def main(
     adapt=False,
     gpus=None):
     # Optionally overwrite training with same name
-    directory = promovits.TRAIN_DIR / config.stem
+    directory = promovits.RUNS_DIR / config.stem
 
     # Create output directory
     directory.mkdir(parents=True, exist_ok=True)
@@ -547,33 +572,14 @@ def main(
     # Save configuration
     shutil.copyfile(config, directory / config.name)
 
-    if gpus and len(gpus) > 1:
-
-        args = (
-            dataset,
-            directory,
-            train_partition,
-            valid_partition,
-            adapt,
-            gpus)
-
-        # Distributed data parallelism
-        torch.multiprocessing.spawn(
-            train_ddp,
-            args=args,
-            nprocs=len(gpus),
-            join=True)
-
-    else:
-
-        # Single GPU or CPU training
-        train(
-            dataset,
-            directory,
-            train_partition,
-            valid_partition,
-            adapt,
-            None if gpus is None else gpus[0])
+    # Train
+    run(
+        dataset,
+        directory,
+        train_partition,
+        valid_partition,
+        adapt,
+        gpus)
 
 
 def parse_args():

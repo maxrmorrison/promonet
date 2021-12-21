@@ -10,12 +10,6 @@ import promovits
 # Location to save dataset partitions
 PARTITION_DIR = promovits.ASSETS_DIR / 'partitions'
 
-# Location to save adaptation artifacts
-ADAPT_DIR = promovits.RUNS_DIR / 'adapt'
-
-# Location to save adaptation artifacts
-TRAIN_DIR = promovits.RUNS_DIR / 'train'
-
 # Default checkpoint for inference
 DEFAULT_CHECKPOINT = promovits.ASSETS_DIR / 'checkpoints' / 'promovits.pt'
 
@@ -35,3 +29,12 @@ NUM_FEATURES = 178 if not promovits.PPG_FEATURES else (
     promovits.PERIODICITY_FEATURES +
     promovits.PITCH_FEATURES * promovits.PITCH_EMBEDDING_SIZE +
     promovits.PPG_FEATURES * promovits.PPG_CHANNELS)
+
+
+###############################################################################
+# Inference
+###############################################################################
+
+
+# Timer for inference benchmarking
+TIMER = promovits.time.Context()

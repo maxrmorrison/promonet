@@ -35,7 +35,6 @@ def collate(batch):
     # We store original lengths for, e.g., loss evaluation
     feature_lengths = torch.empty((len(batch),), dtype=torch.long)
     spectrogram_lengths = torch.empty((len(batch),), dtype=torch.long)
-    audio_lengths = torch.empty((len(batch),), dtype=torch.long)
 
     # Initialize padded tensors
     if promovits.PPG_FEATURES:
@@ -64,7 +63,6 @@ def collate(batch):
         # Get lengths
         feature_lengths[i] = features[index].shape[-1]
         spectrogram_lengths[i] = lengths[index] // promovits.HOPSIZE
-        audio_lengths[i] = lengths[index]
 
         # Prepare pitch, periodicity, loudness, and features
         if promovits.PPG_FEATURES:
@@ -85,7 +83,7 @@ def collate(batch):
             spectrograms[index]
 
         # Prepare audio
-        padded_audio[i, :, :audio_lengths[i]] = audio[index]
+        padded_audio[i, :, :lengths[index]] = audio[index]
 
     return (
         padded_features,
@@ -94,5 +92,4 @@ def collate(batch):
         torch.tensor(speakers, dtype=torch.long),
         padded_spectrograms,
         spectrogram_lengths,
-        padded_audio,
-        audio_lengths)
+        padded_audio)

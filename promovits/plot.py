@@ -29,6 +29,7 @@ def alignment(x, info=None):
     return data
 
 def spectrogram(x):
+    # TODO - use a figure, not an image
     fig, ax = plt.subplots(figsize=(10,2))
     im = ax.imshow(x, aspect="auto", origin="lower", interpolation='none')
     plt.colorbar(im, ax=ax)

@@ -3,29 +3,9 @@
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![Downloads](https://pepy.tech/badge/promovits)](https://pepy.tech/project/promovits) -->
 
-Official code for the paper _Adaptive End-to-End Voice Modification_ [[paper]](https://www.maxrmorrison.com/pdfs/morrison2022adaptive.pdf) [[companion website]](https://www.maxrmorrison.com/sites/promovits/)
-
-
-## Table of contents
-
-- [Installation](#installation)
-- [Configuration](#configuration)
-- [Generation](#generation)
-    * [CLI](#cli)
-    * [API](#api)
-        * [`promovits.from_audio`](#promovitsfrom_audio)
-        * [`promovits.from_file`](#promovitsfrom_file)
-        * [`promovits.from_file_to_file`](#promovitsfrom_file_to_file)
-- [Reproducing results](#reproducing-results)
-    * [Download](#download)
-    * [Partition](#partition)
-    * [Preprocess](#preprocess)
-    * [Train](#train)
-    * [Evaluate](#evaluate)
-        * [Objective](#objective)
-        * [Subjective](#subjective)
-- [Running tests](#running-tests)
-- [Citation](#citation)
+Official code for the paper _Adaptive End-to-End Voice Modification_
+[[paper]](https://www.maxrmorrison.com/pdfs/morrison2022adaptive.pdf)
+[[companion website]](https://www.maxrmorrison.com/sites/promovits/)
 
 
 ## Installation
@@ -37,10 +17,9 @@ TODO - espeak, pyfoal, MAS
 
 ## Configuration
 
-TODO
-
-Additional configuration files for experiments described in our paper
-can be found in `config/`.
+TODO - add link
+We use `yapem` for experiment configuration. Configuration files for
+experiments described in our paper can be found in `config/`.
 
 
 ## Generation
@@ -62,44 +41,10 @@ python -m promovits \
 
 ### API
 
-#### `promovits.from_audio`
+TODO - example usage
 
 ```
-"""Perform prosody editing
-
-Arguments
-    TODO
-
-Returns
-    TODO
-"""
-```
-
-#### `promovits.from_file`
-
-```
-"""Perform prosody editing from files on disk
-
-Arguments
-    TODO
-
-Returns
-    TODO
-"""
-```
-
-
-#### `promovits.from_file_to_file`
-
-```
-"""Perform prosody editing from files on disk and save to disk
-
-Arguments
-    TODO
-
-Returns
-    TODO
-"""
+import promovits
 ```
 
 
@@ -137,15 +82,16 @@ python -m promovits.preprocess --datasets <datasets> --gpu <gpu>
 
 ### Partition
 
-Partitions a dataset into training, validation, and testing partitions. You
-should not need to run this, as the partitions used in our work are provided
-for each dataset in `promovits/assets/partitions/`.
+Partitions a dataset. You should not need to run this, as the partitions
+used in our work are provided for each dataset in
+`promovits/assets/partitions/`.
 
 ```
 python -m promovits.partition --datasets <datasets>
 ```
 
-The optional `--overwrite` flag forces the existing partition to be overwritten.
+The optional `--overwrite` flag forces the existing partition to be
+overwritten.
 
 
 ### Train
@@ -162,6 +108,28 @@ python -m promovits.train \
 If the config file has been previously run, the most recent checkpoint will
 automatically be loaded and training will resume from that checkpoint.
 
+
+### Adapt
+
+Adapt a model to a speaker. The files corresponding to a speaker are specified
+via disjoint data partitions. Checkpoints and logs are stored in `runs/`.
+
+```
+python -m promovits.train \
+    --config <config> \
+    --dataset <dataset> \
+    --train_partition <train_partition> \
+    --valid_partition <valid_partition> \
+    --adapt \
+    --gpus <gpus>
+```
+
+If the config file has been previously run, the most recent checkpoint will
+automatically be loaded and training will resume from that checkpoint.
+
+
+### Montoring
+
 You can monitor training via `tensorboard` as follows.
 
 ```
@@ -171,35 +139,15 @@ tensorboard --logdir runs/train/ --port <port>
 
 ### Evaluate
 
-#### Objective
 
-TODO
-Reports the pitch RMSE (in cents), periodicity RMSE, and voiced/unvoiced F1
-score. Results are both printed and stored in `eval/objective/`.
-
-```
-python -m promovits.evaluate.objective \
-    --config <config> \
-    --datasets <datasets> \
-    --checkpoint <checkpoint> \
-    --num <num> \
-    --gpu <gpu>
-```
-
-
-#### Subjective
-
-TODO
-Generates samples for subjective evaluation. Also performs benchmarking
-of generation speed. Results are stored in `eval/subjective/`.
+Performs objective evaluation and generates examples for subjective evaluation.
+Also performs benchmarking of generation speed. Results are stored in `eval/`.
 
 ```
 python -m promovits.evaluate.subjective \
-    --name <name> \
+    --config <name> \
     --datasets <datasets> \
-    --checkpoint <checkpoint> \
-    --num <num> \
-    --gpu <gpu>
+    --gpus <gpus>
 ```
 
 

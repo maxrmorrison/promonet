@@ -12,6 +12,7 @@ yapem.configure(defaults)
 
 # Import configuration parameters
 from .config.defaults import *
+from . import time
 from .config.static import *
 
 
@@ -21,6 +22,7 @@ from .config.static import *
 
 
 from .core import *
+from . import checkpoint
 from . import convert
 from . import data
 from . import evaluate

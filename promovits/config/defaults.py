@@ -5,27 +5,6 @@ import torch
 
 
 ###############################################################################
-# Directories
-###############################################################################
-
-
-# Location to save assets to be bundled with pip release
-ASSETS_DIR = Path(__file__).parent / 'assets'
-
-# Location of preprocessed features
-CACHE_DIR = Path(__file__).parent.parent / 'data' / 'cache'
-
-# Location of datasets on disk
-DATA_DIR = Path(__file__).parent.parent / 'data' / 'datasets'
-
-# Location to save evaluation artifacts
-EVAL_DIR = Path(__file__).parent.parent / 'eval'
-
-# Location to save training and adaptation artifacts
-RUNS_DIR = Path(__file__).parent.parent / 'runs'
-
-
-###############################################################################
 # Audio parameters
 ###############################################################################
 
@@ -51,6 +30,28 @@ SAMPLE_RATE = 22050  # Hz
 
 # Number of spectrogram channels
 WINDOW_SIZE = 1024
+
+
+###############################################################################
+# Directories
+###############################################################################
+
+
+# Location to save assets to be bundled with pip release
+ASSETS_DIR = Path(__file__).parent.parent / 'assets'
+
+# Location of preprocessed features
+CACHE_DIR = Path(__file__).parent.parent.parent / 'data' / 'cache'
+
+# Location of datasets on disk
+DATA_DIR = Path(__file__).parent.parent.parent / 'data' / 'datasets'
+
+# Location to save evaluation artifacts
+EVAL_DIR = Path(__file__).parent.parent.parent / 'eval'
+
+# Location to save training and adaptation artifacts
+RUNS_DIR = Path(__file__).parent.parent.parent / 'runs'
+
 
 
 ###############################################################################
@@ -82,6 +83,16 @@ PPG_FEATURES = False
 # Type of interpolation method to use to scale PPG features
 # Available method are ['nearest', 'linear']
 PPG_INTERP_METHOD = None
+
+
+###############################################################################
+# Inference
+###############################################################################
+
+
+# Whether to perform benchmarking
+# TODO - implement benchmarking in core.py via pass-through
+BENCHMARK = False
 
 
 ###############################################################################
@@ -121,6 +132,26 @@ MAX_TEXT_LEN = 190
 
 
 ###############################################################################
+# Optimizers
+###############################################################################
+
+
+# TODO - Optimizer for speaker adaptation
+ADAPTATION_OPTIMIZER = functools.partial(
+    torch.optim.AdamW,
+    lr=None,
+    betas=None,
+    eps=None)
+
+# Optimizer for training
+TRAINING_OPTIMIZER = functools.partial(
+    torch.optim.AdamW,
+    lr=2e-4,
+    betas=[0.8, 0.99],
+    eps=1e-9)
+
+
+###############################################################################
 # Training parameters
 ###############################################################################
 
@@ -139,13 +170,6 @@ NUM_WORKERS = 2
 
 # Seed for all random number generators
 RANDOM_SEED = 1234
-
-# Optimizer for training
-TRAINING_OPTIMIZER = functools.partial(
-    torch.optim.AdamW,
-    lr=2e-4,
-    betas=[0.8, 0.99],
-    eps=1e-9)
 
 # Number of samples generated during training
 TRAINING_CHUNK_SIZE = 8192
