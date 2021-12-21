@@ -8,8 +8,15 @@ import torch
 
 def latest_path(directory, regex='generator-*.pt'):
     """Retrieve the path to the most recent checkpoint"""
-    files = directory.glob(regex)
-    files.sort(key=lambda file: int(''.join(filter(str.isdigit, file))))
+    # Retrieve checkpoint filenames
+    files = list(directory.glob(regex))
+
+    # If no matching checkpoint files, no training has occurred
+    if not files:
+        return None
+
+    # Retrieve latest checkpoint
+    files.sort(key=lambda file: int(''.join(filter(str.isdigit, file.stem))))
     return files[-1]
 
 
@@ -25,13 +32,11 @@ def load(checkpoint_path, model, optimizer=None):
         optimizer.load_state_dict(checkpoint_dict['optimizer'])
 
     # Restore training state
-    iteration = checkpoint_dict['iteration']
+    step = checkpoint_dict['step']
 
-    print("Loaded checkpoint '{}' (iteration {})" .format(
-        checkpoint_path,
-        iteration))
+    print("Loaded checkpoint '{}' (step {})" .format(checkpoint_path, step))
 
-    return model, optimizer, iteration
+    return model, optimizer, step
 
 
 def save(model, optimizer, step, file):

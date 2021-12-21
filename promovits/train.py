@@ -141,7 +141,13 @@ def train(
     # Maybe load from checkpoint #
     ##############################
 
-    try:
+    generator_path = promovits.checkpoint.latest_path(
+        directory,
+        'generator-*.pt'),
+    discriminator_path = promovits.checkpoint.latest_path(
+        directory,
+        'discriminator-*.pt'),
+    if generator_path and discriminator_path:
 
         # Load generator
         (
@@ -149,7 +155,7 @@ def train(
             generator_optimizer,
             step
         ) = promovits.checkpoint.load(
-            promovits.checkpoint.latest_path(directory, 'generator-*.pt'),
+            generator_path[0],
             generator,
             generator_optimizer
         )
@@ -160,12 +166,12 @@ def train(
             discriminator_optimizer,
             step
         ) = promovits.checkpoint.load(
-            promovits.checkpoint.latest_path(directory, 'discriminator-*.pt'),
+            discriminator_path[0],
             discriminators,
             discriminator_optimizer
         )
 
-    except:
+    else:
 
         # Train from scratch
         step = 0
@@ -194,6 +200,7 @@ def train(
     # Setup progress bar
     if not rank:
         progress = tqdm.tqdm(
+            initial=step,
             total=promovits.NUM_STEPS,
             dynamic_ncols=True,
             desc=f'Training {directory.stem}')
