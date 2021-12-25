@@ -215,9 +215,18 @@ def speaker(
         json.dump(results, output_file, indent=4, sort_keys=True)
 
     # TODO - get number of samples via glob of wav file sizes
-    # TODO - Save benchmarking to disk
-    print(promovits.TIMER)
-    promovits.TIMER.save(objective_directory / 'benchmark.json')
+    num_samples = 1
+
+    # Parse results
+    results = promovits.TIMER()
+
+    # TODO - update results to include per-sample rates
+    pass
+
+    # Print results and save to disk
+    print(results)
+    with open(objective_directory / 'benchmark.json') as file:
+        json.dump(results, file)
 
     # Maybe turn off benchmarking
     promovits.BENCHMARK = current_benchmark

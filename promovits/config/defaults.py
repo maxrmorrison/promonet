@@ -134,7 +134,7 @@ MAX_TEXT_LEN = 190
 ###############################################################################
 
 
-# TODO - Optimizer for speaker adaptation
+# TODO - speaker adaptation
 ADAPTATION_OPTIMIZER = functools.partial(
     torch.optim.AdamW,
     lr=None,

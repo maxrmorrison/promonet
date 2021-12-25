@@ -9,6 +9,10 @@ import promovits
 ###############################################################################
 
 
+def main():
+    """Perform evaluation"""
+
+
 def parse_args():
     """Parse command-line arguments"""
     parser = argparse.ArgumentParser(description='Perform evaluation')

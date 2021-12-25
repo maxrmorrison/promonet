@@ -53,6 +53,12 @@ def run(
             adapt,
             None if gpus is None else gpus[0])
 
+    # Evaluate
+    promovits.evaluate.datasets(
+        directory,
+        [dataset],
+        None if gpus is None else gpus[0])
+
 
 ###############################################################################
 # Training
@@ -455,9 +461,6 @@ def train(
     # Close progress bar
     if not rank:
         progress.close()
-
-    # TODO - evaluate
-    pass
 
 
 ###############################################################################
