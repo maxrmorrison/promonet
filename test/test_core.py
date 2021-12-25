@@ -2,12 +2,12 @@ import promovits
 
 
 ###############################################################################
-# Test inference
+# Test generation
 ###############################################################################
 
 
 def test_core(audio):
-    """Test inference"""
+    """Test generation"""
     # Preprocess
     features = promovits.preprocess.spectrogram.from_audio(audio)
 

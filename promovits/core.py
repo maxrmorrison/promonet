@@ -7,7 +7,7 @@ import promovits
 
 
 ###############################################################################
-# Promovits inference
+# Promovits generation
 ###############################################################################
 
 
@@ -22,20 +22,20 @@ def from_audio(
     checkpoint=promovits.DEFAULT_CHECKPOINT,
     gpu=None):
     """Perform prosody editing"""
-    # Maybe resample
-    if sample_rate != promovits.SAMPLE_RATE:
-        resample_fn = torchaudio.transforms.Resample(
-            sample_rate,
-            promovits.SAMPLE_RATE)
-        audio = resample_fn(audio)
+    with promovits.TIMER('resample'):
+        # Maybe resample
+        if sample_rate != promovits.SAMPLE_RATE:
+            resample_fn = torchaudio.transforms.Resample(
+                sample_rate,
+                promovits.SAMPLE_RATE)
+            audio = resample_fn(audio)
 
-    if promovits.PPG_FEATURES:
-
-        # Get prosody features
-        # TODO - Only get these features if needed.
-        #        Otherwise, use argument features.
-        # TODO - Allow generation without text
-        with promovits.TIMER('features/prosody'):
+    with promovits.TIMER('features/prosody'):
+        if promovits.PPG_FEATURES:
+            # Get prosody features
+            # TODO - Only get these features if needed.
+            #        Otherwise, use argument features.
+            # TODO - Allow generation without text
             pitch, periodicity, loudness, _ = \
                 pysodic.features.from_audio_and_text(
                     audio,
@@ -45,8 +45,9 @@ def from_audio(
                     promovits.WINDOW_SIZE / promovits.SAMPLE_RATE,
                     gpu)
 
-        # Get phonetic posteriorgrams
-        with promovits.TIMER('features/ppgs'):
+    # Get phonetic posteriorgrams
+    with promovits.TIMER('features/ppgs'):
+        if promovits.PPG_FEATURES:
             features = promovits.preprocess.ppg.from_audio(audio, gpu)
 
             # Maybe resample length
@@ -57,26 +58,32 @@ def from_audio(
                     mode=promovits.PPG_INTERP_METHOD)[0]
 
         # Concatenate features
-        if promovits.LOUDNESS_FEATURES:
-            features = torch.cat((features, loudness))
-        if promovits.PERIODICITY_FEATURES:
-            features = torch.cat((features, periodicity))
+    with promovits.TIMER('features/concatenate'):
+        if promovits.PPG_FEATURES:
+            if promovits.LOUDNESS_FEATURES:
+                features = torch.cat((features, loudness))
+            if promovits.PERIODICITY_FEATURES:
+                features = torch.cat((features, periodicity))
 
-    else:
-        # TEMPORARY - text preprocessing is causing deadlock
-        # features = promovits.preprocess.text.from_string(text)
-        raise NotImplementedError()
+    with promovits.TIMER('features/text'):
+        if not promovits.PPG_FEATURES:
+            # TEMPORARY - text preprocessing is causing deadlock
+            # features = promovits.preprocess.text.from_string(text)
+            raise NotImplementedError()
 
     # Setup model
-    device = torch.device('cpu' if gpu is None else f'cuda:{gpu}')
-    generator = promovits.model.Generator().to(device)
-    generator = promovits.load.checkpoint(checkpoint, generator)[0]
-    generator.eval()
+    with promovits.TIMER('load'):
+        device = torch.device('cpu' if gpu is None else f'cuda:{gpu}')
+        if not hasattr(from_audio, 'generator') or \
+        from_audio.generator.device != device:
+            generator = promovits.model.Generator().to(device)
+            generator = promovits.load.checkpoint(checkpoint, generator)[0]
+            generator.eval()
+            from_audio.generator = generator
 
-    with torch.no_grad():
-
-        # Generate audio
-        with promovits.TIMER('generate'):
+    # Generate audio
+    with promovits.TIMER('generate'):
+        with torch.no_grad():
             shape = (features.shape[-1],)
             return generator(
                 features.to(device),

@@ -9,7 +9,7 @@ import promovits
 ###############################################################################
 
 
-# TEMPORARY - remove text-based training and inference
+# TEMPORARY - remove text-based training and generation
 # class StochasticDurationPredictor(torch.nn.Module):
 
 #     def __init__(self, in_channels, filter_channels, p_dropout=.5, n_flows=4):
@@ -396,7 +396,7 @@ class Generator(torch.nn.Module):
         # Text feature encoding
         self.feature_encoder = PhonemeEncoder()
         if not promovits.PPG_FEATURES:
-            # TEMPORARY - remove text-based training and inference
+            # TEMPORARY - remove text-based training and generation
             raise NotImplementedError()
 
             # # Text-to-duration predictor
@@ -477,7 +477,7 @@ class Generator(torch.nn.Module):
                 attention = None
                 durations = None
 
-            # TEMPORARY - remove text-based training and inference
+            # TEMPORARY - remove text-based training and generation
             else:
 
                 # # Compute attention mask
@@ -515,7 +515,7 @@ class Generator(torch.nn.Module):
                 spectrogram_lengths,
                 promovits.TRAINING_CHUNK_SIZE // promovits.HOPSIZE)
 
-        # Inference
+        # Generation
         else:
 
             if promovits.PPG_FEATURES:

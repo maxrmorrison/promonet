@@ -10,11 +10,20 @@ import promovits
 # Location to save dataset partitions
 PARTITION_DIR = promovits.ASSETS_DIR / 'partitions'
 
-# Default checkpoint for inference
+# Default checkpoint for generation
 DEFAULT_CHECKPOINT = promovits.ASSETS_DIR / 'checkpoints' / 'promovits.pt'
 
 # Default configuration file
 DEFAULT_CONFIGURATION = promovits.ASSETS_DIR / 'configs' / 'promovits.py'
+
+
+###############################################################################
+# Evaluation
+###############################################################################
+
+
+# Timer for benchmarking generation
+TIMER = promovits.time.Context()
 
 
 ###############################################################################
@@ -29,12 +38,3 @@ NUM_FEATURES = 178 if not promovits.PPG_FEATURES else (
     promovits.PERIODICITY_FEATURES +
     promovits.PITCH_FEATURES * promovits.PITCH_EMBEDDING_SIZE +
     promovits.PPG_FEATURES * promovits.PPG_CHANNELS)
-
-
-###############################################################################
-# Inference
-###############################################################################
-
-
-# Timer for inference benchmarking
-TIMER = promovits.time.Context()

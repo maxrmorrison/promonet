@@ -53,6 +53,14 @@ EVAL_DIR = Path(__file__).parent.parent.parent / 'eval'
 RUNS_DIR = Path(__file__).parent.parent.parent / 'runs'
 
 
+###############################################################################
+# Evaluation
+###############################################################################
+
+
+# Whether to perform benchmarking
+BENCHMARK = False
+
 
 ###############################################################################
 # Features
@@ -83,16 +91,6 @@ PPG_FEATURES = False
 # Type of interpolation method to use to scale PPG features
 # Available method are ['nearest', 'linear']
 PPG_INTERP_METHOD = None
-
-
-###############################################################################
-# Inference
-###############################################################################
-
-
-# Whether to perform benchmarking
-# TODO - implement benchmarking in core.py via pass-through
-BENCHMARK = False
 
 
 ###############################################################################

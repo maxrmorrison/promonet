@@ -214,8 +214,8 @@ def speaker(
     with open(output_file, 'w') as file:
         json.dump(results, output_file, indent=4, sort_keys=True)
 
-    # TODO - Save benchmarking to disk
     # TODO - get number of samples via glob of wav file sizes
+    # TODO - Save benchmarking to disk
     print(promovits.TIMER)
     promovits.TIMER.save(objective_directory / 'benchmark.json')
 
