@@ -29,8 +29,10 @@ setup(
         'torchinfo',
         'torchvision',
         'tqdm',
-        'Unidecode',
-        'yapem'],
+        # TEMPORARY - exclude until release
+        # 'Unidecode',
+        # 'yapem'],
+        'Unidecode',],
     packages=find_packages(),
     package_data={'promovits': ['assets/*', 'assets/*/*']},
     long_description=long_description,
