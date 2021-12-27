@@ -1,5 +1,4 @@
 import matplotlib.pyplot as plt
-import numpy as np
 
 
 ###############################################################################
@@ -8,37 +7,28 @@ import numpy as np
 
 
 def alignment(x, info=None):
-    fig, ax = plt.subplots(figsize=(6, 4))
-    im = ax.imshow(
+    """Plot alignment"""
+    figure, axis = plt.subplots(figsize=(6, 4))
+    image = axis.imshow(
         x.transpose(),
         aspect='auto',
         origin='lower',
         interpolation='none')
-    fig.colorbar(im, ax=ax)
+    figure.colorbar(image, ax=axis)
     xlabel = 'Decoder timestep'
     if info is not None:
         xlabel += '\n\n' + info
     plt.xlabel(xlabel)
     plt.ylabel('Encoder timestep')
     plt.tight_layout()
-
-    fig.canvas.draw()
-    data = np.fromstring(fig.canvas.tostring_rgb(), dtype=np.uint8, sep='')
-    data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
-    plt.close()
-    return data
+    return figure
 
 def spectrogram(x):
-    # TODO - use a figure, not an image
-    fig, ax = plt.subplots(figsize=(10,2))
-    im = ax.imshow(x, aspect="auto", origin="lower", interpolation='none')
-    plt.colorbar(im, ax=ax)
-    plt.xlabel("Frames")
-    plt.ylabel("Channels")
+    """Plot spectrogram"""
+    figure, axis = plt.subplots(figsize=(10, 2))
+    image = axis.imshow(x, aspect='auto', origin='lower', interpolation='none')
+    plt.colorbar(image, ax=axis)
+    plt.xlabel('Frames')
+    plt.ylabel('Channels')
     plt.tight_layout()
-
-    fig.canvas.draw()
-    data = np.fromstring(fig.canvas.tostring_rgb(), dtype=np.uint8, sep='')
-    data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
-    plt.close()
-    return data
+    return figure

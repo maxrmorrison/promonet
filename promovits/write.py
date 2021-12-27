@@ -18,6 +18,12 @@ def audio(directory, step, audio):
             promovits.SAMPLE_RATE)
 
 
+def figure(directory, step, figures):
+    """Write figures to Tensorboard"""
+    for name, figure in figures.items():
+        writer(directory).add_figure(name, figure, step)
+
+
 def images(directory, step, images):
     """Write images to Tensorboard"""
     for name, image in images.items():

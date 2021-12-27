@@ -401,7 +401,7 @@ def train(
                     promovits.write.scalars(directory, step, scalars)
 
                     # Log mels and attention matrix
-                    images = {
+                    figures = {
                         'train/mels/slice/original':
                             promovits.plot.spectrogram(
                                 mel_slices[0].data.cpu().numpy()),
@@ -412,10 +412,10 @@ def train(
                             promovits.plot.spectrogram(
                                 mels[0].data.cpu().numpy())}
                     if attention is not None:
-                        images['train/attention'] = \
+                        figures['train/attention'] = \
                             promovits.plot.alignment(
                                 attention[0, 0].data.cpu().numpy())
-                    promovits.write.images(directory, step, images)
+                    promovits.write.figures(directory, step, figures)
 
                 ############
                 # Evaluate #
