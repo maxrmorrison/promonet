@@ -200,33 +200,39 @@ def speaker(
             None if gpus is None else gpus[0])
 
     # Perform objective evaluation
-    results = {}
+    results = {'objective': {'raw': {}}}
     for key, value in files:
         predicted_prefixes = []
         target_prefixes = []
-        results[key] = pysodic.evaluate.from_files(
+        results['objective']['raw'][key] = pysodic.evaluate.from_files(
             predicted_prefixes,
             target_prefixes,
             None if gpus is None else gpus[0])
 
-    # Save to disk
-    output_file = objective_directory / 'results.json'
-    with open(output_file, 'w') as file:
-        json.dump(results, output_file, indent=4, sort_keys=True)
+    # Get the total number of samples we have generated
+    files = subjective_directory.glob('*.wav')
+    results['num_samples'] = sum([file.stat().st_size for file in files]) // 4
+    results['num_frames'] = results['num_samples'] // promovits.HOPSIZE
 
-    # TODO - get number of samples via glob of wav file sizes
-    num_samples = 1
+    # Average objective evaluation over frames
+    results['objective']['average'] = {
+        result / results['num_frames']
+        for key, result in results['objective']['average']}
 
-    # Parse results
-    results = promovits.TIMER()
+    # Parse benchmarking results
+    results['benchmark'] = {'raw': promovits.TIMER()}
 
-    # TODO - update results to include per-sample rates
-    pass
+    # Average benchmarking over samples
+    results['benchmark']['average'] = [
+        result / results['num_samples']
+        for key, result in results['benchmark']['raw']
+        if key != 'load']
 
     # Print results and save to disk
     print(results)
-    with open(objective_directory / 'benchmark.json') as file:
-        json.dump(results, file)
+    output_file = objective_directory / 'results.json'
+    with open(output_file, 'w') as file:
+        json.dump(results, output_file, indent=4, sort_keys=True)
 
     # Maybe turn off benchmarking
     promovits.BENCHMARK = current_benchmark
@@ -286,3 +292,26 @@ def datasets(config, datasets, gpus=None):
                 objective_directory,
                 subjective_directory,
                 gpus)
+
+        # Aggregate objective and benchmarking results
+        results_directory = (
+            promovits.EVAL_DIR /
+            'objective' /
+            dataset /
+            config.stem)
+        results_files = results_directory.rglob('results.json')
+        results = {'objective': {'raw': {}}, 'benchmark': {}}
+        for file in results_files:
+            with open(file) as file:
+                result = json.load(file)
+            for key, value in result['objective']['raw']:
+                results['objective']['raw'][key] += value
+            for key, value in result['benchmark']['raw']:
+                results['benchmark']['raw'][key] += value
+            results['num_samples'] += result['num_samples']
+            results['num_frames'] += result['num_frames']
+
+        # Print results and save to disk
+        print(results)
+        with open(results_directory / 'results.json') as file:
+            json.dump(results, file, indent=4, sort_keys=True)

@@ -8,6 +8,7 @@ Official code for the paper _Adaptive End-to-End Voice Modification_
 [[companion website]](https://www.maxrmorrison.com/sites/promovits/)
 
 
+TODO - pedantic logging
 TODO - sphinx documentation
 
 ## Installation
