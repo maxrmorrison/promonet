@@ -11,7 +11,7 @@ import promovits
 
 def parse_args():
     """Parse command-line arguments"""
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(description='Perform prosody editing')
     parser.add_argument(
         '--config',
         type=Path,

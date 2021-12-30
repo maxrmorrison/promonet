@@ -33,16 +33,35 @@ Generate from audio files on disk. `audio_files` and `output_files` can be
 lists of files to perform batch generation.
 
 ```
-python -m promovits \
-    --config <config> \
-    --audio_files <audio_files> \
-    --output_files <output_files> \
-    --target_alignment_files <target_alignment_files> \
-    --target_loudness_files <target_loudness_files> \
-    --target_alignment_files <target_alignment_files> \
-    --target_alignment_files <target_alignment_files> \
-    --checkpoint <checkpoint> \
-    --gpu <gpu>
+python -m promovits
+    [-h]
+    --config CONFIG
+    --audio_files AUDIO_FILES [AUDIO_FILES ...]
+    --output_files OUTPUT_FILES [OUTPUT_FILES ...]
+    [--target_alignment_files TARGET_ALIGNMENT_FILES [TARGET_ALIGNMENT_FILES ...]]
+    [--target_loudness_files TARGET_LOUDNESS_FILES [TARGET_LOUDNESS_FILES ...]]
+    [--target_periodicity_files TARGET_PERIODICITY_FILES [TARGET_PERIODICITY_FILES ...]]
+    [--target_pitch_files TARGET_PITCH_FILES [TARGET_PITCH_FILES ...]]
+    [--checkpoint CHECKPOINT]
+    [--gpu GPU]
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --config CONFIG       The configuration file
+  --audio_files AUDIO_FILES [AUDIO_FILES ...]
+                        The audio files to process
+  --output_files OUTPUT_FILES [OUTPUT_FILES ...]
+                        The files to save the output audio
+  --target_alignment_files TARGET_ALIGNMENT_FILES [TARGET_ALIGNMENT_FILES ...]
+                        The files with the target phoneme alignment
+  --target_loudness_files TARGET_LOUDNESS_FILES [TARGET_LOUDNESS_FILES ...]
+                        The files with the per-frame target loudness
+  --target_periodicity_files TARGET_PERIODICITY_FILES [TARGET_PERIODICITY_FILES ...]
+                        The files with the per-frame target periodicity
+  --target_pitch_files TARGET_PITCH_FILES [TARGET_PITCH_FILES ...]
+                        The files with the per-frame target pitch
+  --checkpoint CHECKPOINT
+  --gpu GPU             The index of the gpu to use for generation
 ```
 
 
