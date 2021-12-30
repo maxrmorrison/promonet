@@ -15,7 +15,7 @@ def parse_args():
     parser.add_argument(
         '--config',
         type=Path,
-        required=True,
+        default=promovits.DEFAULT_CONFIGURATION,
         help='The configuration file')
     parser.add_argument(
         '--audio_files',
@@ -52,7 +52,8 @@ def parse_args():
     parser.add_argument(
         '--checkpoint',
         type=Path,
-        default=promovits.DEFAULT_CHECKPOINT)
+        default=promovits.DEFAULT_CHECKPOINT,
+        help='The generator checkpoint')
     parser.add_argument(
         '--gpu',
         type=int,

@@ -36,12 +36,12 @@ def generator(discriminator_outputs):
 
 def kl(prior, true_logstd, predicted_mean, predicted_logstd, latent_mask):
     """KL-divergence loss"""
-    # TODO - see if casts matter
-    prior = prior.float()
-    true_logstd = true_logstd.float()
-    predicted_mean = predicted_mean.float()
-    predicted_logstd = predicted_logstd.float()
-    latent_mask = latent_mask.float()
+    # TEMPORARY - see if casts matter
+    # prior = prior.float()
+    # true_logstd = true_logstd.float()
+    # predicted_mean = predicted_mean.float()
+    # predicted_logstd = predicted_logstd.float()
+    # latent_mask = latent_mask.float()
     divergence = predicted_logstd - true_logstd - 0.5 + \
         0.5 * ((prior - predicted_mean) ** 2) * \
         torch.exp(-2. * predicted_logstd)

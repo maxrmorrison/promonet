@@ -28,10 +28,6 @@ experiments described in our paper can be found in `config/`.
 
 ### CLI
 
-TODO
-Generate from audio files on disk. `audio_files` and `output_files` can be
-lists of files to perform batch generation.
-
 ```
 python -m promovits
     [-h]
@@ -45,13 +41,17 @@ python -m promovits
     [--checkpoint CHECKPOINT]
     [--gpu GPU]
 
-optional arguments:
-  -h, --help            show this help message and exit
+Perform prosody editing
+
+required arguments:
   --config CONFIG       The configuration file
   --audio_files AUDIO_FILES [AUDIO_FILES ...]
                         The audio files to process
   --output_files OUTPUT_FILES [OUTPUT_FILES ...]
                         The files to save the output audio
+
+optional arguments:
+  -h, --help            show this help message and exit
   --target_alignment_files TARGET_ALIGNMENT_FILES [TARGET_ALIGNMENT_FILES ...]
                         The files with the target phoneme alignment
   --target_loudness_files TARGET_LOUDNESS_FILES [TARGET_LOUDNESS_FILES ...]
@@ -61,13 +61,14 @@ optional arguments:
   --target_pitch_files TARGET_PITCH_FILES [TARGET_PITCH_FILES ...]
                         The files with the per-frame target pitch
   --checkpoint CHECKPOINT
+                        The generator checkpoint
   --gpu GPU             The index of the gpu to use for generation
 ```
 
 
 ### API
 
-TODO - example usage
+TODO - example usage: adaptation and prosody transfer
 
 ```
 import promovits
