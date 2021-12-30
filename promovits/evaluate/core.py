@@ -134,15 +134,19 @@ def speaker(
         for original_phoneme_file in original_phoneme_files:
             phonemes = torch.load(original_phoneme_file)
 
-            # TODO - interpolation
-            phonemes = pyfoal.interpolate_vowels(phonemes.numpy(), ratio)
+            # Convert to alignment and save alignment
+            alignment = pyfoal.convert.indices_to_alignment(
+                phonemes,
+                promovits.HOPSIZE / promovits.SAMPLE_RATE)
 
-            # TODO - convert to alignment and save alignment
-            alignment = pyfoal.convert.indices_to_alignment(phonemes)
+            # Interpolate voiced regions
+            interpolated = pyfoal.interpolate.voiced(alignment, ratio)
+
+            # Save alignment to disk
             stretched_alignment_file = (
                 objective_directory /
                 f'{original_phoneme_file.stem[:-9]}-{key}.json')
-            alignment.save(stretched_alignment_file)
+            interpolated.save(stretched_alignment_file)
 
         # Get filenames
         files[key] = [

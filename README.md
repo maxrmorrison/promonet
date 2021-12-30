@@ -8,7 +8,6 @@ Official code for the paper _Adaptive End-to-End Voice Modification_
 [[companion website]](https://www.maxrmorrison.com/sites/promovits/)
 
 
-TODO - pedantic logging
 TODO - sphinx documentation
 
 ## Installation
@@ -30,13 +29,18 @@ experiments described in our paper can be found in `config/`.
 ### CLI
 
 TODO
-Generate from an audio files on disk. `audio_files` and `output_files` can be
+Generate from audio files on disk. `audio_files` and `output_files` can be
 lists of files to perform batch generation.
 
 ```
 python -m promovits \
+    --config <config> \
     --audio_files <audio_files> \
     --output_files <output_files> \
+    --target_alignment_files <target_alignment_files> \
+    --target_loudness_files <target_loudness_files> \
+    --target_alignment_files <target_alignment_files> \
+    --target_alignment_files <target_alignment_files> \
     --checkpoint <checkpoint> \
     --gpu <gpu>
 ```
