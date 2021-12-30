@@ -61,4 +61,4 @@ def parse_args():
 
 
 if __name__ == '__main__':
-    promovits.from_files_to_files(**vars(parse_args))
+    promovits.from_files_to_files(**vars(parse_args()))
