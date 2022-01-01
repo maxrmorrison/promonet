@@ -477,7 +477,7 @@ def evaluate(directory, step, generator, valid_loader, device):
     with torch.no_grad():
 
         waveforms = {}
-        images = {}
+        figures = {}
         for i, batch in enumerate(valid_loader):
 
             # Unpack batch
@@ -506,7 +506,7 @@ def evaluate(directory, step, generator, valid_loader, device):
                 # Log original melspectrogram
                 mels = promovits.preprocess.spectrogram.linear_to_mel(
                     spectrogram[0]).cpu().numpy()
-                images[f'mels/{i:02d}-original'] = \
+                figures[f'mels/{i:02d}-original'] = \
                     promovits.plot.spectrogram(mels)
 
             # Log generated audio
@@ -516,11 +516,11 @@ def evaluate(directory, step, generator, valid_loader, device):
             generated_mels = promovits.preprocess.spectrogram.from_audio(
                 generated.float(),
                 True)
-            images[f'mels/{i:02d}-generated'] = \
+            figures[f'mels/{i:02d}-generated'] = \
                 promovits.plot.spectrogram(generated_mels.cpu().numpy())
 
     # Write to Tensorboard
-    promovits.write.images(directory, step, images)
+    promovits.write.figures(directory, step, figures)
     promovits.write.audio(directory, step, waveforms)
 
     # Prepare generator for training
