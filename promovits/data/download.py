@@ -85,15 +85,17 @@ def daps():
             if maximum < .35:
                 audio *= .35 / maximum
 
-            # # Save to disk
-            output_audio_file = f'{index:04d}-{count:06d}.wav'
+            # Save to disk
+            speaker_directory = output_directory / f'{index:04d}'
+            speaker_directory.mkdir(exist_ok=True, parents=True)
+            output_file = f'{count:06d}.wav'
             torchaudio.save(
-                output_directory / output_audio_file,
+                speaker_directory / output_file,
                 audio,
                 promovits.SAMPLE_RATE)
             shutil.copyfile(
                 text_file,
-                (output_directory / output_audio_file).with_suffix('.txt'))
+                (speaker_directory / output_file).with_suffix('.txt'))
 
 def vctk():
     """Download vctk dataset"""
@@ -157,14 +159,16 @@ def vctk():
                 audio *= .35 / maximum
 
             # Save to disk
-            output_audio_file = f'{index:04d}-{count:06d}.wav'
+            speaker_directory = output_directory / f'{index:04d}'
+            speaker_directory.mkdir(exist_ok=True, parents=True)
+            output_file = f'{count:06d}.wav'
             torchaudio.save(
-                output_directory / output_audio_file,
+                speaker_directory / output_file,
                 audio,
                 promovits.SAMPLE_RATE)
             shutil.copyfile(
                 text_file,
-                (output_directory / output_audio_file).with_suffix('.txt'))
+                (speaker_directory / output_file).with_suffix('.txt'))
 
 
 ###############################################################################

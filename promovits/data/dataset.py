@@ -38,7 +38,7 @@ class Dataset(torch.utils.data.Dataset):
             phonemes = self.get_ppg(stem, spectrogram.shape[1])
         else:
             phonemes = promovits.load.phonemes(
-                self.cache / f'{stem}-phonemes.pt')
+                self.cache / f'{stem}-text.pt')
 
         return (
             phonemes,

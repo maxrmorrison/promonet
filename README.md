@@ -31,7 +31,7 @@ experiments described in our paper can be found in `config/`.
 ```
 python -m promovits
     [-h]
-    --config CONFIG
+    [--config CONFIG]
     --audio_files AUDIO_FILES [AUDIO_FILES ...]
     --output_files OUTPUT_FILES [OUTPUT_FILES ...]
     [--target_alignment_files TARGET_ALIGNMENT_FILES [TARGET_ALIGNMENT_FILES ...]]
@@ -44,7 +44,6 @@ python -m promovits
 Perform prosody editing
 
 required arguments:
-  --config CONFIG       The configuration file
   --audio_files AUDIO_FILES [AUDIO_FILES ...]
                         The audio files to process
   --output_files OUTPUT_FILES [OUTPUT_FILES ...]
@@ -52,6 +51,7 @@ required arguments:
 
 optional arguments:
   -h, --help            show this help message and exit
+  --config CONFIG       The configuration file
   --target_alignment_files TARGET_ALIGNMENT_FILES [TARGET_ALIGNMENT_FILES ...]
                         The files with the target phoneme alignment
   --target_loudness_files TARGET_LOUDNESS_FILES [TARGET_LOUDNESS_FILES ...]
@@ -171,7 +171,7 @@ Performs objective evaluation and generates examples for subjective evaluation.
 Also performs benchmarking of generation speed. Results are stored in `eval/`.
 
 ```
-python -m promovits.evaluate.subjective \
+python -m promovits.evaluate \
     --config <name> \
     --datasets <datasets> \
     --gpus <gpus>
