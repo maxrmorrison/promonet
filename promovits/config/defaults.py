@@ -5,6 +5,15 @@ import torch
 
 
 ###############################################################################
+# Metadata
+###############################################################################
+
+
+# Configuration name
+CONFIG = 'promovits'
+
+
+###############################################################################
 # Audio parameters
 ###############################################################################
 
@@ -161,7 +170,7 @@ BATCH_SIZE = 64
 LEARNING_RATE_DECAY = .999875
 
 # Number of training steps
-# TODO - NUM_STEPS_ADAPTATION
+# TODO - speaker adaptation
 NUM_STEPS = 300000
 
 # Number of data loading worker threads

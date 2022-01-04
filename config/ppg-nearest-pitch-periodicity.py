@@ -1,3 +1,6 @@
+# Configuration name
+CONFIG = 'ppg-nearest-pitch-periodicity'
+
 # Periodicity conditioning
 PERIODICITY_FEATURES = True
 

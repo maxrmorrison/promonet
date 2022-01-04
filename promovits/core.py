@@ -15,37 +15,58 @@ def from_audio(
     audio,
     sample_rate=promovits.SAMPLE_RATE,
     text=None,
-    target_alignment=None,
+    stretch=None,
     target_loudness=None,
     target_periodicity=None,
     target_pitch=None,
     checkpoint=promovits.DEFAULT_CHECKPOINT,
     gpu=None):
     """Perform prosody editing"""
-    # TODO - unused arguments
-
+    # Maybe resample
     with promovits.TIMER('resample'):
-        # Maybe resample
         if sample_rate != promovits.SAMPLE_RATE:
             resample_fn = torchaudio.transforms.Resample(
                 sample_rate,
                 promovits.SAMPLE_RATE)
             audio = resample_fn(audio)
 
+    # Extract prosody features
     with promovits.TIMER('features/prosody'):
         if promovits.PPG_FEATURES:
-            # Get prosody features
-            # TODO - Only get these features if needed.
-            #        Otherwise, use argument features.
-            # TODO - Allow generation without text
-            pitch, periodicity, loudness, _ = \
-                pysodic.features.from_audio_and_text(
-                    audio,
-                    promovits.SAMPLE_RATE,
-                    text,
-                    promovits.HOPSIZE / promovits.SAMPLE_RATE,
-                    promovits.WINDOW_SIZE / promovits.SAMPLE_RATE,
-                    gpu)
+            extract_prosody = (
+                (promovits.PITCH_FEATURES and target_pitch is None) or
+                (promovits.PERIODICITY_FEATURES and target_periodicity is None)
+                or (promovits.LOUDNESS_FEATURES and target_loudness is None))
+            if extract_prosody:
+                pitch, periodicity, loudness, _ = \
+                    pysodic.from_audio(
+                        audio,
+                        promovits.SAMPLE_RATE,
+                        promovits.HOPSIZE / promovits.SAMPLE_RATE,
+                        promovits.WINDOW_SIZE / promovits.SAMPLE_RATE,
+                        gpu)
+
+                # Maybe interpolate pitch
+                if not target_pitch:
+                    if stretch:
+                        pitch = promovits.interpolate.pitch(pitch, stretch)
+                    target_pitch = pitch
+
+                # Maybe interpolate periodicity
+                if not target_periodicity:
+                    if stretch:
+                        periodicity = promovits.interpolate.linear(
+                            periodicity,
+                            stretch)
+                    target_periodicity = periodicity
+
+                # Maybe interpolate loudness
+                if not target_loudness:
+                    if stretch:
+                        loudness = promovits.interpolate.linear(
+                            loudness,
+                            stretch)
+                    target_loudness = loudness
 
     # Get phonetic posteriorgrams
     with promovits.TIMER('features/ppgs'):
@@ -53,13 +74,17 @@ def from_audio(
             features = promovits.preprocess.ppg.from_audio(audio, gpu)
 
             # Maybe resample length
-            if features.shape[1] != pitch.shape[1]:
+            if features.shape[1] != audio.shape[1] / promovits.HOPSIZE:
                 features = torch.nn.functional.interpolate(
                     features[None],
-                    size=pitch.shape[1],
+                    size=audio.shape[1] / promovits.HOPSIZE,
                     mode=promovits.PPG_INTERP_METHOD)[0]
 
-        # Concatenate features
+            # Maybe stretch PPGs
+            if stretch:
+                features = promovits.interpolate.ppgs(features, stretch)
+
+    # Concatenate features
     with promovits.TIMER('features/concatenate'):
         if promovits.PPG_FEATURES:
             if promovits.LOUDNESS_FEATURES:
@@ -67,6 +92,12 @@ def from_audio(
             if promovits.PERIODICITY_FEATURES:
                 features = torch.cat((features, periodicity))
 
+    # Convert pitch to indices
+    with promovits.TIMER('features/pitch'):
+        if target_pitch:
+            target_pitch = promovits.convert.hz_to_bins(target_pitch)
+
+    # Maybe get text features
     with promovits.TIMER('features/text'):
         if not promovits.PPG_FEATURES:
             # TEMPORARY - text preprocessing is causing deadlock
@@ -79,7 +110,9 @@ def from_audio(
         if not hasattr(from_audio, 'generator') or \
         from_audio.generator.device != device:
             generator = promovits.model.Generator().to(device)
-            generator = promovits.load.checkpoint(checkpoint, generator)[0]
+            generator = promovits.checkpoint.load(
+                promovits.checkpoint.latest_path(checkpoint),
+                generator)[0]
             generator.eval()
             from_audio.generator = generator
 
@@ -88,9 +121,9 @@ def from_audio(
         with torch.no_grad():
             shape = (features.shape[-1],)
             return generator(
-                features.to(device),
+                features.to(device)[None],
                 torch.tensor(shape, dtype=torch.long, device=device),
-                pitch)[0][0].cpu()
+                pitch)[0].cpu()
 
 
 def from_file(

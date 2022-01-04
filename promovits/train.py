@@ -19,7 +19,9 @@ import promovits
 
 def run(
     dataset,
-    directory,
+    checkpoint_directory,
+    output_directory,
+    log_directory,
     train_partition='train',
     valid_partition='valid',
     adapt=False,
@@ -29,7 +31,9 @@ def run(
 
         args = (
             dataset,
-            directory,
+            checkpoint_directory,
+            output_directory,
+            log_directory,
             train_partition,
             valid_partition,
             adapt,
@@ -47,17 +51,13 @@ def run(
         # Single GPU or CPU training
         train(
             dataset,
-            directory,
+            checkpoint_directory,
+            output_directory,
+            log_directory,
             train_partition,
             valid_partition,
             adapt,
             None if gpus is None else gpus[0])
-
-    # Evaluate
-    promovits.evaluate.datasets(
-        directory,
-        [dataset],
-        None if gpus is None else gpus[0])
 
 
 ###############################################################################
@@ -67,7 +67,9 @@ def run(
 
 def train(
     dataset,
-    directory,
+    checkpoint_directory,
+    output_directory,
+    log_directory,
     train_partition='train',
     valid_partition='valid',
     adapt=False,
@@ -81,19 +83,6 @@ def train(
 
     # Get torch device
     device = torch.device('cpu' if gpu is None else f'cuda:{gpu}')
-
-    # Maybe setup adaptation directory
-    if not rank:
-        if adapt:
-            adapt_directory = (
-                directory /
-                'adapt' /
-                dataset /
-                train_partition.split('-')[2])
-            adapt_directory.mkdir(exist_ok=True, parents=True)
-        else:
-            None
-
 
     #######################
     # Create data loaders #
@@ -148,10 +137,10 @@ def train(
     ##############################
 
     generator_path = promovits.checkpoint.latest_path(
-        directory,
+        checkpoint_directory,
         'generator-*.pt'),
     discriminator_path = promovits.checkpoint.latest_path(
-        directory,
+        checkpoint_directory,
         'discriminator-*.pt'),
     if generator_path and discriminator_path:
 
@@ -209,7 +198,7 @@ def train(
             initial=step,
             total=promovits.NUM_STEPS,
             dynamic_ncols=True,
-            desc=f'Training {directory.stem}')
+            desc=f'Training {promovits.CONFIG}')
     while step < promovits.NUM_STEPS + 1:
 
         # Seed sampler
@@ -398,7 +387,7 @@ def train(
                     scalars.update(
                         {f'loss/discriminator/fake-{i:02d}': value
                         for i, value in enumerate(fake_discriminator_losses)})
-                    promovits.write.scalars(directory, step, scalars)
+                    promovits.write.scalars(log_directory, step, scalars)
 
                     # Log mels and attention matrix
                     figures = {
@@ -415,35 +404,35 @@ def train(
                         figures['train/attention'] = \
                             promovits.plot.alignment(
                                 attention[0, 0].data.cpu().numpy())
-                    promovits.write.figures(directory, step, figures)
+                    promovits.write.figures(log_directory, step, figures)
 
                 ############
                 # Evaluate #
                 ############
 
                 if step % promovits.EVALUATION_INTERVAL == 0:
-                    evaluate(directory, step, generator, valid_loader, device)
+                    evaluate(
+                        log_directory,
+                        step,
+                        generator,
+                        valid_loader,
+                        device)
 
                 ###################
                 # Save checkpoint #
                 ###################
 
                 if step % promovits.CHECKPOINT_INTERVAL == 0:
-
-                    # Maybe save to adaptation directory
-                    checkpoint_directory = \
-                        adapt_directory if adapt else directory
-
                     promovits.checkpoint.save(
                         generator,
                         generator_optimizer,
                         step,
-                        checkpoint_directory / f'generator-{step:08d}.pt')
+                        output_directory / f'generator-{step:08d}.pt')
                     promovits.checkpoint.save(
                         discriminators,
                         discriminator_optimizer,
                         step,
-                        checkpoint_directory / f'discriminator-{step:08d}.pt')
+                        output_directory / f'discriminator-{step:08d}.pt')
 
             # Update training step count
             if step >= promovits.NUM_STEPS:
@@ -491,13 +480,6 @@ def evaluate(directory, step, generator, valid_loader, device):
                 audio,
             ) = (item.to(device) for item in batch)
 
-            # Generate speech
-            generated, *_ = generator(
-                phonemes,
-                phoneme_lengths,
-                pitch,
-                speakers)
-
             if not step:
 
                 # Log original audio
@@ -509,6 +491,13 @@ def evaluate(directory, step, generator, valid_loader, device):
                 figures[f'mels/{i:02d}-original'] = \
                     promovits.plot.spectrogram(mels)
 
+            # Generate speech
+            generated, *_ = generator(
+                phonemes,
+                phoneme_lengths,
+                pitch,
+                speakers)
+
             # Log generated audio
             waveforms[f'generated/{i:02d}'] = generated[0]
 
@@ -518,6 +507,21 @@ def evaluate(directory, step, generator, valid_loader, device):
                 True)
             figures[f'mels/{i:02d}-generated'] = \
                 promovits.plot.spectrogram(generated_mels.cpu().numpy())
+
+            # Maybe log pitch-shifting
+            if promovits.PITCH_FEATURES:
+                # TODO
+                pass
+
+            # Maybe log time-stretching
+            if promovits.PPG_FEATURES:
+                # TODO
+                pass
+
+            # Maybe log loudness-scaling
+            if promovits.LOUDNESS_FEATURES:
+                # TODO
+                pass
 
     # Write to Tensorboard
     promovits.write.figures(directory, step, figures)
@@ -573,23 +577,25 @@ def main(
     valid_partition='valid',
     adapt=False,
     gpus=None):
-    # Optionally overwrite training with same name
-    directory = promovits.RUNS_DIR / config.stem
-
     # Create output directory
+    directory = promovits.RUNS_DIR / 'train' / config.stem
     directory.mkdir(parents=True, exist_ok=True)
 
     # Save configuration
     shutil.copyfile(config, directory / config.name)
 
     # Train
-    run(
-        dataset,
+    run(dataset,
+        directory,
+        directory,
         directory,
         train_partition,
         valid_partition,
         adapt,
         gpus)
+
+    # Evaluate
+    promovits.evaluate.datasets([dataset], None if gpus is None else gpus[0])
 
 
 def parse_args():

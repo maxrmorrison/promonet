@@ -11,7 +11,7 @@ import promovits
 PARTITION_DIR = promovits.ASSETS_DIR / 'partitions'
 
 # Default checkpoint for generation
-DEFAULT_CHECKPOINT = promovits.ASSETS_DIR / 'checkpoints' / 'promovits.pt'
+DEFAULT_CHECKPOINT = promovits.ASSETS_DIR / 'checkpoints'
 
 # Default configuration file
 DEFAULT_CONFIGURATION = promovits.ASSETS_DIR / 'configs' / 'promovits.py'

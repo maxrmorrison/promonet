@@ -1,3 +1,6 @@
+# Configuration name
+CONFIG = 'ppg-linear'
+
 # Phonemic posteriorgram conditioning
 PPG_FEATURES = True
 

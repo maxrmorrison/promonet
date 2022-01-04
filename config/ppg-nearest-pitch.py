@@ -1,3 +1,6 @@
+# Configuration name
+CONFIG = 'ppg-nearest-pitch'
+
 # Pitch conditioning
 PITCH_FEATURES = True
 

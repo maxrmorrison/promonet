@@ -32,11 +32,8 @@ import unidecode
 
 # def from_files_to_files(text_files, output_files):
 #     """Convert text files to sequences of integer indices and save to disk"""
-#     # TEMPORARY - remove multiprocessing for debugging
 #     # with mp.Pool() as pool:
 #     #     pool.starmap(from_file_to_file, zip(text_files, output_files))
-#     for text_file, output_file in tqdm.tqdm(zip(text_files, output_files)):
-#         from_file_to_file(text_file, output_file)
 
 
 ###############################################################################
@@ -44,9 +41,6 @@ import unidecode
 ###############################################################################
 
 
-# NOTE - This code deadlocks
-#      - Hypothesized cause: espeak calls
-#      - Solution: use, e.g., g2p_en
 # def clean_text(text):
 #     """Pipeline for cleaning english text"""
 #     text = unidecode.unidecode(text)

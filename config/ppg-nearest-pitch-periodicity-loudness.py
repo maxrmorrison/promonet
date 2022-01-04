@@ -1,3 +1,6 @@
+# Configuration name
+CONFIG = 'ppg-nearest-pitch-periodicity-loudness'
+
 # Loudness features
 LOUDNESS_FEATURES = True
 

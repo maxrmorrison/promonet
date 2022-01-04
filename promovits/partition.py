@@ -93,6 +93,17 @@ def dataset(name):
     if name == 'daps':
         return daps()
 
+    # All other datasets are assumed to be for speaker adaptation
+    return adaptation(name)
+
+
+def adaptation(name):
+    """Partition dataset for speaker adaptation"""
+    directory = promovits.CACHE_DIR / name
+    return {
+        'train': [file.stem for file in directory.glob('*.wav')],
+        'valid': []}
+
 
 def daps():
     """Partition the DAPS dataset"""
@@ -101,7 +112,10 @@ def daps():
     stems = [file.stem for file in directory.glob('*.wav')]
 
     # Create speaker adaptation partitions
-    return adaptation(directory, stems, DAPS_ADAPTATION_SPEAKERS)
+    return adaptation_partitions(
+        directory,
+        stems,
+        DAPS_ADAPTATION_SPEAKERS)
 
 
 def vctk():
@@ -111,14 +125,14 @@ def vctk():
     stems = [file.stem for file in directory.glob('*.wav')]
 
     # Create speaker adaptation partitions
-    adaptation_partitions = adaptation(
+    adapt_partitions = adaptation_partitions(
         directory,
         stems,
         VCTK_ADAPTATION_SPEAKERS)
 
     # Get test partition indices
     test_stems = list(
-        itertools.chain.from_iterable(adaptation_partitions.values()))
+        itertools.chain.from_iterable(adapt_partitions.values()))
 
     # Get residual indices
     residual = [stem for stem in stems if stem not in test_stems]
@@ -133,7 +147,7 @@ def vctk():
 
     # Merge training and adaptation partitions
     partition = {'train': train_stems, 'valid': valid_stems}
-    return {**partition, **adaptation_partitions}
+    return {**partition, **adapt_partitions}
 
 
 ###############################################################################
@@ -141,7 +155,7 @@ def vctk():
 ###############################################################################
 
 
-def adaptation(directory, stems, speakers):
+def adaptation_partitions(directory, stems, speakers):
     """Create the speaker adaptation partitions"""
     # Get adaptation data
     adaptation_stems = {

@@ -1,3 +1,6 @@
+# Configuration name
+CONFIG = 'ppg-nearest'
+
 # Phonemic posteriorgram conditioning
 PPG_FEATURES = True
 

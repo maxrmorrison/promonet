@@ -26,13 +26,13 @@ def speaker(
     dataset,
     train_partition,
     test_partition,
-    adapt_directory,
+    checkpoint_directory,
+    output_directory,
+    log_directory,
     objective_directory,
     subjective_directory,
     gpus=None):
     """Evaluate one adaptation speaker in a dataset"""
-    # TODO - add cache checks throughout
-
     # Turn on benchmarking
     current_benchmark = promovits.BENCHMARK
     promovits.BENCHMARK = True
@@ -40,15 +40,16 @@ def speaker(
     # Perform speaker adaptation
     promovits.train.run(
         dataset,
-        adapt_directory,
+        checkpoint_directory,
+        output_directory,
+        log_directory,
         train_partition,
         test_partition,
-        adapt_directory.parent.parent.parent,
         True,
         gpus)
 
     # Get latest checkpoint
-    adapt_checkpoint = promovits.latest_checkpoint_path(adapt_directory)
+    adapt_checkpoint = promovits.latest_checkpoint_path(output_directory)
 
     # Directory to save original audio files
     original_subjective_directory = (
@@ -242,7 +243,7 @@ def speaker(
     promovits.BENCHMARK = current_benchmark
 
 
-def datasets(config, datasets, gpus=None):
+def datasets(datasets, gpus=None):
     """Evaluate the performance of the model on datasets"""
     # Evaluate on each dataset
     for dataset in datasets:
@@ -263,10 +264,13 @@ def datasets(config, datasets, gpus=None):
             # Index of this adaptation partition
             index = train_partition.split('-')[-1]
 
-            # Output directory for adaptation artifacts
+            # Directory containing checkpoint to load from
+            checkpoint_directory = promovits.RUNS_DIR / promovits.CONFIG
+
+            # Output directory for checkpoints and logs
             adapt_directory = (
                 promovits.RUNS_DIR /
-                config.stem /
+                promovits.CONFIG /
                 'adapt' /
                 dataset /
                 index)
@@ -276,7 +280,7 @@ def datasets(config, datasets, gpus=None):
                 promovits.EVAL_DIR /
                 'objective' /
                 dataset /
-                config.stem /
+                promovits.CONFIG /
                 index)
 
             # Output directory for subjective evaluation
@@ -284,7 +288,7 @@ def datasets(config, datasets, gpus=None):
                 promovits.EVAL_DIR /
                 'subjective' /
                 dataset /
-                config.stem /
+                promovits.CONFIG /
                 index)
 
             # Evaluate a speaker
@@ -292,6 +296,8 @@ def datasets(config, datasets, gpus=None):
                 dataset,
                 train_partition,
                 test_partition,
+                checkpoint_directory,
+                adapt_directory,
                 adapt_directory,
                 objective_directory,
                 subjective_directory,
@@ -302,7 +308,7 @@ def datasets(config, datasets, gpus=None):
             promovits.EVAL_DIR /
             'objective' /
             dataset /
-            config.stem)
+            promovits.CONFIG)
         results_files = results_directory.rglob('results.json')
         results = {'objective': {'raw': {}}, 'benchmark': {}}
         for file in results_files:

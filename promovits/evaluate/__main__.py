@@ -1,5 +1,4 @@
 import argparse
-from pathlib import Path
 
 import promovits
 
@@ -9,18 +8,9 @@ import promovits
 ###############################################################################
 
 
-def main():
-    """Perform evaluation"""
-
-
 def parse_args():
     """Parse command-line arguments"""
     parser = argparse.ArgumentParser(description='Perform evaluation')
-    parser.add_argument(
-        '--config',
-        type=Path,
-        default=promovits.DEFAULT_CONFIGURATION,
-        help='The configuration file')
     parser.add_argument(
         '--datasets',
         required=True,
@@ -29,7 +19,7 @@ def parse_args():
     parser.add_argument(
         '--gpus',
         type=int,
-        help='The indices of the gpus to use for adaptation')
+        help='The indices of the gpus to use for adaptation and evaluation')
     return parser.parse_args()
 
 
