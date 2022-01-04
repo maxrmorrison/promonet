@@ -578,7 +578,7 @@ def main(
     adapt=False,
     gpus=None):
     # Create output directory
-    directory = promovits.RUNS_DIR / 'train' / config.stem
+    directory = promovits.RUNS_DIR / config.stem
     directory.mkdir(parents=True, exist_ok=True)
 
     # Save configuration

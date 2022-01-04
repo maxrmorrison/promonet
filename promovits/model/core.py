@@ -45,7 +45,7 @@ def init_weights(m, mean=0.0, std=0.01):
     if classname.find("Conv") != -1:
         m.weight.data.normal_(mean, std)
 
-g
+
 def random_slice_segments(segments, lengths, segment_size):
     """Randomly slice segments along last dimension"""
     max_start_indices = lengths - segment_size + 1
