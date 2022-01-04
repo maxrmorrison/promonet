@@ -1,5 +1,7 @@
 import matplotlib.pyplot as plt
 
+import promovits
+
 
 ###############################################################################
 # Plotting utilities
@@ -23,6 +25,7 @@ def alignment(x, info=None):
     plt.tight_layout()
     return figure
 
+
 def spectrogram(x):
     """Plot spectrogram"""
     figure, axis = plt.subplots(figsize=(10, 2))
@@ -32,3 +35,9 @@ def spectrogram(x):
     plt.ylabel('Channels')
     plt.tight_layout()
     return figure
+
+
+def spectrogram_from_audio(audio):
+    """Plot spectrogram given audio signal"""
+    mels = promovits.preprocess.spectrogram.from_audio(audio.float(), True)
+    return spectrogram(mels.cpu().numpy())

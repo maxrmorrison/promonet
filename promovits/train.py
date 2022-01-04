@@ -1,6 +1,7 @@
 import argparse
 import contextlib
 import functools
+import math
 import os
 import shutil
 from pathlib import Path
@@ -391,13 +392,13 @@ def train(
 
                     # Log mels and attention matrix
                     figures = {
-                        'train/mels/slice/original':
+                        'train/slice/original':
                             promovits.plot.spectrogram(
                                 mel_slices[0].data.cpu().numpy()),
-                        'train/mels/slice/generated':
+                        'train/slice/generated':
                             promovits.plot.spectrogram(
                                 generated_mels[0].data.cpu().numpy()),
-                        'train/mels/original':
+                        'train/original':
                             promovits.plot.spectrogram(
                                 mels[0].data.cpu().numpy())}
                     if attention is not None:
@@ -488,7 +489,7 @@ def evaluate(directory, step, generator, valid_loader, device):
                 # Log original melspectrogram
                 mels = promovits.preprocess.spectrogram.linear_to_mel(
                     spectrogram[0]).cpu().numpy()
-                figures[f'mels/{i:02d}-original'] = \
+                figures[f'original/{i:02d}'] = \
                     promovits.plot.spectrogram(mels)
 
             # Generate speech
@@ -502,26 +503,77 @@ def evaluate(directory, step, generator, valid_loader, device):
             waveforms[f'generated/{i:02d}'] = generated[0]
 
             # Log generated melspectrogram
-            generated_mels = promovits.preprocess.spectrogram.from_audio(
-                generated.float(),
-                True)
-            figures[f'mels/{i:02d}-generated'] = \
-                promovits.plot.spectrogram(generated_mels.cpu().numpy())
+            figures[f'reconstruction/{i:02d}-generated'] = \
+                promovits.plot.spectrogram_from_audio(generated)
 
             # Maybe log pitch-shifting
             if promovits.PITCH_FEATURES:
-                # TODO
-                pass
+                for ratio in [.5, 2.]:
+
+                    # Generate pitch-shifted speech
+                    shifted_pitch = ratio * promovits.convert.bins_to_hz(pitch)
+                    shifted, *_ = generator(
+                        phonemes,
+                        phoneme_lengths,
+                        promovits.convert.hz_to_bins(shifted_pitch),
+                        speakers)
+
+                    # Log pitch-shifted audio
+                    key = f'shifted-{int(ratio * 100):03d}/{i:02d}'
+                    waveforms[key] = shifted[0]
+
+                    # Log pitch-shifted melspectrogram
+                    figures[f'shifted-{int(ratio * 100):03d}/{i:02d}'] = \
+                        promovits.plot.spectrogram_from_audio(shifted)
 
             # Maybe log time-stretching
             if promovits.PPG_FEATURES:
-                # TODO
-                pass
+                for ratio in [.5, 2.]:
+
+                    # Generate time-stretched speech
+                    stretch = promovits.interpolate.constant_stretch(
+                        phonemes.shape[-1],
+                        ratio)
+                    stretched_phonemes = promovits.interpolate.features(
+                        phonemes,
+                        stretch)
+                    stretched_pitch = promovits.interpolate.pitch(
+                        promovits.convert.bins_to_hz(pitch),
+                        stretch)
+                    stretched, *_ = generator(
+                        stretched_phonemes,
+                        phoneme_lengths / ratio,
+                        promovits.convert.hz_to_bins(stretched_pitch),
+                        speakers)
+
+                    # Log time-stretched audio
+                    key = f'stretched-{int(ratio * 100):03d}/{i:02d}'
+                    waveforms[key] = stretched[0]
+
+                    # Log time-stretched melspectrogram
+                    figures[f'stretched-{int(ratio * 100):03d}/{i:02d}'] = \
+                        promovits.plot.spectrogram_from_audio(stretched)
 
             # Maybe log loudness-scaling
             if promovits.LOUDNESS_FEATURES:
-                # TODO
-                pass
+                for ratio in [.5, 2.]:
+
+                    # Generate loudness-scaled speech
+                    phonemes[:, promovits.PPG_CHANNELS] += 10 * math.log2(ratio)
+                    scaled, *_ = generator(
+                        phonemes,
+                        phoneme_lengths,
+                        pitch,
+                        speakers)
+                    phonemes[:, promovits.PPG_CHANNELS] -= 10 * math.log2(ratio)
+
+                    # Log loudness-scaled audio
+                    key = f'scaled-{int(ratio * 100):03d}/{i:02d}'
+                    waveforms[key] = scaled[0]
+
+                    # Log loudness-scaled melspectrogram
+                    figures[f'scaled-{int(ratio * 100):03d}/{i:02d}'] = \
+                        promovits.plot.spectrogram_from_audio(scaled)
 
     # Write to Tensorboard
     promovits.write.figures(directory, step, figures)
