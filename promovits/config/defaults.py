@@ -143,15 +143,8 @@ MAX_TEXT_LEN = 190
 ###############################################################################
 
 
-# TODO - speaker adaptation
-ADAPTATION_OPTIMIZER = functools.partial(
-    torch.optim.AdamW,
-    lr=None,
-    betas=None,
-    eps=None)
-
 # Optimizer for training
-TRAINING_OPTIMIZER = functools.partial(
+OPTIMIZER = functools.partial(
     torch.optim.AdamW,
     lr=2e-4,
     betas=[0.8, 0.99],
@@ -170,8 +163,10 @@ BATCH_SIZE = 64
 LEARNING_RATE_DECAY = .999875
 
 # Number of training steps
-# TODO - speaker adaptation
 NUM_STEPS = 300000
+
+# Number of adaptation steps
+NUM_ADAPTATION_STEPS = 5000
 
 # Number of data loading worker threads
 NUM_WORKERS = 2

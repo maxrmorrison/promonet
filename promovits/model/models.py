@@ -425,7 +425,6 @@ class Generator(torch.nn.Module):
             gin_channels=promovits.model.GIN_CHANNELS)
 
         # Speaker embedding
-        # TODO - speaker adaptation
         self.speaker_embedding = torch.nn.Embedding(
             n_speakers,
             promovits.model.GIN_CHANNELS)
@@ -459,7 +458,6 @@ class Generator(torch.nn.Module):
             feature_lengths)
 
         # Encode speaker ID
-        # TODO - speaker adaptation
         speaker_embeddings = self.speaker_embedding(speakers).unsqueeze(-1)
 
         if self.training:

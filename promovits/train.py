@@ -100,11 +100,8 @@ def train(
     # Create models #
     #################
 
-    # TODO - speaker adaptation
-    n_speakers = 1 + max(
-        int(speaker) for speaker in train_loader.dataset.speakers)
-
-    generator = promovits.model.Generator(n_speakers).to(device)
+    num_speakers = len(train_loader.dataset.speakers)
+    generator = promovits.model.Generator(num_speakers).to(device)
     discriminators = promovits.model.Discriminator().to(device)
 
     ##################################################
@@ -122,16 +119,8 @@ def train(
     # Create optimizers #
     #####################
 
-    if adapt:
-        generator_optimizer = promovits.ADAPTATION_OPTIMIZER(
-            generator.parameters())
-        discriminator_optimizer = promovits.ADAPTATION_OPTIMIZER(
-            discriminators.parameters())
-    else:
-        generator_optimizer = promovits.TRAINING_OPTIMIZER(
-            generator.parameters())
-        discriminator_optimizer = promovits.TRAINING_OPTIMIZER(
-            discriminators.parameters())
+    generator_optimizer = promovits.OPTIMIZER(generator.parameters())
+    discriminator_optimizer = promovits.OPTIMIZER(discriminators.parameters())
 
     ##############################
     # Maybe load from checkpoint #
@@ -193,14 +182,20 @@ def train(
     # Print model summaries on the first step
     printed = False
 
+    # Get total number of steps
+    if adapt:
+        steps = promovits.NUM_STEPS + promovits.NUM_ADAPTATION_STEPS
+    else:
+        steps = promovits.NUM_STEPS
+
     # Setup progress bar
     if not rank:
         progress = tqdm.tqdm(
             initial=step,
-            total=promovits.NUM_STEPS,
+            total=steps,
             dynamic_ncols=True,
             desc=f'Training {promovits.CONFIG}')
-    while step < promovits.NUM_STEPS + 1:
+    while step < steps:
 
         # Seed sampler
         train_loader.batch_sampler.set_epoch(step // len(train_loader.dataset))
@@ -436,7 +431,7 @@ def train(
                         output_directory / f'discriminator-{step:08d}.pt')
 
             # Update training step count
-            if step >= promovits.NUM_STEPS:
+            if step >= steps:
                 break
             step += 1
 
@@ -451,6 +446,18 @@ def train(
     # Close progress bar
     if not rank:
         progress.close()
+
+    # Save final model
+    promovits.checkpoint.save(
+        generator,
+        generator_optimizer,
+        step,
+        output_directory / f'generator-{step:08d}.pt')
+    promovits.checkpoint.save(
+        discriminators,
+        discriminator_optimizer,
+        step,
+        output_directory / f'discriminator-{step:08d}.pt')
 
 
 ###############################################################################
@@ -594,7 +601,7 @@ def train_ddp(rank, dataset, directory, gpus):
         train(dataset, directory, gpus)
 
 
-@ contextlib.contextmanager
+@contextlib.contextmanager
 def ddp_context(rank, world_size):
     """Context manager for distributed data parallelism"""
     # Setup ddp

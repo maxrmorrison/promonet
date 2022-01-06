@@ -100,16 +100,19 @@ def dataset(name):
 def adaptation(name):
     """Partition dataset for speaker adaptation"""
     directory = promovits.CACHE_DIR / name
-    return {
-        'train': [file.stem for file in directory.glob('*.wav')],
-        'valid': []}
+    train = [
+        f'{file.parent.name}/{file.stem}'
+        for file in directory.rglob('*.wav')]
+    return {'train': train, 'valid': []}
 
 
 def daps():
     """Partition the DAPS dataset"""
     # Get stems
     directory = promovits.CACHE_DIR / 'daps'
-    stems = [file.stem for file in directory.glob('*.wav')]
+    stems = [
+        f'{file.parent.name}/{file.stem}'
+        for file in directory.rglob('*.wav')]
 
     # Create speaker adaptation partitions
     return adaptation_partitions(
@@ -159,7 +162,7 @@ def adaptation_partitions(directory, stems, speakers):
     """Create the speaker adaptation partitions"""
     # Get adaptation data
     adaptation_stems = {
-        speaker: [stem for stem in stems if stem.split('-')[0] == speaker]
+        speaker: [stem for stem in stems if stem.split('/')[0] == speaker]
         for speaker in speakers}
 
     # Get length filter

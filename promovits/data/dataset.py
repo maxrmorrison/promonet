@@ -30,8 +30,14 @@ class Dataset(torch.utils.data.Dataset):
         pitch = self.get_pitch(stem)
         periodicity = torch.load(self.cache / f'{stem}-periodicity.pt')
         loudness = torch.load(self.cache / f'{stem}-loudness.pt')
-        speaker = torch.tensor(int(stem.split('-')[0]), dtype=torch.long)
         spectrogram = torch.load(self.cache / f'{stem}-spectrogram.pt')
+
+        # Get speaker index. Non-integer speaker names are assumed to be
+        # for speaker adaptation and therefore default to index zero.
+        try:
+            speaker = int(stem.split('/')[0])
+        except ValueError:
+            speaker = 0
 
         # Load supervised or unsupervised phoneme features
         if promovits.PPG_FEATURES:
@@ -47,7 +53,7 @@ class Dataset(torch.utils.data.Dataset):
             loudness,
             spectrogram,
             audio,
-            speaker)
+            torch.tensor(speaker, dtype=torch.long))
 
     def __len__(self):
         return len(self.stems)
@@ -55,7 +61,6 @@ class Dataset(torch.utils.data.Dataset):
     def get_pitch(self, stem):
         """Load pitch features"""
         return promovits.load.pitch(self.cache / f'{stem}-pitch.pt', True)
-
 
     def get_ppg(self, stem, length):
         """Load PPG features"""
@@ -73,4 +78,4 @@ class Dataset(torch.utils.data.Dataset):
     @functools.cached_property
     def speakers(self):
         """Retrieve the list of speaker ids"""
-        return sorted(list(set(stem.split('-')[0] for stem in self.stems)))
+        return sorted(list(set(stem.split('/')[0] for stem in self.stems)))
