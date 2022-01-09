@@ -46,9 +46,8 @@ python setup.py build_ext --inplace
 
 ## Configuration
 
-TODO - rename to `yapecs`
 TODO - add link
-We use `yapem` for experiment configuration. Configuration files for
+We use `yapecs` for experiment configuration. Configuration files for
 experiments described in our paper can be found in `config/`.
 
 

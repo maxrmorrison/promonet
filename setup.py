@@ -31,7 +31,7 @@ setup(
         'tqdm',
         # TEMPORARY - exclude until release
         # 'Unidecode',
-        # 'yapem'],
+        # 'yapecs'],
         'Unidecode'],
     packages=find_packages(),
     package_data={'promovits': ['assets/*', 'assets/*/*']},

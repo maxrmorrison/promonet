@@ -7,8 +7,8 @@
 from .config import defaults
 
 # Modify configuration
-import yapem
-yapem.configure(defaults)
+import yapecs
+yapecs.configure(defaults)
 
 # Import configuration parameters
 from .config.defaults import *
