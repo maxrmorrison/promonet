@@ -51,9 +51,17 @@ configuration. Configuration files for experiments described in our paper
 can be found in `config/`.
 
 
-## Generation
+## Usage
 
-### CLI
+To use `promovits` for speech prosody editing, you must first perform speaker
+adaptation. To do so, create a directory of `.wav` audio files that will be
+used for adaptation. Then, use either the CLI or API to perform adaptation
+and generation.
+
+
+### Command-line interface (CLI)
+
+TODO - give comparable example as API section
 
 ```
 python -m promovits
@@ -93,7 +101,7 @@ optional arguments:
 ```
 
 
-### API
+### Application programming interface (API)
 
 The following is an example of performing speaker adaptation followed by
 prosody editing.
@@ -259,7 +267,6 @@ tensorboard --logdir runs/train/ --port <port>
 
 
 ### Evaluate
-
 
 Performs objective evaluation and generates examples for subjective evaluation.
 Also performs benchmarking of generation speed. Results are stored in `eval/`.
