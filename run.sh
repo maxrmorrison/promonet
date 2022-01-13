@@ -1,3 +1,5 @@
-python -m promovits.data.download --datasets vctk && \
-python -m promovits.preprocess --datasets vctk --gpu 0 && \
-python -m promovits.train --config config/test.py --datasets <datasets> --gpus 0
+python -m promovits.data.download --datasets daps && \
+python -m promovits.preprocess --datasets daps --gpu 0 && \
+python -m promovits.partition --datasets daps --overwrite
+# python -m promovits.partition --datasets daps --overwrite && \
+# python -m promovits.train --config config/test.py --dataset vctk --gpus 0

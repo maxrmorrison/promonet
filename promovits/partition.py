@@ -112,7 +112,7 @@ def daps():
     directory = promovits.CACHE_DIR / 'daps'
     stems = [
         f'{file.parent.name}/{file.stem}'
-        for file in directory.rglob('*.wav')]
+        for file in directory.rglob('*.json')]
 
     # Create speaker adaptation partitions
     return adaptation_partitions(
@@ -125,7 +125,9 @@ def vctk():
     """Partition the vctk dataset"""
     # Get list of speakers
     directory = promovits.CACHE_DIR / 'vctk'
-    stems = [file.stem for file in directory.glob('*.wav')]
+    stems = [
+        f'{file.parent.name}/{file.stem}'
+        for file in directory.rglob('*.json')]
 
     # Create speaker adaptation partitions
     adapt_partitions = adaptation_partitions(

@@ -78,4 +78,4 @@ class Dataset(torch.utils.data.Dataset):
     @functools.cached_property
     def speakers(self):
         """Retrieve the list of speaker ids"""
-        return sorted(list(set(stem.split('/')[0] for stem in self.stems)))
+        return sorted(list(self.cache.glob('*')))

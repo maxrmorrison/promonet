@@ -46,9 +46,9 @@ python setup.py build_ext --inplace
 
 ## Configuration
 
-TODO - add link
-We use `yapecs` for experiment configuration. Configuration files for
-experiments described in our paper can be found in `config/`.
+We use [`yapecs`](https://github.com/maxrmorrison/yapecs) for experiment
+configuration. Configuration files for experiments described in our paper
+can be found in `config/`.
 
 
 ## Generation

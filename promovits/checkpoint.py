@@ -13,7 +13,7 @@ def latest_path(directory, regex='generator-*.pt'):
 
     # If no matching checkpoint files, no training has occurred
     if not files:
-        return None
+        return
 
     # Retrieve latest checkpoint
     files.sort(key=lambda file: int(''.join(filter(str.isdigit, file.stem))))

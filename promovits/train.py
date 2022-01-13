@@ -132,6 +132,12 @@ def train(
     discriminator_path = promovits.checkpoint.latest_path(
         checkpoint_directory,
         'discriminator-*.pt'),
+
+    # For some reason, returning None from latest_path returns (None,)
+    generator_path = None if generator_path == (None,) else generator_path
+    discriminator_path = \
+        None if discriminator_path == (None,) else discriminator_path
+
     if generator_path and discriminator_path:
 
         # Load generator
@@ -538,20 +544,27 @@ def evaluate(directory, step, generator, valid_loader, device):
                 for ratio in [.5, 2.]:
 
                     # Generate time-stretched speech
-                    stretch = promovits.interpolate.constant_stretch(
-                        phonemes.shape[-1],
+                    stretch = promovits.interpolate.grid.constant(
+                        phonemes,
                         ratio)
                     stretched_phonemes = promovits.interpolate.features(
                         phonemes,
                         stretch)
+                    stretched_length = phoneme_lengths.to(torch.float) / ratio
+                    stretched_length = torch.round(
+                        stretched_length + 1e-4).to(torch.long)
                     stretched_pitch = promovits.interpolate.pitch(
                         promovits.convert.bins_to_hz(pitch),
                         stretch)
-                    stretched, *_ = generator(
-                        stretched_phonemes,
-                        phoneme_lengths / ratio,
-                        promovits.convert.hz_to_bins(stretched_pitch),
-                        speakers)
+                    try:
+                        stretched, *_ = generator(
+                            stretched_phonemes,
+                            stretched_length,
+                            promovits.convert.hz_to_bins(stretched_pitch),
+                            speakers)
+                    except RuntimeError as error:
+                        import pdb; pdb.set_trace()
+                        print(error)
 
                     # Log time-stretched audio
                     key = f'stretched-{int(ratio * 100):03d}/{i:02d}'
