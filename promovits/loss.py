@@ -21,27 +21,21 @@ def discriminator(real_outputs, fake_outputs):
     real_losses = []
     fake_losses = []
     for real_output, fake_output in zip(real_outputs, fake_outputs):
-        real_losses.append(torch.mean((1. - real_output.float()) ** 2.))
-        fake_losses.append(torch.mean(fake_output.float() ** 2.))
+        real_losses.append(torch.mean((1. - real_output) ** 2.))
+        fake_losses.append(torch.mean(fake_output ** 2.))
     return sum(real_losses) + sum(fake_losses), real_losses, fake_losses
 
 
 def generator(discriminator_outputs):
     """Generator adversarial loss"""
     losses = [
-        torch.mean((1. - output.float()) ** 2.)
+        torch.mean((1. - output) ** 2.)
         for output in discriminator_outputs]
     return sum(losses), losses
 
 
 def kl(prior, true_logstd, predicted_mean, predicted_logstd, latent_mask):
     """KL-divergence loss"""
-    # TEMPORARY - see if casts matter
-    # prior = prior.float()
-    # true_logstd = true_logstd.float()
-    # predicted_mean = predicted_mean.float()
-    # predicted_logstd = predicted_logstd.float()
-    # latent_mask = latent_mask.float()
     divergence = predicted_logstd - true_logstd - 0.5 + \
         0.5 * ((prior - predicted_mean) ** 2) * \
         torch.exp(-2. * predicted_logstd)

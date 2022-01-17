@@ -254,7 +254,7 @@ def datasets(datasets, gpus=None):
             partition for partition in partitions.keys()
             if 'train_adapt' in partition))
         test_partitions = sorted(list(
-            partition for partition in partition.keys()
+            partition for partition in partitions.keys()
             if 'test_adapt' in partition))
 
         # Evaluate on each partition

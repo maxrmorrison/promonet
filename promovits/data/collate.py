@@ -29,7 +29,7 @@ def collate(batch):
 
     # Get tensor size in frames and samples
     max_length_features = max([feature.shape[-1] for feature in features])
-    max_length_samples = lengths.max()
+    max_length_samples = lengths.max().item()
     max_length_frames = max_length_samples // promovits.HOPSIZE
 
     # We store original lengths for, e.g., loss evaluation
@@ -62,7 +62,7 @@ def collate(batch):
 
         # Get lengths
         feature_lengths[i] = features[index].shape[-1]
-        spectrogram_lengths[i] = lengths[index] // promovits.HOPSIZE
+        spectrogram_lengths[i] = lengths[index].item() // promovits.HOPSIZE
 
         # Prepare pitch, periodicity, loudness, and features
         if promovits.PPG_FEATURES:

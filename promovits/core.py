@@ -100,9 +100,7 @@ def from_audio(
     # Maybe get text features
     with promovits.TIMER('features/text'):
         if not promovits.PPG_FEATURES:
-            # TEMPORARY - text preprocessing is causing deadlock
-            # features = promovits.preprocess.text.from_string(text)
-            raise NotImplementedError()
+            features = promovits.preprocess.text.from_string(text)
 
     # Setup model
     with promovits.TIMER('load'):

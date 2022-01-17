@@ -1,10 +1,8 @@
-import argparse
+from cgitb import enable
 import contextlib
 import functools
 import math
 import os
-import shutil
-from pathlib import Path
 
 import torch
 import torchinfo
@@ -28,8 +26,8 @@ def run(
     adapt=False,
     gpus=None):
     """Run model training"""
+    # Distributed data parallelism
     if gpus and len(gpus) > 1:
-
         args = (
             dataset,
             checkpoint_directory,
@@ -39,8 +37,6 @@ def run(
             valid_partition,
             adapt,
             gpus)
-
-        # Distributed data parallelism
         torch.multiprocessing.spawn(
             train_ddp,
             args=args,
@@ -186,7 +182,7 @@ def train(
     scaler = torch.cuda.amp.GradScaler()
 
     # Print model summaries on the first step
-    printed = False
+    # printed = False
 
     # Get total number of steps
     if adapt:
@@ -221,16 +217,20 @@ def train(
                 audio,
             ) = (item.to(device) for item in batch)
 
-            with torch.cuda.amp.autocast():
+            # Bundle training input
+            generator_input = (
+                phonemes,
+                phoneme_lengths,
+                pitch,
+                speakers,
+                spectrograms,
+                spectrogram_lengths)
 
-                # Bundle training input
-                generator_input = (
-                    phonemes,
-                    phoneme_lengths,
-                    pitch,
-                    speakers,
-                    spectrograms,
-                    spectrogram_lengths)
+            # Convert to mels
+            mels = promovits.preprocess.spectrogram.linear_to_mel(
+                spectrograms)
+
+            with torch.cuda.amp.autocast():
 
                 # Forward pass through generator
                 (
@@ -245,51 +245,55 @@ def train(
                     true_logstd
                 ) = generator(*generator_input)
 
-                # Convert to mels
-                mels = promovits.preprocess.spectrogram.linear_to_mel(
-                    spectrograms)
-                mel_slices = promovits.model.slice_segments(
-                    mels,
-                    slice_indices,
-                    promovits.TRAINING_CHUNK_SIZE // promovits.HOPSIZE)
+                with torch.cuda.amp.autocast(enabled=False):
 
-            # Exit autocast context, as ComplexHalf type is not supported
-            # See Github issue https://github.com/jaywalnut310/vits/issues/15
-            generated = generated.float()
-            generated_mels = promovits.preprocess.spectrogram.from_audio(
-                generated,
-                True)
-            audio = promovits.model.slice_segments(
-                audio,
-                slice_indices * promovits.HOPSIZE,
-                promovits.TRAINING_CHUNK_SIZE)
+                    # Slice segments for training
+                    mel_slices = promovits.model.slice_segments(
+                        mels,
+                        slice_indices,
+                        promovits.TRAINING_CHUNK_SIZE // promovits.HOPSIZE)
 
-            # Print model summaries first time
-            if not printed:
-                print(torchinfo.summary(
-                    generator,
-                    input_data=generator_input,
-                    device=device))
-                print(torchinfo.summary(
-                    discriminators,
-                    input_data=(audio, generated.detach()),
-                    device=device))
-                printed = True
+                    # Exit autocast context, as ComplexHalf type is not supported
+                    # See Github issue https://github.com/jaywalnut310/vits/issues/15
+                    generated = generated.float()
+                    generated_mels = promovits.preprocess.spectrogram.from_audio(
+                        generated.float(),
+                        True)
+                    audio = promovits.model.slice_segments(
+                        audio,
+                        slice_indices * promovits.HOPSIZE,
+                        promovits.TRAINING_CHUNK_SIZE)
 
-            #######################
-            # Train discriminator #
-            #######################
+                    # Print model summaries first time
+                    # if not printed:
+                    #     print(torchinfo.summary(
+                    #         generator,
+                    #         input_data=generator_input,
+                    #         device=device))
+                    #     print(torchinfo.summary(
+                    #         discriminators,
+                    #         input_data=(audio, generated.detach()),
+                    #         device=device))
+                    #     printed = True
 
-            real_logits, fake_logits, _, _ = discriminators(
-                audio,
-                generated.detach())
+                #######################
+                # Train discriminator #
+                #######################
 
-            # Get discriminator loss
-            (
-                discriminator_losses,
-                real_discriminator_losses,
-                fake_discriminator_losses
-            ) = promovits.loss.discriminator(real_logits, fake_logits)
+                real_logits, fake_logits, _, _ = discriminators(
+                    audio,
+                    generated.detach())
+
+                with torch.cuda.amp.autocast(enabled=False):
+
+                    # Get discriminator loss
+                    (
+                        discriminator_losses,
+                        real_discriminator_losses,
+                        fake_discriminator_losses
+                    ) = promovits.loss.discriminator(
+                        [logit.float() for logit in real_logits],
+                        [logit.float() for logit in fake_logits])
 
             ##########################
             # Optimize discriminator #
@@ -315,39 +319,41 @@ def train(
             # Generator losses #
             ####################
 
-            # Get duration loss
-            if durations is not None:
-                duration_loss = torch.sum(durations.float())
-            else:
-                duration_loss = 0
+                with torch.cuda.amp.autocast(enabled=False):
 
-            # Get melspectrogram loss
-            mel_loss = \
-                promovits.MEL_LOSS_WEIGHT * \
-                torch.nn.functional.l1_loss(mel_slices, generated_mels)
+                    # Get duration loss
+                    if durations is not None:
+                        duration_loss = torch.sum(durations.float())
+                    else:
+                        duration_loss = 0
 
-            # Get KL divergence loss between phonemes and spectrogram
-            kl_divergence_loss = promovits.loss.kl(
-                prior,
-                true_logstd,
-                predicted_mean,
-                predicted_logstd,
-                latent_mask)
+                    # Get melspectrogram loss
+                    mel_loss = \
+                        promovits.MEL_LOSS_WEIGHT * \
+                        torch.nn.functional.l1_loss(mel_slices, generated_mels)
 
-            # Get feature matching loss
-            feature_matching_loss = promovits.loss.feature_matching(
-                real_feature_maps,
-                fake_feature_maps)
+                    # Get KL divergence loss between phonemes and spectrogram
+                    kl_divergence_loss = promovits.loss.kl(
+                        prior.float(),
+                        true_logstd.float(),
+                        predicted_mean.float(),
+                        predicted_logstd.float(),
+                        latent_mask)
 
-            # Get adversarial loss
-            adversarial_loss, adversarial_losses = promovits.loss.generator(
-                fake_logits)
-            generator_losses = (
-                adversarial_loss +
-                feature_matching_loss +
-                mel_loss +
-                duration_loss +
-                kl_divergence_loss)
+                    # Get feature matching loss
+                    feature_matching_loss = promovits.loss.feature_matching(
+                        real_feature_maps,
+                        fake_feature_maps)
+
+                    # Get adversarial loss
+                    adversarial_loss, adversarial_losses = promovits.loss.generator(
+                        [logit.float() for logit in fake_logits])
+                    generator_losses = (
+                        adversarial_loss +
+                        feature_matching_loss +
+                        mel_loss +
+                        duration_loss +
+                        kl_divergence_loss)
 
             ######################
             # Optimize generator #
@@ -424,7 +430,7 @@ def train(
                 # Save checkpoint #
                 ###################
 
-                if step % promovits.CHECKPOINT_INTERVAL == 0:
+                if step and step % promovits.CHECKPOINT_INTERVAL == 0:
                     promovits.checkpoint.save(
                         generator,
                         generator_optimizer,
@@ -479,9 +485,9 @@ def evaluate(directory, step, generator, valid_loader, device):
     # Turn off gradient computation
     with torch.no_grad():
 
-        waveforms = {}
-        figures = {}
         for i, batch in enumerate(valid_loader):
+            waveforms = {}
+            figures = {}
 
             # Unpack batch
             (
@@ -497,12 +503,12 @@ def evaluate(directory, step, generator, valid_loader, device):
             if not step:
 
                 # Log original audio
-                waveforms[f'original/{i:02d}'] = audio[0]
+                waveforms[f'original/{i:02d}-audio'] = audio[0]
 
                 # Log original melspectrogram
                 mels = promovits.preprocess.spectrogram.linear_to_mel(
                     spectrogram[0]).cpu().numpy()
-                figures[f'original/{i:02d}'] = \
+                figures[f'original/{i:02d}-mels'] = \
                     promovits.plot.spectrogram(mels)
 
             # Generate speech
@@ -513,10 +519,10 @@ def evaluate(directory, step, generator, valid_loader, device):
                 speakers)
 
             # Log generated audio
-            waveforms[f'generated/{i:02d}'] = generated[0]
+            waveforms[f'reconstruction/{i:02d}-audio'] = generated[0]
 
             # Log generated melspectrogram
-            figures[f'reconstruction/{i:02d}-generated'] = \
+            figures[f'reconstruction/{i:02d}-mels'] = \
                 promovits.plot.spectrogram_from_audio(generated)
 
             # Maybe log pitch-shifting
@@ -533,10 +539,10 @@ def evaluate(directory, step, generator, valid_loader, device):
 
                     # Log pitch-shifted audio
                     key = f'shifted-{int(ratio * 100):03d}/{i:02d}'
-                    waveforms[key] = shifted[0]
+                    waveforms[f'{key}-audio'] = shifted[0]
 
                     # Log pitch-shifted melspectrogram
-                    figures[f'shifted-{int(ratio * 100):03d}/{i:02d}'] = \
+                    figures[f'{key}-mels'] =\
                         promovits.plot.spectrogram_from_audio(shifted)
 
             # Maybe log time-stretching
@@ -556,22 +562,18 @@ def evaluate(directory, step, generator, valid_loader, device):
                     stretched_pitch = promovits.interpolate.pitch(
                         promovits.convert.bins_to_hz(pitch),
                         stretch)
-                    try:
-                        stretched, *_ = generator(
-                            stretched_phonemes,
-                            stretched_length,
-                            promovits.convert.hz_to_bins(stretched_pitch),
-                            speakers)
-                    except RuntimeError as error:
-                        import pdb; pdb.set_trace()
-                        print(error)
+                    stretched, *_ = generator(
+                        stretched_phonemes,
+                        stretched_length,
+                        promovits.convert.hz_to_bins(stretched_pitch),
+                        speakers)
 
                     # Log time-stretched audio
                     key = f'stretched-{int(ratio * 100):03d}/{i:02d}'
-                    waveforms[key] = stretched[0]
+                    waveforms[f'{key}-audio'] = stretched[0]
 
                     # Log time-stretched melspectrogram
-                    figures[f'stretched-{int(ratio * 100):03d}/{i:02d}'] = \
+                    figures[f'{key}-mels'] = \
                         promovits.plot.spectrogram_from_audio(stretched)
 
             # Maybe log loudness-scaling
@@ -589,15 +591,15 @@ def evaluate(directory, step, generator, valid_loader, device):
 
                     # Log loudness-scaled audio
                     key = f'scaled-{int(ratio * 100):03d}/{i:02d}'
-                    waveforms[key] = scaled[0]
+                    waveforms[f'{key}-audio'] = scaled[0]
 
                     # Log loudness-scaled melspectrogram
-                    figures[f'scaled-{int(ratio * 100):03d}/{i:02d}'] = \
+                    figures[f'{key}-mels'] = \
                         promovits.plot.spectrogram_from_audio(scaled)
 
-    # Write to Tensorboard
-    promovits.write.figures(directory, step, figures)
-    promovits.write.audio(directory, step, waveforms)
+            # Write to Tensorboard
+            promovits.write.figures(directory, step, figures)
+            promovits.write.audio(directory, step, waveforms)
 
     # Prepare generator for training
     generator.train()
@@ -635,72 +637,3 @@ def ddp_context(rank, world_size):
 
         # Close ddp
         torch.distributed.destroy_process_group()
-
-
-###############################################################################
-# Entry point
-###############################################################################
-
-
-def main(
-    config,
-    dataset,
-    train_partition='train',
-    valid_partition='valid',
-    adapt=False,
-    gpus=None):
-    # Create output directory
-    directory = promovits.RUNS_DIR / config.stem
-    directory.mkdir(parents=True, exist_ok=True)
-
-    # Save configuration
-    shutil.copyfile(config, directory / config.name)
-
-    # Train
-    run(dataset,
-        directory,
-        directory,
-        directory,
-        train_partition,
-        valid_partition,
-        adapt,
-        gpus)
-
-    # Evaluate
-    promovits.evaluate.datasets([dataset], None if gpus is None else gpus[0])
-
-
-def parse_args():
-    """Parse command-line arguments"""
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        '--config',
-        type=Path,
-        default=promovits.DEFAULT_CONFIGURATION,
-        help='The configuration file')
-    parser.add_argument(
-        '--dataset',
-        default='vctk',
-        help='The dataset to train on')
-    parser.add_argument(
-        '--train_partition',
-        default='train',
-        help='The data partition to train on')
-    parser.add_argument(
-        '--valid_partition',
-        default='valid',
-        help='The data partition to perform validation on')
-    parser.add_argument(
-        '--adapt',
-        action='store_true',
-        help='Whether to use hyperparameters for speaker adaptation')
-    parser.add_argument(
-        '--gpus',
-        type=int,
-        nargs='+',
-        help='The gpus to run training on')
-    return parser.parse_args()
-
-
-if __name__ == '__main__':
-    main(**vars(parse_args()))

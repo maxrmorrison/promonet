@@ -50,13 +50,12 @@ def from_files_to_files(
     with promovits.data.chdir(output_directory):
 
         # Preprocess phonemes from text
-        # TEMPORARY - text preprocessing is causing deadlock
-        # if 'phonemes' in features:
-        #     phoneme_files = [
-        #         f'{file.stem}-text.pt' for file in text_files]
-        #     promovits.preprocess.text.from_files_to_files(
-        #         text_files,
-        #         phoneme_files)
+        if 'phonemes' in features:
+            phoneme_files = [
+                f'{file.stem}-text.pt' for file in text_files]
+            promovits.preprocess.text.from_files_to_files(
+                text_files,
+                phoneme_files)
 
         # Preprocess spectrograms
         if 'spectrogram' in features:

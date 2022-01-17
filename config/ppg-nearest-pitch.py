@@ -1,4 +1,3 @@
-# Configuration name
 CONFIG = 'ppg-nearest-pitch'
 
 # Pitch conditioning
