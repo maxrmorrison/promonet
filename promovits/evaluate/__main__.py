@@ -1,4 +1,5 @@
 import argparse
+from pathlib import Path
 
 import promovits
 
@@ -16,6 +17,10 @@ def parse_args():
         required=True,
         nargs='+',
         help='The datasets to generate files for')
+    parser.add_argument(
+        '--checkpoint',
+        type=Path,
+        help='The checkpoint to use for non-adaptive models')
     parser.add_argument(
         '--gpus',
         type=int,

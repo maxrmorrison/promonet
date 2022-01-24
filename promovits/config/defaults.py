@@ -70,6 +70,10 @@ RUNS_DIR = Path(__file__).parent.parent.parent / 'runs'
 # Whether to perform benchmarking
 BENCHMARK = False
 
+# The model to use for evaluation.
+# One of ['promovits', 'clpcnet', 'fastpitch', 'psola', 'world].
+MODEL = 'promovits'
+
 
 ###############################################################################
 # Features

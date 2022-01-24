@@ -26,30 +26,32 @@ def speaker(
     dataset,
     train_partition,
     test_partition,
-    checkpoint_directory,
+    checkpoint,
     output_directory,
     log_directory,
     objective_directory,
     subjective_directory,
     gpus=None):
     """Evaluate one adaptation speaker in a dataset"""
-    # Turn on benchmarking
-    current_benchmark = promovits.BENCHMARK
-    promovits.BENCHMARK = True
+    if promovits.MODEL == 'promovits':
 
-    # Perform speaker adaptation
-    promovits.train.run(
-        dataset,
-        checkpoint_directory,
-        output_directory,
-        log_directory,
-        train_partition,
-        test_partition,
-        True,
-        gpus)
+        # Turn on benchmarking
+        current_benchmark = promovits.BENCHMARK
+        promovits.BENCHMARK = True
 
-    # Get latest checkpoint
-    adapt_checkpoint = promovits.latest_checkpoint_path(output_directory)
+        # Perform speaker adaptation
+        promovits.train.run(
+            dataset,
+            checkpoint,
+            output_directory,
+            log_directory,
+            train_partition,
+            test_partition,
+            True,
+            gpus)
+
+        # Get latest generator checkpoint
+        checkpoint = promovits.latest_checkpoint_path(output_directory)
 
     # Directory to save original audio files
     original_subjective_directory = (
@@ -97,7 +99,7 @@ def speaker(
     promovits.from_files_to_files(
         files['original'],
         files['reconstructed'],
-        checkpoint=adapt_checkpoint,
+        checkpoint=checkpoint,
         gpu=None if gpus is None else gpus[0])
 
     # Constant-ratio pitch-shifting
@@ -123,7 +125,7 @@ def speaker(
             input_files,
             files[key],
             target_pitch_files=pitch_files,
-            checkpoint=adapt_checkpoint,
+            checkpoint=checkpoint,
             gpu=None if gpus is None else gpus[0])
 
     # Constant-ratio time-stretching
@@ -159,7 +161,7 @@ def speaker(
             input_files,
             files[key],
             target_alignment_files=alignment_files,
-            checkpoint=adapt_checkpoint,
+            checkpoint=checkpoint,
             gpu=None if gpus is None else gpus[0])
 
     # Constant-ratio loudness-scaling
@@ -187,7 +189,7 @@ def speaker(
             input_files,
             files[key],
             target_loudness_files=loudness_files,
-            checkpoint=adapt_checkpoint,
+            checkpoint=checkpoint,
             gpu=None if gpus is None else gpus[0])
 
     # Extract prosody from generated files
@@ -243,7 +245,7 @@ def speaker(
     promovits.BENCHMARK = current_benchmark
 
 
-def datasets(datasets, gpus=None):
+def datasets(datasets, checkpoint=None, gpus=None):
     """Evaluate the performance of the model on datasets"""
     # Evaluate on each dataset
     for dataset in datasets:
@@ -265,7 +267,8 @@ def datasets(datasets, gpus=None):
             index = train_partition.split('-')[-1]
 
             # Directory containing checkpoint to load from
-            checkpoint_directory = promovits.RUNS_DIR / promovits.CONFIG
+            if promovits.MODEL == 'promovits':
+                checkpoint = promovits.RUNS_DIR / promovits.CONFIG
 
             # Output directory for checkpoints and logs
             adapt_directory = (
@@ -296,7 +299,7 @@ def datasets(datasets, gpus=None):
                 dataset,
                 train_partition,
                 test_partition,
-                checkpoint_directory,
+                checkpoint,
                 adapt_directory,
                 adapt_directory,
                 objective_directory,

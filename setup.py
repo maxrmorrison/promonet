@@ -19,7 +19,11 @@ setup(
         'matplotlib',
         'numpy',
         'phonemizer',
+        # TEMPORARY - exclude until release
         # 'pysodic',
+        # TEMPORARY - GPL dependency
+        'psola',
+        'pyworld',
         'pyyaml',
         'scipy',
         'tensorboard',

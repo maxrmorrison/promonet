@@ -44,7 +44,7 @@ def ppgs(sequence, grid):
 
 
 def grid_sample(sequence, grid, method='linear'):
-    """Perform grid-based sampling"""
+    """Perform 1D grid-based sampling"""
     # Require interpolation method to be defined
     if method not in ['linear', 'nearest']:
         raise ValueError(
