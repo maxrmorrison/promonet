@@ -26,6 +26,7 @@ class Dataset(torch.utils.data.Dataset):
 
     def __getitem__(self, index):
         stem = self.stems[index]
+        text = promovits.load.text(self.cache / f'{stem}.txt')
         audio = promovits.load.audio(self.cache / f'{stem}.wav')
         pitch = self.get_pitch(stem)
         periodicity = torch.load(self.cache / f'{stem}-periodicity.pt')
@@ -47,6 +48,7 @@ class Dataset(torch.utils.data.Dataset):
                 self.cache / f'{stem}-text.pt')
 
         return (
+            text,
             phonemes,
             pitch,
             periodicity,

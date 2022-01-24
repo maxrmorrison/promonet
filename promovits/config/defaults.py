@@ -174,5 +174,8 @@ NUM_WORKERS = 2
 # Seed for all random number generators
 RANDOM_SEED = 1234
 
+# Aligner to use to evaluate training
+TRAIN_ALIGNER = 'p2fa'
+
 # Number of samples generated during training
 TRAINING_CHUNK_SIZE = 8192

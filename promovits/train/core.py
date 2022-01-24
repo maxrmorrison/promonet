@@ -1,9 +1,10 @@
-from cgitb import enable
 import contextlib
 import functools
 import math
 import os
 
+import pyfoal
+import pysodic
 import torch
 import torchinfo
 import tqdm
@@ -208,19 +209,19 @@ def train(
 
             # Unpack batch
             (
-                phonemes,
-                phoneme_lengths,
+                features,
+                feature_lengths,
                 pitch,
                 speakers,
                 spectrograms,
                 spectrogram_lengths,
                 audio,
-            ) = (item.to(device) for item in batch)
+            ) = (item.to(device) for item in batch[1:])
 
             # Bundle training input
             generator_input = (
-                phonemes,
-                phoneme_lengths,
+                features,
+                feature_lengths,
                 pitch,
                 speakers,
                 spectrograms,
@@ -332,7 +333,7 @@ def train(
                         promovits.MEL_LOSS_WEIGHT * \
                         torch.nn.functional.l1_loss(mel_slices, generated_mels)
 
-                    # Get KL divergence loss between phonemes and spectrogram
+                    # Get KL divergence loss between features and spectrogram
                     kl_divergence_loss = promovits.loss.kl(
                         prior.float(),
                         true_logstd.float(),
@@ -419,12 +420,21 @@ def train(
                 ############
 
                 if step % promovits.EVALUATION_INTERVAL == 0:
-                    evaluate(
-                        log_directory,
-                        step,
-                        generator,
-                        valid_loader,
-                        device)
+
+                    # This context manager changes which forced aligner is
+                    # used. MFA is slow and less robust to errors than P2FA,
+                    # and works better with speaker adaptation, which we don't
+                    # perform here. However, the installation of P2FA is
+                    # more complicated. Therefore, we allow either aligner
+                    # to be used to evaluate training.
+                    with pyfoal.backend(promovits.TRAIN_ALIGNER):
+
+                        evaluate(
+                            log_directory,
+                            step,
+                            generator,
+                            valid_loader,
+                            gpu)
 
                 ###################
                 # Save checkpoint #
@@ -477,28 +487,56 @@ def train(
 ###############################################################################
 
 
-def evaluate(directory, step, generator, valid_loader, device):
+def evaluate(directory, step, generator, valid_loader, gpu):
     """Perform model evaluation"""
+    device = 'cpu' if gpu is None else f'cuda:{gpu}'
+
     # Prepare generator for evaluation
     generator.eval()
 
     # Turn off gradient computation
     with torch.no_grad():
 
+        # Setup prosody evaluation
+        metric_fn = functools.partial(
+            pysodic.metrics.Prosody,
+            promovits.SAMPLE_RATE,
+            promovits.HOPSIZE / promovits.SAMPLE_RATE,
+            promovits.WINDOW_SIZE / promovits.SAMPLE_RATE,
+            gpu=gpu)
+        metrics = {'reconstruction': metric_fn()}
+
+        # Maybe add evaluation of prosody control
+        if promovits.PITCH_FEATURES:
+            metrics.update({
+                'shifted-050': metric_fn(),
+                'shifted-200': metric_fn()})
+        if promovits.PPG_FEATURES:
+            metrics.update({
+                'stretched-050': metric_fn(),
+                'stretched-200': metric_fn()})
+        if promovits.LOUDNESS_FEATURES:
+            metrics.update({
+                'scaled-050': metric_fn(),
+                'scaled-200': metric_fn()})
+
         for i, batch in enumerate(valid_loader):
-            waveforms = {}
-            figures = {}
+            waveforms, figures = {}, {}
 
             # Unpack batch
+            text = batch[0][0]
             (
-                phonemes,
-                phoneme_lengths,
-                pitch,
+                features,
+                feature_lengths,
+                _,
                 speakers,
                 spectrogram,
                 _,
                 audio,
-            ) = (item.to(device) for item in batch)
+            ) = (item.to(device) for item in batch[1:])
+
+            # Ensure audio and generated are same length
+            audio = audio[..., :-(audio.shape[-1] % promovits.HOPSIZE)]
 
             if not step:
 
@@ -511,98 +549,181 @@ def evaluate(directory, step, generator, valid_loader, device):
                 figures[f'original/{i:02d}-mels'] = \
                     promovits.plot.spectrogram(mels)
 
+            # Extract prosody features
+            (
+                pitch,
+                periodicity,
+                loudness,
+                voicing,
+                phones,
+                _
+            ) = pysodic.from_audio_and_text(
+                audio[0],
+                promovits.SAMPLE_RATE,
+                text,
+                promovits.HOPSIZE / promovits.SAMPLE_RATE,
+                promovits.WINDOW_SIZE / promovits.SAMPLE_RATE,
+                gpu)
+
             # Generate speech
             generated, *_ = generator(
-                phonemes,
-                phoneme_lengths,
-                pitch,
+                features,
+                feature_lengths,
+                promovits.convert.hz_to_bins(pitch),
                 speakers)
 
             # Log generated audio
-            waveforms[f'reconstruction/{i:02d}-audio'] = generated[0]
-
-            # Log generated melspectrogram
-            figures[f'reconstruction/{i:02d}-mels'] = \
-                promovits.plot.spectrogram_from_audio(generated)
+            key = f'reconstruction/{i:02d}'
+            metric_args = (pitch, periodicity, loudness, voicing, phones, text)
+            log(generated, key, waveforms, figures, metrics, metric_args)
 
             # Maybe log pitch-shifting
             if promovits.PITCH_FEATURES:
                 for ratio in [.5, 2.]:
 
                     # Generate pitch-shifted speech
-                    shifted_pitch = ratio * promovits.convert.bins_to_hz(pitch)
+                    shifted_pitch = ratio * pitch
                     shifted, *_ = generator(
-                        phonemes,
-                        phoneme_lengths,
+                        features,
+                        feature_lengths,
                         promovits.convert.hz_to_bins(shifted_pitch),
                         speakers)
 
-                    # Log pitch-shifted audio
+                    # Log pitch-shifted audios
                     key = f'shifted-{int(ratio * 100):03d}/{i:02d}'
-                    waveforms[f'{key}-audio'] = shifted[0]
-
-                    # Log pitch-shifted melspectrogram
-                    figures[f'{key}-mels'] =\
-                        promovits.plot.spectrogram_from_audio(shifted)
+                    metric_args = (
+                        shifted_pitch,
+                        periodicity,
+                        loudness,
+                        voicing,
+                        phones,
+                        text)
+                    log(shifted, key, waveforms, figures, metrics, metric_args)
 
             # Maybe log time-stretching
             if promovits.PPG_FEATURES:
                 for ratio in [.5, 2.]:
 
-                    # Generate time-stretched speech
-                    stretch = promovits.interpolate.grid.constant(
-                        phonemes,
+                    # Create time-stretch grid
+                    grid = promovits.interpolate.grid.constant(
+                        features,
                         ratio)
-                    stretched_phonemes = promovits.interpolate.features(
-                        phonemes,
-                        stretch)
-                    stretched_length = phoneme_lengths.to(torch.float) / ratio
+
+                    # Stretch prosody features
+                    stretched_pitch = promovits.interpolate.pitch(pitch, grid)
+                    stretched_periodicity = promovits.interpolate.grid_sample(
+                        periodicity,
+                        grid)
+                    stretched_loudness = promovits.interpolate.grid_sample(
+                        loudness,
+                        grid)
+                    stretched_voicing = pysodic.features.voicing(
+                        stretched_pitch,
+                        stretched_periodicity)
+                    stretched_phones = promovits.interpolate.grid_sample(
+                        phones,
+                        grid,
+                        method='nearest')
+
+                    # Stretch input features
+                    stretched_features = promovits.interpolate.features(
+                        features,
+                        grid)
+                    stretched_length = feature_lengths.to(torch.float) / ratio
                     stretched_length = torch.round(
                         stretched_length + 1e-4).to(torch.long)
-                    stretched_pitch = promovits.interpolate.pitch(
-                        promovits.convert.bins_to_hz(pitch),
-                        stretch)
+
+                    # Generate
                     stretched, *_ = generator(
-                        stretched_phonemes,
+                        stretched_features,
                         stretched_length,
                         promovits.convert.hz_to_bins(stretched_pitch),
                         speakers)
 
-                    # Log time-stretched audio
+                    # Log to tensorboard
                     key = f'stretched-{int(ratio * 100):03d}/{i:02d}'
-                    waveforms[f'{key}-audio'] = stretched[0]
-
-                    # Log time-stretched melspectrogram
-                    figures[f'{key}-mels'] = \
-                        promovits.plot.spectrogram_from_audio(stretched)
+                    metric_args = (
+                        stretched_pitch,
+                        stretched_periodicity,
+                        stretched_loudness,
+                        stretched_voicing,
+                        stretched_phones,
+                        text)
+                    log(stretched, key, waveforms, figures, metrics, metric_args)
 
             # Maybe log loudness-scaling
             if promovits.LOUDNESS_FEATURES:
                 for ratio in [.5, 2.]:
 
                     # Generate loudness-scaled speech
-                    phonemes[:, promovits.PPG_CHANNELS] += 10 * math.log2(ratio)
+                    scaled_loudness = (
+                        features[:, promovits.PPG_CHANNELS] +
+                        10 * math.log2(ratio))
+                    features[:, promovits.PPG_CHANNELS] = scaled_loudness
                     scaled, *_ = generator(
-                        phonemes,
-                        phoneme_lengths,
-                        pitch,
+                        features,
+                        feature_lengths,
+                        promovits.convert.hz_to_bins(pitch),
                         speakers)
-                    phonemes[:, promovits.PPG_CHANNELS] -= 10 * math.log2(ratio)
+                    features[:, promovits.PPG_CHANNELS] -= 10 * math.log2(ratio)
 
                     # Log loudness-scaled audio
                     key = f'scaled-{int(ratio * 100):03d}/{i:02d}'
-                    waveforms[f'{key}-audio'] = scaled[0]
+                    metric_args = (
+                        pitch,
+                        periodicity,
+                        scaled_loudness,
+                        voicing,
+                        phones,
+                        text)
+                    log(scaled, key, waveforms, figures, metrics, metric_args)
 
-                    # Log loudness-scaled melspectrogram
-                    figures[f'{key}-mels'] = \
-                        promovits.plot.spectrogram_from_audio(scaled)
-
-            # Write to Tensorboard
-            promovits.write.figures(directory, step, figures)
+            # Write audio and mels to Tensorboard
             promovits.write.audio(directory, step, waveforms)
+            promovits.write.figures(directory, step, figures)
+
+    # Format prosody metrics
+    scalars = {}
+    for condition in metrics:
+        for name, value in metrics[condition]().items():
+
+            if name == 'voicing':
+
+                # Write precision, recall, and f1 metrics
+                for subname, subvalue in value.items():
+                    key = f'{condition}/{name}-{subname}'
+                    scalars[key] = subvalue
+
+            else:
+
+                # Write metric
+                key = f'{condition}/{name}'
+                scalars[key] = value
+
+    # Write prosody metrics to tensorboard
+    promovits.write.scalars(directory, step, scalars)
 
     # Prepare generator for training
     generator.train()
+
+
+###############################################################################
+# Logging
+###############################################################################
+
+
+def log(audio, key, waveforms, figures, metrics, metric_args):
+    """Update training logs"""
+    audio = audio[0]
+
+    # Log time-stretched audio
+    waveforms[f'{key}-audio'] = audio
+
+    # Log time-stretched melspectrogram
+    figures[f'{key}-mels'] = promovits.plot.spectrogram_from_audio(audio)
+
+    # Update metrics
+    metrics[key.split('/')[0]].update(audio, *metric_args)
 
 
 ###############################################################################

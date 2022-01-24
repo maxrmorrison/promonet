@@ -323,5 +323,5 @@ def datasets(datasets, gpus=None):
 
         # Print results and save to disk
         print(results)
-        with open(results_directory / 'results.json') as file:
+        with open(results_directory / 'results.json', 'w') as file:
             json.dump(results, file, indent=4, sort_keys=True)

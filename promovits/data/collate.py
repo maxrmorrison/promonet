@@ -12,6 +12,7 @@ def collate(batch):
     """Collate from features, spectrograms, audio, and speaker identities"""
     # Unpack
     (
+        text,
         features,
         pitch,
         periodicity,
@@ -86,6 +87,7 @@ def collate(batch):
         padded_audio[i, :, :lengths[index]] = audio[index]
 
     return (
+        text,
         padded_features,
         feature_lengths,
         padded_pitch,
