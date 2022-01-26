@@ -1,3 +1,4 @@
+# TEMPORARY - Adobe Research license
 import clpcnet
 import numpy as np
 import torch
@@ -15,9 +16,6 @@ def from_audio(
     checkpoint=promovits.DEFAULT_CHECKPOINT,
     gpu=None):
     """Speech modification with CLPCNet"""
-    if grid and not text:
-        raise ValueError('Cannot use time-stretch grid without text')
-
     # Resample audio
     audio = clpcnet.preprocess.resample(audio.squeeze().numpy(), sample_rate)
 

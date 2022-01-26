@@ -33,11 +33,11 @@ def speaker(
     subjective_directory,
     gpus=None):
     """Evaluate one adaptation speaker in a dataset"""
-    if promovits.MODEL == 'promovits':
+    # Turn on benchmarking
+    current_benchmark = promovits.BENCHMARK
+    promovits.BENCHMARK = True
 
-        # Turn on benchmarking
-        current_benchmark = promovits.BENCHMARK
-        promovits.BENCHMARK = True
+    if promovits.MODEL == 'promovits':
 
         # Perform speaker adaptation
         promovits.train.run(

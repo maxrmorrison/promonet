@@ -29,6 +29,7 @@ from . import evaluate
 from . import interpolate
 from . import load
 from . import loss
+from . import loudness
 from . import model
 from . import partition
 from . import plot

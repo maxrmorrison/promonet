@@ -41,12 +41,13 @@ def from_audio(
 
     # Maybe pitch-shift
     if target_pitch is not None:
-        pitch = target_pitch.squeeze().numpy().astype(np.float64)
+        target_pitch = target_pitch.squeeze().numpy().astype(np.float64)
+        pitch[pitch != 0.] = target_pitch[pitch != 0.]
 
     # Maybe time-stretch
     if grid is not None:
         pitch, spectrogram, aperiodicity = linear_time_stretch(
-            pitch, spectrogram, aperiodicity, grid)
+            pitch, spectrogram, aperiodicity, grid.numpy())
 
     # Synthesize using modified parameters
     vocoded = pyworld.synthesize(
@@ -56,7 +57,13 @@ def from_audio(
         promovits.SAMPLE_RATE,
         promovits.HOPSIZE / promovits.SAMPLE_RATE * 1000.)
 
-    # Trim zero padding
+    # Convert to torch
+    vocoded = torch.from_numpy(vocoded)[None]
+
+    # Maybe scale loudness
+    if target_loudness is not None:
+        vocoded = promovits.baseline.loudness.scale(vocoded, target_loudness)
+
     return vocoded
 
 
@@ -102,34 +109,21 @@ def analyze(audio):
     return pitch, spectrogram, aperiodicity
 
 
-# TODO - apply grid to features
 def linear_time_stretch(prev_pitch,
                         prev_spectrogram,
                         prev_aperiodicity,
-                        duration):
-    """Apply time stretch in WORLD parameter space
-
-    Arguments
-        prev_pitch : np.array(shape=(frames,))
-            The pitch to be stretched
-        prev_spectrogram : np.array(shape=(frames, frequencies))
-            The spectrogram to be stretched
-        prev_aperiodicity : np.array(shape=(frames, frequencies))
-            The aperiodicity to be stretched
-        duration : float
-            The new duration in seconds
-    """
+                        grid):
+    """Apply time stretch in WORLD parameter space"""
     # Number of frames before and after
     prev_frames = len(prev_pitch)
-    next_frames = clpcnet.convert.seconds_to_frames(duration)
+    next_frames = len(grid)
 
     # Time-aligned grid before and after
     prev_grid = np.linspace(0, prev_frames - 1, prev_frames)
-    next_grid = np.linspace(0, prev_frames - 1, next_frames)
 
     # Apply time stretch to pitch
     pitch = linear_time_stretch_pitch(
-        prev_pitch, prev_grid, next_grid, next_frames)
+        prev_pitch, prev_grid, grid, next_frames)
 
     # Allocate spectrogram and aperiodicity buffers
     frequencies = prev_spectrogram.shape[1]
@@ -139,14 +133,14 @@ def linear_time_stretch(prev_pitch,
     # Apply time stretch to all channels of spectrogram and aperiodicity
     for i in range(frequencies):
         spectrogram[:, i] = scipy.interp(
-            next_grid, prev_grid, prev_spectrogram[:, i])
+            grid, prev_grid, prev_spectrogram[:, i])
         aperiodicity[:, i] = scipy.interp(
-            next_grid, prev_grid, prev_aperiodicity[:, i])
+            grid, prev_grid, prev_aperiodicity[:, i])
 
     return pitch, spectrogram, aperiodicity
 
 
-def linear_time_stretch_pitch(pitch, prev_grid, next_grid, next_frames):
+def linear_time_stretch_pitch(pitch, prev_grid, grid, next_frames):
     """Perform time-stretching on pitch features"""
     if (pitch == 0.).all():
         return np.zeros(next_frames)
@@ -159,10 +153,10 @@ def linear_time_stretch_pitch(pitch, prev_grid, next_grid, next_frames):
         np.where(unvoiced)[0], np.where(~unvoiced)[0], pitch[~unvoiced])
 
     # Apply time stretch to pitch
-    pitch = scipy.interp(next_grid, prev_grid, pitch)
+    pitch = scipy.interp(grid, prev_grid, pitch)
 
     # Apply time stretch to unvoiced sequence
-    unvoiced = scipy.interp(next_grid, prev_grid, unvoiced)
+    unvoiced = scipy.interp(grid, prev_grid, unvoiced)
 
     # Reapply unvoiced tokens
     pitch[unvoiced > .5] = 0.

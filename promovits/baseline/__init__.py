@@ -1,4 +1,4 @@
 from . import clpcnet
-from . import fastpitch
+from . import loudness
 from . import psola
 from . import world
