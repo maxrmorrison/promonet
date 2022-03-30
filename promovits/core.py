@@ -1,4 +1,3 @@
-import pypar
 import pysodic
 import torch
 import torchaudio
@@ -24,8 +23,6 @@ def from_audio(
     # Maybe use a baseline method instead
     if promovits.MODEL == 'clpcnet':
         return promovits.baseline.clpcnet.from_audio(**locals())
-    elif promovits.MODEL == 'fastpitch':
-        return promovits.baseline.fastpitch.from_audio(**locals())
     elif promovits.MODEL == 'psola':
         return promovits.baseline.psola.from_audio(**locals())
     elif promovits.MODEL == 'world':
@@ -128,7 +125,8 @@ def from_audio(
 
 def from_file(
     audio_file,
-    target_alignment_file=None,
+    text_file=None,
+    grid_file=None,
     target_loudness_file=None,
     target_pitch_file=None,
     checkpoint=promovits.DEFAULT_CHECKPOINT,
@@ -137,29 +135,36 @@ def from_file(
     # Load audio
     audio = promovits.load.audio(audio_file)
 
-    # Load alignment
-    if target_alignment_file:
-        alignment = pypar.Alignment(target_alignment_file)
+    # Load text
+    if text_file is None:
+        text = None
     else:
-        alignment = None
+        text = promovits.load.text(text_file)
+
+    # Load alignment
+    if grid_file is None:
+        grid = None
+    else:
+        grid = torch.load(grid_file)
 
     # Load loudness
-    if target_loudness_file:
-        loudness = torch.load(target_loudness_file)
-    else:
+    if target_loudness_file is None:
         loudness = None
+    else:
+        loudness = torch.load(target_loudness_file)
 
     # Load pitch
     if target_pitch_file is None:
-        pitch = torch.load(target_pitch_file)
-    else:
         pitch = None
+    else:
+        pitch = torch.load(target_pitch_file)
 
     # Generate
     return from_audio(
         audio,
         promovits.SAMPLE_RATE,
-        alignment,
+        text,
+        grid,
         loudness,
         pitch,
         checkpoint,
@@ -169,7 +174,7 @@ def from_file(
 def from_file_to_file(
     audio_file,
     output_file,
-    target_alignment_file=None,
+    grid_file=None,
     target_loudness_file=None,
     target_pitch_file=None,
     checkpoint=promovits.DEFAULT_CHECKPOINT,
@@ -177,27 +182,37 @@ def from_file_to_file(
     """Edit speech on disk and save to disk"""
     generated = from_file(
         audio_file,
-        target_alignment_file,
+        grid_file,
         target_loudness_file,
         target_pitch_file,
         checkpoint,
         gpu)
+    output_file.parent.mkdir(exist_ok=True, parents=True)
     torchaudio.save(output_file, generated, promovits.SAMPLE_RATE)
 
 
 def from_files_to_files(
     audio_files,
     output_files,
-    target_alignment_files=None,
+    grid_files=None,
     target_loudness_files=None,
     target_pitch_files=None,
     checkpoint=promovits.DEFAULT_CHECKPOINT,
     gpu=None):
     """Edit speech on disk and save to disk"""
+    # Handle None arguments
+    if grid_files is None:
+        grid_files = [None] * len(audio_files)
+    if target_loudness_files is None:
+        target_loudness_files = [None] * len(audio_files)
+    if target_pitch_files is None:
+        target_pitch_files = [None] * len(audio_files)
+
+    # Perform prosody editing
     iterator = zip(
         audio_files,
         output_files,
-        target_alignment_files,
+        grid_files,
         target_loudness_files,
         target_pitch_files)
     for item in iterator:

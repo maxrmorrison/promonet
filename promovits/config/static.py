@@ -31,10 +31,17 @@ TIMER = promovits.time.Context()
 ###############################################################################
 
 
-# Number of input features
+# Number of input features to the generator
 # 178 is len(promovits.preprocess.text.symbols())
 NUM_FEATURES = 178 if not promovits.PPG_FEATURES else (
     promovits.LOUDNESS_FEATURES +
     promovits.PERIODICITY_FEATURES +
     promovits.PITCH_FEATURES * promovits.PITCH_EMBEDDING_SIZE +
     promovits.PPG_FEATURES * promovits.PPG_CHANNELS)
+
+# Number of input feature to the discriminator
+NUM_FEATURES_DISCRIM = (
+    1 +
+    promovits.DISCRIM_LOUDNESS_CONDITION +
+    promovits.DISCRIM_PERIODICITY_CONDITION +
+    promovits.DISCRIM_PITCH_CONDITION)

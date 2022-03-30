@@ -99,7 +99,7 @@ def from_audio(
     with clpcnet.from_features.session.context():
 
         # Run frame-rate network
-        frame_rate_feats = from_features.session.encoder.predict(
+        frame_rate_feats = clpcnet.from_features.session.encoder.predict(
             [features[:, :, :clpcnet.SPECTRAL_FEATURE_SIZE], pitch_bins])
 
         # Run sample-rate network

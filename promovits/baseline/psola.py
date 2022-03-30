@@ -26,7 +26,7 @@ def from_audio(
 
         # Time-stretch
         if grid is not None:
-            audio = time_stretch(audio, sample_rate, grid.numpy(), tmpdir)
+            audio = time_stretch(audio, sample_rate, grid, tmpdir)
 
         # Pitch-shift
         if target_pitch is not None:
@@ -48,7 +48,7 @@ def from_audio(
 
         # Scale loudness
         if target_loudness is not None:
-            audio = promovits.baseline.loudness.scale(audio)
+            audio = promovits.baseline.loudness.scale(audio, target_loudness)
 
         return audio
 
@@ -57,22 +57,23 @@ def time_stretch(audio, sample_rate, grid, tmpdir):
     """Perform praat time stretching on the manipulation"""
     # Get times in seconds
     times = promovits.HOPSIZE / promovits.SAMPLE_RATE * grid
+    times = times.squeeze().numpy()
 
     # Get length of each output frame in input frames
-    durations = grid[1:] - grid[:-1]
+    durations = grid[:, 1:] - grid[:, :-1]
 
     # Recover lost frame
-    durations = torch.nn.function.interpolate(
-        durations[None, None].to(torch.float()),
-        len(durations) + 1,
-        mode='linear').squeeze()
+    durations = torch.nn.functional.interpolate(
+        durations[None].to(torch.float),
+        durations.shape[1] + 1,
+        mode='linear').squeeze().numpy()
 
     # Convert to ratio
-    rates = (1. / durations).squeeze().numpy()
+    rates = (1. / durations)
     rates[rates < .0625] = .0625
 
     # Write duration to disk
-    duration_file = tmpdir / 'duration.txt'
+    duration_file = str(tmpdir / 'duration.txt')
     psola.core.write_duration_tier(duration_file, times, rates)
 
     # Read duration file into praat

@@ -16,13 +16,7 @@ def constant(tensor, ratio):
         device=tensor.device)
 
 
-def voiced(tensor, ratio):
-    """Create a grid for time-stretching of only voiced phonemes"""
-    # TODO
-    pass
-
-
-def vowels(tensor, ratio):
-    """Create a grid for time-stretching of only vowels"""
+def from_alignments(source, target):
+    """Create time-stretch grid to convert source alignment to target"""
     # TODO
     pass

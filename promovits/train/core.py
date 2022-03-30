@@ -209,9 +209,11 @@ def train(
 
             # Unpack batch
             (
-                features,
-                feature_lengths,
+                phonemes,
                 pitch,
+                periodicity,
+                loudness,
+                lengths,
                 speakers,
                 spectrograms,
                 spectrogram_lengths,
@@ -220,9 +222,11 @@ def train(
 
             # Bundle training input
             generator_input = (
-                features,
-                feature_lengths,
+                phonemes,
                 pitch,
+                periodicity,
+                loudness,
+                lengths,
                 speakers,
                 spectrograms,
                 spectrogram_lengths)
@@ -248,11 +252,19 @@ def train(
 
                 with torch.cuda.amp.autocast(enabled=False):
 
-                    # Slice segments for training
-                    mel_slices = promovits.model.slice_segments(
-                        mels,
-                        slice_indices,
-                        promovits.TRAINING_CHUNK_SIZE // promovits.HOPSIZE)
+                    # Slice segments for training discriminator
+                    segment_size = \
+                        promovits.TRAINING_CHUNK_SIZE // promovits.HOPSIZE
+                    slice_fn = functools.partial(
+                        promovits.model.slice_segments,
+                        start_indices=slice_indices,
+                        segment_size=segment_size)
+                    mel_slices = slice_fn(mels)
+
+                    # Slice prosody
+                    pitch_slices = slice_fn(pitch)
+                    periodicity_slices = slice_fn(periodicity)
+                    loudness_slices = slice_fn(loudness)
 
                     # Exit autocast context, as ComplexHalf type is not supported
                     # See Github issue https://github.com/jaywalnut310/vits/issues/15
@@ -283,7 +295,10 @@ def train(
 
                 real_logits, fake_logits, _, _ = discriminators(
                     audio,
-                    generated.detach())
+                    generated.detach(),
+                    pitch_slices,
+                    periodicity_slices,
+                    loudness_slices)
 
                 with torch.cuda.amp.autocast(enabled=False):
 
@@ -314,7 +329,13 @@ def train(
                     fake_logits,
                     real_feature_maps,
                     fake_feature_maps
-                ) = discriminators(audio, generated)
+                ) = discriminators(
+                    audio,
+                    generated,
+                    pitch_slices,
+                    periodicity_slices,
+                    loudness_slices
+                )
 
             ####################
             # Generator losses #
@@ -347,8 +368,9 @@ def train(
                         fake_feature_maps)
 
                     # Get adversarial loss
-                    adversarial_loss, adversarial_losses = promovits.loss.generator(
-                        [logit.float() for logit in fake_logits])
+                    adversarial_loss, adversarial_losses = \
+                        promovits.loss.generator(
+                            [logit.float() for logit in fake_logits])
                     generator_losses = (
                         adversarial_loss +
                         feature_matching_loss +
@@ -526,9 +548,11 @@ def evaluate(directory, step, generator, valid_loader, gpu):
             # Unpack batch
             text = batch[0][0]
             (
-                features,
-                feature_lengths,
-                _,
+                phonemes,
+                pitch,
+                periodicity,
+                loudness,
+                lengths,
                 speakers,
                 spectrogram,
                 _,
@@ -567,9 +591,11 @@ def evaluate(directory, step, generator, valid_loader, gpu):
 
             # Generate speech
             generated, *_ = generator(
-                features,
-                feature_lengths,
-                promovits.convert.hz_to_bins(pitch),
+                phonemes,
+                pitch,
+                periodicity,
+                loudness,
+                lengths,
                 speakers)
 
             # Log generated audio
@@ -584,9 +610,11 @@ def evaluate(directory, step, generator, valid_loader, gpu):
                     # Generate pitch-shifted speech
                     shifted_pitch = ratio * pitch
                     shifted, *_ = generator(
-                        features,
-                        feature_lengths,
-                        promovits.convert.hz_to_bins(shifted_pitch),
+                        phonemes,
+                        shifted_pitch,
+                        periodicity,
+                        loudness,
+                        lengths,
                         speakers)
 
                     # Log pitch-shifted audios
@@ -606,8 +634,13 @@ def evaluate(directory, step, generator, valid_loader, gpu):
 
                     # Create time-stretch grid
                     grid = promovits.interpolate.grid.constant(
-                        features,
+                        phonemes,
                         ratio)
+
+                    # Stretch phonetic posteriorgram
+                    stretched_phonemes = promovits.interpolate.ppgs(
+                        phonemes,
+                        grid)
 
                     # Stretch prosody features
                     stretched_pitch = promovits.interpolate.pitch(pitch, grid)
@@ -625,19 +658,19 @@ def evaluate(directory, step, generator, valid_loader, gpu):
                         grid,
                         method='nearest')
 
-                    # Stretch input features
-                    stretched_features = promovits.interpolate.features(
-                        features,
-                        grid)
-                    stretched_length = feature_lengths.to(torch.float) / ratio
-                    stretched_length = torch.round(
-                        stretched_length + 1e-4).to(torch.long)
+                    # Stretch feature lengths
+                    stretched_length = torch.tensor(
+                        [stretched_phonemes.shape[-1]],
+                        dtype=torch.long,
+                        device=device)
 
                     # Generate
                     stretched, *_ = generator(
-                        stretched_features,
+                        stretched_phonemes,
+                        stretched_pitch,
+                        stretched_periodicity,
+                        stretched_loudness,
                         stretched_length,
-                        promovits.convert.hz_to_bins(stretched_pitch),
                         speakers)
 
                     # Log to tensorboard
@@ -656,16 +689,14 @@ def evaluate(directory, step, generator, valid_loader, gpu):
                 for ratio in [.5, 2.]:
 
                     # Generate loudness-scaled speech
-                    scaled_loudness = (
-                        features[:, promovits.PPG_CHANNELS] +
-                        10 * math.log2(ratio))
-                    features[:, promovits.PPG_CHANNELS] = scaled_loudness
+                    scaled_loudness = loudness + 10 * math.log2(ratio)
                     scaled, *_ = generator(
-                        features,
-                        feature_lengths,
-                        promovits.convert.hz_to_bins(pitch),
+                        phonemes,
+                        pitch,
+                        periodicity,
+                        scaled_loudness,
+                        lengths,
                         speakers)
-                    features[:, promovits.PPG_CHANNELS] -= 10 * math.log2(ratio)
 
                     # Log loudness-scaled audio
                     key = f'scaled-{int(ratio * 100):03d}/{i:02d}'

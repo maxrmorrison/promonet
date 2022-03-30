@@ -28,7 +28,7 @@ class Dataset(torch.utils.data.Dataset):
         stem = self.stems[index]
         text = promovits.load.text(self.cache / f'{stem}.txt')
         audio = promovits.load.audio(self.cache / f'{stem}.wav')
-        pitch = self.get_pitch(stem)
+        pitch = promovits.load.pitch(self.cache / f'{stem}-pitch.pt')
         periodicity = torch.load(self.cache / f'{stem}-periodicity.pt')
         loudness = torch.load(self.cache / f'{stem}-loudness.pt')
         spectrogram = torch.load(self.cache / f'{stem}-spectrogram.pt')
@@ -59,10 +59,6 @@ class Dataset(torch.utils.data.Dataset):
 
     def __len__(self):
         return len(self.stems)
-
-    def get_pitch(self, stem):
-        """Load pitch features"""
-        return promovits.load.pitch(self.cache / f'{stem}-pitch.pt', True)
 
     def get_ppg(self, stem, length):
         """Load PPG features"""

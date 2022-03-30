@@ -9,8 +9,8 @@ def scale(audio, target_loudness):
     loudness = pysodic.features.loudness(
         audio,
         promovits.SAMPLE_RATE,
-        promovits.HOPSIZE,
-        promovits.WINDOW_SIZE)
+        promovits.HOPSIZE / promovits.SAMPLE_RATE,
+        promovits.WINDOW_SIZE / promovits.SAMPLE_RATE)
 
     # Take different and convert from dB to ratio
     gain = 10 ** ((target_loudness - loudness) / 20)

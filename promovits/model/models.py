@@ -1,4 +1,5 @@
 import math
+
 import torch
 
 import promovits
@@ -306,8 +307,9 @@ class DiscriminatorP(torch.nn.Module):
         self.period = period
         conv_fn = promovits.model.weight_norm_conv2d
         padding = promovits.model.get_padding(kernel_size, 1)
+        input_channels = promovits.NUM_FEATURES_DISCRIM
         self.convs = torch.nn.ModuleList([
-            conv_fn(1, 32, (kernel_size, 1), (stride, 1), padding),
+            conv_fn(input_channels, 32, (kernel_size, 1), (stride, 1), padding),
             conv_fn(32, 128, (kernel_size, 1), (stride, 1), padding),
             conv_fn(128, 512, (kernel_size, 1), (stride, 1), padding),
             conv_fn(512, 1024, (kernel_size, 1), (stride, 1), padding),
@@ -341,8 +343,9 @@ class DiscriminatorS(torch.nn.Module):
     def __init__(self):
         super().__init__()
         conv_fn = promovits.model.weight_norm_conv1d
+        input_channels = promovits.NUM_FEATURES_DISCRIM
         self.convs = torch.nn.ModuleList([
-            conv_fn(1, 16, 15, 1, padding=7),
+            conv_fn(input_channels, 16, 15, 1, padding=7),
             conv_fn(16, 64, 41, 4, groups=4, padding=20),
             conv_fn(64, 256, 41, 4, groups=16, padding=20),
             conv_fn(256, 1024, 41, 4, groups=64, padding=20),
@@ -370,7 +373,35 @@ class Discriminator(torch.nn.Module):
         self.discriminators = torch.nn.ModuleList(
             [DiscriminatorS()] + [DiscriminatorP(i) for i in [2, 3, 5, 7, 11]])
 
-    def forward(self, y, y_hat):
+    def forward(self, y, y_hat, pitch, periodicity, loudness):
+        # Maybe add pitch conditioning
+        if promovits.DISCRIM_PITCH_CONDITION:
+            pitch = torch.nn.functional.interpolate(
+                torch.log2(pitch)[:, None],
+                scale_factor=promovits.HOPSIZE,
+                mode='linear')
+            y = torch.cat((y, pitch), dim=1)
+            y_hat = torch.cat((y_hat, pitch), dim=1)
+
+        # Maybe add periodicity conditioning
+        if promovits.DISCRIM_PERIODICITY_CONDITION:
+            periodicity = torch.nn.functional.interpolate(
+                periodicity[:, None],
+                scale_factor=promovits.HOPSIZE,
+                mode='linear')
+            y = torch.cat((y, periodicity), dim=1)
+            y_hat = torch.cat((y_hat, periodicity), dim=1)
+
+        # Maybe add loudness conditioning
+        if promovits.DISCRIM_LOUDNESS_CONDITION:
+            loudness = promovits.loudness.normalize(loudness)
+            loudness = torch.nn.functional.interpolate(
+                loudness[:, None],
+                scale_factor=promovits.HOPSIZE,
+                mode='linear')
+            y = torch.cat((y, loudness), dim=1)
+            y_hat = torch.cat((y_hat, loudness), dim=1)
+
         y_d_rs = []
         y_d_gs = []
         fmap_rs = []
@@ -434,8 +465,10 @@ class Generator(torch.nn.Module):
     def forward(
         self,
         features,
-        feature_lengths,
         pitch,
+        periodicity,
+        loudness,
+        lengths,
         speakers,
         spectrograms=None,
         spectrogram_lengths=None,
@@ -445,13 +478,23 @@ class Generator(torch.nn.Module):
         """Forward pass through the network"""
         # Maybe add pitch features
         if promovits.PITCH_FEATURES:
+            pitch = promovits.convert.hz_to_bins(pitch)
             pitch_embeddings = self.pitch_embedding(pitch).permute(0, 2, 1)
             features = torch.cat((features, pitch_embeddings), dim=1)
+
+        # Maybe add loudness features
+        if promovits.LOUDNESS_FEATURES:
+            loudness = promovits.loudness.normalize(loudness)
+            features = torch.cat((features, loudness[:, None]), dim=1)
+
+        # Maybe add periodicity features
+        if promovits.PERIODICITY_FEATURES:
+            features = torch.cat((features, periodicity[:, None]), dim=1)
 
         # Encode text to text embedding and statistics for the flow model
         _, predicted_mean, predicted_logstd, feature_mask = self.feature_encoder(
             features,
-            feature_lengths)
+            lengths)
 
         # Encode speaker ID
         speaker_embeddings = self.speaker_embedding(speakers).unsqueeze(-1)
@@ -472,6 +515,8 @@ class Generator(torch.nn.Module):
                 durations = None
 
             else:
+
+                # TODO - repair this section
 
                 # Compute attention mask
                 attention_mask = feature_mask * latent_mask.permute(0, 2, 1)
@@ -511,7 +556,7 @@ class Generator(torch.nn.Module):
         else:
 
             if promovits.PPG_FEATURES:
-                latent_mask = promovits.model.sequence_mask(feature_lengths)
+                latent_mask = promovits.model.sequence_mask(lengths)
                 latent_mask = latent_mask.unsqueeze(1).to(feature_mask.dtype)
                 slice_indices = None
                 attention = None
@@ -520,28 +565,26 @@ class Generator(torch.nn.Module):
 
             else:
 
-                # # Predict durations from text
-                # logw = self.dp(x, feature_mask, g=g, reverse=True, noise_scale=noise_scale_w)
-                # w = torch.exp(logw) * feature_mask * length_scale
-                # w_ceil = torch.ceil(w)
+                # Predict durations from text
+                logw = self.dp(x, feature_mask, g=g, reverse=True, noise_scale=noise_scale_w)
+                w = torch.exp(logw) * feature_mask * length_scale
+                w_ceil = torch.ceil(w)
 
-                # # Get total duration and sequence masks
-                # spectrogram_lengths = torch.clamp_min(torch.sum(w_ceil, [1, 2]), 1).long()
-                # latent_mask = torch.unsqueeze(promovits.model.sequence_mask(spectrogram_lengths, None), 1).to(feature_mask.dtype)
+                # Get total duration and sequence masks
+                spectrogram_lengths = torch.clamp_min(torch.sum(w_ceil, [1, 2]), 1).long()
+                latent_mask = torch.unsqueeze(promovits.model.sequence_mask(spectrogram_lengths, None), 1).to(feature_mask.dtype)
 
-                # # Compute attention between variable length input and output sequences
-                # attention_mask = torch.unsqueeze(feature_mask, 2) * torch.unsqueeze(latent_mask, -1)
-                # attention = promovits.model.generate_path(w_ceil, attention_mask)
+                # Compute attention between variable length input and output sequences
+                attention_mask = torch.unsqueeze(feature_mask, 2) * torch.unsqueeze(latent_mask, -1)
+                attention = promovits.model.generate_path(w_ceil, attention_mask)
 
-                # # Expand sequence using predicted durations
-                # predicted_mean = torch.matmul(
-                #     attention.squeeze(1),
-                #     predicted_mean.transpose(1, 2)).transpose(1, 2)
-                # predicted_logstd = torch.matmul(
-                #     attention.squeeze(1),
-                #     predicted_logstd.transpose(1, 2)).transpose(1, 2)
-
-                raise NotImplementedError()
+                # Expand sequence using predicted durations
+                predicted_mean = torch.matmul(
+                    attention.squeeze(1),
+                    predicted_mean.transpose(1, 2)).transpose(1, 2)
+                predicted_logstd = torch.matmul(
+                    attention.squeeze(1),
+                    predicted_logstd.transpose(1, 2)).transpose(1, 2)
 
             # Compute the prior for the flow producing linear spectrograms
             prior = (

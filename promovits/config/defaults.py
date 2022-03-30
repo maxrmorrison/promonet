@@ -71,7 +71,7 @@ RUNS_DIR = Path(__file__).parent.parent.parent / 'runs'
 BENCHMARK = False
 
 # The model to use for evaluation.
-# One of ['promovits', 'clpcnet', 'fastpitch', 'psola', 'world].
+# One of ['promovits', 'promospec', 'qpcargan', 'clpcnet', 'psola', 'world].
 MODEL = 'promovits'
 
 
@@ -79,6 +79,15 @@ MODEL = 'promovits'
 # Features
 ###############################################################################
 
+
+# Discriminator loudness conditioning
+DISCRIM_LOUDNESS_CONDITION = False
+
+# Discriminator periodicity conditioning
+DISCRIM_PERIODICITY_CONDITION = False
+
+# Discriminator pitch conditioning
+DISCRIM_PITCH_CONDITION = False
 
 # A-weighted loudness conditioning
 LOUDNESS_FEATURES = False

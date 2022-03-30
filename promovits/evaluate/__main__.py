@@ -16,7 +16,7 @@ def parse_args():
         '--datasets',
         required=True,
         nargs='+',
-        help='The datasets to generate files for')
+        help='The datasets to evaluate')
     parser.add_argument(
         '--checkpoint',
         type=Path,
@@ -24,8 +24,9 @@ def parse_args():
     parser.add_argument(
         '--gpus',
         type=int,
+        nargs='+',
         help='The indices of the gpus to use for adaptation and evaluation')
-    return parser.parse_args()
+    return parser.parse_known_args()[0]
 
 
 promovits.evaluate.datasets(**vars(parse_args()))
