@@ -1,5 +1,9 @@
 import torch
 
+import pypar
+
+import promovits
+
 
 ###############################################################################
 # Interpolation grids
@@ -18,5 +22,17 @@ def constant(tensor, ratio):
 
 def from_alignments(source, target):
     """Create time-stretch grid to convert source alignment to target"""
-    # TODO
-    pass
+    # Get relative rate at each frame
+    rates = pypar.compare.per_frame_rate(
+        target,
+        source,
+        promovits.SAMPLE_RATE,
+        promovits.HOPSIZE)
+
+    # Convert rates to indices
+    frames = int(source.duration() * promovits.SAMPLE_RATE / promovits.HOPSIZE)
+    indices = torch.full(frames, 0.)
+    indices[1:] = torch.cumsum(rates)
+    indices[-1] = frames
+
+    return indices

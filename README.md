@@ -257,7 +257,7 @@ If the config file has been previously run, the most recent checkpoint will
 automatically be loaded and training will resume from that checkpoint.
 
 
-### Montoring
+### Monitor
 
 You can monitor training via `tensorboard` as follows.
 
