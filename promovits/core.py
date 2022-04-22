@@ -77,7 +77,8 @@ def from_audio(
                 features = torch.nn.functional.interpolate(
                     features[None],
                     size=audio.shape[1] / promovits.HOPSIZE,
-                    mode=promovits.PPG_INTERP_METHOD)[0]
+                    mode=promovits.PPG_INTERP_METHOD,
+                    align_corners=False)[0]
 
             # Maybe stretch PPGs
             if grid:
@@ -120,7 +121,7 @@ def from_audio(
             return generator(
                 features.to(device)[None],
                 torch.tensor(shape, dtype=torch.long, device=device),
-                pitch)[0].cpu()
+                pitch)[0][0].cpu()
 
 
 def from_file(
@@ -174,6 +175,7 @@ def from_file(
 def from_file_to_file(
     audio_file,
     output_file,
+    text_file=None,
     grid_file=None,
     target_loudness_file=None,
     target_pitch_file=None,
@@ -182,6 +184,7 @@ def from_file_to_file(
     """Edit speech on disk and save to disk"""
     generated = from_file(
         audio_file,
+        text_file,
         grid_file,
         target_loudness_file,
         target_pitch_file,
@@ -194,6 +197,7 @@ def from_file_to_file(
 def from_files_to_files(
     audio_files,
     output_files,
+    text_files=None,
     grid_files=None,
     target_loudness_files=None,
     target_pitch_files=None,
@@ -203,6 +207,8 @@ def from_files_to_files(
     # Handle None arguments
     if grid_files is None:
         grid_files = [None] * len(audio_files)
+    if text_files is None:
+        text_files = [None] * len(audio_files)
     if target_loudness_files is None:
         target_loudness_files = [None] * len(audio_files)
     if target_pitch_files is None:
@@ -212,6 +218,7 @@ def from_files_to_files(
     iterator = zip(
         audio_files,
         output_files,
+        text_files,
         grid_files,
         target_loudness_files,
         target_pitch_files)

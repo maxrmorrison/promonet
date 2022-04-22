@@ -106,9 +106,7 @@ def speaker(
 
     # Constant-ratio pitch-shifting
     original_pitch_files = list(original_objective_directory.rglob('*-pitch.pt'))
-    # TEMPORARY
-    for ratio in []:
-    # for ratio in RATIOS:
+    for ratio in RATIOS:
         key = f'pitch-{int(ratio * 100):03d}'
 
         # Shift original pitch and save to disk
@@ -160,7 +158,7 @@ def speaker(
             grid_file = (
                 objective_directory /
                 original_alignment_file.parent.name /
-                f'{original_alignment_file.stem[:-9]}-{key}.pt')
+                f'{original_alignment_file.stem}-{key}.pt')
             grid_file.parent.mkdir(exist_ok=True, parents=True)
             torch.save(grid, grid_file)
 
@@ -216,10 +214,14 @@ def speaker(
             gpu=None if gpus is None else gpus[0])
 
     # Extract prosody from generated files
-    for key, value in files:
-        output_prefixes = [objective_directory / file.stem for file in value]
+    for key, value in files.items():
+        output_prefixes = [
+            objective_directory / file.parent.name / file.stem
+            for file in value]
         text_files = [
-            original_objective_directory / ''.join(file.stem.split('-')[:2])
+            original_objective_directory /
+                file.parent.name /
+                f'{file.stem}.txt'
             for file in value]
         pysodic.from_files_to_files(
             value,
@@ -231,7 +233,7 @@ def speaker(
 
     # Perform objective evaluation
     results = {'objective': {'raw': {}}}
-    for key, value in files:
+    for key, value in files.items():
         predicted_prefixes = []
         target_prefixes = []
         results['objective']['raw'][key] = pysodic.evaluate.from_files(

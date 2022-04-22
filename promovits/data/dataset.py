@@ -69,7 +69,8 @@ class Dataset(torch.utils.data.Dataset):
             ppg = torch.nn.functional.interpolate(
                 ppg[None],
                 size=length,
-                mode=promovits.PPG_INTERP_METHOD)[0]
+                mode=promovits.PPG_INTERP_METHOD,
+                align_corners=False)[0]
 
         return ppg
 

@@ -19,7 +19,8 @@ def scale(audio, target_loudness):
     gain = torch.nn.functional.interpolate(
         gain[None],
         size=audio.shape[1],
-        mode='linear')[0]
+        mode='linear',
+        align_corners=False)[0]
 
     # Scale
     scaled = gain * audio

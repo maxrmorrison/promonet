@@ -69,7 +69,8 @@ def from_audio(
         diff = torch.nn.functional.interpolate(
             diff.to(torch.float)[None, None],
             len(diff) + 1,
-            mode='linear')
+            mode='linear',
+            align_corners=False)
 
         # Round to exactly the number of samples to generate
         hopsizes = diff.to(torch.long)

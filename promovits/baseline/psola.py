@@ -44,7 +44,7 @@ def from_audio(
                 tmpdir)
 
         # Convert to torch
-        audio = torch.from_numpy(audio)[None]
+        audio = torch.from_numpy(audio)[None].to(torch.float32)
 
         # Scale loudness
         if target_loudness is not None:
@@ -66,7 +66,8 @@ def time_stretch(audio, sample_rate, grid, tmpdir):
     durations = torch.nn.functional.interpolate(
         durations[None].to(torch.float),
         durations.shape[1] + 1,
-        mode='linear').squeeze().numpy()
+        mode='linear',
+        align_corners=False).squeeze().numpy()
 
     # Convert to ratio
     rates = (1. / durations)

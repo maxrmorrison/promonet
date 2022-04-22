@@ -379,7 +379,8 @@ class Discriminator(torch.nn.Module):
             pitch = torch.nn.functional.interpolate(
                 torch.log2(pitch)[:, None],
                 scale_factor=promovits.HOPSIZE,
-                mode='linear')
+                mode='linear',
+                align_corners=False)
             y = torch.cat((y, pitch), dim=1)
             y_hat = torch.cat((y_hat, pitch), dim=1)
 
@@ -388,7 +389,8 @@ class Discriminator(torch.nn.Module):
             periodicity = torch.nn.functional.interpolate(
                 periodicity[:, None],
                 scale_factor=promovits.HOPSIZE,
-                mode='linear')
+                mode='linear',
+                align_corners=False)
             y = torch.cat((y, periodicity), dim=1)
             y_hat = torch.cat((y_hat, periodicity), dim=1)
 
@@ -398,7 +400,8 @@ class Discriminator(torch.nn.Module):
             loudness = torch.nn.functional.interpolate(
                 loudness[:, None],
                 scale_factor=promovits.HOPSIZE,
-                mode='linear')
+                mode='linear',
+                align_corners=False)
             y = torch.cat((y, loudness), dim=1)
             y_hat = torch.cat((y_hat, loudness), dim=1)
 
