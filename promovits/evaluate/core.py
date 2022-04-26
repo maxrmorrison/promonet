@@ -221,7 +221,7 @@ def speaker(
         text_files = [
             original_objective_directory /
                 file.parent.name /
-                f'{file.stem}.txt'
+                f'{file.stem.split("-")[0]}.txt'
             for file in value]
         pysodic.from_files_to_files(
             value,
