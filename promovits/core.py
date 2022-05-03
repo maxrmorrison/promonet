@@ -73,10 +73,10 @@ def from_audio(
             features = promovits.preprocess.ppg.from_audio(audio, gpu)
 
             # Maybe resample length
-            if features.shape[1] != audio.shape[1] / promovits.HOPSIZE:
+            if features.shape[1] != audio.shape[1] // promovits.HOPSIZE:
                 features = torch.nn.functional.interpolate(
                     features[None],
-                    size=audio.shape[1] / promovits.HOPSIZE,
+                    size=audio.shape[1] // promovits.HOPSIZE,
                     mode=promovits.PPG_INTERP_METHOD,
                     align_corners=False)[0]
 

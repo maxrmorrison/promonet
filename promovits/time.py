@@ -50,3 +50,9 @@ class Context:
 
         # Stop the timer
         self.history[self.name].append(time.time() - self.start)
+
+    def reset(self):
+        """Reset the timer"""
+        self.history = {}
+        self.start = 0.
+        self.name = None

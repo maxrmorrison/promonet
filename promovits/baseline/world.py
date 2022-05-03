@@ -64,7 +64,15 @@ def from_audio(
     if target_loudness is not None:
         vocoded = promovits.baseline.loudness.scale(vocoded, target_loudness)
 
-    return vocoded
+    # Ensure correct length
+    length = len(pitch) * promovits.HOPSIZE
+    if vocoded.shape[1] != length:
+        temp = torch.zeros((1, length))
+        crop_point = min(length, vocoded.shape[1])
+        temp[:, :crop_point] = vocoded[:, :crop_point]
+        vocoded = temp
+
+    return vocoded.to(torch.float32)
 
 
 ###############################################################################
@@ -91,19 +99,29 @@ def analyze(audio):
     # Hopsize in milliseconds
     frame_period = promovits.HOPSIZE / promovits.SAMPLE_RATE * 1000.
 
-    # Pitch
+    # Extract pitch
     pitch, time = pyworld.dio(audio,
                               promovits.SAMPLE_RATE,
                               frame_period=frame_period,
                               f0_floor=promovits.FMIN,
                               f0_ceil=promovits.FMAX,
                               allowed_range=ALLOWED_RANGE)
+
+    # Make sure number of frames is correct
+    frames = len(audio) // promovits.HOPSIZE
+    if len(pitch) != frames:
+        prev_grid = np.arange(len(pitch))
+        grid = np.linspace(0, len(pitch) - 1, frames)
+        pitch = linear_time_stretch_pitch(pitch, prev_grid, grid, frames)
+        time = scipy.interp(grid, prev_grid, time)
+
+    # Postprocess pitch
     pitch = pyworld.stonemask(audio, pitch, time, promovits.SAMPLE_RATE)
 
-    # Spectrogram
+    # Extract spectrogram
     spectrogram = pyworld.cheaptrick(audio, pitch, time, promovits.SAMPLE_RATE)
 
-    # Aperiodicity
+    # Extract aperiodicity
     aperiodicity = pyworld.d4c(audio, pitch, time, promovits.SAMPLE_RATE)
 
     return pitch, spectrogram, aperiodicity
@@ -114,6 +132,8 @@ def linear_time_stretch(prev_pitch,
                         prev_aperiodicity,
                         grid):
     """Apply time stretch in WORLD parameter space"""
+    grid = grid[0] if grid.ndim == 2 else grid
+
     # Number of frames before and after
     prev_frames = len(prev_pitch)
     next_frames = len(grid)
@@ -152,8 +172,8 @@ def linear_time_stretch_pitch(pitch, prev_grid, grid, next_frames):
     pitch[unvoiced] = np.interp(
         np.where(unvoiced)[0], np.where(~unvoiced)[0], pitch[~unvoiced])
 
-    # Apply time stretch to pitch
-    pitch = scipy.interp(grid, prev_grid, pitch)
+    # Apply time stretch to pitch in base-2 log-space
+    pitch = 2 ** scipy.interp(grid, prev_grid, np.log2(pitch))
 
     # Apply time stretch to unvoiced sequence
     unvoiced = scipy.interp(grid, prev_grid, unvoiced)

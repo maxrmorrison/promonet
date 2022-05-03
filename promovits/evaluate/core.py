@@ -1,5 +1,26 @@
+"""Objective and subjective evaluation of prosody editing
+
+Files generated during evaluation are saved in eval/. The directory structure
+is as follows.
+
+eval
+├── objective
+│   └── <dataset>
+│       └── <condition>
+│           └── <partition>
+│               └── <speaker>
+│                   └── <stem>-<modification>-<ratio>-<feature>.<extension>
+└── subjective
+    └── <dataset>
+        └── <condition>
+            └── <partition>
+                └── <speaker>
+                    └── <stem>-<modification>-<ratio>.wav
+"""
+
 import json
 import shutil
+import warnings
 
 import pyfoal
 import pypar
@@ -28,16 +49,13 @@ def speaker(
     train_partition,
     test_partition,
     checkpoint,
+    metrics,
     output_directory,
     log_directory,
     objective_directory,
     subjective_directory,
     gpus=None):
     """Evaluate one adaptation speaker in a dataset"""
-    # Turn on benchmarking
-    current_benchmark = promovits.BENCHMARK
-    promovits.BENCHMARK = True
-
     if promovits.MODEL == 'promovits':
 
         # Perform speaker adaptation
@@ -76,7 +94,8 @@ def speaker(
 
         # Copy audio files
         input_file = promovits.CACHE_DIR / dataset / f'{stem}.wav'
-        output_file = original_subjective_directory / f'{stem}.wav'
+        output_file = \
+            original_subjective_directory / f'{stem}-original-100.wav'
         output_file.parent.mkdir(exist_ok=True, parents=True)
         shutil.copyfile(input_file, output_file)
 
@@ -85,48 +104,96 @@ def speaker(
             path for path in (promovits.CACHE_DIR / dataset).glob(f'{stem}*')
             if path.suffix != '.wav']
         for input_file in input_files:
+            if input_file.suffix == '.json':
+                feature = 'alignment'
+            elif input_file.suffix == '.txt':
+                feature = 'text'
+            else:
+                feature = input_file.stem.split('-')[-1]
             output_file = (
                 original_objective_directory /
-                input_file.parent.name /
-                input_file.name)
+                f'{stem}-original-100-{feature}{input_file.suffix}')
             output_file.parent.mkdir(exist_ok=True, parents=True)
             shutil.copyfile(input_file, output_file)
 
     # Generate reconstructions
     files = {
         'original': sorted(list(
-            original_subjective_directory.rglob('*.wav')))}
-    files['reconstructed'] = sorted(list(
-        [subjective_directory / f'{stem}.wav' for stem in test_stems]))
+            original_subjective_directory.rglob('*-original-100.wav')))}
+    files['reconstructed'] = sorted([
+        subjective_directory / f'{stem}-original-100.wav'
+        for stem in test_stems])
     promovits.from_files_to_files(
         files['original'],
         files['reconstructed'],
         checkpoint=checkpoint,
         gpu=None if gpus is None else gpus[0])
 
+    # Copy unchanged prosody features
+    for file in files['reconstructed']:
+        features = [
+            'loudness',
+            'periodicity',
+            'phonemes',
+            'pitch',
+            'text',
+            'voicing']
+        for feature in features:
+            suffix = '.txt' if feature == 'text' else '.pt'
+            input_file = (
+                original_objective_directory /
+                file.parent.name /
+                f'{file.stem}-{feature}').with_suffix(suffix)
+            output_file = (
+                objective_directory /
+                file.parent.name /
+                f'{file.stem}-{feature}').with_suffix(suffix)
+            output_file.parent.mkdir(exist_ok=True, parents=True)
+            shutil.copyfile(input_file, output_file)
+
     # Constant-ratio pitch-shifting
-    original_pitch_files = list(original_objective_directory.rglob('*-pitch.pt'))
+    original_pitch_files = list(
+        original_objective_directory.rglob('*-original-100-pitch.pt'))
     for ratio in RATIOS:
-        key = f'pitch-{int(ratio * 100):03d}'
 
         # Shift original pitch and save to disk
         for original_pitch_file in original_pitch_files:
+            stem = original_pitch_file.stem[:6]
+            key = f'shifted-{int(ratio * 100):03d}'
             pitch = ratio * torch.load(original_pitch_file)
             shifted_pitch_file = (
-                objective_directory /
+                original_objective_directory /
                 original_pitch_file.parent.name /
-                f'{original_pitch_file.stem[:-6]}-{key}.pt')
+                f'{stem}-{key}-pitch.pt')
             shifted_pitch_file.parent.mkdir(exist_ok=True, parents=True)
             torch.save(pitch, shifted_pitch_file)
 
+            # Copy unchanged prosody features
+            features = [
+                'loudness', 'periodicity', 'phonemes', 'text', 'voicing']
+            for feature in features:
+                suffix = '.txt' if feature == 'text' else '.pt'
+                input_file = (
+                    original_pitch_file.parent /
+                    original_pitch_file.name.replace(
+                        key, 'original-100').replace(
+                        'pitch', feature)).with_suffix(suffix)
+                output_file = (
+                    shifted_pitch_file.parent /
+                    shifted_pitch_file.name.replace(
+                        'pitch', feature)).with_suffix(suffix)
+                output_file.parent.mkdir(exist_ok=True, parents=True)
+                shutil.copyfile(input_file, output_file)
+
         # Get filenames
         files[key] = [
-            file.parent / f'{file.stem}-{key}.wav'
+            file.parent / f'{file.stem[:6]}-{key}.wav'
             for file in files['reconstructed']]
         pitch_files = [
-            objective_directory/
+            original_objective_directory/
             file.parent.name /
-            f'{file.stem}-{key}.pt' for file in files['reconstructed']]
+            f'{file.stem[:6]}-{key}-pitch.pt'
+            for file in files['reconstructed']]
 
         # Generate
         promovits.from_files_to_files(
@@ -137,10 +204,11 @@ def speaker(
             gpu=None if gpus is None else gpus[0])
 
     # Constant-ratio time-stretching
-    original_alignment_files = sorted(list(
-        original_objective_directory.rglob('*.json')))
+    original_alignment_files = sorted(
+        file for file in
+        original_objective_directory.rglob('*-original-100-alignment.json'))
     for ratio in RATIOS:
-        key = f'duration-{int(ratio * 100):03d}'
+        key = f'stretched-{int(ratio * 100):03d}'
 
         # Stretch original alignment and save to disk
         for original_alignment_file in original_alignment_files:
@@ -156,20 +224,59 @@ def speaker(
 
             # Save alignment to disk
             grid_file = (
-                objective_directory /
+                original_objective_directory /
                 original_alignment_file.parent.name /
-                f'{original_alignment_file.stem}-{key}.pt')
+                f'{original_alignment_file.stem[:6]}-{key}-grid.pt')
             grid_file.parent.mkdir(exist_ok=True, parents=True)
             torch.save(grid, grid_file)
 
+            # Stretch and save other prosody features
+            features = [
+                'loudness', 'periodicity', 'phonemes', 'pitch', 'voicing']
+            for feature in features:
+                input_file = (
+                    grid_file.parent /
+                    grid_file.name.replace(
+                        key, 'original-100').replace('grid', feature))
+                output_file = \
+                    grid_file.parent / grid_file.name.replace('grid', feature)
+                original_feature = torch.load(input_file)
+                if feature in ['loudness', 'periodicity']:
+                    stretched_feature = promovits.interpolate.grid_sample(
+                        original_feature.squeeze(),
+                        grid.squeeze(),
+                        'linear')
+                elif feature in ['phonemes', 'voicing']:
+                    stretched_feature = promovits.interpolate.grid_sample(
+                        original_feature.squeeze(),
+                        grid.squeeze(),
+                        'nearest')
+                else:
+                    stretched_feature = promovits.interpolate.pitch(
+                        pitch.squeeze(),
+                        grid.squeeze())
+                torch.save(stretched_feature[None], output_file)
+
+            # Copy text
+            input_file = (
+                grid_file.parent /
+                grid_file.name.replace(
+                    key, 'original-100').replace(
+                    'grid', 'text')).with_suffix('.txt')
+            output_file = (
+                grid_file.parent /
+                grid_file.name.replace('grid', 'text')).with_suffix('.txt')
+            shutil.copyfile(input_file, output_file)
+
         # Get filenames
         files[key] = [
-            file.parent / f'{file.stem}-{key}.wav'
+            file.parent / f'{file.stem[:6]}-{key}.wav'
             for file in files['reconstructed']]
         grid_files = [
-            objective_directory /
+            original_objective_directory /
             file.parent.name /
-            f'{file.stem}-{key}.pt' for file in files['reconstructed']]
+            f'{file.stem[:6]}-{key}-grid.pt'
+            for file in files['reconstructed']]
 
         # Generate
         promovits.from_files_to_files(
@@ -181,9 +288,9 @@ def speaker(
 
     # Constant-ratio loudness-scaling
     original_loudness_files = sorted(list(
-        original_objective_directory.rglob('*-loudness.pt')))
+        original_objective_directory.rglob('*-original-100-loudness.pt')))
     for ratio in RATIOS:
-        key = f'loudness-{int(ratio * 100):03d}'
+        key = f'scaled-{int(ratio * 100):03d}'
 
         # Scale original loudness and save to disk
         for original_loudness_file in original_loudness_files:
@@ -191,19 +298,35 @@ def speaker(
                 10 * torch.log2(torch.tensor(ratio)) +
                 torch.load(original_loudness_file))
             scaled_loudness_file = (
-                objective_directory /
+                original_objective_directory /
                 original_loudness_file.parent.name /
-                f'{original_loudness_file.stem[:-9]}-{key}.pt')
+                f'{original_loudness_file.stem[:6]}-{key}-loudness.pt')
             torch.save(loudness, scaled_loudness_file)
+
+            # Copy unchanged prosody features
+            features = ['periodicity', 'phonemes', 'pitch', 'text', 'voicing']
+            for feature in features:
+                suffix = '.txt' if feature == 'text' else '.pt'
+                input_file = (
+                    original_loudness_file.parent /
+                    original_loudness_file.name.replace(
+                        key, 'original-100').replace(
+                        'loudness', feature)).with_suffix(suffix)
+                output_file = (
+                    scaled_loudness_file.parent /
+                    scaled_loudness_file.name.replace(
+                        'loudness', feature)).with_suffix(suffix)
+                shutil.copyfile(input_file, output_file)
 
         # Get filenames
         files[key] = [
-            file.parent / f'{file.stem}-{key}.wav'
+            file.parent / f'{file.stem[:6]}-{key}.wav'
             for file in files['reconstructed']]
         loudness_files = [
-            objective_directory /
+            original_objective_directory /
             file.parent.name /
-            f'{file.stem}-{key}.pt' for file in files['reconstructed']]
+            f'{file.stem[:6]}-{key}-loudness.pt'
+            for file in files['reconstructed']]
 
         # Generate
         promovits.from_files_to_files(
@@ -220,9 +343,18 @@ def speaker(
             for file in value]
         text_files = [
             original_objective_directory /
-                file.parent.name /
-                f'{file.stem.split("-")[0]}.txt'
+            file.parent.name /
+            f'{file.stem}-text.txt'
             for file in value]
+
+        # Make sure alignments don't already exist
+        for prefix in output_prefixes:
+            file = prefix.parent / f'{prefix.stem}-alignment.json'
+            file.unlink(missing_ok=True)
+
+        # Ignore warnings when MFA fails, as we retry failures with P2FA
+        # with warnings.catch_warnings():
+        #     warnings.simplefilter('ignore')
         pysodic.from_files_to_files(
             value,
             output_prefixes,
@@ -231,48 +363,126 @@ def speaker(
             promovits.WINDOW_SIZE / promovits.SAMPLE_RATE,
             None if gpus is None else gpus[0])
 
+        # Get any failed alignments to retry
+        p2fa_args = []
+        iterator = zip(text_files, value, output_prefixes)
+        for text_file, audio_file, prefix in iterator:
+            output_file = prefix.parent / f'{prefix.stem}-alignment.json'
+            if not output_file.exists():
+                p2fa_args.append((text_file, audio_file, output_file))
+
+        # If any alignments did not succeed with MFA, retry with P2FA
+        if p2fa_args:
+            with pyfoal.backend('p2fa'):
+                pyfoal.from_files_to_files(
+                    *zip(*p2fa_args),
+                    num_workers=promovits.NUM_WORKERS)
+
+                # Convert alignments to phoneme indices
+                for file in [arg[2] for arg in p2fa_args]:
+
+                    # Load alignment
+                    alignment = pypar.Alignment(file)
+
+                    # Get times to sample phonemes
+                    hopsize = promovits.HOPSIZE / promovits.SAMPLE_RATE
+                    target_length = int(alignment.duration() / hopsize)
+                    times = torch.arange(target_length) * hopsize
+
+                    # Convert to indices
+                    indices = pyfoal.convert.alignment_to_indices(
+                        alignment,
+                        hopsize,
+                        times=times)
+
+                    # Save indices
+                    indices_file = (
+                        file.parent /
+                        f'{file.stem.replace("alignment", "phonemes")}.pt')
+                    torch.save(
+                        torch.tensor(indices, dtype=torch.long)[None],
+                        indices_file)
+
     # Perform objective evaluation
+    speaker_metrics = pysodic.metrics.Prosody(
+                promovits.SAMPLE_RATE,
+                promovits.HOPSIZE,
+                promovits.WINDOW_SIZE,
+                None if gpus is None else gpus[0])
     results = {'objective': {'raw': {}}}
     for key, value in files.items():
-        predicted_prefixes = []
-        target_prefixes = []
-        results['objective']['raw'][key] = pysodic.evaluate.from_files(
-            predicted_prefixes,
-            target_prefixes,
-            None if gpus is None else gpus[0])
+        results['objective']['raw'][key] = []
+
+        for file in value:
+
+            # Get prosody metrics
+            file_metrics = pysodic.metrics.Prosody(
+                promovits.SAMPLE_RATE,
+                promovits.HOPSIZE,
+                promovits.WINDOW_SIZE,
+                None if gpus is None else gpus[0])
+
+            # Get target filepath
+            target_prefix = \
+                original_objective_directory / file.parent.name / file.stem
+
+            # Get predicted filepath
+            predicted_prefix = \
+                objective_directory / file.parent.name / file.stem
+
+            # Update metrics
+            try:
+                args = (
+                    torch.load(f'{predicted_prefix}-pitch.pt'),
+                    torch.load(f'{predicted_prefix}-periodicity.pt'),
+                    torch.load(f'{predicted_prefix}-loudness.pt'),
+                    torch.load(f'{predicted_prefix}-voicing.pt'),
+                    torch.load(f'{target_prefix}-pitch.pt'),
+                    torch.load(f'{target_prefix}-periodicity.pt'),
+                    torch.load(f'{target_prefix}-loudness.pt'),
+                    torch.load(f'{target_prefix}-voicing.pt'),
+                    torch.load(f'{predicted_prefix}-phonemes.pt'),
+                    torch.load(f'{target_prefix}-phonemes.pt'))
+                metrics.update(*args)
+                speaker_metrics.update(*args)
+                file_metrics.update(*args)
+            except Exception as error:
+                print(error)
+                import pdb; pdb.set_trace()
+                pass
+
+            # Get results for this file
+            results['objective']['raw'][key].append(
+                (file.stem, file_metrics()))
+
+            # Reset prosody metrics
+            file_metrics.reset()
 
     # Get the total number of samples we have generated
     files = subjective_directory.rglob('*.wav')
     results['num_samples'] = sum([file.stat().st_size for file in files]) // 4
     results['num_frames'] = results['num_samples'] // promovits.HOPSIZE
 
-    # Average objective evaluation over frames
-    results['objective']['average'] = {
-        result / results['num_frames']
-        for key, result in results['objective']['average']}
-
-    # Parse benchmarking results
-    results['benchmark'] = {'raw': promovits.TIMER()}
-
-    # Average benchmarking over samples
-    results['benchmark']['average'] = [
-        result / results['num_samples']
-        for key, result in results['benchmark']['raw']
-        if key != 'load']
+    # Get results for this speaker
+    results['objective']['average'] = speaker_metrics()
 
     # Print results and save to disk
     print(results)
     with open(objective_directory / 'results.json', 'w') as file:
         json.dump(results, file, indent=4, sort_keys=True)
 
-    # Maybe turn off benchmarking
-    promovits.BENCHMARK = current_benchmark
-
 
 def datasets(datasets, checkpoint=None, gpus=None):
     """Evaluate the performance of the model on datasets"""
+    # Turn on benchmarking
+    current_benchmark = promovits.BENCHMARK
+    promovits.BENCHMARK = True
+
     # Evaluate on each dataset
     for dataset in datasets:
+
+        # Reset benchmarking
+        promovits.TIMER.reset()
 
         # Get adaptation partitions for this dataset
         partitions = promovits.load.partition(dataset)
@@ -282,6 +492,13 @@ def datasets(datasets, checkpoint=None, gpus=None):
         test_partitions = sorted(list(
             partition for partition in partitions.keys()
             if 'test-adapt' in partition))
+
+        # Prosody metrics
+        metrics = pysodic.metrics.Prosody(
+            promovits.SAMPLE_RATE,
+            promovits.HOPSIZE,
+            promovits.WINDOW_SIZE,
+            None if gpus is None else gpus[0])
 
         # Evaluate on each partition
         iterator = zip(train_partitions, test_partitions)
@@ -324,31 +541,38 @@ def datasets(datasets, checkpoint=None, gpus=None):
                 train_partition,
                 test_partition,
                 checkpoint,
+                metrics,
                 adapt_directory,
                 adapt_directory,
                 objective_directory,
                 subjective_directory,
                 gpus)
 
-        # Aggregate objective and benchmarking results
+        # Aggregate results
         results_directory = (
             promovits.EVAL_DIR /
             'objective' /
             dataset /
             promovits.CONFIG)
-        results_files = results_directory.rglob('results.json')
-        results = {'objective': {'raw': {}}, 'benchmark': {}}
-        for file in results_files:
+        results = {'num_samples': 0, 'num_frames': 0, 'prosody': metrics()}
+        for file in results_directory.rglob('results.json'):
             with open(file) as file:
                 result = json.load(file)
-            for key, value in result['objective']['raw']:
-                results['objective']['raw'][key] += value
-            for key, value in result['benchmark']['raw']:
-                results['benchmark']['raw'][key] += value
             results['num_samples'] += result['num_samples']
             results['num_frames'] += result['num_frames']
+
+        # Parse benchmarking results
+        results['benchmark'] = {'raw': promovits.TIMER()}
+
+        # Average benchmarking over samples
+        results['benchmark']['average'] = {
+            key: value / results['num_samples']
+            for key, value in results['benchmark']['raw'].items()}
 
         # Print results and save to disk
         print(results)
         with open(results_directory / 'results.json', 'w') as file:
             json.dump(results, file, indent=4, sort_keys=True)
+
+    # Maybe turn off benchmarking
+    promovits.BENCHMARK = current_benchmark

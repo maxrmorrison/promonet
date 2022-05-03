@@ -36,14 +36,9 @@ def from_alignments(source, target):
         promovits.HOPSIZE,
         target_frames)
 
-    # Convert rates to indices
-    indices = torch.full((target_frames + 2,), 0.)
-    indices[1:-1] = torch.cumsum(torch.tensor(rates), 0)
-    indices[-1] = source_frames - 1
+    # Convert rates to indices and align edges
+    indices = torch.cumsum(torch.tensor(rates), 0)
+    indices -= indices[0].clone()
+    indices *= (source_frames - 1) / indices[-1]
 
-    # Resample so indices are edge-aligned
-    return torch.nn.functional.interpolate(
-        indices[None, None],
-        len(indices) - 2,
-        mode='linear',
-        align_corners=True)[0]
+    return indices[None]
