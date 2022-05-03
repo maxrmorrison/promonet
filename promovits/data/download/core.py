@@ -1,4 +1,3 @@
-import argparse
 import shutil
 import ssl
 import tarfile
@@ -199,23 +198,3 @@ def download_file(url, file):
     with urllib.request.urlopen(url, context=ssl.SSLContext()) as response, \
          open(file, 'wb') as output:
         shutil.copyfileobj(response, output)
-
-
-###############################################################################
-# Entry point
-###############################################################################
-
-
-def parse_args():
-    """Parse command-line arguments"""
-    parser = argparse.ArgumentParser(description='Download datasets')
-    parser.add_argument(
-        '--datasets',
-        nargs='+',
-        required=True,
-        help='The datasets to download')
-    return parser.parse_args()
-
-
-if __name__ == '__main__':
-    datasets(**vars(parse_args()))
