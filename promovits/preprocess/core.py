@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import pysodic
 
 import promovits
@@ -75,7 +77,7 @@ def from_files_to_files(
 
         # Preprocess prosody features
         if 'prosody' in features:
-            prefixes = [file.stem for file in audio_files]
+            prefixes = [Path(file.stem) for file in audio_files]
             pysodic.from_files_to_files(
                 audio_files,
                 prefixes,
