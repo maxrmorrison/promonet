@@ -18,6 +18,7 @@ eval
                     └── <stem>-<modification>-<ratio>.wav
 """
 
+import functools
 import json
 import shutil
 import warnings
@@ -253,7 +254,7 @@ def speaker(
                         'nearest')
                 else:
                     stretched_feature = promovits.interpolate.pitch(
-                        pitch.squeeze(),
+                        original_feature.squeeze(),
                         grid.squeeze())
                 torch.save(stretched_feature[None], output_file)
 
@@ -385,9 +386,11 @@ def speaker(
                     alignment = pypar.Alignment(file)
 
                     # Get times to sample phonemes
+                    pitch = torch.load(
+                        file.parent / file.name.replace(
+                            'alignment.json', 'pitch.pt'))
                     hopsize = promovits.HOPSIZE / promovits.SAMPLE_RATE
-                    target_length = int(alignment.duration() / hopsize)
-                    times = torch.arange(target_length) * hopsize
+                    times = torch.arange(pitch.shape[1]) * hopsize
 
                     # Convert to indices
                     indices = pyfoal.convert.alignment_to_indices(
@@ -404,11 +407,7 @@ def speaker(
                         indices_file)
 
     # Perform objective evaluation
-    speaker_metrics = pysodic.metrics.Prosody(
-                promovits.SAMPLE_RATE,
-                promovits.HOPSIZE,
-                promovits.WINDOW_SIZE,
-                None if gpus is None else gpus[0])
+    speaker_metrics = default_metrics(gpus)
     results = {'objective': {'raw': {}}}
     for key, value in files.items():
         results['objective']['raw'][key] = []
@@ -443,8 +442,9 @@ def speaker(
                     torch.load(f'{target_prefix}-voicing.pt'),
                     torch.load(f'{predicted_prefix}-phonemes.pt'),
                     torch.load(f'{target_prefix}-phonemes.pt'))
-                metrics.update(*args)
-                speaker_metrics.update(*args)
+                condition = '-'.join(target_prefix.stem.split('-')[1:3])
+                metrics[condition].update(*args)
+                speaker_metrics[condition].update(*args)
                 file_metrics.update(*args)
             except Exception as error:
                 print(error)
@@ -464,7 +464,8 @@ def speaker(
     results['num_frames'] = results['num_samples'] // promovits.HOPSIZE
 
     # Get results for this speaker
-    results['objective']['average'] = speaker_metrics()
+    results['objective']['average'] = {
+        key: value() for key, value in speaker_metrics.items()}
 
     # Print results and save to disk
     print(results)
@@ -494,11 +495,7 @@ def datasets(datasets, checkpoint=None, gpus=None):
             if 'test-adapt' in partition))
 
         # Prosody metrics
-        metrics = pysodic.metrics.Prosody(
-            promovits.SAMPLE_RATE,
-            promovits.HOPSIZE,
-            promovits.WINDOW_SIZE,
-            None if gpus is None else gpus[0])
+        metrics = default_metrics(gpus)
 
         # Evaluate on each partition
         iterator = zip(train_partitions, test_partitions)
@@ -554,7 +551,10 @@ def datasets(datasets, checkpoint=None, gpus=None):
             'objective' /
             dataset /
             promovits.CONFIG)
-        results = {'num_samples': 0, 'num_frames': 0, 'prosody': metrics()}
+        results = {
+            'num_samples': 0,
+            'num_frames': 0,
+            'prosody': {key: value() for key, value in metrics.items()}}
         for file in results_directory.rglob('results.json'):
             with open(file) as file:
                 result = json.load(file)
@@ -576,3 +576,26 @@ def datasets(datasets, checkpoint=None, gpus=None):
 
     # Maybe turn off benchmarking
     promovits.BENCHMARK = current_benchmark
+
+
+###############################################################################
+# Utilities
+###############################################################################
+
+
+def default_metrics(gpus):
+    """Construct the default metrics dictionary for each condition"""
+    metric_fn = functools.partial(
+        pysodic.metrics.Prosody,
+        promovits.SAMPLE_RATE,
+        promovits.HOPSIZE,
+        promovits.WINDOW_SIZE,
+        None if gpus is None else gpus[0])
+
+    # Create metric object for each condition
+    metrics = {'original-100': metric_fn()}
+    for condition in ['scaled', 'shifted', 'stretched']:
+        for ratio in RATIOS:
+            metrics[f'{condition}-{int(ratio * 100):03d}'] = metric_fn()
+
+    return metrics

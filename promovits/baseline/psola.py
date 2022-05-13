@@ -63,15 +63,16 @@ def time_stretch(audio, sample_rate, grid, tmpdir):
     durations = grid[:, 1:] - grid[:, :-1]
 
     # Recover lost frame
+    total = durations.sum().numpy()
     durations = torch.nn.functional.interpolate(
         durations[None].to(torch.float),
         durations.shape[1] + 1,
         mode='linear',
         align_corners=False).squeeze().numpy()
+    durations *= total / durations.sum()
 
     # Convert to ratio
     rates = (1. / durations)
-    rates[rates < .0625] = .0625
 
     # Write duration to disk
     duration_file = str(tmpdir / 'duration.txt')
@@ -92,4 +93,8 @@ def time_stretch(audio, sample_rate, grid, tmpdir):
     praat.call([duration_tier, manipulation], 'Replace duration tier')
 
     # Resynthesize
-    return praat.call(manipulation, "Get resynthesis (overlap-add)").values[0]
+    stretched = praat.call(
+        manipulation,
+        "Get resynthesis (overlap-add)").values[0]
+
+    return stretched[:promovits.HOPSIZE * len(rates)]

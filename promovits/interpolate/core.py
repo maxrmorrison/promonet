@@ -63,4 +63,8 @@ def grid_sample(sequence, grid, method='linear'):
             (xp[i] - xp[i - 1]))
 
     # Nearest neighbors grid interpolation
-    return fp[..., torch.round(x).to(torch.long)]
+    elif method == 'nearest':
+        return fp[..., torch.round(x).to(torch.long)]
+
+    else:
+        raise ValueError(f'Grid sampling method {method} is not defined')

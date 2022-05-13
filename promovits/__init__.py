@@ -1,3 +1,11 @@
+# TODO - world pitch reconstruction
+# TODO - psola pitch-shifting down
+# TODO - train base models
+# TODO - listen to psola and world
+# TODO - prosody conditioning after the latent
+# TODO - analyze interpolation of loudness
+
+
 ###############################################################################
 # Configuration
 ###############################################################################
