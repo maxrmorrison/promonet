@@ -71,7 +71,8 @@ def speaker(
             gpus)
 
         # Get latest generator checkpoint
-        checkpoint = promovits.latest_checkpoint_path(output_directory)
+        if checkpoint is not None and checkpoint.is_dir():
+            checkpoint = promovits.latest_checkpoint_path(output_directory)
 
     # Directory to save original audio files
     original_subjective_directory = (
@@ -162,6 +163,8 @@ def speaker(
             stem = original_pitch_file.stem[:6]
             key = f'shifted-{int(ratio * 100):03d}'
             pitch = ratio * torch.load(original_pitch_file)
+            pitch[pitch < promovits.FMIN] = promovits.FMIN
+            pitch[pitch > promovits.FMAX] = promovits.FMAX
             shifted_pitch_file = (
                 original_objective_directory /
                 original_pitch_file.parent.name /
@@ -585,6 +588,7 @@ def datasets(datasets, checkpoint=None, gpus=None):
 
 def default_metrics(gpus):
     """Construct the default metrics dictionary for each condition"""
+    # Bind shared parameters
     metric_fn = functools.partial(
         pysodic.metrics.Prosody,
         promovits.SAMPLE_RATE,

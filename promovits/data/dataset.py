@@ -66,11 +66,12 @@ class Dataset(torch.utils.data.Dataset):
 
         # Maybe resample length
         if ppg.shape[1] != length:
+            mode = promovits.PPG_INTERP_METHOD
             ppg = torch.nn.functional.interpolate(
                 ppg[None],
                 size=length,
-                mode=promovits.PPG_INTERP_METHOD,
-                align_corners=False)[0]
+                mode=mode,
+                align_corners=None if mode == 'nearest' else False)[0]
 
         return ppg
 

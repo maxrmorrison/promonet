@@ -17,7 +17,7 @@ def constant(tensor, ratio):
         tensor.shape[-1] - 1,
         round((tensor.shape[-1]) / ratio + 1e-4),
         dtype=torch.float,
-        device=tensor.device)[None]
+        device=tensor.device)
 
 
 def from_alignments(source, target):
@@ -41,4 +41,4 @@ def from_alignments(source, target):
     indices -= indices[0].clone()
     indices *= (source_frames - 1) / indices[-1]
 
-    return indices[None]
+    return indices

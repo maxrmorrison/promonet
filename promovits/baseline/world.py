@@ -39,15 +39,15 @@ def from_audio(
     audio = audio.squeeze().numpy()
     pitch, spectrogram, aperiodicity = analyze(audio)
 
-    # Maybe pitch-shift
-    if target_pitch is not None:
-        target_pitch = target_pitch.squeeze().numpy().astype(np.float64)
-        pitch[pitch != 0.] = target_pitch[pitch != 0.]
-
     # Maybe time-stretch
     if grid is not None:
         pitch, spectrogram, aperiodicity = linear_time_stretch(
             pitch, spectrogram, aperiodicity, grid.numpy())
+
+    # Maybe pitch-shift
+    if target_pitch is not None:
+        pitch = target_pitch.squeeze().numpy().astype(np.float64)
+        # pitch[pitch != 0.] = target_pitch[pitch != 0.]
 
     # Synthesize using modified parameters
     vocoded = pyworld.synthesize(
@@ -100,7 +100,8 @@ def analyze(audio):
     frame_period = promovits.HOPSIZE / promovits.SAMPLE_RATE * 1000.
 
     # Extract pitch
-    pitch, time = pyworld.dio(audio,
+    samples = promovits.HOPSIZE * (len(audio) // promovits.HOPSIZE)
+    pitch, time = pyworld.dio(audio[:samples],
                               promovits.SAMPLE_RATE,
                               frame_period=frame_period,
                               f0_floor=promovits.FMIN,
@@ -109,11 +110,17 @@ def analyze(audio):
 
     # Make sure number of frames is correct
     frames = len(audio) // promovits.HOPSIZE
-    if len(pitch) != frames:
-        prev_grid = np.arange(len(pitch))
-        grid = np.linspace(0, len(pitch) - 1, frames)
-        pitch = linear_time_stretch_pitch(pitch, prev_grid, grid, frames)
-        time = scipy.interp(grid, prev_grid, time)
+    if len(pitch) > frames:
+        difference = len(pitch) - frames
+        pitch = pitch[:-difference]
+        time = time[:-difference]
+
+    # if len(pitch) != frames:
+    #     import pdb; pdb.set_trace()
+    #     prev_grid = np.arange(len(pitch))
+    #     grid = np.linspace(0, len(pitch) - 1, frames)
+    #     pitch = linear_time_stretch_pitch(pitch, prev_grid, grid, frames)
+    #     time = scipy.interp(grid, prev_grid, time)
 
     # Postprocess pitch
     pitch = pyworld.stonemask(audio, pitch, time, promovits.SAMPLE_RATE)

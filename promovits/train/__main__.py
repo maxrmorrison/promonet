@@ -35,7 +35,7 @@ def main(
         gpus)
 
     # Evaluate
-    promovits.evaluate.datasets([dataset], None if gpus is None else gpus[0])
+    promovits.evaluate.datasets([dataset], directory, gpus)
 
 
 def parse_args():

@@ -589,7 +589,7 @@ def evaluate(directory, step, generator, valid_loader, gpu):
                 promovits.WINDOW_SIZE / promovits.SAMPLE_RATE,
                 gpu)
 
-            # Generate speech
+            # Reconstruct speech
             generated, *_ = generator(
                 phonemes,
                 pitch,
@@ -598,9 +598,36 @@ def evaluate(directory, step, generator, valid_loader, gpu):
                 lengths,
                 speakers)
 
+            # Get prosody features
+            (
+                predicted_pitch,
+                predicted_periodicity,
+                predicted_loudness,
+                predicted_voicing,
+                predicted_phones,
+                _
+            ) = pysodic.from_audio_and_text(
+                generated[0],
+                promovits.SAMPLE_RATE,
+                text,
+                promovits.HOPSIZE / promovits.SAMPLE_RATE,
+                promovits.WINDOW_SIZE / promovits.SAMPLE_RATE,
+                gpu
+            )
+
             # Log generated audio
             key = f'reconstruction/{i:02d}'
-            metric_args = (pitch, periodicity, loudness, voicing, phones, text)
+            metric_args = (
+                pitch,
+                periodicity,
+                loudness,
+                voicing,
+                predicted_pitch,
+                predicted_periodicity,
+                predicted_loudness,
+                predicted_voicing,
+                phones,
+                predicted_phones)
             log(generated, key, waveforms, figures, metrics, metric_args)
 
             # Maybe log pitch-shifting
@@ -617,6 +644,23 @@ def evaluate(directory, step, generator, valid_loader, gpu):
                         lengths,
                         speakers)
 
+                    # Get prosody features
+                    (
+                        predicted_pitch,
+                        predicted_periodicity,
+                        predicted_loudness,
+                        predicted_voicing,
+                        predicted_phones,
+                        _
+                    ) = pysodic.from_audio_and_text(
+                        shifted[0],
+                        promovits.SAMPLE_RATE,
+                        text,
+                        promovits.HOPSIZE / promovits.SAMPLE_RATE,
+                        promovits.WINDOW_SIZE / promovits.SAMPLE_RATE,
+                        gpu
+                    )
+
                     # Log pitch-shifted audios
                     key = f'shifted-{int(ratio * 100):03d}/{i:02d}'
                     metric_args = (
@@ -624,8 +668,12 @@ def evaluate(directory, step, generator, valid_loader, gpu):
                         periodicity,
                         loudness,
                         voicing,
+                        predicted_pitch,
+                        predicted_periodicity,
+                        predicted_loudness,
+                        predicted_voicing,
                         phones,
-                        text)
+                        predicted_phones)
                     log(shifted, key, waveforms, figures, metrics, metric_args)
 
             # Maybe log time-stretching
@@ -673,6 +721,23 @@ def evaluate(directory, step, generator, valid_loader, gpu):
                         stretched_length,
                         speakers)
 
+                    # Get prosody features
+                    (
+                        predicted_pitch,
+                        predicted_periodicity,
+                        predicted_loudness,
+                        predicted_voicing,
+                        predicted_phones,
+                        _
+                    ) = pysodic.from_audio_and_text(
+                        stretched[0],
+                        promovits.SAMPLE_RATE,
+                        text,
+                        promovits.HOPSIZE / promovits.SAMPLE_RATE,
+                        promovits.WINDOW_SIZE / promovits.SAMPLE_RATE,
+                        gpu
+                    )
+
                     # Log to tensorboard
                     key = f'stretched-{int(ratio * 100):03d}/{i:02d}'
                     metric_args = (
@@ -680,8 +745,13 @@ def evaluate(directory, step, generator, valid_loader, gpu):
                         stretched_periodicity,
                         stretched_loudness,
                         stretched_voicing,
+                        predicted_pitch,
+                        predicted_periodicity,
+                        predicted_loudness,
+                        predicted_voicing,
                         stretched_phones,
-                        text)
+                        predicted_phones
+                    )
                     log(stretched, key, waveforms, figures, metrics, metric_args)
 
             # Maybe log loudness-scaling
@@ -698,6 +768,23 @@ def evaluate(directory, step, generator, valid_loader, gpu):
                         lengths,
                         speakers)
 
+                    # Get prosody features
+                    (
+                        predicted_pitch,
+                        predicted_periodicity,
+                        predicted_loudness,
+                        predicted_voicing,
+                        predicted_phones,
+                        _
+                    ) = pysodic.from_audio_and_text(
+                        scaled[0],
+                        promovits.SAMPLE_RATE,
+                        text,
+                        promovits.HOPSIZE / promovits.SAMPLE_RATE,
+                        promovits.WINDOW_SIZE / promovits.SAMPLE_RATE,
+                        gpu
+                    )
+
                     # Log loudness-scaled audio
                     key = f'scaled-{int(ratio * 100):03d}/{i:02d}'
                     metric_args = (
@@ -705,8 +792,12 @@ def evaluate(directory, step, generator, valid_loader, gpu):
                         periodicity,
                         scaled_loudness,
                         voicing,
+                        predicted_pitch,
+                        predicted_periodicity,
+                        predicted_loudness,
+                        predicted_voicing,
                         phones,
-                        text)
+                        predicted_phones)
                     log(scaled, key, waveforms, figures, metrics, metric_args)
 
             # Write audio and mels to Tensorboard
@@ -754,7 +845,7 @@ def log(audio, key, waveforms, figures, metrics, metric_args):
     figures[f'{key}-mels'] = promovits.plot.spectrogram_from_audio(audio)
 
     # Update metrics
-    metrics[key.split('/')[0]].update(audio, *metric_args)
+    metrics[key.split('/')[0]].update(*metric_args)
 
 
 ###############################################################################
