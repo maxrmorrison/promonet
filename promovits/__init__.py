@@ -1,6 +1,5 @@
 # TODO - world pitch reconstruction
 # TODO - train base models
-# TODO - debug benchmarking
 # TODO - prosody conditioning after the latent
 # TODO - analyze interpolation of loudness
 

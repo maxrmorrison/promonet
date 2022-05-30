@@ -60,13 +60,13 @@ def time_stretch(audio, sample_rate, grid, tmpdir):
     times = times.squeeze().numpy()
 
     # Get length of each output frame in input frames
-    durations = grid[:, 1:] - grid[:, :-1]
+    durations = grid[1:] - grid[:-1]
 
     # Recover lost frame
     total = durations.sum().numpy()
     durations = torch.nn.functional.interpolate(
-        durations[None].to(torch.float),
-        durations.shape[1] + 1,
+        durations[None, None].to(torch.float),
+        len(durations) + 1,
         mode='linear',
         align_corners=False).squeeze().numpy()
     durations *= total / durations.sum()

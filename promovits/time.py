@@ -1,3 +1,4 @@
+import contextlib
 import time
 
 import promovits
@@ -12,47 +13,41 @@ class Context:
     """Context manager timer"""
 
     def __init__(self):
-        self.history = {}
-        self.start = 0.
-        self.name = None
+        self.reset()
 
     def __call__(self):
         """Retrieve timer results"""
-        if not promovits.BENCHMARK:
-            return
-        return {
-            name: sum(times) / len(times)
-            for name, times in self.history.items()}
+        return {name: sum(times) for name, times in self.history.items()}
 
-    def __enter__(self, name):
+    def __enter__(self):
         """Start the timer"""
-        # Don't continue if we aren't benchmarking
-        if not promovits.BENCHMARK:
-            return
-
-        # Make sure there is no active timer
-        if self.name != None:
-            raise ValueError('Context timers cannot nest')
-        self.name = name
-
-        # Maybe create a timer history for this identifier
-        if name not in self.history:
-            self.history[name]
-
-        # Start the timer
         self.start = time.time()
 
-    def __exit__(self):
+    def __exit__(self, exc_type, exc_val, exc_tb):
         """Stop the timer"""
-        # Don't continue if we aren't benchmarking
-        if not promovits.BENCHMARK:
-            return
+        elapsed = time.time() - self.start
 
-        # Stop the timer
-        self.history[self.name].append(time.time() - self.start)
+        # Add to timer history
+        if self.name not in self.history:
+            self.history[self.name] = [elapsed]
+        else:
+            self.history[self.name].append(elapsed)
 
     def reset(self):
         """Reset the timer"""
         self.history = {}
         self.start = 0.
         self.name = None
+
+
+@contextlib.contextmanager
+def timer(name):
+    """Wrapper to handle context changes of global timer"""
+    # Don't continue if we aren't benchmarking
+    if not promovits.BENCHMARK:
+        return
+
+    promovits.TIMER.name = name
+    with promovits.TIMER:
+        yield
+    promovits.TIMER.name = None

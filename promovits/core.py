@@ -22,16 +22,19 @@ def from_audio(
     """Perform prosody editing"""
     # Maybe use a baseline method instead
     if promovits.MODEL == 'clpcnet':
-        return promovits.baseline.clpcnet.from_audio(**locals())
+        with promovits.time.timer('generate'):
+            return promovits.baseline.clpcnet.from_audio(**locals())
     elif promovits.MODEL == 'psola':
-        return promovits.baseline.psola.from_audio(**locals())
+        with promovits.time.timer('generate'):
+            return promovits.baseline.psola.from_audio(**locals())
     elif promovits.MODEL == 'world':
-        return promovits.baseline.world.from_audio(**locals())
+        with promovits.time.timer('generate'):
+            return promovits.baseline.world.from_audio(**locals())
     elif promovits.MODEL != 'promovits':
         raise ValueError(f'Model {promovits.MODEL} is not recognized')
 
     # Maybe resample
-    with promovits.TIMER('resample'):
+    with promovits.time.timer('resample'):
         if sample_rate != promovits.SAMPLE_RATE:
             resample_fn = torchaudio.transforms.Resample(
                 sample_rate,
@@ -39,7 +42,7 @@ def from_audio(
             audio = resample_fn(audio)
 
     # Extract prosody features
-    with promovits.TIMER('features/prosody'):
+    with promovits.time.timer('features/prosody'):
         if promovits.PPG_FEATURES:
             pitch, periodicity, loudness, _ = \
                 pysodic.from_audio(
@@ -68,7 +71,7 @@ def from_audio(
                 target_loudness = loudness
 
     # Get phonetic posteriorgrams
-    with promovits.TIMER('features/ppgs'):
+    with promovits.time.timer('features/ppgs'):
         if promovits.PPG_FEATURES:
             features = promovits.preprocess.ppg.from_audio(audio, gpu)
 
@@ -85,7 +88,7 @@ def from_audio(
                 features = promovits.interpolate.ppgs(features, grid)
 
     # Concatenate features
-    with promovits.TIMER('features/concatenate'):
+    with promovits.time.timer('features/concatenate'):
         if promovits.PPG_FEATURES:
             if promovits.LOUDNESS_FEATURES:
                 features = torch.cat((features, loudness))
@@ -93,17 +96,17 @@ def from_audio(
                 features = torch.cat((features, periodicity))
 
     # Convert pitch to indices
-    with promovits.TIMER('features/pitch'):
+    with promovits.time.timer('features/pitch'):
         if target_pitch:
             target_pitch = promovits.convert.hz_to_bins(target_pitch)
 
     # Maybe get text features
-    with promovits.TIMER('features/text'):
+    with promovits.time.timer('features/text'):
         if not promovits.PPG_FEATURES:
             features = promovits.preprocess.text.from_string(text)
 
     # Setup model
-    with promovits.TIMER('load'):
+    with promovits.time.timer('load'):
         device = torch.device('cpu' if gpu is None else f'cuda:{gpu}')
         if not hasattr(from_audio, 'generator') or \
         from_audio.generator.device != device:
@@ -115,7 +118,7 @@ def from_audio(
             from_audio.generator = generator
 
     # Generate audio
-    with promovits.TIMER('generate'):
+    with promovits.time.timer('generate'):
         with torch.no_grad():
             shape = (features.shape[-1],)
             return generator(
