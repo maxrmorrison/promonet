@@ -72,7 +72,7 @@ def speaker(
 
         # Get latest generator checkpoint
         if checkpoint is not None and checkpoint.is_dir():
-            checkpoint = promovits.latest_checkpoint_path(output_directory)
+            checkpoint = promovits.checkpoint.latest_path(output_directory)
 
     # Directory to save original audio files
     original_subjective_directory = (
