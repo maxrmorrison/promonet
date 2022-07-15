@@ -30,9 +30,22 @@ class Encoder(torch.nn.Module):
     self.ffn_layers = torch.nn.ModuleList()
     self.norm_layers_2 = torch.nn.ModuleList()
     for _ in range(self.n_layers):
-      self.attn_layers.append(MultiHeadAttention(hidden_channels, hidden_channels, n_heads, p_dropout=p_dropout, window_size=window_size))
+      self.attn_layers.append(
+        MultiHeadAttention(
+          hidden_channels,
+          hidden_channels,
+          n_heads,
+          p_dropout=p_dropout,
+          window_size=window_size))
       self.norm_layers_1.append(promovits.model.modules.LayerNorm(hidden_channels))
-      self.ffn_layers.append(FFN(hidden_channels, hidden_channels, filter_channels, kernel_size, p_dropout=p_dropout))
+      self.ffn_layers.append(
+        FFN(
+          hidden_channels,
+          hidden_channels,
+          filter_channels,
+          kernel_size,
+          p_dropout=p_dropout,
+          causal=promovits.CAUSAL))
       self.norm_layers_2.append(promovits.model.modules.LayerNorm(hidden_channels))
 
   def forward(self, x, x_mask):
@@ -40,68 +53,6 @@ class Encoder(torch.nn.Module):
     x = x * x_mask
     for i in range(self.n_layers):
       y = self.attn_layers[i](x, x, attn_mask)
-      y = self.drop(y)
-      x = self.norm_layers_1[i](x + y)
-
-      y = self.ffn_layers[i](x, x_mask)
-      y = self.drop(y)
-      x = self.norm_layers_2[i](x + y)
-    return x * x_mask
-
-
-class Decoder(torch.nn.Module):
-
-  def __init__(
-    self,
-    hidden_channels,
-    filter_channels,
-    n_heads,
-    n_layers,
-    kernel_size=1,
-    p_dropout=0.,
-    proximal_bias=False,
-    proximal_init=True):
-    super().__init__()
-    self.hidden_channels = hidden_channels
-    self.filter_channels = filter_channels
-    self.n_heads = n_heads
-    self.n_layers = n_layers
-    self.kernel_size = kernel_size
-    self.p_dropout = p_dropout
-    self.proximal_bias = proximal_bias
-    self.proximal_init = proximal_init
-
-    self.drop = torch.nn.Dropout(p_dropout)
-    self.self_attn_layers = torch.nn.ModuleList()
-    self.norm_layers_0 = torch.nn.ModuleList()
-    self.encdec_attn_layers = torch.nn.ModuleList()
-    self.norm_layers_1 = torch.nn.ModuleList()
-    self.ffn_layers = torch.nn.ModuleList()
-    self.norm_layers_2 = torch.nn.ModuleList()
-    for _ in range(self.n_layers):
-      self.self_attn_layers.append(MultiHeadAttention(hidden_channels, hidden_channels, n_heads, p_dropout=p_dropout, proximal_bias=proximal_bias, proximal_init=proximal_init))
-      self.norm_layers_0.append(promovits.model.modules.LayerNorm(hidden_channels))
-      self.encdec_attn_layers.append(MultiHeadAttention(hidden_channels, hidden_channels, n_heads, p_dropout=p_dropout))
-      self.norm_layers_1.append(promovits.model.modules.LayerNorm(hidden_channels))
-      self.ffn_layers.append(FFN(hidden_channels, hidden_channels, filter_channels, kernel_size, p_dropout=p_dropout, causal=True))
-      self.norm_layers_2.append(promovits.model.modules.LayerNorm(hidden_channels))
-
-  def forward(self, x, x_mask, h, h_mask):
-    """
-    x: decoder input
-    h: encoder output
-    """
-    self_attn_mask = torch.tril(torch.ones(
-      x_mask.size(2),
-      x_mask.size(2))).to(device=x.device, dtype=x.dtype)[None, None]
-    encdec_attn_mask = h_mask.unsqueeze(2) * x_mask.unsqueeze(-1)
-    x = x * x_mask
-    for i in range(self.n_layers):
-      y = self.self_attn_layers[i](x, x, self_attn_mask)
-      y = self.drop(y)
-      x = self.norm_layers_0[i](x + y)
-
-      y = self.encdec_attn_layers[i](x, h, encdec_attn_mask)
       y = self.drop(y)
       x = self.norm_layers_1[i](x + y)
 
@@ -119,34 +70,25 @@ class MultiHeadAttention(torch.nn.Module):
     out_channels,
     n_heads,
     p_dropout=0.,
-    window_size=None,
-    heads_share=True,
-    block_length=None,
-    proximal_bias=False,
-    proximal_init=False):
+    window_size=None):
     super().__init__()
     assert channels % n_heads == 0
-
     self.channels = channels
     self.out_channels = out_channels
     self.n_heads = n_heads
     self.p_dropout = p_dropout
     self.window_size = window_size
-    self.heads_share = heads_share
-    self.block_length = block_length
-    self.proximal_bias = proximal_bias
-    self.proximal_init = proximal_init
     self.attn = None
 
     self.k_channels = channels // n_heads
-    self.conv_q = torch.nn.Conv1d(channels, channels, 1)
-    self.conv_k = torch.nn.Conv1d(channels, channels, 1)
-    self.conv_v = torch.nn.Conv1d(channels, channels, 1)
-    self.conv_o = torch.nn.Conv1d(channels, out_channels, 1)
+    self.conv_q = promovits.model.CONV1D(channels, channels, 1)
+    self.conv_k = promovits.model.CONV1D(channels, channels, 1)
+    self.conv_v = promovits.model.CONV1D(channels, channels, 1)
+    self.conv_o = promovits.model.CONV1D(channels, out_channels, 1)
     self.drop = torch.nn.Dropout(p_dropout)
 
     if window_size is not None:
-      n_heads_rel = 1 if heads_share else n_heads
+      n_heads_rel = 1
       rel_stddev = self.k_channels**-0.5
       self.emb_rel_k = torch.nn.Parameter(torch.randn(n_heads_rel, window_size * 2 + 1, self.k_channels) * rel_stddev)
       self.emb_rel_v = torch.nn.Parameter(torch.randn(n_heads_rel, window_size * 2 + 1, self.k_channels) * rel_stddev)
@@ -154,10 +96,6 @@ class MultiHeadAttention(torch.nn.Module):
     torch.nn.init.xavier_uniform_(self.conv_q.weight)
     torch.nn.init.xavier_uniform_(self.conv_k.weight)
     torch.nn.init.xavier_uniform_(self.conv_v.weight)
-    if proximal_init:
-      with torch.no_grad():
-        self.conv_k.weight.copy_(self.conv_q.weight)
-        self.conv_k.bias.copy_(self.conv_q.bias)
 
   def forward(self, x, c, attn_mask=None):
     q = self.conv_q(x)
@@ -175,29 +113,37 @@ class MultiHeadAttention(torch.nn.Module):
     key = key.view(b, self.n_heads, self.k_channels, t_s).transpose(2, 3)
     value = value.view(b, self.n_heads, self.k_channels, t_s).transpose(2, 3)
 
+    # Compute attention matrix
     scores = torch.matmul(query / math.sqrt(self.k_channels), key.transpose(-2, -1))
+
+    # Relative positional representation
     if self.window_size is not None:
-      assert t_s == t_t, "Relative attention is only available for self-attention."
       key_relative_embeddings = self._get_relative_embeddings(self.emb_rel_k, t_s)
-      rel_logits = self._matmul_with_relative_keys(query /math.sqrt(self.k_channels), key_relative_embeddings)
+      rel_logits = self._matmul_with_relative_keys(query / math.sqrt(self.k_channels), key_relative_embeddings)
       scores_local = self._relative_position_to_absolute_position(rel_logits)
       scores = scores + scores_local
-    if self.proximal_bias:
-      assert t_s == t_t, "Proximal bias is only available for self-attention."
-      scores = scores + self._attention_bias_proximal(t_s).to(device=scores.device, dtype=scores.dtype)
+
+    # Apply sequence mask
     if mask is not None:
       scores = scores.masked_fill(mask == 0, -1e4)
-      if self.block_length is not None:
-        assert t_s == t_t, "Local attention is only available for self-attention."
-        block_mask = torch.ones_like(scores).triu(-self.block_length).tril(self.block_length)
-        scores = scores.masked_fill(block_mask == 0, -1e4)
+
+    # Maybe apply causal mask
+    # TODO - is this causal or non-causal?
+    if promovits.CAUSAL:
+      causal_mask = torch.ones_like(scores).triu()
+      scores = scores.masked_fill(causal_mask == 0, -1e4)
+
+    # Compute output activation
     p_attn = torch.nn.functional.softmax(scores, dim=-1) # [b, n_h, t_t, t_s]
     p_attn = self.drop(p_attn)
     output = torch.matmul(p_attn, value)
+
+    # Convert to absolute positional representation and adjust output
     if self.window_size is not None:
       relative_weights = self._absolute_position_to_relative_position(p_attn)
       value_relative_embeddings = self._get_relative_embeddings(self.emb_rel_v, t_s)
       output = output + self._matmul_with_relative_values(relative_weights, value_relative_embeddings)
+
     output = output.transpose(2, 3).contiguous().view(b, d, t_t) # [b, n_h, t_t, d_k] -> [b, d, t_t]
     return output, p_attn
 
@@ -266,17 +212,6 @@ class MultiHeadAttention(torch.nn.Module):
       x_flat,
       promovits.model.convert_pad_shape([[0, 0], [0, 0], [length, 0]]))
     return x_flat.view([batch, heads, length, 2*length])[:,:,:,1:]
-
-  def _attention_bias_proximal(self, length):
-    """Bias for self-attention to encourage attention to close positions.
-    Args:
-      length: an integer scalar.
-    Returns:
-      a Tensor with shape [1, 1, length, length]
-    """
-    r = torch.arange(length, dtype=torch.float32)
-    diff = torch.unsqueeze(r, 0) - torch.unsqueeze(r, 1)
-    return torch.unsqueeze(torch.unsqueeze(-torch.log1p(torch.abs(diff)), 0), 0)
 
 
 class FFN(torch.nn.Module):

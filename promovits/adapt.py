@@ -57,17 +57,14 @@ def speaker(
     # Save configuration
     shutil.copyfile(config, adapt_directory / config.name)
 
-    # Perform adaptation
-    promovits.train.run(
+    # Perform adaptation and return generator checkpoint
+    return promovits.train.run(
         name,
         checkpoint,
         adapt_directory,
         adapt_directory,
         adapt=True,
         gpus=gpus)
-
-    # Return path to checkpoint
-    return promovits.checkpoint.latest_path(adapt_directory, 'generator-*.pt')
 
 
 ###############################################################################

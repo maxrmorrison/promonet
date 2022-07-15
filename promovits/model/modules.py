@@ -10,6 +10,37 @@ import promovits
 ###############################################################################
 
 
+class CausalConv1d(torch.nn.Conv1d):
+    """Causal convolution"""
+
+    def __init__(
+        self,
+        in_channels,
+        out_channels,
+        kernel_size,
+        stride=1,
+        padding=0,
+        dilation=1,
+        groups=1,
+        bias=True):
+        self.causal_padding = int((kernel_size - 1) * dilation)
+        super().__init__(
+            in_channels,
+            out_channels,
+            kernel_size=kernel_size,
+            stride=stride,
+            padding=self.causal_padding,
+            dilation=dilation,
+            groups=groups,
+            bias=bias)
+
+    def forward(self, input):
+        result = super(CausalConv1d, self).forward(input)
+        if self.causal_padding != 0:
+            return result[:, :, :-self.causal_padding]
+        return result
+
+
 class LayerNorm(torch.nn.Module):
 
     def __init__(self, channels, eps=1e-5):
@@ -132,7 +163,7 @@ class WaveNet(torch.nn.Module):
         self.drop = torch.nn.Dropout(p_dropout)
 
         if gin_channels != 0:
-            cond_layer = torch.nn.Conv1d(
+            cond_layer = promovits.model.CONV1D(
                 gin_channels,
                 2 * hidden_channels * n_layers,
                 1)
@@ -143,7 +174,7 @@ class WaveNet(torch.nn.Module):
         for i in range(n_layers):
             dilation = dilation_rate ** i
             padding = int((kernel_size * dilation - dilation) / 2)
-            in_layer = torch.nn.Conv1d(
+            in_layer = promovits.model.CONV1D(
                 hidden_channels,
                 2 * hidden_channels,
                 kernel_size,
@@ -158,7 +189,7 @@ class WaveNet(torch.nn.Module):
             else:
                 res_skip_channels = hidden_channels
 
-            res_skip_layer = torch.nn.Conv1d(
+            res_skip_layer = promovits.model.CONV1D(
                 hidden_channels,
                 res_skip_channels,
                 1)
@@ -301,7 +332,10 @@ class ResidualCouplingLayer(torch.nn.Module):
         self.half_channels = channels // 2
         self.mean_only = mean_only
 
-        self.pre = torch.nn.Conv1d(self.half_channels, hidden_channels, 1)
+        self.pre = promovits.model.CONV1D(
+            self.half_channels,
+            hidden_channels,
+            1)
         self.enc = WaveNet(
             hidden_channels,
             kernel_size,
@@ -309,7 +343,7 @@ class ResidualCouplingLayer(torch.nn.Module):
             n_layers,
             p_dropout=p_dropout,
             gin_channels=gin_channels)
-        self.post = torch.nn.Conv1d(
+        self.post = promovits.model.CONV1D(
             hidden_channels,
             self.half_channels * (2 - mean_only),
             1)

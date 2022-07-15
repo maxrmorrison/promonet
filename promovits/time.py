@@ -45,6 +45,7 @@ def timer(name):
     """Wrapper to handle context changes of global timer"""
     # Don't continue if we aren't benchmarking
     if not promovits.BENCHMARK:
+        yield
         return
 
     promovits.TIMER.name = name

@@ -20,7 +20,8 @@ def parse_args():
     parser.add_argument(
         '--checkpoint',
         type=Path,
-        help='The checkpoint to use for non-adaptive models')
+        default=promovits.DEFAULT_CHECKPOINT,
+        help='The checkpoint to use')
     parser.add_argument(
         '--gpus',
         type=int,

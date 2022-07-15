@@ -1,3 +1,4 @@
+import functools
 import pysodic
 import torch
 import torchaudio
@@ -53,51 +54,50 @@ def from_audio(
                     gpu)
 
             # Maybe interpolate pitch
-            if not target_pitch:
-                if grid:
+            if target_pitch is None:
+                if grid is not None:
                     pitch = promovits.interpolate.pitch(pitch, grid)
                 target_pitch = pitch
 
             # Maybe interpolate periodicity
-            if grid:
-                periodicity = promovits.interpolate.linear(
+            if grid is not None:
+                periodicity = promovits.interpolate.grid_sample(
                     periodicity,
                     grid)
 
             # Maybe interpolate loudness
-            if not target_loudness:
-                if grid:
-                    loudness = promovits.interpolate.linear(loudness, grid)
+            if target_loudness is None:
+                if grid is not None:
+                    loudness = promovits.interpolate.grid_sample(
+                        loudness,
+                        grid)
                 target_loudness = loudness
 
     # Get phonetic posteriorgrams
     with promovits.time.timer('features/ppgs'):
         if promovits.PPG_FEATURES:
-            features = promovits.preprocess.ppg.from_audio(audio, gpu)
+            features = promovits.preprocess.ppg.from_audio(
+                audio,
+                sample_rate,
+                gpu=gpu)
 
             # Maybe resample length
             if features.shape[1] != audio.shape[1] // promovits.HOPSIZE:
+                align_corners = \
+                    None if promovits.PPG_INTERP_METHOD == 'nearest' else False
                 features = torch.nn.functional.interpolate(
                     features[None],
                     size=audio.shape[1] // promovits.HOPSIZE,
                     mode=promovits.PPG_INTERP_METHOD,
-                    align_corners=False)[0]
+                    align_corners=align_corners)[0]
 
             # Maybe stretch PPGs
-            if grid:
+            if grid is not None:
                 features = promovits.interpolate.ppgs(features, grid)
-
-    # Concatenate features
-    with promovits.time.timer('features/concatenate'):
-        if promovits.PPG_FEATURES:
-            if promovits.LOUDNESS_FEATURES:
-                features = torch.cat((features, loudness))
-            if promovits.PERIODICITY_FEATURES:
-                features = torch.cat((features, periodicity))
 
     # Convert pitch to indices
     with promovits.time.timer('features/pitch'):
-        if target_pitch:
+        if target_pitch is not None:
             target_pitch = promovits.convert.hz_to_bins(target_pitch)
 
     # Maybe get text features
@@ -106,25 +106,45 @@ def from_audio(
             features = promovits.preprocess.text.from_string(text)
 
     # Setup model
-    with promovits.time.timer('load'):
-        device = torch.device('cpu' if gpu is None else f'cuda:{gpu}')
-        if not hasattr(from_audio, 'generator') or \
-        from_audio.generator.device != device:
+    device = torch.device('cpu' if gpu is None else f'cuda:{gpu}')
+    if not hasattr(from_audio, 'generator') or from_audio.device != device:
+        with promovits.time.timer('load'):
             generator = promovits.model.Generator().to(device)
-            generator = promovits.checkpoint.load(
-                promovits.checkpoint.latest_path(checkpoint),
-                generator)[0]
+            if checkpoint.is_dir():
+                promovits.checkpoint.latest_path(checkpoint)
+            generator = promovits.checkpoint.load(checkpoint, generator)[0]
             generator.eval()
             from_audio.generator = generator
+            from_audio.device = device
+
+    # Move features to GPU
+    with promovits.time.timer('features/copy'):
+        features = features.to(device)[None]
+        target_pitch = target_pitch.to(device)
+        periodicity = periodicity.to(device)
+        target_loudness = target_loudness.to(device)
 
     # Generate audio
     with promovits.time.timer('generate'):
+
+        # Default length is the entire sequence
+        lengths = torch.tensor(
+            (features.shape[-1],),
+            dtype=torch.long,
+            device=device)
+
+        # Default speaker is speaker 0
+        speakers = torch.zeros(1, dtype=torch.long, device=device)
+
+        # Generate
         with torch.no_grad():
-            shape = (features.shape[-1],)
-            return generator(
-                features.to(device)[None],
-                torch.tensor(shape, dtype=torch.long, device=device),
-                pitch)[0][0].cpu()
+            return from_audio.generator(
+                features.to(device),
+                pitch.to(device),
+                periodicity.to(device),
+                loudness.to(device),
+                lengths,
+                speakers)[0][0].cpu()
 
 
 def from_file(
@@ -226,4 +246,4 @@ def from_files_to_files(
         target_loudness_files,
         target_pitch_files)
     for item in iterator:
-        from_file_to_file(*item, checkpoint, gpu)
+        from_file_to_file(*item, checkpoint=checkpoint, gpu=gpu)

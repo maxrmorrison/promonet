@@ -43,11 +43,7 @@ def scalars(directory, step, scalars):
 
 def writer(directory):
     """Get the writer object"""
-    if not hasattr(writer, 'writer'):
+    if not hasattr(writer, 'writer') or writer.directory != directory:
         writer.writer = SummaryWriter(log_dir=directory)
         writer.directory = directory
-    if directory != writer.directory:
-        raise ValueError(
-            f'TensorBoard log directory {directory} has changed ' +
-            f'from previous {writer.directory}')
     return writer.writer

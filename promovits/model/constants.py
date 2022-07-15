@@ -1,7 +1,16 @@
+import torch
+
+import promovits
+from .modules import CausalConv1d
+
+
 ###############################################################################
 # Model parameters
 ###############################################################################
 
+
+# Whether to use causal or non-causal convolutions
+CONV1D = CausalConv1d if promovits.CAUSAL else torch.nn.Conv1d
 
 # Hidden dimension channel sizes
 HIDDEN_CHANNELS = 192

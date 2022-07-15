@@ -89,6 +89,15 @@ DISCRIM_PERIODICITY_CONDITION = False
 # Discriminator pitch conditioning
 DISCRIM_PITCH_CONDITION = False
 
+# Pass loudness through the latent
+LATENT_LOUDNESS_SHORTCUT = False
+
+# Pass periodicity through the latent
+LATENT_PERIODICITY_SHORTCUT = False
+
+# Pass pitch through the latent
+LATENT_PITCH_SHORTCUT = False
+
 # A-weighted loudness conditioning
 LOUDNESS_FEATURES = False
 
@@ -131,24 +140,36 @@ EVALUATION_INTERVAL = 2500  # steps
 
 
 ###############################################################################
+# Model parameters
+###############################################################################
+
+
+# Whether to use autoregression
+AUTOREGRESSIVE = False
+
+# The size of autoregressive embedding layers
+AR_HIDDEN_SIZE = 256
+
+# The number of previous samples to use for autoregression
+AR_INPUT_SIZE = 512
+
+# The size of the output autoregressive embedding
+AR_OUTPUT_SIZE = 128
+
+# Whether to use causal layers for producing the latent
+CAUSAL = False
+
+# Whether to use the multi-resolution spectrogram discriminator from UnivNet
+MULTI_RESOLUTION_DISCRIMINATOR = False
+
+
+###############################################################################
 # Loss parameters
 ###############################################################################
 
 
 # Weight applied to the melspectrogram loss
 MEL_LOSS_WEIGHT = 45.
-
-
-###############################################################################
-# Text parameters
-###############################################################################
-
-
-# Minimum length of text input
-MIN_TEXT_LEN = 1
-
-# Maximum length of text input
-MAX_TEXT_LEN = 190
 
 
 ###############################################################################
@@ -165,12 +186,27 @@ OPTIMIZER = functools.partial(
 
 
 ###############################################################################
+# Text parameters
+###############################################################################
+
+
+# Minimum length of text input
+MIN_TEXT_LEN = 1
+
+# Maximum length of text input
+MAX_TEXT_LEN = 190
+
+
+###############################################################################
 # Training parameters
 ###############################################################################
 
 
 # Batch size (per gpu)
 BATCH_SIZE = 64
+
+# Number of samples generated during training
+CHUNK_SIZE = 8192
 
 # Per-epoch decay rate of the learning rate
 LEARNING_RATE_DECAY = .999875
@@ -189,6 +225,3 @@ RANDOM_SEED = 1234
 
 # Aligner to use to evaluate training
 TRAIN_ALIGNER = 'p2fa'
-
-# Number of samples generated during training
-TRAINING_CHUNK_SIZE = 8192

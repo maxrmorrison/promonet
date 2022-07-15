@@ -118,7 +118,7 @@ class PhonemeEncoder(torch.nn.Module):
     super().__init__()
 
     if promovits.PPG_FEATURES:
-        self.input_layer = torch.nn.Conv1d(
+        self.input_layer = promovits.model.CONV1D(
             promovits.NUM_FEATURES,
             promovits.model.HIDDEN_CHANNELS,
             promovits.model.KERNEL_SIZE,
@@ -135,7 +135,7 @@ class PhonemeEncoder(torch.nn.Module):
         promovits.model.N_LAYERS,
         promovits.model.KERNEL_SIZE,
         promovits.model.P_DROPOUT)
-    self.projection = torch.nn.Conv1d(
+    self.projection = promovits.model.CONV1D(
         promovits.model.HIDDEN_CHANNELS,
         2 * promovits.model.HIDDEN_CHANNELS,
         1)
@@ -199,7 +199,7 @@ class SpectrogramEncoder(torch.nn.Module):
 
     def __init__(self, kernel_size=5, dilation_rate=1, n_layers=16):
         super().__init__()
-        self.pre = torch.nn.Conv1d(
+        self.pre = promovits.model.CONV1D(
             promovits.NUM_FFT // 2 + 1,
             promovits.model.HIDDEN_CHANNELS,
             1)
@@ -209,7 +209,7 @@ class SpectrogramEncoder(torch.nn.Module):
             dilation_rate,
             n_layers,
             gin_channels=promovits.model.GIN_CHANNELS)
-        self.proj = torch.nn.Conv1d(
+        self.proj = promovits.model.CONV1D(
             promovits.model.HIDDEN_CHANNELS,
             2 * promovits.model.HIDDEN_CHANNELS,
             1)
@@ -293,143 +293,23 @@ class LatentToAudioGenerator(torch.nn.Module):
         return torch.tanh(x)
 
     def remove_weight_norm(self):
-        print('Removing weight norm...')
         for layer in self.ups:
             torch.nn.utils.remove_weight_norm(layer)
         for layer in self.resblocks:
             layer.remove_weight_norm()
 
 
-class DiscriminatorP(torch.nn.Module):
-
-    def __init__(self, period, kernel_size=5, stride=3):
-        super().__init__()
-        self.period = period
-        conv_fn = promovits.model.weight_norm_conv2d
-        padding = promovits.model.get_padding(kernel_size, 1)
-        input_channels = promovits.NUM_FEATURES_DISCRIM
-        self.convs = torch.nn.ModuleList([
-            conv_fn(input_channels, 32, (kernel_size, 1), (stride, 1), padding),
-            conv_fn(32, 128, (kernel_size, 1), (stride, 1), padding),
-            conv_fn(128, 512, (kernel_size, 1), (stride, 1), padding),
-            conv_fn(512, 1024, (kernel_size, 1), (stride, 1), padding),
-            conv_fn(1024, 1024, (kernel_size, 1), 1, padding)])
-        self.conv_post = conv_fn(1024, 1, (3, 1), 1, (1, 0))
-
-    def forward(self, x):
-        feature_maps = []
-
-        # 1d to 2d
-        b, c, t = x.shape
-        if t % self.period != 0: # pad first
-            n_pad = self.period - (t % self.period)
-            x = torch.nn.functional.pad(x, (0, n_pad), 'reflect')
-            t = t + n_pad
-        x = x.view(b, c, t // self.period, self.period)
-
-        for layer in self.convs:
-            x = layer(x)
-            x = torch.nn.functional.leaky_relu(
-                x,
-                promovits.model.LRELU_SLOPE)
-            feature_maps.append(x)
-        x = self.conv_post(x)
-        feature_maps.append(x)
-        return torch.flatten(x, 1, -1), feature_maps
-
-
-class DiscriminatorS(torch.nn.Module):
-
-    def __init__(self):
-        super().__init__()
-        conv_fn = promovits.model.weight_norm_conv1d
-        input_channels = promovits.NUM_FEATURES_DISCRIM
-        self.convs = torch.nn.ModuleList([
-            conv_fn(input_channels, 16, 15, 1, padding=7),
-            conv_fn(16, 64, 41, 4, groups=4, padding=20),
-            conv_fn(64, 256, 41, 4, groups=16, padding=20),
-            conv_fn(256, 1024, 41, 4, groups=64, padding=20),
-            conv_fn(1024, 1024, 41, 4, groups=256, padding=20),
-            conv_fn(1024, 1024, 5, 1, padding=2),])
-        self.conv_post = conv_fn(1024, 1, 3, 1, padding=1)
-
-    def forward(self, x):
-        feature_maps = []
-        for layer in self.convs:
-            x = layer(x)
-            x = torch.nn.functional.leaky_relu(
-                x,
-                promovits.model.LRELU_SLOPE)
-            feature_maps.append(x)
-        x = self.conv_post(x)
-        feature_maps.append(x)
-        return torch.flatten(x, 1, -1), feature_maps
-
-
-class Discriminator(torch.nn.Module):
-
-    def __init__(self):
-        super().__init__()
-        self.discriminators = torch.nn.ModuleList(
-            [DiscriminatorS()] + [DiscriminatorP(i) for i in [2, 3, 5, 7, 11]])
-
-    def forward(self, y, y_hat, pitch, periodicity, loudness):
-        # Maybe add pitch conditioning
-        if promovits.DISCRIM_PITCH_CONDITION:
-            pitch = torch.nn.functional.interpolate(
-                torch.log2(pitch)[:, None],
-                scale_factor=promovits.HOPSIZE,
-                mode='linear',
-                align_corners=False)
-            y = torch.cat((y, pitch), dim=1)
-            y_hat = torch.cat((y_hat, pitch), dim=1)
-
-        # Maybe add periodicity conditioning
-        if promovits.DISCRIM_PERIODICITY_CONDITION:
-            periodicity = torch.nn.functional.interpolate(
-                periodicity[:, None],
-                scale_factor=promovits.HOPSIZE,
-                mode='linear',
-                align_corners=False)
-            y = torch.cat((y, periodicity), dim=1)
-            y_hat = torch.cat((y_hat, periodicity), dim=1)
-
-        # Maybe add loudness conditioning
-        if promovits.DISCRIM_LOUDNESS_CONDITION:
-            loudness = promovits.loudness.normalize(loudness)
-            loudness = torch.nn.functional.interpolate(
-                loudness[:, None],
-                scale_factor=promovits.HOPSIZE,
-                mode='linear',
-                align_corners=False)
-            y = torch.cat((y, loudness), dim=1)
-            y_hat = torch.cat((y_hat, loudness), dim=1)
-
-        y_d_rs = []
-        y_d_gs = []
-        fmap_rs = []
-        fmap_gs = []
-        for d in self.discriminators:
-            y_d_r, fmap_r = d(y)
-            y_d_g, fmap_g = d(y_hat)
-            y_d_rs.append(y_d_r)
-            y_d_gs.append(y_d_g)
-            fmap_rs.append(fmap_r)
-            fmap_gs.append(fmap_g)
-
-        return y_d_rs, y_d_gs, fmap_rs, fmap_gs
-
-
 class Generator(torch.nn.Module):
 
-    def __init__(self, n_speakers):
+    def __init__(self, n_speakers=109):
         super().__init__()
         self.n_speakers = n_speakers
 
         # Text feature encoding
         self.feature_encoder = PhonemeEncoder()
+
+        # Text-to-duration predictor
         if not promovits.PPG_FEATURES:
-            # Text-to-duration predictor
             self.dp = StochasticDurationPredictor(
                 promovits.model.HIDDEN_CHANNELS,
                 192,
@@ -438,8 +318,11 @@ class Generator(torch.nn.Module):
                 4,
                 gin_channels=promovits.GIN_CHANNELS)
 
+        # Vocoder
+        latent_channels = promovits.model.HIDDEN_CHANNELS + \
+            promovits.ADDITIONAL_FEATURES_LATENT
         self.generator = LatentToAudioGenerator(
-            promovits.model.HIDDEN_CHANNELS,
+            latent_channels,
             promovits.model.GIN_CHANNELS)
 
         # Spectrogram encoder
@@ -459,11 +342,75 @@ class Generator(torch.nn.Module):
             n_speakers,
             promovits.model.GIN_CHANNELS)
 
+        # Autoregressive
+        if promovits.AUTOREGRESSIVE:
+            self.autoregressive = Autoregressive()
+
         # Pitch embedding
         if promovits.PITCH_FEATURES:
             self.pitch_embedding = torch.nn.Embedding(
                 promovits.PITCH_BINS,
                 promovits.PITCH_EMBEDDING_SIZE)
+            if promovits.LATENT_PITCH_SHORTCUT:
+                self.latent_pitch_embedding = torch.nn.Embedding(
+                    promovits.PITCH_BINS,
+                    promovits.PITCH_EMBEDDING_SIZE)
+
+    def ar_loop(self, latents, speaker_embedding):
+        """Perform autoregressive generation from latent space"""
+        # Save output size
+        output_length = latents.shape[2] * promovits.HOPSIZE
+
+        # Get feature chunk size
+        feat_chunk = promovits.CHUNK_SIZE // promovits.HOPSIZE
+
+        # Zero-pad features to be a multiple of the chunk size
+        padding = (feat_chunk - (latents.shape[2] % feat_chunk)) % feat_chunk
+        latents = torch.nn.functional.pad(latents, (0, padding))
+
+        # Start with all zeros as conditioning
+        prev_samples = torch.zeros(
+            (latents.shape[0], 1, promovits.AR_INPUT_SIZE),
+            dtype=latents.dtype,
+            device=latents.device)
+
+        # Get output signal length
+        signal_length = latents.shape[2] * promovits.HOPSIZE
+
+        # Autoregressive loop
+        generated = torch.zeros(
+            signal_length,
+            dtype=latents.dtype,
+            device=latents.device)
+        with torch.no_grad():
+            for i in range(0, latents.shape[2] - feat_chunk + 1, feat_chunk):
+
+                # Embed previous samples
+                ar_feats = self.autoregressive(prev_samples)
+                ar_feats = ar_feats.unsqueeze(2).repeat(1, 1, feat_chunk)
+
+                # Concatenate
+                features = torch.cat(
+                    (latents[:, :, i:i + feat_chunk], ar_feats),
+                    dim=1)
+
+                # Forward pass
+                chunk, *_ = self.generator(features, g=speaker_embedding)
+
+                # Place newly generated chunk
+                start = i * promovits.HOPSIZE
+                generated[start:start + promovits.CHUNK_SIZE] += chunk.squeeze()
+
+                # Update AR context
+                if promovits.AR_INPUT_SIZE <= promovits.CHUNK_SIZE:
+                    prev_samples = chunk[:, -promovits.AR_INPUT_SIZE:]
+                else:
+                    prev_samples[:, :, :-promovits.CHUNK_SIZE] = \
+                        prev_samples[:, :, promovits.CHUNK_SIZE:].clone()
+                    prev_samples[:, :, -promovits.CHUNK_SIZE:] = chunk
+
+            # Remove padding
+            return generated[None, None, :output_length]
 
     def forward(
         self,
@@ -475,10 +422,78 @@ class Generator(torch.nn.Module):
         speakers,
         spectrograms=None,
         spectrogram_lengths=None,
+        audio=None):
+        """Generator entry point"""
+        # Get latent representation
+        latents, speaker_embeddings, latent_mask, slice_indices, *args = \
+            self.latents(
+                features,
+                pitch,
+                periodicity,
+                loudness,
+                lengths,
+                speakers,
+                spectrograms,
+                spectrogram_lengths,
+                audio)
+
+        if promovits.AUTOREGRESSIVE:
+
+            # During training, get slices of previous audio
+            if self.training:
+
+                indices = \
+                    slice_indices * promovits.HOPSIZE - promovits.AR_INPUT_SIZE
+                autoregressive = torch.zeros(
+                    (audio.shape[0], 1, promovits.AR_INPUT_SIZE),
+                    dtype=audio.dtype,
+                    device=audio.device)
+                iterator = enumerate(zip(audio, indices))
+                for i, (segment, start_index) in iterator:
+                    end_index = start_index + promovits.AR_INPUT_SIZE
+
+                    # Use zero-padding for negative indices
+                    if start_index <= -promovits.AR_INPUT_SIZE:
+                        continue
+                    elif start_index < 0:
+                        start_index = 0
+
+                    # Slice
+                    autoregressive[i, :, -(end_index - start_index):] = \
+                        segment[..., start_index:end_index]
+
+                # Embed
+                ar_feats = self.autoregressive(autoregressive)
+                ar_feats = ar_feats.unsqueeze(2).repeat(1, 1, latents.shape[2])
+
+                # Concatenate
+                latents = torch.cat((latents, ar_feats), dim=1)
+
+            # During generation, run autoregressive loop
+            else:
+                generated = self.ar_loop(latents, speaker_embeddings)
+                return generated, latent_mask, slice_indices, *args
+
+        # Decode latent representation to waveform
+        generated = self.generator(latents, g=speaker_embeddings)
+
+        return generated, latent_mask, slice_indices, *args
+
+    def latents(
+        self,
+        features,
+        pitch,
+        periodicity,
+        loudness,
+        lengths,
+        speakers,
+        spectrograms=None,
+        spectrogram_lengths=None,
+        audio=None,
         noise_scale=.667,
         length_scale=1,
         noise_scale_w=.8):
-        """Forward pass through the network"""
+        """Get latent representation"""
         # Maybe add pitch features
         if promovits.PITCH_FEATURES:
             pitch = promovits.convert.hz_to_bins(pitch)
@@ -526,13 +541,21 @@ class Generator(torch.nn.Module):
 
                 # Compute monotonic alignment
                 with torch.no_grad():
-                    s_p_sq_r = torch.exp(-2 * predicted_logstd) # [b, d, t]
-                    neg_cent1 = torch.sum(-0.5 * math.log(2 * math.pi) - predicted_logstd, [1], keepdim=True) # [b, 1, t_s]
-                    neg_cent2 = torch.matmul(-0.5 * (z_p ** 2).transpose(1, 2), s_p_sq_r) # [b, t_t, d] x [b, d, t_s] = [b, t_t, t_s]
-                    neg_cent3 = torch.matmul(z_p.transpose(1, 2), (predicted_mean * s_p_sq_r)) # [b, t_t, d] x [b, d, t_s] = [b, t_t, t_s]
-                    neg_cent4 = torch.sum(-0.5 * (predicted_mean ** 2) * s_p_sq_r, [1], keepdim=True) # [b, 1, t_s]
+                    s_p_sq_r = torch.exp(-2 * predicted_logstd)  # [b, d, t]
+                    neg_cent1 = torch.sum(-0.5 * math.log(2 * math.pi) -
+                                          predicted_logstd, [1], keepdim=True)  # [b, 1, t_s]
+                    # [b, t_t, d] x [b, d, t_s] = [b, t_t, t_s]
+                    neg_cent2 = torch.matmul(-0.5 *
+                                             (z_p ** 2).transpose(1, 2), s_p_sq_r)
+                    # [b, t_t, d] x [b, d, t_s] = [b, t_t, t_s]
+                    neg_cent3 = torch.matmul(z_p.transpose(
+                        1, 2), (predicted_mean * s_p_sq_r))
+                    # [b, 1, t_s]
+                    neg_cent4 = torch.sum(-0.5 * (predicted_mean ** 2)
+                                          * s_p_sq_r, [1], keepdim=True)
                     neg_cent = neg_cent1 + neg_cent2 + neg_cent3 + neg_cent4
-                    attention = promovits.model.monotonic_align.maximum_path(neg_cent, attention_mask).unsqueeze(1).detach()
+                    attention = promovits.model.monotonic_align.maximum_path(
+                        neg_cent, attention_mask).unsqueeze(1).detach()
 
                 # Calcuate duration of each feature
                 w = attention.sum(2)
@@ -550,10 +573,41 @@ class Generator(torch.nn.Module):
                     predicted_logstd.transpose(1, 2)).transpose(1, 2)
 
             # Extract random segments of latent representation for training decoder
+            slice_size = promovits.CHUNK_SIZE // promovits.HOPSIZE
             latents, slice_indices = promovits.model.random_slice_segments(
                 latents,
                 spectrogram_lengths,
-                promovits.TRAINING_CHUNK_SIZE // promovits.HOPSIZE)
+                slice_size)
+
+            # Maybe slice loudness
+            if (
+                promovits.LOUDNESS_FEATURES and
+                promovits.LATENT_LOUDNESS_SHORTCUT
+            ):
+                loudness_slice = promovits.model.slice_segments(
+                    loudness,
+                    slice_indices,
+                    slice_size)
+
+            # Maybe slice pitch
+            if (
+                promovits.PERIODICITY_FEATURES and
+                promovits.LATENT_PERIODICITY_SHORTCUT
+            ):
+                periodicity_slice = promovits.model.slice_segments(
+                    periodicity,
+                    slice_indices,
+                    slice_size)
+
+            # Maybe slice pitch
+            if (
+                promovits.PITCH_FEATURES and
+                promovits.LATENT_PITCH_SHORTCUT
+            ):
+                pitch_slice = promovits.model.slice_segments(
+                    pitch,
+                    slice_indices,
+                    slice_size)
 
         # Generation
         else:
@@ -569,17 +623,22 @@ class Generator(torch.nn.Module):
             else:
 
                 # Predict durations from text
-                logw = self.dp(x, feature_mask, g=g, reverse=True, noise_scale=noise_scale_w)
+                logw = self.dp(x, feature_mask, g=g, reverse=True,
+                               noise_scale=noise_scale_w)
                 w = torch.exp(logw) * feature_mask * length_scale
                 w_ceil = torch.ceil(w)
 
                 # Get total duration and sequence masks
-                spectrogram_lengths = torch.clamp_min(torch.sum(w_ceil, [1, 2]), 1).long()
-                latent_mask = torch.unsqueeze(promovits.model.sequence_mask(spectrogram_lengths, None), 1).to(feature_mask.dtype)
+                spectrogram_lengths = torch.clamp_min(
+                    torch.sum(w_ceil, [1, 2]), 1).long()
+                latent_mask = torch.unsqueeze(promovits.model.sequence_mask(
+                    spectrogram_lengths, None), 1).to(feature_mask.dtype)
 
                 # Compute attention between variable length input and output sequences
-                attention_mask = torch.unsqueeze(feature_mask, 2) * torch.unsqueeze(latent_mask, -1)
-                attention = promovits.model.generate_path(w_ceil, attention_mask)
+                attention_mask = torch.unsqueeze(
+                    feature_mask, 2) * torch.unsqueeze(latent_mask, -1)
+                attention = promovits.model.generate_path(
+                    w_ceil, attention_mask)
 
                 # Expand sequence using predicted durations
                 predicted_mean = torch.matmul(
@@ -603,11 +662,38 @@ class Generator(torch.nn.Module):
                 g=speaker_embeddings,
                 reverse=True)
 
-        # Decode latent representation to waveform
-        generated = self.generator(latents, g=speaker_embeddings)
+            # No slicing
+            loudness_slice, periodicity_slice, pitch_slice = (
+                loudness,
+                periodicity,
+                pitch)
+
+        # Maybe add pitch
+        if (
+            promovits.PITCH_FEATURES and
+            promovits.LATENT_PITCH_SHORTCUT
+        ):
+            pitch_embeddings = self.latent_pitch_embedding(
+                pitch_slice).permute(0, 2, 1)
+            latents = torch.cat((latents, pitch_embeddings[..., ]), dim=1)
+
+        # Maybe add loudness
+        if (
+            promovits.LOUDNESS_FEATURES and
+            promovits.LATENT_LOUDNESS_SHORTCUT
+        ):
+            latents = torch.cat((latents, loudness_slice[:, None]), dim=1)
+
+        # Maybe add periodicity
+        if (
+            promovits.PERIODICITY_FEATURES and
+            promovits.LATENT_PERIODICITY_SHORTCUT
+        ):
+            latents = torch.cat((latents, periodicity_slice[:, None]), dim=1)
 
         return (
-            generated,
+            latents,
+            speaker_embeddings,
             latent_mask,
             slice_indices,
             durations,
@@ -616,3 +702,27 @@ class Generator(torch.nn.Module):
             predicted_mean,
             predicted_logstd,
             true_logstd)
+
+
+class Autoregressive(torch.nn.Module):
+
+    def __init__(self):
+        super().__init__()
+
+        model = [
+            torch.nn.Linear(promovits.AR_INPUT_SIZE, promovits.AR_HIDDEN_SIZE),
+            torch.nn.LeakyReLU(.1)]
+        for _ in range(3):
+            model.extend([
+                torch.nn.Linear(
+                    promovits.AR_HIDDEN_SIZE,
+                    promovits.AR_HIDDEN_SIZE),
+                torch.nn.LeakyReLU(.1)])
+        model.append(
+            torch.nn.Linear(
+                promovits.AR_HIDDEN_SIZE,
+                promovits.AR_OUTPUT_SIZE))
+        self.model = torch.nn.Sequential(*model)
+
+    def forward(self, x):
+        return self.model(x.squeeze(1))

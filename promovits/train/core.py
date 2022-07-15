@@ -57,6 +57,9 @@ def run(
             adapt,
             None if gpus is None else gpus[0])
 
+    # Return path to generator checkpoint
+    return promovits.checkpoint.latest_path(output_directory)
+
 
 ###############################################################################
 # Training
@@ -229,7 +232,8 @@ def train(
                 lengths,
                 speakers,
                 spectrograms,
-                spectrogram_lengths)
+                spectrogram_lengths,
+                audio)
 
             # Convert to mels
             mels = promovits.preprocess.spectrogram.linear_to_mel(
@@ -254,7 +258,7 @@ def train(
 
                     # Slice segments for training discriminator
                     segment_size = \
-                        promovits.TRAINING_CHUNK_SIZE // promovits.HOPSIZE
+                        promovits.CHUNK_SIZE // promovits.HOPSIZE
                     slice_fn = functools.partial(
                         promovits.model.slice_segments,
                         start_indices=slice_indices,
@@ -275,7 +279,7 @@ def train(
                     audio = promovits.model.slice_segments(
                         audio,
                         slice_indices * promovits.HOPSIZE,
-                        promovits.TRAINING_CHUNK_SIZE)
+                        promovits.CHUNK_SIZE)
 
                     # Print model summaries first time
                     # if not printed:
@@ -574,20 +578,25 @@ def evaluate(directory, step, generator, valid_loader, gpu):
                     promovits.plot.spectrogram(mels)
 
             # Extract prosody features
-            (
-                pitch,
-                periodicity,
-                loudness,
-                voicing,
-                phones,
-                _
-            ) = pysodic.from_audio_and_text(
-                audio[0],
-                promovits.SAMPLE_RATE,
-                text,
-                promovits.HOPSIZE / promovits.SAMPLE_RATE,
-                promovits.WINDOW_SIZE / promovits.SAMPLE_RATE,
-                gpu)
+            try:
+                (
+                    pitch,
+                    periodicity,
+                    loudness,
+                    voicing,
+                    phones,
+                    _
+                ) = pysodic.from_audio_and_text(
+                    audio[0],
+                    promovits.SAMPLE_RATE,
+                    text,
+                    promovits.HOPSIZE / promovits.SAMPLE_RATE,
+                    promovits.WINDOW_SIZE / promovits.SAMPLE_RATE,
+                    gpu)
+            except Exception as error:
+                print(error)
+                import pdb; pdb.set_trace()
+                pass
 
             # Reconstruct speech
             generated, *_ = generator(

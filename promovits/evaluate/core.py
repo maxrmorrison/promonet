@@ -59,8 +59,8 @@ def speaker(
     """Evaluate one adaptation speaker in a dataset"""
     if promovits.MODEL == 'promovits':
 
-        # Perform speaker adaptation
-        promovits.train.run(
+        # Perform speaker adaptation and get generator checkpoint
+        checkpoint = promovits.train.run(
             dataset,
             checkpoint,
             output_directory,
@@ -69,10 +69,6 @@ def speaker(
             test_partition,
             True,
             gpus)
-
-        # Get latest generator checkpoint
-        if checkpoint is not None and checkpoint.is_dir():
-            checkpoint = promovits.checkpoint.latest_path(output_directory)
 
     # Directory to save original audio files
     original_subjective_directory = (
@@ -506,10 +502,6 @@ def datasets(datasets, checkpoint=None, gpus=None):
 
             # Index of this adaptation partition
             index = train_partition.split('-')[-1]
-
-            # Directory containing checkpoint to load from
-            if promovits.MODEL == 'promovits':
-                checkpoint = promovits.RUNS_DIR / promovits.CONFIG
 
             # Output directory for checkpoints and logs
             adapt_directory = (

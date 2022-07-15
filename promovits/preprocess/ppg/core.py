@@ -37,9 +37,9 @@ def from_audio(
     # Cache model
     if not hasattr(from_audio, 'model'):
         from_audio.model = promovits.preprocess.ppg.conformer_ppg_model.build_ppg_model.load_ppg_model(
-        config,
-        checkpoint_file,
-        device)
+            config,
+            checkpoint_file,
+            device)
 
     # Maybe resample
     if sample_rate != SAMPLE_RATE:

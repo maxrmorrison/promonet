@@ -39,9 +39,16 @@ NUM_FEATURES = 178 if not promovits.PPG_FEATURES else (
     promovits.PITCH_FEATURES * promovits.PITCH_EMBEDDING_SIZE +
     promovits.PPG_FEATURES * promovits.PPG_CHANNELS)
 
-# Number of input feature to the discriminator
+# Number of input features to the discriminator
 NUM_FEATURES_DISCRIM = (
     1 +
     promovits.DISCRIM_LOUDNESS_CONDITION +
     promovits.DISCRIM_PERIODICITY_CONDITION +
     promovits.DISCRIM_PITCH_CONDITION)
+
+# Number of additional input features to the latent-to-audio model
+ADDITIONAL_FEATURES_LATENT = (
+    promovits.LATENT_PITCH_SHORTCUT * promovits.PITCH_EMBEDDING_SIZE +
+    promovits.LATENT_LOUDNESS_SHORTCUT +
+    promovits.LATENT_PERIODICITY_SHORTCUT +
+    promovits.AUTOREGRESSIVE * promovits.AR_OUTPUT_SIZE)
