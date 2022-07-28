@@ -1,11 +1,8 @@
 # Configuration name
-CONFIG = 'condition-both-mrd-ar-8192-causal-small'
+CONFIG = 'condition-both-mrd-16384-small'
 
-# Whether to use autoregression
-AUTOREGRESSIVE = True
-
-# Whether to use causal layers for producing the latent
-CAUSAL = True
+# Number of samples generated during each forward pass
+CHUNK_SIZE = 16384
 
 # Discriminator loudness conditioning
 DISCRIM_LOUDNESS_CONDITION = True

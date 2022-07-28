@@ -1,11 +1,5 @@
 # Configuration name
-CONFIG = 'condition-both-mrd-ar-8192-causal-small'
-
-# Whether to use autoregression
-AUTOREGRESSIVE = True
-
-# Whether to use causal layers for producing the latent
-CAUSAL = True
+CONFIG = 'condition-both-mrd-mel175-small'
 
 # Discriminator loudness conditioning
 DISCRIM_LOUDNESS_CONDITION = True
@@ -27,6 +21,9 @@ LATENT_PITCH_SHORTCUT = True
 
 # Loudness features
 LOUDNESS_FEATURES = True
+
+# Weight applied to the melspectrogram loss
+MEL_LOSS_WEIGHT = 17.5
 
 # Whether to use the multi-resolution spectrogram discriminator from UnivNet
 MULTI_RESOLUTION_DISCRIMINATOR = True

@@ -36,11 +36,7 @@ def from_audio(
 
     # Maybe resample
     with promovits.time.timer('resample'):
-        if sample_rate != promovits.SAMPLE_RATE:
-            resample_fn = torchaudio.transforms.Resample(
-                sample_rate,
-                promovits.SAMPLE_RATE)
-            audio = resample_fn(audio)
+        audio = resample(audio, sample_rate)
 
     # Extract prosody features
     with promovits.time.timer('features/prosody'):
@@ -247,3 +243,15 @@ def from_files_to_files(
         target_pitch_files)
     for item in iterator:
         from_file_to_file(*item, checkpoint=checkpoint, gpu=gpu)
+
+
+###############################################################################
+# Utilities
+###############################################################################
+
+
+def resample(audio, sample_rate, target_rate=promovits.SAMPLE_RATE):
+    """Perform audio resampling"""
+    if sample_rate == target_rate:
+        return audio
+    return torchaudio.transforms.Resample(sample_rate, target_rate)(audio)

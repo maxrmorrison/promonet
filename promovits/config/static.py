@@ -7,6 +7,9 @@ import promovits
 ###############################################################################
 
 
+# Location to save data augmentation information
+AUGMENT_DIR = promovits.ASSETS_DIR / 'augmentations'
+
 # Location to save dataset partitions
 PARTITION_DIR = promovits.ASSETS_DIR / 'partitions'
 

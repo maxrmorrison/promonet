@@ -217,14 +217,14 @@ class Discriminator(torch.nn.Module):
 
     def __init__(self):
         super().__init__()
+        self.discriminators = torch.nn.ModuleList(
+            [DiscriminatorP(i) for i in [2, 3, 5, 7, 11]])
+        if promovits.MULTI_SCALE_DISCRIMINATOR:
+            self.discriminators.append(DiscriminatorS())
         if promovits.MULTI_RESOLUTION_DISCRIMINATOR:
             resolutions = [(1024, 120, 600), (2048, 240, 1200), (512, 50, 240)]
-            self.discriminators = torch.nn.ModuleList(
+            self.discriminators.extend(
                 [DiscriminatorR(i) for i in resolutions])
-        else:
-            self.discriminators = torch.nn.ModuleList([DiscriminatorS()])
-        self.discriminators.extend(
-            [DiscriminatorP(i) for i in [2, 3, 5, 7, 11]])
 
     def forward(self, y, y_hat, pitch, periodicity, loudness):
         logits_real = []

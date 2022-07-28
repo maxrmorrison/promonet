@@ -80,6 +80,9 @@ MODEL = 'promovits'
 ###############################################################################
 
 
+# Whether to use pitch augmentation
+AUGMENT_PITCH = False
+
 # Discriminator loudness conditioning
 DISCRIM_LOUDNESS_CONDITION = False
 
@@ -161,6 +164,9 @@ CAUSAL = False
 
 # Whether to use the multi-resolution spectrogram discriminator from UnivNet
 MULTI_RESOLUTION_DISCRIMINATOR = False
+
+# Whether to use the multi-scale waveform discriminator from MelGAN
+MULTI_SCALE_DISCRIMINATOR = True
 
 
 ###############################################################################

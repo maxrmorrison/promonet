@@ -1,9 +1,8 @@
 # TODO - world pitch reconstruction
-# TODO - discriminator w/ pitch embedding
 # TODO - analyze interpolation of loudness
 # TODO - consider PPG reinforcement in the discrim if pronunciation is bad
 # TODO - address loudness-scaling acting as bias in V/UV F1 computation
-# TODO - mask latents to be causal for AR generation *
+# TODO - pitch augmentation
 
 
 ###############################################################################

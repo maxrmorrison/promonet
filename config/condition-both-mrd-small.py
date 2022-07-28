@@ -25,6 +25,9 @@ LOUDNESS_FEATURES = True
 # Whether to use the multi-resolution spectrogram discriminator from UnivNet
 MULTI_RESOLUTION_DISCRIMINATOR = True
 
+# Whether to use the multi-scale waveform discriminator from MelGAN
+MULTI_SCALE_DISCRIMINATOR = False
+
 # Periodicity conditioning
 PERIODICITY_FEATURES = True
 

@@ -31,6 +31,9 @@ LOUDNESS_FEATURES = True
 # Whether to use the multi-resolution spectrogram discriminator from UnivNet
 MULTI_RESOLUTION_DISCRIMINATOR = True
 
+# Whether to use the multi-scale waveform discriminator from MelGAN
+MULTI_SCALE_DISCRIMINATOR = False
+
 # Periodicity conditioning
 PERIODICITY_FEATURES = True
 
@@ -46,4 +49,4 @@ PPG_INTERP_METHOD = 'nearest'
 
 # Reduce batch size and steps for development
 BATCH_SIZE = 16
-NUM_STEPS = 100000
+NUM_STEPS = 300000

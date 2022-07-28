@@ -1,4 +1,5 @@
 import functools
+import json
 import os
 
 import torch
@@ -15,8 +16,17 @@ class Dataset(torch.utils.data.Dataset):
 
     def __init__(self, dataset, partition):
         super().__init__()
-        self.stems = promovits.load.partition(dataset)[partition]
         self.cache = promovits.CACHE_DIR / dataset
+
+        # Get data stems assuming no augmentation
+        stems = promovits.load.partition(dataset)[partition]
+        self.stems = [f'{stem}-100' for stem in stems]
+
+        # For training, maybe add augmented data
+        if partition == 'train' and promovits.AUGMENT:
+            with open(promovits.AUGMENT_DIR / f'{dataset}.json') as file:
+                ratios = json.load(file)
+            self.stems.extend([f'{stem}-{ratios[stem]}' for stem in stems])
 
         # Store spectrogram lengths for bucketing
         audio_files = list([self.cache / f'{stem}.wav' for stem in self.stems])

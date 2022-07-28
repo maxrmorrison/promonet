@@ -42,11 +42,7 @@ def from_audio(
             device)
 
     # Maybe resample
-    if sample_rate != SAMPLE_RATE:
-        resample_fn = torchaudio.transforms.Resample(
-            sample_rate,
-            SAMPLE_RATE)
-        audio = resample_fn(audio)
+    audio = promovits.resample(audio, sample_rate, SAMPLE_RATE)
 
     # Setup features
     audio = audio.to(device)

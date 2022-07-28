@@ -125,9 +125,9 @@ def vctk():
     """Partition the vctk dataset"""
     # Get list of speakers
     directory = promovits.CACHE_DIR / 'vctk'
-    stems = [
-        f'{file.parent.name}/{file.stem}'
-        for file in directory.rglob('*.json')]
+    stems = {
+        f'{file.parent.name}/{file.stem[:-4]}'
+        for file in directory.rglob('*.json')}
 
     # Create speaker adaptation partitions
     adapt_partitions = adaptation_partitions(
@@ -192,7 +192,7 @@ def adaptation_partitions(directory, stems, speakers):
 
 def meets_length_criteria(directory, stem):
     """Returns True if the audio file duration is within the length criteria"""
-    size = (directory / f'{stem}.wav').stat().st_size
+    size = (directory / f'{stem}-100.wav').stat().st_size
     return MIN_TEST_SAMPLE_LENGTH_BYTES <= size <= MAX_TEST_SAMPLE_LENGTH_BYTES
 
 

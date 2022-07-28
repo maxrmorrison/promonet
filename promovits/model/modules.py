@@ -23,21 +23,59 @@ class CausalConv1d(torch.nn.Conv1d):
         dilation=1,
         groups=1,
         bias=True):
-        self.causal_padding = int((kernel_size - 1) * dilation)
+        causal_padding = int((kernel_size - 1) * dilation)
         super().__init__(
             in_channels,
             out_channels,
             kernel_size=kernel_size,
             stride=stride,
-            padding=self.causal_padding,
+            padding=causal_padding,
             dilation=dilation,
             groups=groups,
             bias=bias)
+        self.causal_padding = causal_padding
 
     def forward(self, input):
-        result = super(CausalConv1d, self).forward(input)
+        result = super().forward(input)
         if self.causal_padding != 0:
             return result[:, :, :-self.causal_padding]
+        return result
+
+
+class CausalTransposeConv1d(torch.nn.ConvTranspose1d):
+    """Causal transpose convolution"""
+
+    def __init__(
+            self,
+            in_channels,
+            out_channels,
+            kernel_size,
+            stride=1,
+            padding=0,
+            output_padding=0,
+            groups=1,
+            bias=True,
+            dilation=1):
+
+        # Omit padding
+        super().__init__(
+            in_channels,
+            out_channels,
+            kernel_size=kernel_size,
+            stride=stride,
+            padding=0,
+            output_padding=output_padding,
+            groups=groups,
+            bias=bias,
+            dilation=dilation)
+
+        # Number of non-causal elements to be removed
+        self.causal_padding = dilation * (kernel_size - 1) + 1 - stride
+
+    def forward(self, input):
+        result = super().forward(input)
+        if self.causal_padding != 0:
+            result = result[:, :, :-self.causal_padding]
         return result
 
 
@@ -240,9 +278,9 @@ class WaveNet(torch.nn.Module):
 class ResBlock(torch.nn.Module):
 
     def __init__(self, channels, kernel_size=3, dilation=(1, 3, 5)):
-        super(ResBlock, self).__init__()
+        super().__init__()
         conv_fn = functools.partial(
-            promovits.model.weight_norm_conv1d,
+            promovits.model.causal_weight_norm_conv1d,
             channels,
             channels,
             kernel_size,

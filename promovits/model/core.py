@@ -1,5 +1,7 @@
 import torch
 
+from .constants import CONV1D
+
 
 ###############################################################################
 # Shared model utilities
@@ -63,13 +65,29 @@ def sequence_mask(length, max_length=None):
     return x.unsqueeze(0) < length.unsqueeze(1)
 
 
-def slice_segments(segments, start_indices, segment_size):
+def slice_segments(segments, start_indices, segment_size, fill_value=0.):
     """Slice segments along last dimension"""
-    slices = torch.zeros_like(segments[..., :segment_size])
+    slices = torch.full_like(segments[..., :segment_size], fill_value)
     iterator = enumerate(zip(segments, start_indices))
     for i, (segment, start_index) in iterator:
-        slices[i] = segment[..., start_index:start_index + segment_size]
+        end_index = start_index + segment_size
+
+        # Pad negative indices
+        if start_index <= -segment_size:
+            continue
+        elif start_index < 0:
+            start_index = 0
+
+        # Slice
+        slices[i, ..., -(end_index - start_index):] = \
+            segment[..., start_index:end_index]
+
     return slices
+
+
+def causal_weight_norm_conv1d(*args, **kwargs):
+    """Construct Conv1d layer with weight normalization"""
+    return torch.nn.utils.weight_norm(CONV1D(*args, **kwargs))
 
 
 def weight_norm_conv1d(*args, **kwargs):

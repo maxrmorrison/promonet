@@ -1,5 +1,5 @@
 # Configuration name
-CONFIG = 'condition-both-mrd-ar-8192-causal-small'
+CONFIG = 'condition-both-mrd-ar-8192-causal-all-small'
 
 # Whether to use autoregression
 AUTOREGRESSIVE = True

@@ -16,13 +16,7 @@ def audio(file):
     audio, sample_rate = torchaudio.load(file)
 
     # Maybe resample
-    if sample_rate != promovits.SAMPLE_RATE:
-        resample_fn = torchaudio.transforms.Resample(
-            sample_rate,
-            promovits.SAMPLE_RATE)
-        audio = resample_fn(audio)
-
-    return audio
+    return promovits.resample(audio, sample_rate)
 
 
 def partition(dataset):

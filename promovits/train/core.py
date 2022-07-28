@@ -246,6 +246,7 @@ def train(
                     generated,
                     latent_mask,
                     slice_indices,
+                    autoregressive,
                     durations,
                     attention,
                     prior,
@@ -259,19 +260,33 @@ def train(
                     # Slice segments for training discriminator
                     segment_size = \
                         promovits.CHUNK_SIZE // promovits.HOPSIZE
-                    slice_fn = functools.partial(
-                        promovits.model.slice_segments,
+
+                    # Slice mels
+                    mel_slices = promovits.model.slice_segments(
+                        mels,
                         start_indices=slice_indices,
                         segment_size=segment_size)
-                    mel_slices = slice_fn(mels)
+
+                    # Update indices to handle autoregression
+                    if promovits.AUTOREGRESSIVE:
+                        ar_frames = promovits.AR_INPUT_SIZE // promovits.HOPSIZE
+                        indices = slice_indices - ar_frames
+                        size = segment_size + ar_frames
+                    else:
+                        indices, size = slice_indices, segment_size
 
                     # Slice prosody
-                    pitch_slices = slice_fn(pitch)
+                    slice_fn = functools.partial(
+                        promovits.model.slice_segments,
+                        start_indices=indices,
+                        segment_size=size)
+                    pitch_slices = slice_fn(pitch, fill_value=pitch.mean())
                     periodicity_slices = slice_fn(periodicity)
-                    loudness_slices = slice_fn(loudness)
+                    loudness_slices = slice_fn(loudness, fill_value=loudness.min())
 
-                    # Exit autocast context, as ComplexHalf type is not supported
+                    # Exit autocast context, as ComplexHalf type is not yet supported
                     # See Github issue https://github.com/jaywalnut310/vits/issues/15
+                    # For progress, see https://github.com/pytorch/pytorch/issues/74537
                     generated = generated.float()
                     generated_mels = promovits.preprocess.spectrogram.from_audio(
                         generated.float(),
@@ -280,6 +295,11 @@ def train(
                         audio,
                         slice_indices * promovits.HOPSIZE,
                         promovits.CHUNK_SIZE)
+
+                    # Prepend AR input so the discriminator sees boundaries
+                    if autoregressive is not None:
+                        generated = torch.cat((autoregressive, generated), dim=-1)
+                        audio = torch.cat((autoregressive, audio), dim=-1)
 
                     # Print model summaries first time
                     # if not printed:
@@ -354,9 +374,7 @@ def train(
                         duration_loss = 0
 
                     # Get melspectrogram loss
-                    mel_loss = \
-                        promovits.MEL_LOSS_WEIGHT * \
-                        torch.nn.functional.l1_loss(mel_slices, generated_mels)
+                    mel_loss = torch.nn.functional.l1_loss(mel_slices, generated_mels)
 
                     # Get KL divergence loss between features and spectrogram
                     kl_divergence_loss = promovits.loss.kl(
@@ -378,7 +396,7 @@ def train(
                     generator_losses = (
                         adversarial_loss +
                         feature_matching_loss +
-                        mel_loss +
+                        promovits.MEL_LOSS_WEIGHT * mel_loss +
                         duration_loss +
                         kl_divergence_loss)
 

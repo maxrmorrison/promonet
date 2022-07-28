@@ -231,7 +231,7 @@ class LatentToAudioGenerator(torch.nn.Module):
         super().__init__()
         self.num_kernels = len(promovits.model.RESBLOCK_KERNEL_SIZES)
         self.num_upsamples = len(promovits.model.UPSAMPLE_RATES)
-        self.conv_pre = torch.nn.Conv1d(
+        self.conv_pre = promovits.model.CONV1D(
             initial_channel,
             promovits.model.UPSAMPLE_INITIAL_SIZE,
             7,
@@ -244,7 +244,7 @@ class LatentToAudioGenerator(torch.nn.Module):
             promovits.model.UPSAMPLE_KERNEL_SIZES))
         for i, (upsample_rate, kernel_size) in iterator:
             self.ups.append(torch.nn.utils.weight_norm(
-                torch.nn.ConvTranspose1d(
+                promovits.model.TRANSPOSECONV1D(
                     promovits.model.UPSAMPLE_INITIAL_SIZE // (2 ** i),
                     promovits.model.UPSAMPLE_INITIAL_SIZE // (2 ** (i + 1)),
                     kernel_size,
@@ -264,9 +264,9 @@ class LatentToAudioGenerator(torch.nn.Module):
                         kernel_size,
                         dilation_rate))
 
-        self.conv_post = torch.nn.Conv1d(channels, 1, 7, 1, 3, bias=False)
+        self.conv_post = promovits.model.CONV1D(channels, 1, 7, 1, 3, bias=False)
         self.ups.apply(promovits.model.init_weights)
-        self.cond = torch.nn.Conv1d(
+        self.cond = promovits.model.CONV1D(
             gin_channels,
             promovits.model.UPSAMPLE_INITIAL_SIZE,
             1)
@@ -441,26 +441,12 @@ class Generator(torch.nn.Module):
 
             # During training, get slices of previous audio
             if self.training:
-
                 indices = \
                     slice_indices * promovits.HOPSIZE - promovits.AR_INPUT_SIZE
-                autoregressive = torch.zeros(
-                    (audio.shape[0], 1, promovits.AR_INPUT_SIZE),
-                    dtype=audio.dtype,
-                    device=audio.device)
-                iterator = enumerate(zip(audio, indices))
-                for i, (segment, start_index) in iterator:
-                    end_index = start_index + promovits.AR_INPUT_SIZE
-
-                    # Use zero-padding for negative indices
-                    if start_index <= -promovits.AR_INPUT_SIZE:
-                        continue
-                    elif start_index < 0:
-                        start_index = 0
-
-                    # Slice
-                    autoregressive[i, :, -(end_index - start_index):] = \
-                        segment[..., start_index:end_index]
+                autoregressive = promovits.model.slice_segments(
+                    audio,
+                    indices,
+                    promovits.AR_INPUT_SIZE)
 
                 # Embed
                 ar_feats = self.autoregressive(autoregressive)
@@ -472,12 +458,14 @@ class Generator(torch.nn.Module):
             # During generation, run autoregressive loop
             else:
                 generated = self.ar_loop(latents, speaker_embeddings)
-                return generated, latent_mask, slice_indices, *args
+                return generated, latent_mask, slice_indices, None, *args
+        else:
+            autoregressive = None
 
         # Decode latent representation to waveform
         generated = self.generator(latents, g=speaker_embeddings)
 
-        return generated, latent_mask, slice_indices, *args
+        return generated, latent_mask, slice_indices, autoregressive, *args
 
     def latents(
         self,

@@ -91,7 +91,7 @@ def speaker(
     for stem in test_stems:
 
         # Copy audio files
-        input_file = promovits.CACHE_DIR / dataset / f'{stem}.wav'
+        input_file = promovits.CACHE_DIR / dataset / f'{stem}-100.wav'
         output_file = \
             original_subjective_directory / f'{stem}-original-100.wav'
         output_file.parent.mkdir(exist_ok=True, parents=True)
@@ -99,7 +99,7 @@ def speaker(
 
         # Copy prosody and text files
         input_files = [
-            path for path in (promovits.CACHE_DIR / dataset).glob(f'{stem}*')
+            path for path in (promovits.CACHE_DIR / dataset).glob(f'{stem}-100*')
             if path.suffix != '.wav']
         for input_file in input_files:
             if input_file.suffix == '.json':

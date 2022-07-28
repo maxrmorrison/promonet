@@ -87,7 +87,7 @@ def daps():
             # Save to disk
             speaker_directory = output_directory / f'{index:04d}'
             speaker_directory.mkdir(exist_ok=True, parents=True)
-            output_file = f'{count:06d}.wav'
+            output_file = f'{count:06d}-100.wav'
             torchaudio.save(
                 speaker_directory / output_file,
                 audio,

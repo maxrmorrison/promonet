@@ -1,11 +1,8 @@
 # Configuration name
-CONFIG = 'condition-both-mrd-ar-8192-causal-small'
+CONFIG = 'condition-both-ar-8192-small'
 
 # Whether to use autoregression
 AUTOREGRESSIVE = True
-
-# Whether to use causal layers for producing the latent
-CAUSAL = True
 
 # Discriminator loudness conditioning
 DISCRIM_LOUDNESS_CONDITION = True
@@ -29,10 +26,10 @@ LATENT_PITCH_SHORTCUT = True
 LOUDNESS_FEATURES = True
 
 # Whether to use the multi-resolution spectrogram discriminator from UnivNet
-MULTI_RESOLUTION_DISCRIMINATOR = True
+MULTI_RESOLUTION_DISCRIMINATOR = False
 
 # Whether to use the multi-scale waveform discriminator from MelGAN
-MULTI_SCALE_DISCRIMINATOR = False
+MULTI_SCALE_DISCRIMINATOR = True
 
 # Periodicity conditioning
 PERIODICITY_FEATURES = True
