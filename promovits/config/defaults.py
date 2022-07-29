@@ -168,6 +168,12 @@ MULTI_RESOLUTION_DISCRIMINATOR = False
 # Whether to use the multi-scale waveform discriminator from MelGAN
 MULTI_SCALE_DISCRIMINATOR = True
 
+# Whether to use snake activation in the audio generator
+SNAKE = False
+
+# Whether to use a low-pass filter when using snake
+SNAKE_FILTER = False
+
 
 ###############################################################################
 # Loss parameters

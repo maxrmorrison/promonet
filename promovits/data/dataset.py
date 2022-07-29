@@ -23,7 +23,7 @@ class Dataset(torch.utils.data.Dataset):
         self.stems = [f'{stem}-100' for stem in stems]
 
         # For training, maybe add augmented data
-        if partition == 'train' and promovits.AUGMENT:
+        if partition == 'train' and promovits.AUGMENT_PITCH:
             with open(promovits.AUGMENT_DIR / f'{dataset}.json') as file:
                 ratios = json.load(file)
             self.stems.extend([f'{stem}-{ratios[stem]}' for stem in stems])
@@ -65,7 +65,8 @@ class Dataset(torch.utils.data.Dataset):
             loudness,
             spectrogram,
             audio,
-            torch.tensor(speaker, dtype=torch.long))
+            torch.tensor(speaker, dtype=torch.long),
+            int(stem[:-3]) / 100.)
 
     def __len__(self):
         return len(self.stems)

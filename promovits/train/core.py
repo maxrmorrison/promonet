@@ -218,6 +218,7 @@ def train(
                 loudness,
                 lengths,
                 speakers,
+                ratios,
                 spectrograms,
                 spectrogram_lengths,
                 audio,
@@ -231,6 +232,7 @@ def train(
                 loudness,
                 lengths,
                 speakers,
+                ratios,
                 spectrograms,
                 spectrogram_lengths,
                 audio)

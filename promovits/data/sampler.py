@@ -86,7 +86,6 @@ def bisect(x, lo=0, hi=None):
 
 
 def create_buckets(lengths):
-
     # Initialize buckets
     buckets = [[] for _ in range(len(BOUNDARIES) - 1)]
 
@@ -104,7 +103,6 @@ def create_buckets(lengths):
         world_size = torch.distributed.get_world_size()
     else:
         world_size = 1
-
 
     samples_per_bucket = []
     for bucket in buckets:

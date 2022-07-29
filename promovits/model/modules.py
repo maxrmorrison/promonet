@@ -1,5 +1,6 @@
 import functools
 import math
+from sklearn.preprocessing import scale
 import torch
 
 import promovits
@@ -279,6 +280,8 @@ class ResBlock(torch.nn.Module):
 
     def __init__(self, channels, kernel_size=3, dilation=(1, 3, 5)):
         super().__init__()
+
+        # Convolutions
         conv_fn = functools.partial(
             promovits.model.causal_weight_norm_conv1d,
             channels,
@@ -297,13 +300,30 @@ class ResBlock(torch.nn.Module):
             conv_fn(pad_fn())])
         self.convs2.apply(promovits.model.init_weights)
 
+        # Activations
+        if promovits.SNAKE:
+            activation_fn = functools.partial(promovits.model.Snake, channels)
+        else:
+            activation_fn = functools.partial(
+                torch.nn.LeakyReLU,
+                promovits.model.LRELU_SLOPE)
+        self.activations1 = torch.nn.Module([
+            activation_fn() for _ in range(self.convs1)])
+        self.activations2 = torch.nn.Module([
+            activation_fn() for _ in range(self.convs2)])
+
     def forward(self, x, x_mask=None):
-        for c1, c2 in zip(self.convs1, self.convs2):
-            xt = torch.nn.functional.leaky_relu(x, promovits.model.LRELU_SLOPE)
+        iterator = zip(
+            self.convs1,
+            self.convs2,
+            self.activations1,
+            self.activations2)
+        for c1, c2, a1, a2 in iterator:
+            xt = a1(x)
             if x_mask is not None:
                 xt = xt * x_mask
             xt = c1(xt)
-            xt = torch.nn.functional.leaky_relu(xt, promovits.model.LRELU_SLOPE)
+            xt = a2(xt)
             if x_mask is not None:
                 xt = xt * x_mask
             xt = c2(xt)
@@ -466,3 +486,48 @@ class ConvFlow(torch.nn.Module):
             return x, logdet
         else:
             return x
+
+
+class Snake(torch.nn.Module):
+
+    def __init__(self, channels, sampling_rate, scale_factor=2):
+        super().__init__()
+        self.sampling_rate = sampling_rate
+        self.scale_factor = scale_factor
+
+        # Initialize alpha
+        distribution = torch.distributions.exponential.Exponential(.1)
+        samples = distribution.rsample(channels).squeeze()
+        self.alpha = torch.nn.Parameter(samples)
+
+        # Maybe initialize Kaiser window
+        if promovits.SNAKE_FILTER:
+            self.cutoff_frequency = sampling_rate / (2 * scale_factor)
+            self.window_length = 6 * scale_factor
+            self.half_width = .6 / scale_factor
+            attenuation = \
+                2.285 * (self.window_length / 2 - 1) * 4 * 3.141592 * \
+                    self.half_width + 7.95
+            beta = .1102 * (attenuation - 8.7)
+            self.window = torch.kaiser_window(
+                window_length=self.window_length,
+                periodic=False,
+                beta=beta)
+
+    def forward(self, x):
+        # Maybe apply anti-aliasing filter
+        x = self.filter(x, self.scale_factor)
+
+        # Apply snake activation
+        x += (1 / self.alpha) * torch.sin(self.alpha * x) ** 2
+
+        # Maybe apply anti-aliasing filter
+        return self.filter(x, 1 / self.scale_factor)
+
+    def filter(self, x, scale_factor):
+        """Apply sinc filter"""
+        if not promovits.SNAKE_FILTER:
+            return x
+        x = torch.nn.functional.interpolate(x, scale_factor=scale_factor)
+        x = torch.sinc(2 * self.cutoff_frequency * (x - (self.window_length - 1) / 2))
+        return torch.nn.functional.conv1d(x, self.window, padding='same')

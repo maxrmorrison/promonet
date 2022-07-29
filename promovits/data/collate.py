@@ -19,7 +19,8 @@ def collate(batch):
         loudness,
         spectrograms,
         audio,
-        speakers
+        speakers,
+        ratios
     ) = zip(*batch)
 
     # Get lengths in samples
@@ -93,6 +94,7 @@ def collate(batch):
         padded_loudness,
         feature_lengths,
         torch.tensor(speakers, dtype=torch.long),
+        torch.tensor(ratios, dtype=torch.float),
         padded_spectrograms,
         spectrogram_lengths,
         padded_audio)

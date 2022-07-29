@@ -1,9 +1,14 @@
 import functools
 import json
 import multiprocessing as mp
+import shutil
+
+import resampy
+import soundfile
 import torch
-import torchaudio
 import promovits
+import tqdm
+
 
 ###############################################################################
 # Constants
@@ -33,30 +38,39 @@ def datasets(datasets):
         all_ratios = {}
 
         # Iterate over speakers
-        for speaker_directory in directory.glob('*'):
+        directories = sorted(directory.glob('*'))
+        speaker_iterator = tqdm.tqdm(
+            directories,
+            desc=f'Augmenting {dataset}',
+            dynamic_ncols=True,
+            total=len(directories))
+        for speaker_directory in speaker_iterator:
 
             # Get text and audio files for this speaker
             audio_files = sorted(list(speaker_directory.rglob('*.wav')))
+            text_files = sorted(list(speaker_directory.rglob('*.txt')))
 
             # Sample ratios
             distribution = torch.distributions.uniform.Uniform(
-                torch.log2(MIN_RATIO),
-                torch.log2(MAX_RATIO))
-            ratios = 2 ** distribution.sample(len(audio_files))
+                torch.log2(torch.tensor(MIN_RATIO)),
+                torch.log2(torch.tensor(MAX_RATIO)))
+            ratios = 2 ** distribution.sample([len(audio_files)])
+
+            # Prevent duplicates
+            ratios[(ratios * 100).to(torch.int) == 100] += 1
 
             # Perform multiprocessed augmentation
             augment_fn = functools.partial(
                 from_file_to_file,
                 speaker_directory)
-            iterator = zip(audio_files, ratios)
-            # TEMPORARY - remove MP for debugging
-            # with mp.get_context('spawn').Pool() as pool:
-            #     pool.starmap(augment_fn, iterator)
-            for item in iterator:
-                augment_fn(*item)
+            augment_iterator = list(zip(audio_files, text_files, ratios))
+            with mp.get_context('spawn').Pool() as pool:
+                pool.starmap(augment_fn, augment_iterator)
+            # for item in iterator:
+            #     augment_fn(*item)
 
             # Save augmentation info
-            for audio_file, ratio in iterator:
+            for audio_file, _, ratio in augment_iterator:
                 key = \
                     f'{speaker_directory.stem}/{audio_file.stem.split("-")[0]}'
                 all_ratios[key] = f'{int(ratio * 100):03d}'
@@ -66,21 +80,26 @@ def datasets(datasets):
             json.dump(all_ratios, file, indent=4)
 
 
-def from_file_to_file(directory, audio_file, ratio):
+def from_file_to_file(directory, audio_file, text_file, ratio):
     """Perform data augmentation on a file and save"""
     # Load audio
-    audio = promovits.load.audio(audio_file)
+    audio, sample_rate = soundfile.read(audio_file)
 
     # Scale audio
-    scaled = promovits.resample(
+    scaled = resampy.resample(
         audio,
-        ratio * promovits.SAMPLE_RATE,
-        promovits.SAMPLE_RATE)
+        int(ratio * sample_rate),
+        sample_rate)
 
-    # Resample to lpcnet sample rate
-    scaled = promovits.resample(scaled, promovits.SAMPLE_RATE)
+    # Resample to promovits sample rate
+    scaled = resampy.resample(scaled, sample_rate, promovits.SAMPLE_RATE)
 
     # Save to disk
-    file = f'{audio_file.stem.split("-")}-{int(ratio * 100):03d}.wav'
-    torchaudio.save(directory / file, scaled, promovits.SAMPLE_RATE)
+    file = (
+        directory /
+        f'{audio_file.stem.split("-")[0]}-{int(ratio * 100):03d}.wav')
+    soundfile.write(file, scaled, promovits.SAMPLE_RATE)
+
+    # Copy text file
+    shutil.copyfile(text_file, file.with_suffix('.txt'))
 

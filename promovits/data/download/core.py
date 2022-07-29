@@ -33,18 +33,19 @@ def daps():
     # Download
     url = 'https://zenodo.org/record/4783456/files/daps-segmented.tar.gz?download=1'
     file = promovits.DATA_DIR / 'daps.tar.gz'
-    download_file(url, file)
+    # TEMPORARY - already downloaded and unzipped
+    # download_file(url, file)
 
     with promovits.data.chdir(promovits.DATA_DIR):
 
         # Unzip
-        with tarfile.open(file, 'r:gz') as tfile:
-            tfile.extractall()
+        # with tarfile.open(file, 'r:gz') as tfile:
+        #     tfile.extractall()
 
-        # Rename directory
-        if Path('daps').exists():
-            shutil.rmtree('daps')
-        shutil.move('daps-segmented', 'daps')
+        # # Rename directory
+        # if Path('daps').exists():
+        #     shutil.rmtree('daps')
+        # shutil.move('daps-segmented', 'daps')
 
         # Get audio files
         audio_files = sorted(
@@ -101,15 +102,16 @@ def vctk():
     # Download
     url = 'https://datashare.ed.ac.uk/download/DS_10283_3443.zip'
     file = promovits.DATA_DIR / 'vctk.zip'
-    download_file(url, file)
+    # TEMPORARY - already downloaded and unzipped
+    # download_file(url, file)
 
     # Unzip
     directory = promovits.DATA_DIR / 'vctk'
-    with zipfile.ZipFile(file, 'r') as zfile:
-        zfile.extractall(directory)
-    file = next((directory).glob('*.zip'))
-    with zipfile.ZipFile(file) as zfile:
-        zfile.extractall(directory)
+    # with zipfile.ZipFile(file, 'r') as zfile:
+    #     zfile.extractall(directory)
+    # file = next((directory).glob('*.zip'))
+    # with zipfile.ZipFile(file) as zfile:
+    #     zfile.extractall(directory)
 
     # File locations
     audio_directory = directory / 'wav48_silence_trimmed'
@@ -160,7 +162,7 @@ def vctk():
             # Save to disk
             speaker_directory = output_directory / f'{index:04d}'
             speaker_directory.mkdir(exist_ok=True, parents=True)
-            output_file = f'{count:06d}.wav'
+            output_file = f'{count:06d}-100.wav'
             torchaudio.save(
                 speaker_directory / output_file,
                 audio,

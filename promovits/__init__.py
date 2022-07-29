@@ -2,7 +2,8 @@
 # TODO - analyze interpolation of loudness
 # TODO - consider PPG reinforcement in the discrim if pronunciation is bad
 # TODO - address loudness-scaling acting as bias in V/UV F1 computation
-# TODO - pitch augmentation
+# TODO - condition network on augmentation ratio *
+# TODO - snake with gradient clipping
 
 
 ###############################################################################

@@ -1,4 +1,6 @@
+import functools
 import math
+from promovits.model.constants import LRELU_SLOPE
 
 import torch
 
@@ -231,6 +233,8 @@ class LatentToAudioGenerator(torch.nn.Module):
         super().__init__()
         self.num_kernels = len(promovits.model.RESBLOCK_KERNEL_SIZES)
         self.num_upsamples = len(promovits.model.UPSAMPLE_RATES)
+
+        # Initial convolution
         self.conv_pre = promovits.model.CONV1D(
             initial_channel,
             promovits.model.UPSAMPLE_INITIAL_SIZE,
@@ -239,48 +243,83 @@ class LatentToAudioGenerator(torch.nn.Module):
             padding=3)
 
         self.ups = torch.nn.ModuleList()
+        self.resblocks = torch.nn.ModuleList()
+        self.activations = torch.nn.ModuleList()
         iterator = enumerate(zip(
             promovits.model.UPSAMPLE_RATES,
             promovits.model.UPSAMPLE_KERNEL_SIZES))
         for i, (upsample_rate, kernel_size) in iterator:
+            input_channels = promovits.model.UPSAMPLE_INITIAL_SIZE // (2 ** i)
+            output_channels = \
+                promovits.model.UPSAMPLE_INITIAL_SIZE // (2 ** (i + 1))
+
+            # Activations
+            self.activations.append(
+                promovits.model.Snake(input_channels)
+                if promovits.SNAKE else
+                torch.nn.LeakyReLU(promovits.model.LRELU_SLOPE))
+
+            # Upsampling layer
             self.ups.append(torch.nn.utils.weight_norm(
                 promovits.model.TRANSPOSECONV1D(
-                    promovits.model.UPSAMPLE_INITIAL_SIZE // (2 ** i),
-                    promovits.model.UPSAMPLE_INITIAL_SIZE // (2 ** (i + 1)),
+                    input_channels,
+                    output_channels,
                     kernel_size,
                     upsample_rate,
                     padding=(kernel_size - upsample_rate) // 2)))
 
-        self.resblocks = torch.nn.ModuleList()
-        for i in range(len(self.ups)):
-            channels = promovits.model.UPSAMPLE_INITIAL_SIZE // (2 ** (i + 1))
-            iterator = zip(
+            # Residual block
+            res_iterator = zip(
                 promovits.model.RESBLOCK_KERNEL_SIZES,
                 promovits.model.RESBLOCK_DILATION_SIZES)
-            for kernel_size, dilation_rate in iterator:
+            for kernel_size, dilation_rate in res_iterator:
                 self.resblocks.append(
                     promovits.model.modules.ResBlock(
-                        channels,
+                        output_channels,
                         kernel_size,
                         dilation_rate))
 
-        self.conv_post = promovits.model.CONV1D(channels, 1, 7, 1, 3, bias=False)
+        # Final activation
+        self.activations.append(
+            promovits.model.Snake(output_channels)
+            if promovits.SNAKE else
+            torch.nn.LeakyReLU(promovits.model.LRELU_SLOPE))
+
+        # Final conv
+        self.conv_post = promovits.model.CONV1D(
+            output_channels,
+            1,
+            7,
+            1,
+            3,
+            bias=False)
+
+        # Weight initialization
         self.ups.apply(promovits.model.init_weights)
+
+        # Speaker conditioning
         self.cond = promovits.model.CONV1D(
             gin_channels,
             promovits.model.UPSAMPLE_INITIAL_SIZE,
             1)
 
     def forward(self, x, g=None):
+        # Initial conv
         x = self.conv_pre(x)
+
+        # Speaker conditioning
         if g is not None:
             x = x + self.cond(g)
 
         for i in range(self.num_upsamples):
-            x = torch.nn.functional.leaky_relu(
-                x,
-                promovits.model.LRELU_SLOPE)
+
+            # Activation
+            x = self.activations[i](x)
+
+            # Upsampling
             x = self.ups[i](x)
+
+            # Residual block
             xs = None
             for j in range(self.num_kernels):
                 if xs is None:
@@ -288,8 +327,14 @@ class LatentToAudioGenerator(torch.nn.Module):
                 else:
                     xs += self.resblocks[i * self.num_kernels + j](x)
             x = xs / self.num_kernels
-        x = torch.nn.functional.leaky_relu(x, promovits.model.LRELU_SLOPE)
+
+        # Final activation
+        x = self.activations[-1](x)
+
+        # Final conv
         x = self.conv_post(x)
+
+        # Bound to [-1, 1]
         return torch.tanh(x)
 
     def remove_weight_norm(self):
@@ -420,11 +465,20 @@ class Generator(torch.nn.Module):
         loudness,
         lengths,
         speakers,
+        ratios=None,
         spectrograms=None,
         spectrogram_lengths=None,
         audio=None):
         """Generator entry point"""
+        # Default augmentation ratio is 1
+        if ratios is None and promovits.AUGMENT_PITCH:
+            ratios = torch.ones(
+                len(features),
+                dtype=torch.float,
+                device=features.device)
+
         # Get latent representation
+        # TODO - repeat and concatenate augmentation ratios
         latents, speaker_embeddings, latent_mask, slice_indices, *args = \
             self.latents(
                 features,
@@ -433,6 +487,7 @@ class Generator(torch.nn.Module):
                 loudness,
                 lengths,
                 speakers,
+                ratios,
                 spectrograms,
                 spectrogram_lengths,
                 audio)
@@ -475,6 +530,7 @@ class Generator(torch.nn.Module):
         loudness,
         lengths,
         speakers,
+        ratios=None,
         spectrograms=None,
         spectrogram_lengths=None,
         audio=None,
@@ -504,6 +560,12 @@ class Generator(torch.nn.Module):
 
         # Encode speaker ID
         speaker_embeddings = self.speaker_embedding(speakers).unsqueeze(-1)
+
+        # Maybe add augmentation ratios
+        if promovits.PITCH_FEATURES and promovits.AUGMENT_PITCH:
+            speaker_embeddings = torch.cat(
+                (speaker_embeddings, ratios[:, None, None]),
+                dim=1)
 
         if self.training:
 
@@ -697,15 +759,24 @@ class Autoregressive(torch.nn.Module):
     def __init__(self):
         super().__init__()
 
+        # Get activation function
+        if promovits.SNAKE:
+            activation_fn = functools.partial(
+                promovits.model.Snake,
+                promovits.AR_HIDDEN_SIZE)
+        else:
+            activation_fn = functools.partial(torch.nn.LeakyReLU, .1)
+
+        # Make layers
         model = [
             torch.nn.Linear(promovits.AR_INPUT_SIZE, promovits.AR_HIDDEN_SIZE),
-            torch.nn.LeakyReLU(.1)]
+            activation_fn()]
         for _ in range(3):
             model.extend([
                 torch.nn.Linear(
                     promovits.AR_HIDDEN_SIZE,
                     promovits.AR_HIDDEN_SIZE),
-                torch.nn.LeakyReLU(.1)])
+                activation_fn()])
         model.append(
             torch.nn.Linear(
                 promovits.AR_HIDDEN_SIZE,
