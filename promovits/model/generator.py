@@ -478,7 +478,6 @@ class Generator(torch.nn.Module):
                 device=features.device)
 
         # Get latent representation
-        # TODO - repeat and concatenate augmentation ratios
         latents, speaker_embeddings, latent_mask, slice_indices, *args = \
             self.latents(
                 features,

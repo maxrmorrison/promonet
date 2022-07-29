@@ -407,8 +407,25 @@ def train(
             ######################
 
             generator_optimizer.zero_grad()
+
+            # Backward pass
             scaler.scale(generator_losses).backward()
+
+            # Maybe perform gradient clipping
+            if promovits.GRADIENT_CLIP_GENERATOR is not None:
+
+                # Unscale gradients
+                scaler.unscale_(generator_optimizer)
+
+                # Clip gradients
+                torch.nn.utils.clip_grad_norm_(
+                    generator.parameters(),
+                    promovits.GRADIENT_CLIP_GENERATOR)
+
+            # Update weights
             scaler.step(generator_optimizer)
+
+            # Update gradient scaler
             scaler.update()
 
             ###########
