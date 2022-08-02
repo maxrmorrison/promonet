@@ -210,7 +210,7 @@ class SpectrogramEncoder(torch.nn.Module):
             kernel_size,
             dilation_rate,
             n_layers,
-            gin_channels=promovits.model.GIN_CHANNELS)
+            gin_channels=promovits.model.GIN_CHANNELS + promovits.AUGMENT_PITCH)
         self.proj = promovits.model.CONV1D(
             promovits.model.HIDDEN_CHANNELS,
             2 * promovits.model.HIDDEN_CHANNELS,
@@ -234,6 +234,12 @@ class LatentToAudioGenerator(torch.nn.Module):
         self.num_kernels = len(promovits.model.RESBLOCK_KERNEL_SIZES)
         self.num_upsamples = len(promovits.model.UPSAMPLE_RATES)
 
+        # Maybe compute sampling rates of each layer
+        if promovits.SNAKE:
+            rates = torch.tensor(promovits.model.UPSAMPLE_RATES).flip([0])
+            rates = promovits.SAMPLE_RATE / torch.cumprod(rates, 0)
+            self.sampling_rates = rates.flip([0]).to(torch.int)
+
         # Initial convolution
         self.conv_pre = promovits.model.CONV1D(
             initial_channel,
@@ -247,15 +253,16 @@ class LatentToAudioGenerator(torch.nn.Module):
         self.activations = torch.nn.ModuleList()
         iterator = enumerate(zip(
             promovits.model.UPSAMPLE_RATES,
-            promovits.model.UPSAMPLE_KERNEL_SIZES))
-        for i, (upsample_rate, kernel_size) in iterator:
+            promovits.model.UPSAMPLE_KERNEL_SIZES,
+            self.sampling_rates))
+        for i, (upsample_rate, kernel_size, sampling_rate) in iterator:
             input_channels = promovits.model.UPSAMPLE_INITIAL_SIZE // (2 ** i)
             output_channels = \
                 promovits.model.UPSAMPLE_INITIAL_SIZE // (2 ** (i + 1))
 
             # Activations
             self.activations.append(
-                promovits.model.Snake(input_channels)
+                promovits.model.Snake(input_channels, sampling_rate)
                 if promovits.SNAKE else
                 torch.nn.LeakyReLU(promovits.model.LRELU_SLOPE))
 
@@ -271,17 +278,19 @@ class LatentToAudioGenerator(torch.nn.Module):
             # Residual block
             res_iterator = zip(
                 promovits.model.RESBLOCK_KERNEL_SIZES,
-                promovits.model.RESBLOCK_DILATION_SIZES)
-            for kernel_size, dilation_rate in res_iterator:
+                promovits.model.RESBLOCK_DILATION_SIZES,
+                self.sampling_rates)
+            for kernel_size, dilation_rate, sampling_rate in res_iterator:
                 self.resblocks.append(
                     promovits.model.modules.ResBlock(
                         output_channels,
+                        sampling_rate,
                         kernel_size,
                         dilation_rate))
 
         # Final activation
         self.activations.append(
-            promovits.model.Snake(output_channels)
+            promovits.model.Snake(output_channels, promovits.SAMPLE_RATE)
             if promovits.SNAKE else
             torch.nn.LeakyReLU(promovits.model.LRELU_SLOPE))
 
@@ -361,14 +370,14 @@ class Generator(torch.nn.Module):
                 3,
                 0.5,
                 4,
-                gin_channels=promovits.GIN_CHANNELS)
+                gin_channels=promovits.GIN_CHANNELS + promovits.AUGMENT_PITCH)
 
         # Vocoder
         latent_channels = promovits.model.HIDDEN_CHANNELS + \
             promovits.ADDITIONAL_FEATURES_LATENT
         self.generator = LatentToAudioGenerator(
             latent_channels,
-            promovits.model.GIN_CHANNELS)
+            promovits.model.GIN_CHANNELS + promovits.AUGMENT_PITCH)
 
         # Spectrogram encoder
         self.spectrogram_encoder = SpectrogramEncoder()
@@ -380,7 +389,7 @@ class Generator(torch.nn.Module):
             5,
             1,
             4,
-            gin_channels=promovits.model.GIN_CHANNELS)
+            gin_channels=promovits.model.GIN_CHANNELS + promovits.AUGMENT_PITCH)
 
         # Speaker embedding
         self.speaker_embedding = torch.nn.Embedding(

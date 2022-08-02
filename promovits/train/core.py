@@ -12,6 +12,10 @@ import tqdm
 import promovits
 
 
+# TEMPORARY
+torch.autograd.set_detect_anomaly(True)
+
+
 ###############################################################################
 # Training interface
 ###############################################################################
@@ -595,6 +599,7 @@ def evaluate(directory, step, generator, valid_loader, gpu):
                 loudness,
                 lengths,
                 speakers,
+                _,
                 spectrogram,
                 _,
                 audio,

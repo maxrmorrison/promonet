@@ -278,7 +278,12 @@ class WaveNet(torch.nn.Module):
 
 class ResBlock(torch.nn.Module):
 
-    def __init__(self, channels, kernel_size=3, dilation=(1, 3, 5)):
+    def __init__(
+        self,
+        channels,
+        sampling_rate,
+        kernel_size=3,
+        dilation=(1, 3, 5)):
         super().__init__()
 
         # Convolutions
@@ -302,15 +307,18 @@ class ResBlock(torch.nn.Module):
 
         # Activations
         if promovits.SNAKE:
-            activation_fn = functools.partial(promovits.model.Snake, channels)
+            activation_fn = functools.partial(
+                promovits.model.Snake,
+                channels,
+                sampling_rate)
         else:
             activation_fn = functools.partial(
                 torch.nn.LeakyReLU,
-                promovits.model.LRELU_SLOPE)
-        self.activations1 = torch.nn.Module([
-            activation_fn() for _ in range(self.convs1)])
-        self.activations2 = torch.nn.Module([
-            activation_fn() for _ in range(self.convs2)])
+                negative_slope=promovits.model.LRELU_SLOPE)
+        self.activations1 = torch.nn.ModuleList([
+            activation_fn() for _ in range(len(self.convs1))])
+        self.activations2 = torch.nn.ModuleList([
+            activation_fn() for _ in range(len(self.convs2))])
 
     def forward(self, x, x_mask=None):
         iterator = zip(
@@ -496,18 +504,19 @@ class Snake(torch.nn.Module):
         self.scale_factor = scale_factor
 
         # Initialize alpha
-        distribution = torch.distributions.exponential.Exponential(.1)
-        samples = distribution.rsample(channels).squeeze()
-        self.alpha = torch.nn.Parameter(samples)
+        distribution = torch.distributions.exponential.Exponential(
+            torch.tensor([.1]))
+        samples = distribution.rsample([channels]).squeeze()
+        self.alpha = torch.nn.Parameter(samples[None, :, None])
 
         # Maybe initialize Kaiser window
         if promovits.SNAKE_FILTER:
             self.cutoff_frequency = sampling_rate / (2 * scale_factor)
             self.window_length = 6 * scale_factor
-            self.half_width = .6 / scale_factor
+            half_width = .6 / scale_factor
             attenuation = \
                 2.285 * (self.window_length / 2 - 1) * 4 * 3.141592 * \
-                    self.half_width + 7.95
+                    half_width + 7.95
             beta = .1102 * (attenuation - 8.7)
             self.window = torch.kaiser_window(
                 window_length=self.window_length,
@@ -519,7 +528,7 @@ class Snake(torch.nn.Module):
         x = self.filter(x, self.scale_factor)
 
         # Apply snake activation
-        x += (1 / self.alpha) * torch.sin(self.alpha * x) ** 2
+        x = x + (1. / self.alpha) * torch.sin(self.alpha * x) ** 2
 
         # Maybe apply anti-aliasing filter
         return self.filter(x, 1 / self.scale_factor)

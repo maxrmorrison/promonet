@@ -19,7 +19,7 @@ HIDDEN_CHANNELS = 192
 FILTER_CHANNELS = 768
 
 # Speaker embedding size
-GIN_CHANNELS = 256 + promovits.AUGMENT_PITCH
+GIN_CHANNELS = 256
 
 # Convolutional kernel size
 KERNEL_SIZE = 3
