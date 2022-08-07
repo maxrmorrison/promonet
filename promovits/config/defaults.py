@@ -221,7 +221,7 @@ BATCH_SIZE = 64
 CHUNK_SIZE = 8192
 
 # Whether to perform gradient clipping on the generator
-GRADIENT_CLIP_GENERATOR = False
+GRADIENT_CLIP_GENERATOR = None
 
 # Per-epoch decay rate of the learning rate
 LEARNING_RATE_DECAY = .999875

@@ -1,3 +1,36 @@
+# Configuration name
+CONFIG = 'test'
+
+# Discriminator loudness conditioning
+DISCRIM_LOUDNESS_CONDITION = True
+
+# Discriminator periodicity conditioning
+DISCRIM_PERIODICITY_CONDITION = True
+
+# Discriminator pitch conditioning
+DISCRIM_PITCH_CONDITION = True
+
+# Pass loudness through the latent
+LATENT_LOUDNESS_SHORTCUT = True
+
+# Pass periodicity through the latent
+LATENT_PERIODICITY_SHORTCUT = True
+
+# Pass pitch through the latent
+LATENT_PITCH_SHORTCUT = True
+
+# Loudness features
+LOUDNESS_FEATURES = True
+
+# Whether to use the multi-resolution spectrogram discriminator from UnivNet
+MULTI_RESOLUTION_DISCRIMINATOR = True
+
+# Whether to use the multi-scale waveform discriminator from MelGAN
+MULTI_SCALE_DISCRIMINATOR = False
+
+# Periodicity conditioning
+PERIODICITY_FEATURES = True
+
 # Pitch conditioning
 PITCH_FEATURES = True
 
@@ -8,5 +41,6 @@ PPG_FEATURES = True
 # Available method are ['nearest', 'linear']
 PPG_INTERP_METHOD = 'nearest'
 
-# DEBUG - reduce batch size to fit on smaller GPU
-BATCH_SIZE = 8
+# Reduce batch size and steps for development
+BATCH_SIZE = 16
+NUM_STEPS = 100000

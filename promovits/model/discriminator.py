@@ -28,7 +28,8 @@ class DiscriminatorP(torch.nn.Module):
             conv_fn(1024, 1024, (kernel_size, 1), 1, padding)])
         self.conv_post = conv_fn(1024, 1, (3, 1), 1, (1, 0))
 
-    def forward(self, x, pitch, periodicity, loudness):
+    def forward(self, x, pitch, periodicity, loudness, ratios=None):
+        # TODO - ratios
         # Maybe add pitch conditioning
         if promovits.DISCRIM_PITCH_CONDITION:
             pitch = torch.nn.functional.interpolate(
@@ -94,7 +95,8 @@ class DiscriminatorR(torch.nn.Module):
         ])
         self.conv_post = conv_fn(32, 1, (3, 3), padding=(1, 1))
 
-    def forward(self, audio, pitch, periodicity, loudness):
+    def forward(self, audio, pitch, periodicity, loudness, ratios=None):
+        # TODO - ratios
         # Compute spectral features
         features = self.spectrogram(audio)
 
@@ -170,7 +172,8 @@ class DiscriminatorS(torch.nn.Module):
             conv_fn(1024, 1024, 5, 1, padding=2), ])
         self.conv_post = conv_fn(1024, 1, 3, 1, padding=1)
 
-    def forward(self, x, pitch, periodicity, loudness):
+    def forward(self, x, pitch, periodicity, loudness, ratios=None):
+        # TODO - ratios
         # Maybe add pitch conditioning
         if promovits.DISCRIM_PITCH_CONDITION:
             pitch = torch.nn.functional.interpolate(
@@ -226,7 +229,7 @@ class Discriminator(torch.nn.Module):
             self.discriminators.extend(
                 [DiscriminatorR(i) for i in resolutions])
 
-    def forward(self, y, y_hat, pitch, periodicity, loudness):
+    def forward(self, y, y_hat, pitch, periodicity, loudness, ratios=None):
         logits_real = []
         logits_fake = []
         feature_maps_real = []
@@ -236,7 +239,8 @@ class Discriminator(torch.nn.Module):
                 discriminator,
                 pitch=pitch,
                 periodicity=periodicity,
-                loudness=loudness)
+                loudness=loudness,
+                ratios=ratios)
             logit_real, feature_map_real = discriminator_fn(y)
             logit_fake, feature_map_fake = discriminator_fn(y_hat)
             logits_real.append(logit_real)

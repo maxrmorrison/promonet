@@ -12,10 +12,6 @@ import tqdm
 import promovits
 
 
-# TEMPORARY
-torch.autograd.set_detect_anomaly(True)
-
-
 ###############################################################################
 # Training interface
 ###############################################################################
@@ -295,7 +291,7 @@ def train(
                     # For progress, see https://github.com/pytorch/pytorch/issues/74537
                     generated = generated.float()
                     generated_mels = promovits.preprocess.spectrogram.from_audio(
-                        generated.float(),
+                        generated,
                         True)
                     audio = promovits.model.slice_segments(
                         audio,
@@ -328,7 +324,8 @@ def train(
                     generated.detach(),
                     pitch_slices,
                     periodicity_slices,
-                    loudness_slices)
+                    loudness_slices,
+                    ratios)
 
                 with torch.cuda.amp.autocast(enabled=False):
 

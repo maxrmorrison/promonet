@@ -1,6 +1,5 @@
 import functools
 import math
-from sklearn.preprocessing import scale
 import torch
 
 import promovits
@@ -316,9 +315,13 @@ class ResBlock(torch.nn.Module):
                 torch.nn.LeakyReLU,
                 negative_slope=promovits.model.LRELU_SLOPE)
         self.activations1 = torch.nn.ModuleList([
-            activation_fn() for _ in range(len(self.convs1))])
+            activation_fn(),
+            activation_fn(),
+            activation_fn()])
         self.activations2 = torch.nn.ModuleList([
-            activation_fn() for _ in range(len(self.convs2))])
+            activation_fn(),
+            activation_fn(),
+            activation_fn()])
 
     def forward(self, x, x_mask=None):
         iterator = zip(
@@ -334,6 +337,8 @@ class ResBlock(torch.nn.Module):
             xt = a2(xt)
             if x_mask is not None:
                 xt = xt * x_mask
+
+            # TODO - snake activation is causing nans here during forward pass
             xt = c2(xt)
             x = xt + x
         if x_mask is not None:
@@ -504,10 +509,12 @@ class Snake(torch.nn.Module):
         self.scale_factor = scale_factor
 
         # Initialize alpha
-        distribution = torch.distributions.exponential.Exponential(
-            torch.tensor([.1]))
-        samples = distribution.rsample([channels]).squeeze()
-        self.alpha = torch.nn.Parameter(samples[None, :, None])
+        # distribution = torch.distributions.exponential.Exponential(
+        #     torch.tensor([.1]))
+        # samples = distribution.rsample([channels]).squeeze()
+        self.alpha = torch.nn.Parameter(
+            torch.ones(1, channels, 1),
+            requires_grad=True)
 
         # Maybe initialize Kaiser window
         if promovits.SNAKE_FILTER:
@@ -518,25 +525,26 @@ class Snake(torch.nn.Module):
                 2.285 * (self.window_length / 2 - 1) * 4 * 3.141592 * \
                     half_width + 7.95
             beta = .1102 * (attenuation - 8.7)
-            self.window = torch.kaiser_window(
+            window = torch.kaiser_window(
                 window_length=self.window_length,
                 periodic=False,
-                beta=beta)
+                beta=beta).repeat(channels, channels, 1)
+            self.window = torch.nn.Parameter(window, requires_grad=False)
 
     def forward(self, x):
         # Maybe apply anti-aliasing filter
         x = self.filter(x, self.scale_factor)
 
         # Apply snake activation
-        x = x + (1. / self.alpha) * torch.sin(self.alpha * x) ** 2
+        x = x + (1. / (self.alpha + 1e-9)) * torch.sin(self.alpha * x) ** 2
 
         # Maybe apply anti-aliasing filter
-        return self.filter(x, 1 / self.scale_factor)
+        return self.filter(x, 1. / self.scale_factor)
 
     def filter(self, x, scale_factor):
         """Apply sinc filter"""
         if not promovits.SNAKE_FILTER:
             return x
         x = torch.nn.functional.interpolate(x, scale_factor=scale_factor)
-        x = torch.sinc(2 * self.cutoff_frequency * (x - (self.window_length - 1) / 2))
+        x = torch.sinc(2. * self.cutoff_frequency * (x - (self.window_length - 1) / 2.))
         return torch.nn.functional.conv1d(x, self.window, padding='same')

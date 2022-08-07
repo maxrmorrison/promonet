@@ -48,7 +48,15 @@ def datasets(datasets):
 
             # Get text and audio files for this speaker
             audio_files = sorted(list(speaker_directory.rglob('*.wav')))
+            audio_files = [
+                file for file in audio_files if file.stem.endswith('-100')]
             text_files = sorted(list(speaker_directory.rglob('*.txt')))
+            text_files = [
+                file for file in text_files if file.stem.endswith('-100')]
+
+            # TEMPORARY
+            for audio_file, text_file in zip(audio_files, text_files):
+                assert audio_file.stem == text_file.stem
 
             # Sample ratios
             distribution = torch.distributions.uniform.Uniform(
@@ -63,14 +71,14 @@ def datasets(datasets):
             augment_fn = functools.partial(
                 from_file_to_file,
                 speaker_directory)
-            augment_iterator = list(zip(audio_files, text_files, ratios))
+            augment_iterator = list(zip(audio_files, ratios))
             with mp.get_context('spawn').Pool() as pool:
                 pool.starmap(augment_fn, augment_iterator)
             # for item in iterator:
             #     augment_fn(*item)
 
             # Save augmentation info
-            for audio_file, _, ratio in augment_iterator:
+            for audio_file, ratio in augment_iterator:
                 key = \
                     f'{speaker_directory.stem}/{audio_file.stem.split("-")[0]}'
                 all_ratios[key] = f'{int(ratio * 100):03d}'
@@ -80,7 +88,7 @@ def datasets(datasets):
             json.dump(all_ratios, file, indent=4)
 
 
-def from_file_to_file(directory, audio_file, text_file, ratio):
+def from_file_to_file(directory, audio_file, ratio):
     """Perform data augmentation on a file and save"""
     # Load audio
     audio, sample_rate = soundfile.read(audio_file)
@@ -99,7 +107,4 @@ def from_file_to_file(directory, audio_file, text_file, ratio):
         directory /
         f'{audio_file.stem.split("-")[0]}-{int(ratio * 100):03d}.wav')
     soundfile.write(file, scaled, promovits.SAMPLE_RATE)
-
-    # Copy text file
-    shutil.copyfile(text_file, file.with_suffix('.txt'))
 

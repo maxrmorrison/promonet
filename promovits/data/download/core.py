@@ -77,25 +77,33 @@ def daps():
             speaker_count[speaker][1] += 1
             index, count = speaker_count[speaker]
 
-            # Convert to 22.05k
-            audio = promovits.load.audio(audio_file)
+            # Load audio
+            audio, sample_rate = torchaudio.load(audio_file)
 
             # If audio is too quiet, increase the volume
             maximum = torch.abs(audio).max()
             if maximum < .35:
                 audio *= .35 / maximum
 
-            # Save to disk
+            # Save at original sampling rate
             speaker_directory = output_directory / f'{index:04d}'
             speaker_directory.mkdir(exist_ok=True, parents=True)
-            output_file = f'{count:06d}-100.wav'
+            output_file = Path(f'{count:06d}.wav')
             torchaudio.save(
                 speaker_directory / output_file,
                 audio,
-                promovits.SAMPLE_RATE)
+                sample_rate)
             shutil.copyfile(
                 text_file,
                 (speaker_directory / output_file).with_suffix('.txt'))
+
+            # Save at system sample rate
+            audio = promovits.resample(audio, sample_rate)
+            torchaudio.save(
+                speaker_directory / f'{output_file.stem}-100.wav',
+                audio,
+                promovits.SAMPLE_RATE)
+
 
 def vctk():
     """Download vctk dataset"""
@@ -151,25 +159,33 @@ def vctk():
             speaker_count[speaker][1] += 1
             index, count = speaker_count[speaker]
 
-            # Convert to 22.05k wav
-            audio = promovits.load.audio(audio_file)
+            # Load audio
+            audio, sample_rate = torchaudio.load(audio_file)
 
             # If audio is too quiet, increase the volume
             maximum = torch.abs(audio).max()
             if maximum < .35:
                 audio *= .35 / maximum
 
-            # Save to disk
+            # Save at original sampling rate
             speaker_directory = output_directory / f'{index:04d}'
             speaker_directory.mkdir(exist_ok=True, parents=True)
-            output_file = f'{count:06d}-100.wav'
+            output_file = Path(f'{count:06d}.wav')
             torchaudio.save(
                 speaker_directory / output_file,
                 audio,
-                promovits.SAMPLE_RATE)
+                sample_rate)
             shutil.copyfile(
                 text_file,
                 (speaker_directory / output_file).with_suffix('.txt'))
+
+            # Save at system sample rate
+            audio = promovits.resample(audio, sample_rate)
+            torchaudio.save(
+                speaker_directory / f'{output_file.stem}-100.wav',
+                audio,
+                promovits.SAMPLE_RATE)
+
 
 
 ###############################################################################

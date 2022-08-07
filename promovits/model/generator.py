@@ -1,6 +1,5 @@
 import functools
 import math
-from promovits.model.constants import LRELU_SLOPE
 
 import torch
 
@@ -235,10 +234,12 @@ class LatentToAudioGenerator(torch.nn.Module):
         self.num_upsamples = len(promovits.model.UPSAMPLE_RATES)
 
         # Maybe compute sampling rates of each layer
-        if promovits.SNAKE:
-            rates = torch.tensor(promovits.model.UPSAMPLE_RATES).flip([0])
-            rates = promovits.SAMPLE_RATE / torch.cumprod(rates, 0)
-            self.sampling_rates = rates.flip([0]).to(torch.int)
+        rates = torch.tensor(promovits.model.UPSAMPLE_RATES).flip([0])
+        rates = promovits.SAMPLE_RATE / torch.cumprod(rates, 0)
+        self.sampling_rates = rates.flip([0]).to(torch.int).tolist()
+
+        # TEMPORARY
+        assert len(self.sampling_rates) == self.num_upsamples
 
         # Initial convolution
         self.conv_pre = promovits.model.CONV1D(
@@ -254,15 +255,16 @@ class LatentToAudioGenerator(torch.nn.Module):
         iterator = enumerate(zip(
             promovits.model.UPSAMPLE_RATES,
             promovits.model.UPSAMPLE_KERNEL_SIZES,
-            self.sampling_rates))
-        for i, (upsample_rate, kernel_size, sampling_rate) in iterator:
+            self.sampling_rates,
+            self.sampling_rates[1:] + [promovits.SAMPLE_RATE]))
+        for i, (upsample_rate, kernel_size, input_rate, output_rate) in iterator:
             input_channels = promovits.model.UPSAMPLE_INITIAL_SIZE // (2 ** i)
             output_channels = \
                 promovits.model.UPSAMPLE_INITIAL_SIZE // (2 ** (i + 1))
 
             # Activations
             self.activations.append(
-                promovits.model.Snake(input_channels, sampling_rate)
+                promovits.model.Snake(input_channels, input_rate)
                 if promovits.SNAKE else
                 torch.nn.LeakyReLU(promovits.model.LRELU_SLOPE))
 
@@ -278,13 +280,12 @@ class LatentToAudioGenerator(torch.nn.Module):
             # Residual block
             res_iterator = zip(
                 promovits.model.RESBLOCK_KERNEL_SIZES,
-                promovits.model.RESBLOCK_DILATION_SIZES,
-                self.sampling_rates)
-            for kernel_size, dilation_rate, sampling_rate in res_iterator:
+                promovits.model.RESBLOCK_DILATION_SIZES)
+            for kernel_size, dilation_rate in res_iterator:
                 self.resblocks.append(
                     promovits.model.modules.ResBlock(
                         output_channels,
-                        sampling_rate,
+                        output_rate,
                         kernel_size,
                         dilation_rate))
 
@@ -771,7 +772,8 @@ class Autoregressive(torch.nn.Module):
         if promovits.SNAKE:
             activation_fn = functools.partial(
                 promovits.model.Snake,
-                promovits.AR_HIDDEN_SIZE)
+                promovits.AR_HIDDEN_SIZE,
+                promovits.SAMPLE_RATE / promovits.HOPSIZE)
         else:
             activation_fn = functools.partial(torch.nn.LeakyReLU, .1)
 
