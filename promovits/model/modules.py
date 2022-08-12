@@ -280,7 +280,6 @@ class ResBlock(torch.nn.Module):
     def __init__(
         self,
         channels,
-        sampling_rate,
         kernel_size=3,
         dilation=(1, 3, 5)):
         super().__init__()
@@ -308,8 +307,7 @@ class ResBlock(torch.nn.Module):
         if promovits.SNAKE:
             activation_fn = functools.partial(
                 promovits.model.Snake,
-                channels,
-                sampling_rate)
+                channels)
         else:
             activation_fn = functools.partial(
                 torch.nn.LeakyReLU,
@@ -337,8 +335,6 @@ class ResBlock(torch.nn.Module):
             xt = a2(xt)
             if x_mask is not None:
                 xt = xt * x_mask
-
-            # TODO - snake activation is causing nans here during forward pass
             xt = c2(xt)
             x = xt + x
         if x_mask is not None:
@@ -503,48 +499,83 @@ class ConvFlow(torch.nn.Module):
 
 class Snake(torch.nn.Module):
 
-    def __init__(self, channels, sampling_rate, scale_factor=2):
+    def __init__(self, channels, scale_factor=2):
         super().__init__()
-        self.sampling_rate = sampling_rate
+        self.channels = channels
         self.scale_factor = scale_factor
 
         # Initialize alpha
-        # distribution = torch.distributions.exponential.Exponential(
-        #     torch.tensor([.1]))
-        # samples = distribution.rsample([channels]).squeeze()
         self.alpha = torch.nn.Parameter(
             torch.ones(1, channels, 1),
             requires_grad=True)
 
         # Maybe initialize Kaiser window
         if promovits.SNAKE_FILTER:
-            self.cutoff_frequency = sampling_rate / (2 * scale_factor)
-            self.window_length = 6 * scale_factor
-            half_width = .6 / scale_factor
-            attenuation = \
-                2.285 * (self.window_length / 2 - 1) * 4 * 3.141592 * \
-                    half_width + 7.95
-            beta = .1102 * (attenuation - 8.7)
-            window = torch.kaiser_window(
-                window_length=self.window_length,
-                periodic=False,
-                beta=beta).repeat(channels, channels, 1)
-            self.window = torch.nn.Parameter(window, requires_grad=False)
+            self.kernel = torch.nn.Parameter(
+                self.filter(),
+                requires_grad=False)
+
+    def filter(self):
+        """Compute anti-aliasing low-pass filter"""
+        # Compute sinc filter
+        cutoff_frequency = 1 / (2 * self.scale_factor)
+        length = 13
+        aliasing_filter = torch.sinc(
+            2. * cutoff_frequency *
+            (torch.arange(length) - (length - 1) / 2.))
+
+        # Apply window
+        aliasing_filter *= torch.kaiser_window(
+            length,
+            periodic=False,
+            beta=5.609)
+
+        # Normalize
+        aliasing_filter /= aliasing_filter.sum() * self.channels
+
+        return aliasing_filter.repeat(self.channels, self.channels, 1)
 
     def forward(self, x):
         # Maybe apply anti-aliasing filter
-        x = self.filter(x, self.scale_factor)
+        if promovits.SNAKE_FILTER:
+            x = torch.nn.functional.interpolate(
+                x,
+                scale_factor=self.scale_factor,
+                mode='linear',
+                align_corners=False)
+            x = torch.nn.functional.conv1d(x, self.kernel, padding='same')
 
         # Apply snake activation
         x = x + (1. / (self.alpha + 1e-9)) * torch.sin(self.alpha * x) ** 2
 
         # Maybe apply anti-aliasing filter
-        return self.filter(x, 1. / self.scale_factor)
+        if promovits.SNAKE_FILTER:
+            # TODO - test filter before downsample
+            x = torch.nn.functional.interpolate(
+                x,
+                scale_factor=1. / self.scale_factor,
+                mode='linear',
+                align_corners=False)
+            x = torch.nn.functional.conv1d(x, self.kernel, padding='same')
 
-    def filter(self, x, scale_factor):
-        """Apply sinc filter"""
-        if not promovits.SNAKE_FILTER:
-            return x
-        x = torch.nn.functional.interpolate(x, scale_factor=scale_factor)
-        x = torch.sinc(2. * self.cutoff_frequency * (x - (self.window_length - 1) / 2.))
-        return torch.nn.functional.conv1d(x, self.window, padding='same')
+        return x
+
+        # window_length = 6 * self.scale_factor + 1
+        # half_width = .6 / self.scale_factor
+        # attenuation = \
+        #     2.285 * (window_length / 2 - 1) * 4 * 3.141592 * \
+        #         half_width + 7.95
+        # beta = .1102 * (attenuation - 8.7)
+        # window = torch.kaiser_window(
+        #     window_length=window_length,
+        #     periodic=False,
+        #     beta=beta)
+
+        # # Apply filter to window
+        # window = sinc_filter * window
+
+        # # Normalize to unity gain
+        # window /= self.channels
+
+        # # Bind to module
+        # return window.repeat(self.channels, self.channels, 1)

@@ -44,8 +44,7 @@ class Encoder(torch.nn.Module):
           hidden_channels,
           filter_channels,
           kernel_size,
-          p_dropout=p_dropout,
-          causal=promovits.CAUSAL))
+          p_dropout=p_dropout))
       self.norm_layers_2.append(promovits.model.modules.LayerNorm(hidden_channels))
 
   def forward(self, x, x_mask):
@@ -126,12 +125,6 @@ class MultiHeadAttention(torch.nn.Module):
     # Apply sequence mask
     if mask is not None:
       scores = scores.masked_fill(mask == 0, -1e4)
-
-    # Maybe apply causal mask
-    # TODO - is this causal or non-causal?
-    if promovits.CAUSAL:
-      causal_mask = torch.ones_like(scores).triu()
-      scores = scores.masked_fill(causal_mask == 0, -1e4)
 
     # Compute output activation
     p_attn = torch.nn.functional.softmax(scores, dim=-1) # [b, n_h, t_t, t_s]
@@ -223,8 +216,7 @@ class FFN(torch.nn.Module):
     filter_channels,
     kernel_size,
     p_dropout=0.,
-    activation=None,
-    causal=False):
+    activation=None):
     super().__init__()
     self.in_channels = in_channels
     self.out_channels = out_channels
@@ -232,12 +224,7 @@ class FFN(torch.nn.Module):
     self.kernel_size = kernel_size
     self.p_dropout = p_dropout
     self.activation = activation
-    self.causal = causal
-
-    if causal:
-      self.padding = self._causal_padding
-    else:
-      self.padding = self._same_padding
+    self.padding = self._same_padding
 
     self.conv_1 = torch.nn.Conv1d(in_channels, filter_channels, kernel_size)
     self.conv_2 = torch.nn.Conv1d(filter_channels, out_channels, kernel_size)
@@ -252,16 +239,6 @@ class FFN(torch.nn.Module):
     x = self.drop(x)
     x = self.conv_2(self.padding(x * x_mask))
     return x * x_mask
-
-  def _causal_padding(self, x):
-    if self.kernel_size == 1:
-      return x
-    pad_l = self.kernel_size - 1
-    pad_r = 0
-    padding = [[0, 0], [0, 0], [pad_l, pad_r]]
-    return torch.nn.functional.pad(
-      x,
-      promovits.model.convert_pad_shape(padding))
 
   def _same_padding(self, x):
     if self.kernel_size == 1:

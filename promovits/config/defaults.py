@@ -159,7 +159,7 @@ AR_INPUT_SIZE = 512
 # The size of the output autoregressive embedding
 AR_OUTPUT_SIZE = 128
 
-# Whether to use causal layers for producing the latent
+# Whether to use causal layers
 CAUSAL = False
 
 # Whether to use the multi-resolution spectrogram discriminator from UnivNet
