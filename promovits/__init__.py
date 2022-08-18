@@ -3,6 +3,9 @@
 # TODO - consider PPG reinforcement in the discrim if pronunciation is bad
 # TODO - address loudness-scaling acting as bias in V/UV F1 computation (by rescaling)
 # TODO - fix all warnings
+# TODO - fix shape error during adaptation
+# TODO - ppg duration metric
+# TODO - loss balancing
 
 
 ###############################################################################

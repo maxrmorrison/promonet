@@ -501,7 +501,6 @@ class Snake(torch.nn.Module):
 
     def __init__(self, channels, scale_factor=2):
         super().__init__()
-        self.channels = channels
         self.scale_factor = scale_factor
 
         # Initialize alpha
@@ -517,65 +516,81 @@ class Snake(torch.nn.Module):
 
     def filter(self):
         """Compute anti-aliasing low-pass filter"""
-        # Compute sinc filter
-        cutoff_frequency = 1 / (2 * self.scale_factor)
-        length = 13
-        aliasing_filter = torch.sinc(
-            2. * cutoff_frequency *
-            (torch.arange(length) - (length - 1) / 2.))
-
-        # Apply window
-        aliasing_filter *= torch.kaiser_window(
+        # Create kaiser window
+        length = 12
+        window = torch.kaiser_window(
             length,
             periodic=False,
-            beta=5.609)
+            beta=4.6638)
+
+        # Compute sinc filter
+        cutoff_frequency = 1 / (2. * self.scale_factor)
+        aliasing_filter = 2. * cutoff_frequency * window * torch.sinc(
+            2. * cutoff_frequency * math.pi *
+            (torch.arange(length) - (length - 1) / 2.))
 
         # Normalize
-        aliasing_filter /= aliasing_filter.sum() * self.channels
+        aliasing_filter /= aliasing_filter.sum()
 
-        return aliasing_filter.repeat(self.channels, self.channels, 1)
+        return aliasing_filter[None, None]
 
     def forward(self, x):
         # Maybe apply anti-aliasing filter
         if promovits.SNAKE_FILTER:
-            x = torch.nn.functional.interpolate(
-                x,
-                scale_factor=self.scale_factor,
-                mode='linear',
-                align_corners=False)
-            x = torch.nn.functional.conv1d(x, self.kernel, padding='same')
+
+            # Zero-insertion interpolation
+            y = torch.zeros(
+                (x.shape[0], x.shape[1], self.scale_factor * x.shape[2]),
+                dtype=x.dtype,
+                device=x.device)
+            y[..., ::2] = x * self.scale_factor
+
+            # Treat each channel as a new batch
+            shape = y.shape
+            y = y.view(shape[0] * shape[1], 1, shape[2])
+
+            # Replication padding
+            padding = promovits.model.get_padding(self.kernel.shape[2])
+            x = torch.nn.functional.pad(
+                y,
+                (padding, padding + 1),
+                mode='replicate')
+
+            # Lowpass filter
+            x = torch.nn.functional.conv1d(x, self.kernel)
+
+            # Recover channel dimension
+            # TODO - does this require a permute beforehand?
+            x = x.reshape(shape)
 
         # Apply snake activation
         x = x + (1. / (self.alpha + 1e-9)) * torch.sin(self.alpha * x) ** 2
 
         # Maybe apply anti-aliasing filter
         if promovits.SNAKE_FILTER:
-            # TODO - test filter before downsample
-            x = torch.nn.functional.interpolate(
+
+            # Treat each channel as a new batch
+            shape = x.shape
+            x = x.view(shape[0] * shape[1], 1, shape[2])
+
+            # Replication padding
+            padding = promovits.model.get_padding(
+                self.kernel.shape[2],
+                1,
+                self.scale_factor)
+            x = torch.nn.functional.pad(
                 x,
-                scale_factor=1. / self.scale_factor,
-                mode='linear',
-                align_corners=False)
-            x = torch.nn.functional.conv1d(x, self.kernel, padding='same')
+                (padding, padding),
+                mode='replicate')
+
+            # Filter and downsample
+            x = torch.nn.functional.conv1d(
+                x,
+                self.kernel,
+                stride=self.scale_factor)
+
+            # Recover channel dimension
+            # TODO - does this require a permute beforehand?
+            x = x.reshape(shape[0], shape[1], shape[2] // self.scale_factor)
 
         return x
-
-        # window_length = 6 * self.scale_factor + 1
-        # half_width = .6 / self.scale_factor
-        # attenuation = \
-        #     2.285 * (window_length / 2 - 1) * 4 * 3.141592 * \
-        #         half_width + 7.95
-        # beta = .1102 * (attenuation - 8.7)
-        # window = torch.kaiser_window(
-        #     window_length=window_length,
-        #     periodic=False,
-        #     beta=beta)
-
-        # # Apply filter to window
-        # window = sinc_filter * window
-
-        # # Normalize to unity gain
-        # window /= self.channels
-
-        # # Bind to module
-        # return window.repeat(self.channels, self.channels, 1)

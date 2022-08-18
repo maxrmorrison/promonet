@@ -36,9 +36,9 @@ def fused_add_tanh_sigmoid_multiply(input_a, input_b, n_channels):
 #     return path.unsqueeze(1).transpose(2, 3) * mask
 
 
-def get_padding(kernel_size, dilation=1):
+def get_padding(kernel_size, dilation=1, stride=1):
     """Compute the padding needed to perform same-size convolution"""
-    return int((kernel_size * dilation - dilation) / 2)
+    return int((kernel_size * dilation - dilation - stride + 1) / 2)
 
 
 # TODO - is this non-default initialization useful?
