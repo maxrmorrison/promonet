@@ -40,3 +40,54 @@ def kl(prior, true_logstd, predicted_mean, predicted_logstd, latent_mask):
         0.5 * ((prior - predicted_mean) ** 2) * \
         torch.exp(-2. * predicted_logstd)
     return torch.sum(divergence * latent_mask) / torch.sum(latent_mask)
+
+
+###############################################################################
+# Loss weight balancer
+###############################################################################
+
+
+class WeightBalancer(torch.nn.Module):
+
+    def __init__(self, *initializations, lookback=25, start=0, end=1000):
+        super().__init__()
+        self.history = torch.nn.Parameter(
+            torch.tensor(initializations).repeat(lookback, 1).T,
+            requires_grad=False)
+        self.count = start
+        self.end = end
+        self.weights = None
+
+    def forward(self):
+        # Maybe skip recomputation
+        if (
+            self.end is not None and
+            self.count >= self.end and
+            self.weights is not None
+        ):
+            return self.weights
+
+        # Get average losses
+        if self.count == 0:
+            averages = self.history[:, 0]
+        elif self.count < self.history.shape[1]:
+            tail = self.count % self.history.shape[1]
+            averages = self.history[:, :tail].mean(dim=1)
+        else:
+            averages = self.history.mean(dim=1)
+
+        # Scale weights to average weight
+        self.weights = averages.mean() / averages
+
+        return self.weights
+
+    def update(self, *losses):
+        # Maybe skip update
+        self.count += 1
+        if self.end is not None and self.count >= self.end:
+            return
+
+        # Update loss history
+        tail = self.count % self.history.shape[1]
+        for i, loss in enumerate(losses):
+            self.history[i, tail] = loss.detach()

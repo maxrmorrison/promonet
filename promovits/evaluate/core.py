@@ -363,6 +363,8 @@ def speaker(
             promovits.WINDOW_SIZE / promovits.SAMPLE_RATE,
             None if gpus is None else gpus[0])
 
+        # TODO - extract PPGs
+
         # Get any failed alignments to retry
         p2fa_args = []
         iterator = zip(text_files, value, output_prefixes)
@@ -414,11 +416,8 @@ def speaker(
         for file in value:
 
             # Get prosody metrics
-            file_metrics = pysodic.metrics.Prosody(
-                promovits.SAMPLE_RATE,
-                promovits.HOPSIZE,
-                promovits.WINDOW_SIZE,
-                None if gpus is None else gpus[0])
+            gpu = None if gpus is None else gpus[0]
+            file_metrics = promovits.evaluate.metrics.Metrics(gpu)
 
             # Get target filepath
             target_prefix = \
@@ -430,7 +429,7 @@ def speaker(
 
             # Update metrics
             try:
-                args = (
+                prosody_args = (
                     torch.load(f'{predicted_prefix}-pitch.pt'),
                     torch.load(f'{predicted_prefix}-periodicity.pt'),
                     torch.load(f'{predicted_prefix}-loudness.pt'),
@@ -441,10 +440,16 @@ def speaker(
                     torch.load(f'{target_prefix}-voicing.pt'),
                     torch.load(f'{predicted_prefix}-phonemes.pt'),
                     torch.load(f'{target_prefix}-phonemes.pt'))
+
+                # TODO - copy target PPGs and extract predicted PPGs
+                ppg_args = (
+                    torch.load(f'{predicted_prefix}-ppg.pt'),
+                    torch.load(f'{target_prefix}-ppg.pt'))
+
                 condition = '-'.join(target_prefix.stem.split('-')[1:3])
-                metrics[condition].update(*args)
-                speaker_metrics[condition].update(*args)
-                file_metrics.update(*args)
+                metrics[condition].update(prosody_args, ppg_args)
+                speaker_metrics[condition].update(prosody_args, ppg_args)
+                file_metrics.update(prosody_args, ppg_args)
             except Exception as error:
                 print(error)
                 import pdb; pdb.set_trace()
@@ -580,13 +585,9 @@ def datasets(datasets, checkpoint=None, gpus=None):
 
 def default_metrics(gpus):
     """Construct the default metrics dictionary for each condition"""
-    # Bind shared parameters
-    metric_fn = functools.partial(
-        pysodic.metrics.Prosody,
-        promovits.SAMPLE_RATE,
-        promovits.HOPSIZE,
-        promovits.WINDOW_SIZE,
-        None if gpus is None else gpus[0])
+    # Bind shared parameter
+    gpu = None if gpus is None else gpus[0]
+    metric_fn = functools.partial(promovits.evaluate.metrics.Metrics, gpu)
 
     # Create metric object for each condition
     metrics = {'original-100': metric_fn()}

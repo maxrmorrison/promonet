@@ -516,6 +516,22 @@ class Snake(torch.nn.Module):
 
     def filter(self):
         """Compute anti-aliasing low-pass filter"""
+        if promovits.SNAKE_EXACT:
+            return torch.tensor([
+                0.0020,
+                0.0094,
+                -0.0255,
+                -0.0577,
+                0.1286,
+                0.4432,
+                0.4432,
+                0.1286,
+                -0.0577,
+                -0.0255,
+                0.0094,
+                0.0020
+            ])[None, None]
+
         # Create kaiser window
         length = 12
         window = torch.kaiser_window(
@@ -560,7 +576,6 @@ class Snake(torch.nn.Module):
             x = torch.nn.functional.conv1d(x, self.kernel)
 
             # Recover channel dimension
-            # TODO - does this require a permute beforehand?
             x = x.reshape(shape)
 
         # Apply snake activation
@@ -590,7 +605,6 @@ class Snake(torch.nn.Module):
                 stride=self.scale_factor)
 
             # Recover channel dimension
-            # TODO - does this require a permute beforehand?
             x = x.reshape(shape[0], shape[1], shape[2] // self.scale_factor)
 
         return x

@@ -1,5 +1,29 @@
 # Configuration name
-CONFIG = 'condition-both-mrd-snake-augment-clip-small'
+CONFIG = 'loss-weights-4-4-4-45'
+
+
+###############################################################################
+# Loss parameters
+###############################################################################
+
+
+# Weight applied to the discriminator loss
+ADVERSARIAL_LOSS_WEIGHT = 4.
+
+# Weight applied to the KL divergence loss
+KL_DIVERGENCE_LOSS_WEIGHT = 4.
+
+# Weight applied to the feature matching loss
+FEATURE_MATCHING_LOSS_WEIGHT = 4.
+
+# Weight applied to the melspectrogram loss
+MEL_LOSS_WEIGHT = 45.
+
+
+###############################################################################
+# condition-both-mrd-snake-filter-clip-augment-small
+###############################################################################
+
 
 # Whether to use pitch augmentation
 AUGMENT_PITCH = True
@@ -49,6 +73,9 @@ PPG_INTERP_METHOD = 'nearest'
 
 # Whether to use snake activation in the audio generator
 SNAKE = True
+
+# Whether to use a low-pass filter when using snake
+SNAKE_FILTER = True
 
 # Reduce batch size and steps for development
 BATCH_SIZE = 16

@@ -50,12 +50,12 @@ def from_audio(
 
     # Infer ppgs
     with torch.no_grad():
-        return from_audio.model(audio, length)[0].T.cpu()
+        return from_audio.model(audio, length)[0].T
 
 
 def from_file(audio_file, gpu=None):
     """Compute PPGs from audio file"""
-    return from_audio(promovits.load.audio(audio_file), gpu=gpu)
+    return from_audio(promovits.load.audio(audio_file), gpu=gpu).cpu()
 
 
 def from_file_to_file(audio_file, output_file, gpu=None):

@@ -144,7 +144,8 @@ def train(
         (
             generator,
             generator_optimizer,
-            step
+            step,
+            balancer_history
         ) = promovits.checkpoint.load(
             generator_path[0],
             generator,
@@ -155,7 +156,8 @@ def train(
         (
             discriminators,
             discriminator_optimizer,
-            step
+            step,
+            _
         ) = promovits.checkpoint.load(
             discriminator_path[0],
             discriminators,
@@ -177,6 +179,30 @@ def train(
         last_epoch=step // len(train_loader.dataset) if step else -1)
     generator_scheduler = scheduler_fn(generator_optimizer)
     discriminator_scheduler = scheduler_fn(discriminator_optimizer)
+
+    ########################
+    # Create loss balancer #
+    ########################
+
+    if promovits.LOSS_BALANCE:
+
+        # Initialize loss weights
+        balancer = promovits.loss.WeightBalancer(
+            promovits.ADVERSARIAL_LOSS_WEIGHT,
+            promovits.FEATURE_MATCHING_LOSS_WEIGHT,
+            promovits.KL_DIVERGENCE_LOSS_WEIGHT,
+            promovits.MEL_LOSS_WEIGHT,
+            start=step)
+
+        # Load history from checkpoint
+        if step > 0 and balancer_history is not None:
+            balancer.history = balancer_history
+
+        # Move loss balancer to training device
+        balancer = balancer.to(device)
+
+    else:
+        balancer = None
 
     #########
     # Train #
@@ -396,12 +422,42 @@ def train(
                     adversarial_loss, adversarial_losses = \
                         promovits.loss.generator(
                             [logit.float() for logit in fake_logits])
+
+                    # Get loss weights
+                    if promovits.LOSS_BALANCE:
+                        (
+                            adversarial_weight,
+                            feature_matching_weight,
+                            kl_weight,
+                            mel_weight
+                        ) = balancer()
+                    else:
+                        (
+                            adversarial_weight,
+                            feature_matching_weight,
+                            kl_weight,
+                            mel_weight
+                        ) = (
+                            promovits.ADVERSARIAL_LOSS_WEIGHT,
+                            promovits.FEATURE_MATCHING_LOSS_WEIGHT,
+                            promovits.KL_DIVERGENCE_LOSS_WEIGHT,
+                            promovits.MEL_LOSS_WEIGHT
+                        )
                     generator_losses = (
-                        adversarial_loss +
-                        feature_matching_loss +
-                        promovits.MEL_LOSS_WEIGHT * mel_loss +
+                        adversarial_weight * adversarial_loss +
                         duration_loss +
-                        kl_divergence_loss)
+                        feature_matching_weight * feature_matching_loss +
+                        kl_weight * kl_divergence_loss +
+                        mel_weight * mel_loss)
+
+            # Maybe update loss balancer
+            if promovits.LOSS_BALANCE:
+                balancer.update(
+                    adversarial_weight * adversarial_loss,
+                    feature_matching_weight * feature_matching_loss,
+                    kl_weight * kl_divergence_loss,
+                    mel_weight * mel_loss)
+
 
             ######################
             # Optimize generator #
@@ -429,6 +485,7 @@ def train(
             # Update gradient scaler
             scaler.update()
 
+
             ###########
             # Logging #
             ###########
@@ -447,7 +504,15 @@ def train(
                             feature_matching_loss,
                         'loss/generator/mels': mel_loss,
                         'loss/generator/kl-divergence':
-                            kl_divergence_loss}
+                            kl_divergence_loss,
+                        'loss/generator/weights/adversarial':
+                            adversarial_weight,
+                        'loss/generator/weights/kl':
+                            kl_weight,
+                        'loss/generator/weights/feature_matching':
+                            feature_matching_weight,
+                        'loss/generator/weights/mel':
+                            mel_weight}
                     if durations is not None:
                         scalars['loss/generator/duration'] = \
                             duration_loss
@@ -509,12 +574,14 @@ def train(
                         generator,
                         generator_optimizer,
                         step,
-                        output_directory / f'generator-{step:08d}.pt')
+                        output_directory / f'generator-{step:08d}.pt',
+                        balancer)
                     promovits.checkpoint.save(
                         discriminators,
                         discriminator_optimizer,
                         step,
-                        output_directory / f'discriminator-{step:08d}.pt')
+                        output_directory / f'discriminator-{step:08d}.pt',
+                        None)
 
             # Update training step count
             if step >= steps:
@@ -563,11 +630,8 @@ def evaluate(directory, step, generator, valid_loader, gpu):
 
         # Setup prosody evaluation
         metric_fn = functools.partial(
-            pysodic.metrics.Prosody,
-            promovits.SAMPLE_RATE,
-            promovits.HOPSIZE / promovits.SAMPLE_RATE,
-            promovits.WINDOW_SIZE / promovits.SAMPLE_RATE,
-            gpu=gpu)
+            promovits.evaluate.metrics.Metrics,
+            gpu)
         metrics = {'reconstruction': metric_fn()}
 
         # Maybe add evaluation of prosody control
@@ -663,9 +727,12 @@ def evaluate(directory, step, generator, valid_loader, gpu):
                 gpu
             )
 
+            # Get ppgs
+            predicted_phonemes = ppgs(generated, phonemes.shape[2], gpu)
+
             # Log generated audio
             key = f'reconstruction/{i:02d}'
-            metric_args = (
+            prosody_args = (
                 pitch,
                 periodicity,
                 loudness,
@@ -676,7 +743,15 @@ def evaluate(directory, step, generator, valid_loader, gpu):
                 predicted_voicing,
                 phones,
                 predicted_phones)
-            log(generated, key, waveforms, figures, metrics, metric_args)
+            ppg_args = (phonemes, predicted_phonemes)
+            log(
+                generated,
+                key,
+                waveforms,
+                figures,
+                metrics,
+                prosody_args,
+                ppg_args)
 
             # Maybe log pitch-shifting
             if promovits.PITCH_FEATURES:
@@ -709,9 +784,12 @@ def evaluate(directory, step, generator, valid_loader, gpu):
                         gpu
                     )
 
+                    # Get ppgs
+                    predicted_phonemes = ppgs(shifted, phonemes.shape[2], gpu)
+
                     # Log pitch-shifted audios
                     key = f'shifted-{int(ratio * 100):03d}/{i:02d}'
-                    metric_args = (
+                    prosody_args = (
                         shifted_pitch,
                         periodicity,
                         loudness,
@@ -722,7 +800,15 @@ def evaluate(directory, step, generator, valid_loader, gpu):
                         predicted_voicing,
                         phones,
                         predicted_phones)
-                    log(shifted, key, waveforms, figures, metrics, metric_args)
+                    ppg_args = (phonemes, predicted_phonemes)
+                    log(
+                        shifted,
+                        key,
+                        waveforms,
+                        figures,
+                        metrics,
+                        prosody_args,
+                        ppg_args)
 
             # Maybe log time-stretching
             if promovits.PPG_FEATURES:
@@ -786,9 +872,15 @@ def evaluate(directory, step, generator, valid_loader, gpu):
                         gpu
                     )
 
+                    # Get ppgs
+                    predicted_phonemes = ppgs(
+                        stretched,
+                        stretched_phonemes.shape[2],
+                        gpu)
+
                     # Log to tensorboard
                     key = f'stretched-{int(ratio * 100):03d}/{i:02d}'
-                    metric_args = (
+                    prosody_args = (
                         stretched_pitch,
                         stretched_periodicity,
                         stretched_loudness,
@@ -800,7 +892,15 @@ def evaluate(directory, step, generator, valid_loader, gpu):
                         stretched_phones,
                         predicted_phones
                     )
-                    log(stretched, key, waveforms, figures, metrics, metric_args)
+                    ppg_args = (stretched_phonemes, predicted_phonemes)
+                    log(
+                        stretched,
+                        key,
+                        waveforms,
+                        figures,
+                        metrics,
+                        prosody_args,
+                        ppg_args)
 
             # Maybe log loudness-scaling
             if promovits.LOUDNESS_FEATURES:
@@ -833,9 +933,12 @@ def evaluate(directory, step, generator, valid_loader, gpu):
                         gpu
                     )
 
+                    # Get ppgs
+                    predicted_phonemes = ppgs(scaled, phonemes.shape[2], gpu)
+
                     # Log loudness-scaled audio
                     key = f'scaled-{int(ratio * 100):03d}/{i:02d}'
-                    metric_args = (
+                    prosody_args = (
                         pitch,
                         periodicity,
                         scaled_loudness,
@@ -846,7 +949,15 @@ def evaluate(directory, step, generator, valid_loader, gpu):
                         predicted_voicing,
                         phones,
                         predicted_phones)
-                    log(scaled, key, waveforms, figures, metrics, metric_args)
+                    ppg_args = (phonemes, predicted_phonemes)
+                    log(
+                        scaled,
+                        key,
+                        waveforms,
+                        figures,
+                        metrics,
+                        prosody_args,
+                        ppg_args)
 
             # Write audio and mels to Tensorboard
             promovits.write.audio(directory, step, waveforms)
@@ -877,12 +988,25 @@ def evaluate(directory, step, generator, valid_loader, gpu):
     generator.train()
 
 
+def ppgs(audio, size, gpu=None):
+    """Extract aligned PPGs"""
+    predicted_phonemes = promovits.preprocess.ppg.from_audio(
+        audio[0],
+        gpu=gpu)
+    mode = promovits.PPG_INTERP_METHOD
+    return torch.nn.functional.interpolate(
+        predicted_phonemes[None],
+        size=size,
+        mode=mode,
+        align_corners=None if mode == 'nearest' else False)[0]
+
+
 ###############################################################################
 # Logging
 ###############################################################################
 
 
-def log(audio, key, waveforms, figures, metrics, metric_args):
+def log(audio, key, waveforms, figures, metrics, prosody_args, ppg_args):
     """Update training logs"""
     audio = audio[0]
 
@@ -893,7 +1017,7 @@ def log(audio, key, waveforms, figures, metrics, metric_args):
     figures[f'{key}-mels'] = promovits.plot.spectrogram_from_audio(audio)
 
     # Update metrics
-    metrics[key.split('/')[0]].update(*metric_args)
+    metrics[key.split('/')[0]].update(prosody_args, ppg_args)
 
 
 ###############################################################################

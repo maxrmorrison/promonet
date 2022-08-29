@@ -34,16 +34,24 @@ def load(checkpoint_path, model, optimizer=None):
     # Restore training state
     step = checkpoint_dict['step']
 
+    # Maybe restore loss balancer
+    if 'balancer' in checkpoint_dict:
+        history = checkpoint_dict['balancer']
+    else:
+        history = None
+
     print("Loaded checkpoint '{}' (step {})" .format(checkpoint_path, step))
 
-    return model, optimizer, step
+    return model, optimizer, step, history
 
 
-def save(model, optimizer, step, file):
+def save(model, optimizer, step, file, balancer=None):
     """Save training checkpoint to disk"""
     print(f'Saving model and optimizer at step {step} to {file}')
     checkpoint = {
         'step': step,
         'model': model.state_dict(),
         'optimizer': optimizer.state_dict()}
+    if balancer is not None:
+        checkpoint['balancer'] = balancer.history.detach().cpu()
     torch.save(checkpoint, file)

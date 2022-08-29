@@ -11,7 +11,7 @@ DISCRIM_PERIODICITY_CONDITION = True
 DISCRIM_PITCH_CONDITION = True
 
 # Whether to perform gradient clipping on the generator
-GRADIENT_CLIP_GENERATOR = True
+GRADIENT_CLIP_GENERATOR = 1000.
 
 # Pass loudness through the latent
 LATENT_LOUDNESS_SHORTCUT = True

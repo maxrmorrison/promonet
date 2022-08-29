@@ -171,6 +171,9 @@ MULTI_SCALE_DISCRIMINATOR = True
 # Whether to use snake activation in the audio generator
 SNAKE = False
 
+# Whether to use exact filter values as BigVGan
+SNAKE_EXACT = False
+
 # Whether to use a low-pass filter when using snake
 SNAKE_FILTER = False
 
@@ -179,6 +182,18 @@ SNAKE_FILTER = False
 # Loss parameters
 ###############################################################################
 
+
+# Weight applied to the discriminator loss
+ADVERSARIAL_LOSS_WEIGHT = 1.
+
+# Weight applied to the KL divergence loss
+KL_DIVERGENCE_LOSS_WEIGHT = 1.
+
+# Weight applied to the feature matching loss
+FEATURE_MATCHING_LOSS_WEIGHT = 1.
+
+# Loss balancing
+LOSS_BALANCE = False
 
 # Weight applied to the melspectrogram loss
 MEL_LOSS_WEIGHT = 45.

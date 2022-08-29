@@ -1,5 +1,5 @@
 # Configuration name
-CONFIG = 'condition-both-mrd-snake-augment-clip-small'
+CONFIG = 'condition-both-mrd-snake-filter-clip-augment-balance-small'
 
 # Whether to use pitch augmentation
 AUGMENT_PITCH = True
@@ -25,6 +25,9 @@ LATENT_PERIODICITY_SHORTCUT = True
 # Pass pitch through the latent
 LATENT_PITCH_SHORTCUT = True
 
+# Loss balancing
+LOSS_BALANCE = True
+
 # Loudness features
 LOUDNESS_FEATURES = True
 
@@ -49,6 +52,9 @@ PPG_INTERP_METHOD = 'nearest'
 
 # Whether to use snake activation in the audio generator
 SNAKE = True
+
+# Whether to use a low-pass filter when using snake
+SNAKE_FILTER = True
 
 # Reduce batch size and steps for development
 BATCH_SIZE = 16

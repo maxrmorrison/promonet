@@ -1,5 +1,5 @@
 # Configuration name
-CONFIG = 'condition-both-mrd-snake-augment-clip-small'
+CONFIG = 'condition-both-mrd-snake-filter-clip-augment-small'
 
 # Whether to use pitch augmentation
 AUGMENT_PITCH = True
@@ -49,6 +49,12 @@ PPG_INTERP_METHOD = 'nearest'
 
 # Whether to use snake activation in the audio generator
 SNAKE = True
+
+# Whether to use exact filter values as BigVGan
+SNAKE_EXACT = True
+
+# Whether to use a low-pass filter when using snake
+SNAKE_FILTER = True
 
 # Reduce batch size and steps for development
 BATCH_SIZE = 16

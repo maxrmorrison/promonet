@@ -4,8 +4,10 @@
 # TODO - address loudness-scaling acting as bias in V/UV F1 computation (by rescaling)
 # TODO - fix all warnings
 # TODO - fix shape error during adaptation
-# TODO - ppg duration metric
-# TODO - loss balancing
+# TODO - vocoder
+# TODO - 2-stage TTS
+# TODO - try PPG-conditioned discriminator
+# TODO - VITS bottleneck size?
 
 
 ###############################################################################

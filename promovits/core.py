@@ -253,4 +253,6 @@ def resample(audio, sample_rate, target_rate=promovits.SAMPLE_RATE):
     """Perform audio resampling"""
     if sample_rate == target_rate:
         return audio
-    return torchaudio.transforms.Resample(sample_rate, target_rate)(audio)
+    resampler = torchaudio.transforms.Resample(sample_rate, target_rate)
+    resampler = resampler.to(audio.device)
+    return resampler(audio)
