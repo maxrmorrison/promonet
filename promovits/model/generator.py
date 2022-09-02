@@ -527,7 +527,7 @@ class Generator(torch.nn.Module):
 
     def latents(
         self,
-        features,
+        phonemes,
         pitch,
         periodicity,
         loudness,
@@ -541,6 +541,8 @@ class Generator(torch.nn.Module):
         length_scale=1,
         noise_scale_w=.8):
         """Get latent representation"""
+        features = phonemes
+
         # Maybe add pitch features
         if promovits.PITCH_FEATURES:
             pitch = promovits.convert.hz_to_bins(pitch)
@@ -662,6 +664,13 @@ class Generator(torch.nn.Module):
                     slice_indices,
                     slice_size)
 
+            # Maybe slice PPGs
+            if promovits.LATENT_PHONEME_SHORTCUT:
+                phoneme_slice = promovits.model.slice_segments(
+                    phonemes,
+                    slice_indices,
+                    slice_size)
+
         # Generation
         else:
 
@@ -716,10 +725,11 @@ class Generator(torch.nn.Module):
                 reverse=True)
 
             # No slicing
-            loudness_slice, periodicity_slice, pitch_slice = (
+            loudness_slice, periodicity_slice, pitch_slice, phoneme_slice = (
                 loudness,
                 periodicity,
-                pitch)
+                pitch,
+                phonemes)
 
         # Maybe add pitch
         if (
@@ -744,6 +754,19 @@ class Generator(torch.nn.Module):
         ):
             latents = torch.cat((latents, periodicity_slice[:, None]), dim=1)
 
+        # Maybe add phonemes
+        if promovits.LATENT_PHONEME_SHORTCUT:
+            latents = torch.cat((latents, phoneme_slice), dim=1)
+
+        # Maybe add augmentation ratio
+        if promovits.LATENT_RATIO_SHORTCUT:
+            latents = torch.cat(
+                (
+                    latents,
+                    ratios.repeat(latents.shape[2], 1, 1).permute(2, 1, 0)
+                ),
+                dim=1)
+
         return (
             latents,
             speaker_embeddings,
@@ -763,11 +786,6 @@ class Autoregressive(torch.nn.Module):
         super().__init__()
 
         # Get activation function
-        # if promovits.SNAKE:
-        #     activation_fn = functools.partial(
-        #         promovits.model.Snake,
-        #         promovits.AR_HIDDEN_SIZE)
-        # else:
         activation_fn = functools.partial(torch.nn.LeakyReLU, .1)
 
         # Make layers

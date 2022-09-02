@@ -92,6 +92,12 @@ DISCRIM_PERIODICITY_CONDITION = False
 # Discriminator pitch conditioning
 DISCRIM_PITCH_CONDITION = False
 
+# Discriminator phoneme conditioning
+DISCRIM_PHONEME_CONDITION = False
+
+# Discriminator augmentation ratio conditioning
+DISCRIM_RATIO_CONDITION = False
+
 # Pass loudness through the latent
 LATENT_LOUDNESS_SHORTCUT = False
 
@@ -100,6 +106,12 @@ LATENT_PERIODICITY_SHORTCUT = False
 
 # Pass pitch through the latent
 LATENT_PITCH_SHORTCUT = False
+
+# Pass the phonemes through the latent
+LATENT_PHONEME_SHORTCUT = False
+
+# Pass the augmentation ratio through the latent
+LATENT_RATIO_SHORTCUT = False
 
 # A-weighted loudness conditioning
 LOUDNESS_FEATURES = False
@@ -159,6 +171,9 @@ AR_INPUT_SIZE = 512
 # The size of the output autoregressive embedding
 AR_OUTPUT_SIZE = 128
 
+# The size of the latent bottleneck
+BOTTLENECK_SIZE = 192
+
 # Whether to use causal layers
 CAUSAL = False
 
@@ -191,6 +206,9 @@ KL_DIVERGENCE_LOSS_WEIGHT = 1.
 
 # Weight applied to the feature matching loss
 FEATURE_MATCHING_LOSS_WEIGHT = 1.
+
+# Whether to omit the first activation of each discriminator
+FEATURE_MATCHING_OMIT_FIRST = False
 
 # Loss balancing
 LOSS_BALANCE = False

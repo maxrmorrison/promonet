@@ -1,13 +1,18 @@
-# TODO - world pitch reconstruction
-# TODO - analyze interpolation of loudness
-# TODO - consider PPG reinforcement in the discrim if pronunciation is bad
-# TODO - address loudness-scaling acting as bias in V/UV F1 computation (by rescaling)
-# TODO - fix all warnings
-# TODO - fix shape error during adaptation
-# TODO - vocoder
-# TODO - 2-stage TTS
-# TODO - try PPG-conditioned discriminator
-# TODO - VITS bottleneck size?
+# Trainings
+# - bottleneck 64
+# - bottleneck 512
+
+# Development
+# - fix shape error during adaptation
+# - vocoder
+# - 2-stage TTS
+# - world pitch reconstruction
+# - AAVC-F0
+# - subjective evals
+
+# Low priority
+# - address loudness-scaling acting as bias in V/UV F1 computation (by rescaling)
+# - fix all warnings
 
 
 ###############################################################################

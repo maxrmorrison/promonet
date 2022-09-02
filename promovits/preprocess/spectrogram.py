@@ -75,9 +75,9 @@ def linear_to_mel(spectrogram):
     # Create mel basis
     if not hasattr(linear_to_mel, 'mel_basis'):
         basis = librosa.filters.mel(
-            promovits.SAMPLE_RATE,
-            promovits.NUM_FFT,
-            promovits.NUM_MELS)
+            sr=promovits.SAMPLE_RATE,
+            n_fft=promovits.NUM_FFT,
+            n_mels=promovits.NUM_MELS)
         basis = torch.from_numpy(basis)
         basis = basis.to(spectrogram.dtype).to(spectrogram.device)
         linear_to_mel.basis = basis

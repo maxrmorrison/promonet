@@ -1,5 +1,7 @@
 import torch
 
+import promovits
+
 
 ###############################################################################
 # Loss functions
@@ -11,9 +13,17 @@ def feature_matching(real_feature_maps, fake_feature_maps):
     loss = 0.
     iterator = zip(real_feature_maps, fake_feature_maps)
     for real_feature_map, fake_feature_map in iterator:
+
+        # Maybe omit first activation layers from feature matching loss
+        if promovits.FEATURE_MATCHING_OMIT_FIRST:
+            real_feature_map = real_feature_map[1:]
+            fake_feature_map = fake_feature_map[1:]
+
+        # Aggregate
         for real, fake in zip(real_feature_map, fake_feature_map):
             loss += torch.mean(torch.abs(real.float().detach() - fake.float()))
-    return 2. * loss
+
+    return loss
 
 
 def discriminator(real_outputs, fake_outputs):

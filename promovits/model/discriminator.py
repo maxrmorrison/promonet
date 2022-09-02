@@ -28,8 +28,7 @@ class DiscriminatorP(torch.nn.Module):
             conv_fn(1024, 1024, (kernel_size, 1), 1, padding)])
         self.conv_post = conv_fn(1024, 1, (3, 1), 1, (1, 0))
 
-    def forward(self, x, pitch, periodicity, loudness, ratios=None):
-        # TODO - ratios
+    def forward(self, x, pitch, periodicity, loudness, phonemes, ratios=None):
         # Maybe add pitch conditioning
         if promovits.DISCRIM_PITCH_CONDITION:
             pitch = torch.nn.functional.interpolate(
@@ -57,6 +56,21 @@ class DiscriminatorP(torch.nn.Module):
                 mode='linear',
                 align_corners=False)
             x = torch.cat((x, loudness), dim=1)
+
+        # Maybe add ppg conditioning
+        if promovits.DISCRIM_PHONEME_CONDITION:
+            phonemes = torch.nn.functional.interpolate(
+                phonemes,
+                scale_factor=promovits.HOPSIZE,
+                mode='linear',
+                align_corners=False)
+            x = torch.cat((x, phonemes), dim=1)
+
+        # Maybe add augmentation ratio
+        if promovits.DISCRIM_RATIO_CONDITION:
+            x = torch.cat(
+                (x, ratios.repeat(x.shape[2], 1, 1).permute(2, 1, 0)),
+                dim=1)
 
         feature_maps = []
 
@@ -95,8 +109,7 @@ class DiscriminatorR(torch.nn.Module):
         ])
         self.conv_post = conv_fn(32, 1, (3, 3), padding=(1, 1))
 
-    def forward(self, audio, pitch, periodicity, loudness, ratios=None):
-        # TODO - ratios
+    def forward(self, audio, pitch, periodicity, loudness, phonemes, ratios=None):
         # Compute spectral features
         features = self.spectrogram(audio)
 
@@ -127,6 +140,22 @@ class DiscriminatorR(torch.nn.Module):
                 mode='linear',
                 align_corners=False)
             features = torch.cat((features, loudness[:, None]), dim=2)
+
+        # Maybe add ppg conditioning
+        if promovits.DISCRIM_PHONEME_CONDITION:
+            phonemes = torch.nn.functional.interpolate(
+                phonemes,
+                size=features.shape[-1],
+                mode='linear',
+                align_corners=False)
+            features = torch.cat((features, phonemes[:, None]), dim=2)
+
+        # Maybe add augmentation ratio
+        if promovits.DISCRIM_RATIO_CONDITION:
+            shape = features.shape[-1], 1, 1, 1
+            features = torch.cat(
+                (features, ratios.repeat(*shape).permute(3, 2, 1, 0)),
+                dim=2)
 
         # Forward pass and save activations
         fmap = []
@@ -172,8 +201,7 @@ class DiscriminatorS(torch.nn.Module):
             conv_fn(1024, 1024, 5, 1, padding=2), ])
         self.conv_post = conv_fn(1024, 1, 3, 1, padding=1)
 
-    def forward(self, x, pitch, periodicity, loudness, ratios=None):
-        # TODO - ratios
+    def forward(self, x, pitch, periodicity, loudness, phonemes, ratios=None):
         # Maybe add pitch conditioning
         if promovits.DISCRIM_PITCH_CONDITION:
             pitch = torch.nn.functional.interpolate(
@@ -202,6 +230,24 @@ class DiscriminatorS(torch.nn.Module):
                 align_corners=False)
             x = torch.cat((x, loudness), dim=1)
 
+        # Maybe add ppg conditioning
+        if promovits.DISCRIM_PHONEME_CONDITION:
+            phonemes = torch.nn.functional.interpolate(
+                phonemes,
+                scale_factor=promovits.HOPSIZE,
+                mode='linear',
+                align_corners=False)
+            x = torch.cat((x, phonemes), dim=1)
+
+        # Maybe add augmentation ratio
+        if promovits.DISCRIM_RATIO_CONDITION:
+            x = torch.cat(
+                (
+                    x,
+                    ratios.repeat(x.shape[2], 1, 1).permute(2, 1, 0)
+                ),
+                dim=1)
+
         # Forward pass and save activations
         feature_maps = []
         for layer in self.convs:
@@ -229,7 +275,15 @@ class Discriminator(torch.nn.Module):
             self.discriminators.extend(
                 [DiscriminatorR(i) for i in resolutions])
 
-    def forward(self, y, y_hat, pitch, periodicity, loudness, ratios=None):
+    def forward(
+        self,
+        y,
+        y_hat,
+        pitch,
+        periodicity,
+        loudness,
+        phonemes,
+        ratios=None):
         logits_real = []
         logits_fake = []
         feature_maps_real = []
@@ -240,6 +294,7 @@ class Discriminator(torch.nn.Module):
                 pitch=pitch,
                 periodicity=periodicity,
                 loudness=loudness,
+                phonemes=phonemes,
                 ratios=ratios)
             logit_real, feature_map_real = discriminator_fn(y)
             logit_fake, feature_map_fake = discriminator_fn(y_hat)

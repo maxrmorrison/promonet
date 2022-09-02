@@ -311,6 +311,7 @@ def train(
                     pitch_slices = slice_fn(pitch, fill_value=pitch.mean())
                     periodicity_slices = slice_fn(periodicity)
                     loudness_slices = slice_fn(loudness, fill_value=loudness.min())
+                    phoneme_slices = slice_fn(phonemes)
 
                     # Exit autocast context, as ComplexHalf type is not yet supported
                     # See Github issue https://github.com/jaywalnut310/vits/issues/15
@@ -351,6 +352,7 @@ def train(
                     pitch_slices,
                     periodicity_slices,
                     loudness_slices,
+                    phoneme_slices,
                     ratios)
 
                 with torch.cuda.amp.autocast(enabled=False):
@@ -387,8 +389,9 @@ def train(
                     generated,
                     pitch_slices,
                     periodicity_slices,
-                    loudness_slices
-                )
+                    loudness_slices,
+                    phoneme_slices,
+                    ratios)
 
             ####################
             # Generator losses #

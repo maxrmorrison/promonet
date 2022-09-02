@@ -15,7 +15,7 @@ TRANSPOSECONV1D = \
     CausalTransposeConv1d if promovits.CAUSAL else torch.nn.ConvTranspose1d
 
 # Hidden dimension channel sizes
-HIDDEN_CHANNELS = 192
+HIDDEN_CHANNELS = promovits.BOTTLENECK_SIZE
 FILTER_CHANNELS = 768
 
 # Speaker embedding size
