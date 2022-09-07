@@ -118,7 +118,7 @@ class PhonemeEncoder(torch.nn.Module):
   def __init__(self):
     super().__init__()
 
-    if promovits.PPG_FEATURES:
+    if promovits.PPG_FEATURES or promovits.SPECTROGRAM_ONLY:
         self.input_layer = promovits.model.CONV1D(
             promovits.NUM_FEATURES,
             promovits.model.HIDDEN_CHANNELS,
@@ -145,7 +145,7 @@ class PhonemeEncoder(torch.nn.Module):
   def forward(self, features, feature_lengths):
     # Embed features
     embeddings = self.input_layer(features)
-    if not promovits.PPG_FEATURES:
+    if not promovits.PPG_FEATURES and not promovits.SPECTROGRAM_ONLY:
         embeddings = embeddings.permute(0, 2, 1) * self.scale
 
     # Construct binary mask from lengths
@@ -209,7 +209,7 @@ class SpectrogramEncoder(torch.nn.Module):
             kernel_size,
             dilation_rate,
             n_layers,
-            gin_channels=promovits.model.GIN_CHANNELS + promovits.AUGMENT_PITCH)
+            gin_channels=promovits.model.GIN_CHANNELS)
         self.proj = promovits.model.CONV1D(
             promovits.model.HIDDEN_CHANNELS,
             2 * promovits.model.HIDDEN_CHANNELS,
@@ -358,21 +358,22 @@ class Generator(torch.nn.Module):
         self.feature_encoder = PhonemeEncoder()
 
         # Text-to-duration predictor
-        if not promovits.PPG_FEATURES:
+        if not promovits.PPG_FEATURES and not promovits.SPECTROGRAM_ONLY:
             self.dp = StochasticDurationPredictor(
                 promovits.model.HIDDEN_CHANNELS,
                 192,
                 3,
                 0.5,
                 4,
-                gin_channels=promovits.GIN_CHANNELS + promovits.AUGMENT_PITCH)
+                gin_channels=promovits.model.GIN_CHANNELS)
 
         # Vocoder
-        latent_channels = promovits.model.HIDDEN_CHANNELS + \
-            promovits.ADDITIONAL_FEATURES_LATENT
+        latent_channels = promovits.ADDITIONAL_FEATURES_LATENT
+        if not promovits.VOCODER:
+            latent_channels += promovits.model.HIDDEN_CHANNELS
         self.generator = LatentToAudioGenerator(
             latent_channels,
-            promovits.model.GIN_CHANNELS + promovits.AUGMENT_PITCH)
+            promovits.model.GIN_CHANNELS)
 
         # Spectrogram encoder
         self.spectrogram_encoder = SpectrogramEncoder()
@@ -384,7 +385,7 @@ class Generator(torch.nn.Module):
             5,
             1,
             4,
-            gin_channels=promovits.model.GIN_CHANNELS + promovits.AUGMENT_PITCH)
+            gin_channels=promovits.model.GIN_CHANNELS)
 
         # Speaker embedding
         self.speaker_embedding = torch.nn.Embedding(
@@ -396,7 +397,7 @@ class Generator(torch.nn.Module):
             self.autoregressive = Autoregressive()
 
         # Pitch embedding
-        if promovits.PITCH_FEATURES:
+        if promovits.PITCH_FEATURES and promovits.PITCH_EMBEDDING:
             self.pitch_embedding = torch.nn.Embedding(
                 promovits.PITCH_BINS,
                 promovits.PITCH_EMBEDDING_SIZE)
@@ -492,8 +493,7 @@ class Generator(torch.nn.Module):
                 speakers,
                 ratios,
                 spectrograms,
-                spectrogram_lengths,
-                audio)
+                spectrogram_lengths)
 
         if promovits.AUTOREGRESSIVE:
 
@@ -536,7 +536,6 @@ class Generator(torch.nn.Module):
         ratios=None,
         spectrograms=None,
         spectrogram_lengths=None,
-        audio=None,
         noise_scale=.667,
         length_scale=1,
         noise_scale_w=.8):
@@ -545,8 +544,11 @@ class Generator(torch.nn.Module):
 
         # Maybe add pitch features
         if promovits.PITCH_FEATURES:
-            pitch = promovits.convert.hz_to_bins(pitch)
-            pitch_embeddings = self.pitch_embedding(pitch).permute(0, 2, 1)
+            if promovits.PITCH_EMBEDDING:
+                pitch = promovits.convert.hz_to_bins(pitch)
+                pitch_embeddings = self.pitch_embedding(pitch).permute(0, 2, 1)
+            else:
+                pitch_embeddings = pitch[:, None]
             features = torch.cat((features, pitch_embeddings), dim=1)
 
         # Maybe add loudness features
@@ -557,6 +559,10 @@ class Generator(torch.nn.Module):
         # Maybe add periodicity features
         if promovits.PERIODICITY_FEATURES:
             features = torch.cat((features, periodicity[:, None]), dim=1)
+
+        # Maybe just use the spectrogram
+        if promovits.SPECTROGRAM_ONLY:
+            features = spectrograms
 
         # Encode text to text embedding and statistics for the flow model
         _, predicted_mean, predicted_logstd, feature_mask = self.feature_encoder(
@@ -583,7 +589,7 @@ class Generator(torch.nn.Module):
             # Compute corresponding prior to the latent variable
             prior = self.flow(latents, latent_mask, g=speaker_embeddings)
 
-            if promovits.PPG_FEATURES:
+            if promovits.PPG_FEATURES or promovits.SPECTROGRAM_ONLY:
                 attention = None
                 durations = None
 
@@ -671,10 +677,17 @@ class Generator(torch.nn.Module):
                     slice_indices,
                     slice_size)
 
+            # Maybe slice spectral features
+            if promovits.SPECTROGRAM_ONLY:
+                spectrogram_slice = promovits.model.slice_segments(
+                    spectrograms,
+                    slice_indices,
+                    slice_size)
+
         # Generation
         else:
 
-            if promovits.PPG_FEATURES:
+            if promovits.PPG_FEATURES or promovits.SPECTROGRAM_ONLY:
                 latent_mask = promovits.model.sequence_mask(lengths)
                 latent_mask = latent_mask.unsqueeze(1).to(feature_mask.dtype)
                 slice_indices = None
@@ -725,20 +738,31 @@ class Generator(torch.nn.Module):
                 reverse=True)
 
             # No slicing
-            loudness_slice, periodicity_slice, pitch_slice, phoneme_slice = (
+            (
+                loudness_slice,
+                periodicity_slice,
+                pitch_slice,
+                phoneme_slice,
+                spectrogram_slice
+            ) = (
                 loudness,
                 periodicity,
                 pitch,
-                phonemes)
+                phonemes,
+                spectrograms
+            )
 
         # Maybe add pitch
         if (
             promovits.PITCH_FEATURES and
             promovits.LATENT_PITCH_SHORTCUT
         ):
-            pitch_embeddings = self.latent_pitch_embedding(
-                pitch_slice).permute(0, 2, 1)
-            latents = torch.cat((latents, pitch_embeddings[..., ]), dim=1)
+            if promovits.PITCH_EMBEDDING:
+                pitch_embeddings = self.latent_pitch_embedding(
+                    pitch_slice).permute(0, 2, 1)
+            else:
+                pitch_embeddings = pitch_slice[:, None]
+            latents = torch.cat((latents, pitch_embeddings), dim=1)
 
         # Maybe add loudness
         if (
@@ -766,6 +790,15 @@ class Generator(torch.nn.Module):
                     ratios.repeat(latents.shape[2], 1, 1).permute(2, 1, 0)
                 ),
                 dim=1)
+
+        # Maybe add spectrogram
+        if promovits.SPECTROGRAM_ONLY:
+            latents = torch.cat(
+                (latents, spectrogram_slice), dim=1)
+
+        # Maybe remove latents and keep other features
+        if promovits.VOCODER:
+            latents = latents[:, promovits.BOTTLENECK_SIZE:]
 
         return (
             latents,

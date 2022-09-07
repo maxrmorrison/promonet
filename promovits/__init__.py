@@ -1,18 +1,15 @@
 # Trainings
-# - bottleneck 64
-# - bottleneck 512
+# - scale-up
+# - spectral + latent
 
 # Development
-# - fix shape error during adaptation
-# - vocoder
-# - 2-stage TTS
-# - world pitch reconstruction
+# - fix shape error during adaptation ***
 # - AAVC-F0
 # - subjective evals
 
 # Low priority
 # - address loudness-scaling acting as bias in V/UV F1 computation (by rescaling)
-# - fix all warnings
+# - fix torchcrepe librosa warnings
 
 
 ###############################################################################

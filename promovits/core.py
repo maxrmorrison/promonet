@@ -39,7 +39,7 @@ def from_audio(
 
     # Extract prosody features
     with promovits.time.timer('features/prosody'):
-        if promovits.PPG_FEATURES:
+        if promovits.PPG_FEATURES or promovits.SPECTROGRAM_ONLY:
             pitch, periodicity, loudness, _ = \
                 pysodic.from_audio(
                     audio,
@@ -70,7 +70,7 @@ def from_audio(
 
     # Get phonetic posteriorgrams
     with promovits.time.timer('features/ppgs'):
-        if promovits.PPG_FEATURES:
+        if promovits.PPG_FEATURES or promovits.SPECTROGRAM_ONLY:
             features = promovits.preprocess.ppg.from_audio(
                 audio,
                 sample_rate,
@@ -97,7 +97,7 @@ def from_audio(
 
     # Maybe get text features
     with promovits.time.timer('features/text'):
-        if not promovits.PPG_FEATURES:
+        if not promovits.PPG_FEATURES and not promovits.SPECTROGRAM_ONLY:
             features = promovits.preprocess.text.from_string(text)
 
     # Setup model

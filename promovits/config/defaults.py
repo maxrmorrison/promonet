@@ -119,6 +119,9 @@ LOUDNESS_FEATURES = False
 # Periodicity conditioning
 PERIODICITY_FEATURES = False
 
+# Whether to use an embedding layer for pitch
+PITCH_EMBEDDING = True
+
 # Pitch conditioning
 PITCH_FEATURES = False
 
@@ -137,6 +140,9 @@ PPG_FEATURES = False
 # Type of interpolation method to use to scale PPG features
 # Available method are ['nearest', 'linear']
 PPG_INTERP_METHOD = None
+
+# Only use spectral features
+SPECTROGRAM_ONLY = False
 
 
 ###############################################################################
@@ -191,6 +197,9 @@ SNAKE_EXACT = False
 
 # Whether to use a low-pass filter when using snake
 SNAKE_FILTER = False
+
+# Whether to omit latent generation
+VOCODER = False
 
 
 ###############################################################################

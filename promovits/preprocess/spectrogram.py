@@ -36,7 +36,9 @@ def from_audio(audio, mels=False):
         window=from_audio.window,
         center=False,
         normalized=False,
-        onesided=True)
+        onesided=True,
+        return_complex=True)
+    stft = torch.view_as_real(stft)
 
     # Compute magnitude
     spectrogram = torch.sqrt(stft.pow(2).sum(-1) + 1e-6)

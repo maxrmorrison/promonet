@@ -711,7 +711,8 @@ def evaluate(directory, step, generator, valid_loader, gpu):
                 periodicity,
                 loudness,
                 lengths,
-                speakers)
+                speakers,
+                spectrograms=spectrogram)
 
             # Get prosody features
             (

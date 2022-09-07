@@ -36,11 +36,17 @@ TIMER = promovits.time.Context()
 
 # Number of input features to the generator
 # 178 is len(promovits.preprocess.text.symbols())
-NUM_FEATURES = 178 if not promovits.PPG_FEATURES else (
+NUM_FEATURES = (
+    178 if not promovits.PPG_FEATURES and not promovits.SPECTROGRAM_ONLY else (
     promovits.LOUDNESS_FEATURES +
     promovits.PERIODICITY_FEATURES +
-    promovits.PITCH_FEATURES * promovits.PITCH_EMBEDDING_SIZE +
-    promovits.PPG_FEATURES * promovits.PPG_CHANNELS)
+    promovits.PITCH_FEATURES * (
+        promovits.PITCH_EMBEDDING_SIZE if promovits.PITCH_EMBEDDING else 1) +
+    (
+        promovits.NUM_FFT // 2 + 1) if promovits.SPECTROGRAM_ONLY else
+        promovits.PPG_FEATURES * promovits.PPG_CHANNELS
+    )
+)
 
 # Number of input features to the discriminator
 NUM_FEATURES_DISCRIM = (
@@ -53,9 +59,11 @@ NUM_FEATURES_DISCRIM = (
 
 # Number of additional input features to the latent-to-audio model
 ADDITIONAL_FEATURES_LATENT = (
-    promovits.LATENT_PITCH_SHORTCUT * promovits.PITCH_EMBEDDING_SIZE +
+    promovits.LATENT_PITCH_SHORTCUT * (
+        promovits.PITCH_EMBEDDING_SIZE if promovits.PITCH_EMBEDDING else 1) +
     promovits.LATENT_LOUDNESS_SHORTCUT +
     promovits.LATENT_PERIODICITY_SHORTCUT +
     promovits.LATENT_PHONEME_SHORTCUT * promovits.PPG_CHANNELS +
     promovits.LATENT_RATIO_SHORTCUT +
-    promovits.AUTOREGRESSIVE * promovits.AR_OUTPUT_SIZE)
+    promovits.AUTOREGRESSIVE * promovits.AR_OUTPUT_SIZE +
+    promovits.SPECTROGRAM_ONLY * (promovits.NUM_FFT // 2 + 1))

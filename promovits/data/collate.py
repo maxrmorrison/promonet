@@ -39,7 +39,7 @@ def collate(batch):
     spectrogram_lengths = torch.empty((len(batch),), dtype=torch.long)
 
     # Initialize padded tensors
-    if promovits.PPG_FEATURES:
+    if promovits.PPG_FEATURES or promovits.SPECTROGRAM_ONLY:
         padded_phonemes = torch.zeros(
             (len(batch), promovits.PPG_CHANNELS, max_length_features),
             dtype=torch.float)
@@ -69,7 +69,7 @@ def collate(batch):
         spectrogram_lengths[i] = lengths[index].item() // promovits.HOPSIZE
 
         # Prepare phoneme features
-        if promovits.PPG_FEATURES:
+        if promovits.PPG_FEATURES or promovits.SPECTROGRAM_ONLY:
             padded_phonemes[i, :, :feature_lengths[i]] = phonemes[index]
         else:
             padded_phonemes[i, :feature_lengths[i]] = phonemes[index]

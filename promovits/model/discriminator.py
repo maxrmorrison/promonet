@@ -181,7 +181,9 @@ class DiscriminatorR(torch.nn.Module):
             n_fft=n_fft,
             hop_length=hop_length,
             win_length=win_length,
-            center=False)
+            center=False,
+            return_complex=True)
+        x = torch.view_as_real(x)
         return torch.norm(x, p=2, dim=-1).unsqueeze(1)
 
 

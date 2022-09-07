@@ -134,6 +134,7 @@ def speaker(
             'periodicity',
             'phonemes',
             'pitch',
+            'ppg',
             'text',
             'voicing']
         for feature in features:
@@ -170,7 +171,12 @@ def speaker(
 
             # Copy unchanged prosody features
             features = [
-                'loudness', 'periodicity', 'phonemes', 'text', 'voicing']
+                'loudness',
+                'periodicity',
+                'phonemes',
+                'ppg',
+                'text',
+                'voicing']
             for feature in features:
                 suffix = '.txt' if feature == 'text' else '.pt'
                 input_file = (
@@ -232,7 +238,12 @@ def speaker(
 
             # Stretch and save other prosody features
             features = [
-                'loudness', 'periodicity', 'phonemes', 'pitch', 'voicing']
+                'loudness',
+                'periodicity',
+                'phonemes',
+                'pitch',
+                'ppg',
+                'voicing']
             for feature in features:
                 input_file = (
                     grid_file.parent /
@@ -251,7 +262,11 @@ def speaker(
                         original_feature.squeeze(),
                         grid.squeeze(),
                         'nearest')
-                else:
+                elif feature == 'ppg':
+                    stretched_feature = promovits.interpolate.ppgs(
+                        original_feature.squeeze(),
+                        grid.squeeze())
+                elif feature == 'pitch':
                     stretched_feature = promovits.interpolate.pitch(
                         original_feature.squeeze(),
                         grid.squeeze())
@@ -304,7 +319,13 @@ def speaker(
             torch.save(loudness, scaled_loudness_file)
 
             # Copy unchanged prosody features
-            features = ['periodicity', 'phonemes', 'pitch', 'text', 'voicing']
+            features = [
+                'periodicity',
+                'phonemes',
+                'pitch',
+                'ppg',
+                'text',
+                'voicing']
             for feature in features:
                 suffix = '.txt' if feature == 'text' else '.pt'
                 input_file = (
@@ -355,15 +376,11 @@ def speaker(
         # Ignore warnings when MFA fails, as we retry failures with P2FA
         # with warnings.catch_warnings():
         #     warnings.simplefilter('ignore')
-        pysodic.from_files_to_files(
+        promovits.preprocess.from_files_to_files(
+            objective_directory / file.parent.name,
             value,
-            output_prefixes,
             text_files,
-            promovits.HOPSIZE / promovits.SAMPLE_RATE,
-            promovits.WINDOW_SIZE / promovits.SAMPLE_RATE,
-            None if gpus is None else gpus[0])
-
-        # TODO - extract PPGs
+            gpu=None if gpus is None else gpus[0])
 
         # Get any failed alignments to retry
         p2fa_args = []
@@ -441,7 +458,6 @@ def speaker(
                     torch.load(f'{predicted_prefix}-phonemes.pt'),
                     torch.load(f'{target_prefix}-phonemes.pt'))
 
-                # TODO - copy target PPGs and extract predicted PPGs
                 ppg_args = (
                     torch.load(f'{predicted_prefix}-ppg.pt'),
                     torch.load(f'{target_prefix}-ppg.pt'))

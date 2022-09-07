@@ -77,7 +77,9 @@ class Stft(torch.nn.Module):
                 pad_mode=self.pad_mode,
                 normalized=self.normalized,
                 onesided=self.onesided,
+                return_complex=True
             )
+            output = torch.view_as_real(output)
         else:
             # NOTE(sx): Use Kaldi-fasion padding, maybe wrong
             num_pads = self.n_fft - self.win_length
@@ -91,7 +93,8 @@ class Stft(torch.nn.Module):
                 pad_mode=self.pad_mode,
                 normalized=self.normalized,
                 onesided=self.onesided,
-            )
+                return_complex=True)
+            output = torch.view_as_real(output)
 
         # output: (Batch, Freq, Frames, 2=real_imag)
         # -> (Batch, Frames, Freq, 2=real_imag)
