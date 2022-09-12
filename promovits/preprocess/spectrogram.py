@@ -15,11 +15,17 @@ import promovits
 def from_audio(audio, mels=False):
     """Compute spectrogram from audio"""
     # Cache hann window
-    if not hasattr(from_audio, 'window'):
+    if (
+        not hasattr(from_audio, 'window') or
+        from_audio.dtype != audio.dtype or
+        from_audio.device != audio.device
+    ):
         from_audio.window = torch.hann_window(
             promovits.WINDOW_SIZE,
             dtype=audio.dtype,
             device=audio.device)
+        from_audio.dtype = audio.dtype
+        from_audio.device = audio.device
 
     # Pad audio
     size = (promovits.NUM_FFT - promovits.HOPSIZE) // 2
@@ -63,9 +69,12 @@ def from_file_to_file(audio_file, output_file, mels=False):
 
 def from_files_to_files(audio_files, output_files, mels=False):
     """Compute spectrogram from audio files and save to disk"""
+    # TODO - this multiprocessing fails
+    # with mp.get_context('spawn').Pool() as pool:
+    #     pool.starmap(preprocess_fn, zip(audio_files, output_files))
     preprocess_fn = functools.partial(from_file_to_file, mels=mels)
-    with mp.get_context('spawn').Pool() as pool:
-        pool.starmap(preprocess_fn, zip(audio_files, output_files))
+    for item in zip(audio_files, output_files):
+        preprocess_fn(*item)
 
 
 ###############################################################################

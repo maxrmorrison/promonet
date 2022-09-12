@@ -19,8 +19,11 @@ HIDDEN_CHANNELS = promovits.BOTTLENECK_SIZE
 FILTER_CHANNELS = 768
 
 # Speaker embedding size
-GIN_CHANNELS = (
-    257 if promovits.AUGMENT_PITCH and not promovits.SPECTROGRAM_ONLY else 256)
+SPEAKER_CHANNELS = 256
+
+# Global input channels
+GLOBAL_CHANNELS = SPEAKER_CHANNELS + (
+    promovits.AUGMENT_PITCH and not promovits.SPECTROGRAM_ONLY)
 
 # Convolutional kernel size
 KERNEL_SIZE = 3

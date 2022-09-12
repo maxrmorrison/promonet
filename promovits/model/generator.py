@@ -50,9 +50,9 @@ class StochasticDurationPredictor(torch.nn.Module):
             promovits.model.KERNEL_SIZE,
             n_layers=3,
             p_dropout=p_dropout)
-        if promovits.model.GIN_CHANNELS != 0:
+        if promovits.model.GLOBAL_CHANNELS != 0:
             self.cond = torch.nn.Conv1d(
-                promovits.model.GIN_CHANNELS,
+                promovits.model.GLOBAL_CHANNELS,
                 filter_channels,
                 1)
 
@@ -209,7 +209,7 @@ class SpectrogramEncoder(torch.nn.Module):
             kernel_size,
             dilation_rate,
             n_layers,
-            gin_channels=promovits.model.GIN_CHANNELS)
+            gin_channels=promovits.model.GLOBAL_CHANNELS)
         self.proj = promovits.model.CONV1D(
             promovits.model.HIDDEN_CHANNELS,
             2 * promovits.model.HIDDEN_CHANNELS,
@@ -365,7 +365,7 @@ class Generator(torch.nn.Module):
                 3,
                 0.5,
                 4,
-                gin_channels=promovits.model.GIN_CHANNELS)
+                gin_channels=promovits.model.GLOBAL_CHANNELS)
 
         # Vocoder
         latent_channels = promovits.ADDITIONAL_FEATURES_LATENT
@@ -373,7 +373,7 @@ class Generator(torch.nn.Module):
             latent_channels += promovits.model.HIDDEN_CHANNELS
         self.generator = LatentToAudioGenerator(
             latent_channels,
-            promovits.model.GIN_CHANNELS)
+            promovits.model.GLOBAL_CHANNELS)
 
         # Spectrogram encoder
         self.spectrogram_encoder = SpectrogramEncoder()
@@ -385,12 +385,12 @@ class Generator(torch.nn.Module):
             5,
             1,
             4,
-            gin_channels=promovits.model.GIN_CHANNELS)
+            gin_channels=promovits.model.GLOBAL_CHANNELS)
 
         # Speaker embedding
         self.speaker_embedding = torch.nn.Embedding(
             n_speakers,
-            promovits.model.GIN_CHANNELS)
+            promovits.model.SPEAKER_CHANNELS)
 
         # Autoregressive
         if promovits.AUTOREGRESSIVE:

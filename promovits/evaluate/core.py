@@ -21,11 +21,11 @@ eval
 import functools
 import json
 import shutil
+import traceback
 import warnings
 
 import pyfoal
 import pypar
-import pysodic
 import torch
 
 import promovits
@@ -37,7 +37,7 @@ import promovits
 
 
 # Constant ratios at which we evaluate prosody
-RATIOS = [.5, .717, 1.414, 2.]
+RATIOS = [.717, 1.414]
 
 
 ###############################################################################
@@ -121,11 +121,11 @@ def speaker(
     files['reconstructed'] = sorted([
         subjective_directory / f'{stem}-original-100.wav'
         for stem in test_stems])
-    promovits.from_files_to_files(
-        files['original'],
-        files['reconstructed'],
-        checkpoint=checkpoint,
-        gpu=None if gpus is None else gpus[0])
+    # promovits.from_files_to_files(
+    #     files['original'],
+    #     files['reconstructed'],
+    #     checkpoint=checkpoint,
+    #     gpu=None if gpus is None else gpus[0])
 
     # Copy unchanged prosody features
     for file in files['reconstructed']:
@@ -244,6 +244,7 @@ def speaker(
                 'pitch',
                 'ppg',
                 'voicing']
+            size = None
             for feature in features:
                 input_file = (
                     grid_file.parent /
@@ -252,25 +253,33 @@ def speaker(
                 output_file = \
                     grid_file.parent / grid_file.name.replace('grid', feature)
                 original_feature = torch.load(input_file)
+                if size is None:
+                    size = original_feature.shape[-1]
                 if feature in ['loudness', 'periodicity']:
                     stretched_feature = promovits.interpolate.grid_sample(
                         original_feature.squeeze(),
                         grid.squeeze(),
-                        'linear')
+                        'linear')[None]
                 elif feature in ['phonemes', 'voicing']:
                     stretched_feature = promovits.interpolate.grid_sample(
                         original_feature.squeeze(),
                         grid.squeeze(),
-                        'nearest')
+                        'nearest')[None]
                 elif feature == 'ppg':
+                    mode = promovits.PPG_INTERP_METHOD
+                    original_feature = torch.nn.functional.interpolate(
+                        original_feature[None],
+                        size=size,
+                        mode=mode,
+                        align_corners=None if mode == 'nearest' else False)[0]
                     stretched_feature = promovits.interpolate.ppgs(
                         original_feature.squeeze(),
                         grid.squeeze())
                 elif feature == 'pitch':
                     stretched_feature = promovits.interpolate.pitch(
                         original_feature.squeeze(),
-                        grid.squeeze())
-                torch.save(stretched_feature[None], output_file)
+                        grid.squeeze())[None]
+                torch.save(stretched_feature, output_file)
 
             # Copy text
             input_file = (
@@ -374,8 +383,8 @@ def speaker(
             file.unlink(missing_ok=True)
 
         # Ignore warnings when MFA fails, as we retry failures with P2FA
-        # with warnings.catch_warnings():
-        #     warnings.simplefilter('ignore')
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore')
         promovits.preprocess.from_files_to_files(
             objective_directory / file.parent.name,
             value,
@@ -458,16 +467,32 @@ def speaker(
                     torch.load(f'{predicted_prefix}-phonemes.pt'),
                     torch.load(f'{target_prefix}-phonemes.pt'))
 
-                ppg_args = (
-                    torch.load(f'{predicted_prefix}-ppg.pt'),
-                    torch.load(f'{target_prefix}-ppg.pt'))
+                # TODO - Stretched target ppgs are already resampled. Others are not
+
+                # Get predicted PPGs
+                size = prosody_args[0].shape[-1]
+                mode = promovits.PPG_INTERP_METHOD
+                predicted_ppgs = torch.nn.functional.interpolate(
+                    torch.load(f'{predicted_prefix}-ppg.pt')[None],
+                    size=size,
+                    mode=mode,
+                    align_corners=None if mode == 'nearest' else False)[0]
+
+                # Get target PPGs
+                target_ppgs = torch.nn.functional.interpolate(
+                    torch.load(f'{target_prefix}-ppg.pt')[None],
+                    size=size,
+                    mode=mode,
+                    align_corners=None if mode == 'nearest' else False)[0]
+
+                ppg_args = (predicted_ppgs, target_ppgs)
 
                 condition = '-'.join(target_prefix.stem.split('-')[1:3])
                 metrics[condition].update(prosody_args, ppg_args)
                 speaker_metrics[condition].update(prosody_args, ppg_args)
                 file_metrics.update(prosody_args, ppg_args)
             except Exception as error:
-                print(error)
+                print(traceback.format_exc())
                 import pdb; pdb.set_trace()
                 pass
 
@@ -612,3 +637,13 @@ def default_metrics(gpus):
             metrics[f'{condition}-{int(ratio * 100):03d}'] = metric_fn()
 
     return metrics
+
+
+def load_ppgs(file, size):
+    """Load and interpolate PPGs"""
+    mode = promovits.PPG_INTERP_METHOD
+    return torch.nn.functional.interpolate(
+        torch.load(file)[None],
+        size=size,
+        mode=mode,
+        align_corners=None if mode == 'nearest' else False)[0]

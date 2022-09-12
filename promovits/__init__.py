@@ -1,15 +1,15 @@
 # Trainings
 # - scale-up
-# - spectral + latent
+# - smaller latent for spectral + latent
 
 # Development
+# - is adaptation hurting prosody accuracy? ***
 # - fix shape error during adaptation ***
 # - AAVC-F0
 # - subjective evals
 
 # Low priority
 # - address loudness-scaling acting as bias in V/UV F1 computation (by rescaling)
-# - fix torchcrepe librosa warnings
 
 
 ###############################################################################

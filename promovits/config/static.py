@@ -38,13 +38,14 @@ TIMER = promovits.time.Context()
 # 178 is len(promovits.preprocess.text.symbols())
 NUM_FEATURES = (
     178 if not promovits.PPG_FEATURES and not promovits.SPECTROGRAM_ONLY else (
-    promovits.LOUDNESS_FEATURES +
-    promovits.PERIODICITY_FEATURES +
-    promovits.PITCH_FEATURES * (
-        promovits.PITCH_EMBEDDING_SIZE if promovits.PITCH_EMBEDDING else 1) +
-    (
-        promovits.NUM_FFT // 2 + 1) if promovits.SPECTROGRAM_ONLY else
-        promovits.PPG_FEATURES * promovits.PPG_CHANNELS
+        promovits.LOUDNESS_FEATURES +
+        promovits.PERIODICITY_FEATURES +
+        promovits.PITCH_FEATURES * (
+            promovits.PITCH_EMBEDDING_SIZE if promovits.PITCH_EMBEDDING else 1) +
+        (
+            (promovits.NUM_FFT // 2 + 1) if promovits.SPECTROGRAM_ONLY else
+            promovits.PPG_FEATURES * promovits.PPG_CHANNELS
+        )
     )
 )
 

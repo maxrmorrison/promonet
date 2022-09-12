@@ -42,7 +42,7 @@ class PPG:
         self.reset()
 
     def __call__(self):
-        return {'ppg': torch.sqrt(self.total / self.count)}
+        return {'ppg': torch.sqrt(self.total / self.count).item()}
 
     def update(self, predicted, target):
         self.total += ((predicted - target) ** 2).sum()
