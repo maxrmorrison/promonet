@@ -121,11 +121,11 @@ def speaker(
     files['reconstructed'] = sorted([
         subjective_directory / f'{stem}-original-100.wav'
         for stem in test_stems])
-    # promovits.from_files_to_files(
-    #     files['original'],
-    #     files['reconstructed'],
-    #     checkpoint=checkpoint,
-    #     gpu=None if gpus is None else gpus[0])
+    promovits.from_files_to_files(
+        files['original'],
+        files['reconstructed'],
+        checkpoint=checkpoint,
+        gpu=None if gpus is None else gpus[0])
 
     # Copy unchanged prosody features
     for file in files['reconstructed']:

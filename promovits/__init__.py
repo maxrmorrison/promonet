@@ -1,12 +1,11 @@
 # Trainings
 # - scale-up
-# - smaller latent for spectral + latent
 
 # Development
-# - is adaptation hurting prosody accuracy? ***
 # - fix shape error during adaptation ***
 # - AAVC-F0
 # - subjective evals
+# - Am I clipping pitch above fmax or below fmin?
 
 # Low priority
 # - address loudness-scaling acting as bias in V/UV F1 computation (by rescaling)

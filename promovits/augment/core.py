@@ -1,7 +1,6 @@
 import functools
 import json
 import multiprocessing as mp
-import shutil
 
 import resampy
 import soundfile
@@ -54,10 +53,6 @@ def datasets(datasets):
             text_files = [
                 file for file in text_files if file.stem.endswith('-100')]
 
-            # TEMPORARY
-            for audio_file, text_file in zip(audio_files, text_files):
-                assert audio_file.stem == text_file.stem
-
             # Sample ratios
             distribution = torch.distributions.uniform.Uniform(
                 torch.log2(torch.tensor(MIN_RATIO)),
@@ -74,8 +69,6 @@ def datasets(datasets):
             augment_iterator = list(zip(audio_files, ratios))
             with mp.get_context('spawn').Pool() as pool:
                 pool.starmap(augment_fn, augment_iterator)
-            # for item in iterator:
-            #     augment_fn(*item)
 
             # Save augmentation info
             for audio_file, ratio in augment_iterator:
