@@ -1,5 +1,5 @@
 # Configuration name
-CONFIG = 'promovits-small'
+CONFIG = 'promonet-small'
 
 
 ###############################################################################

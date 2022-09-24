@@ -6,12 +6,12 @@ with open('README.md', encoding='utf8') as file:
 
 
 setup(
-    name='promovits',
-    description='Adaptive End-to-End Speech Prosody Modification',
+    name='promonet',
+    description='Prosody Modification Network',
     version='0.0.1',
     author='Max Morrison',
     author_email='maxrmorrison@gmail.com',
-    url='https://github.com/maxrmorrison/promovits',
+    url='https://github.com/maxrmorrison/promonet',
     install_requires=[
         'Cython',
         'espnet',
@@ -36,7 +36,7 @@ setup(
         'Unidecode',
         'yapecs'],
     packages=find_packages(),
-    package_data={'promovits': ['assets/*', 'assets/*/*']},
+    package_data={'promonet': ['assets/*', 'assets/*/*']},
     long_description=long_description,
     long_description_content_type='text/markdown',
     keywords=['audio', 'speech', 'prosody', 'pytorch', 'vits'])

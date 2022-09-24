@@ -1,8 +1,8 @@
 # Configuration name
-from promovits.config.defaults import PITCH_EMBEDDING
+from promonet.config.defaults import PITCH_EMBEDDING
 
 
-CONFIG = 'promovits-noembed-small'
+CONFIG = 'promonet-noembed-small'
 
 # Whether to use an embedding layer for pitch
 PITCH_EMBEDDING = False

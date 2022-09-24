@@ -1,0 +1,2 @@
+# Configuration name
+CONFIG = 'vits'

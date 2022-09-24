@@ -1,11 +1,11 @@
-# ProMoVITS
-<!-- [![PyPI](https://img.shields.io/pypi/v/promovits.svg)](https://pypi.python.org/pypi/promovits)
+# promonet
+<!-- [![PyPI](https://img.shields.io/pypi/v/promonet.svg)](https://pypi.python.org/pypi/promonet)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
-[![Downloads](https://pepy.tech/badge/promovits)](https://pepy.tech/project/promovits) -->
+[![Downloads](https://pepy.tech/badge/promonet)](https://pepy.tech/project/promonet) -->
 
 Official code for the paper _Adaptive End-to-End Voice Modification_
 [[paper]](https://www.maxrmorrison.com/pdfs/morrison2022adaptive.pdf)
-[[companion website]](https://www.maxrmorrison.com/sites/promovits/)
+[[companion website]](https://www.maxrmorrison.com/sites/promonet/)
 
 
 TODO - sphinx documentation
@@ -14,17 +14,17 @@ TODO - sphinx documentation
 
 ```
 # Create a new conda environment with MFA
-conda create -n promovits -c conda-forge montreal-forced-aligner -y
+conda create -n promonet -c conda-forge montreal-forced-aligner -y
 
 # Activate conda environment
-conda activate promovits
+conda activate promonet
 
 # Option 1) Install from pypi
-pip install promovits
+pip install promonet
 
 # Option 2) Install from source
-git clone git@github.com:maxrmorrison/promovits
-cd promovits
+git clone git@github.com:maxrmorrison/promonet
+cd promonet
 pip install -e .
 ```
 
@@ -39,7 +39,7 @@ apt-get install espeak
 
 ```
 # Compile MAS
-cd promovits/monotonic_align
+cd promonet/monotonic_align
 python setup.py build_ext --inplace
 ```
 
@@ -53,7 +53,7 @@ can be found in `config/`.
 
 ## Usage
 
-To use `promovits` for speech prosody editing, you must first perform speaker
+To use `promonet` for speech prosody editing, you must first perform speaker
 adaptation. To do so, create a directory of `.wav` audio files that will be
 used for adaptation. Then, use either the CLI or API to perform adaptation
 and generation.
@@ -64,7 +64,7 @@ and generation.
 TODO - give comparable example as API section
 
 ```
-python -m promovits
+python -m promonet
     [-h]
     [--config CONFIG]
     --audio_files AUDIO_FILES [AUDIO_FILES ...]
@@ -107,7 +107,7 @@ The following is an example of performing speaker adaptation followed by
 prosody editing.
 
 ```
-import promovits
+import promonet
 
 
 ###############################################################################
@@ -119,13 +119,13 @@ import promovits
 name = 'max'
 
 # Directory containing wav files for adaptation
-directory = promovits.DATA_DIR / name
+directory = promonet.DATA_DIR / name
 
 # GPU indices to use for training
 gpus = [0]
 
 # Perform speaker adaptation
-checkpoint = promovits.adapt.speaker(name, directory, gpus=gpus)
+checkpoint = promonet.adapt.speaker(name, directory, gpus=gpus)
 
 
 ###############################################################################
@@ -134,16 +134,16 @@ checkpoint = promovits.adapt.speaker(name, directory, gpus=gpus)
 
 
 # Load audio for prosody editing
-audio = promovits.load.audio('test.wav')
+audio = promonet.load.audio('test.wav')
 
 # Get prosody features to edit
-pitch, loudness = promovits.preprocess.prosody(audio, gpu=gpus[0])
+pitch, loudness = promonet.preprocess.prosody(audio, gpu=gpus[0])
 
 # (Optional) If you have the text transcript, you can edit phoneme
 #            durations using a forced alignment representation
-pitch, loudness, alignment = promovits.preprocess.prosody(
+pitch, loudness, alignment = promonet.preprocess.prosody(
     audio,
-    text=promovits.load.text('test.txt'),
+    text=promonet.load.text('test.txt'),
     gpu=gpus[0])
 
 # We'll use a ratio of 2.0 for all prosody editing examples
@@ -151,7 +151,7 @@ ratio = 2.0
 
 # Perform pitch-shifting
 target_pitch = ratio * pitch
-shifted = promovits.from_audio(
+shifted = promonet.from_audio(
     audio,
     target_pitch=target_pitch,
     checkpoint=checkpoint,
@@ -161,7 +161,7 @@ shifted = promovits.from_audio(
 target_alignment = copy.deepcopy(alignment)
 durations = [ratio * p.duration() for p in target_alignment.phonemes()]
 target_alignment.update(durations=durations)
-stretched = promovits.from_audio(
+stretched = promonet.from_audio(
     audio,
     target_alignment=target_alignment,
     checkpoint=checkpoint,
@@ -169,7 +169,7 @@ stretched = promovits.from_audio(
 
 # Perform loudness-scaling
 target_loudness = 10 * math.log2(ratio) + loudness
-scaled = promovits.from_audio(
+scaled = promonet.from_audio(
     audio,
     target_loudness=target_loudness,
     checkpoint=checkpoint,
@@ -196,7 +196,7 @@ Downloads, unzips, and formats datasets. Stores datasets in `data/datasets/`.
 Stores formatted datasets in `data/cache/`.
 
 ```
-python -m promovits.data.download --datasets <datasets>
+python -m promonet.data.download --datasets <datasets>
 ```
 
 
@@ -205,7 +205,7 @@ python -m promovits.data.download --datasets <datasets>
 Prepares features for training. Features are stored in `data/cache/`.
 
 ```
-python -m promovits.preprocess --datasets <datasets> --gpu <gpu>
+python -m promonet.preprocess --datasets <datasets> --gpu <gpu>
 ```
 
 
@@ -213,10 +213,10 @@ python -m promovits.preprocess --datasets <datasets> --gpu <gpu>
 
 Partitions a dataset. You should not need to run this, as the partitions
 used in our work are provided for each dataset in
-`promovits/assets/partitions/`.
+`promonet/assets/partitions/`.
 
 ```
-python -m promovits.partition --datasets <datasets>
+python -m promonet.partition --datasets <datasets>
 ```
 
 The optional `--overwrite` flag forces the existing partition to be
@@ -228,7 +228,7 @@ overwritten.
 Trains a model. Checkpoints and logs are stored in `runs/`.
 
 ```
-python -m promovits.train \
+python -m promonet.train \
     --config <config> \
     --dataset <dataset> \
     --gpus <gpus>
@@ -244,7 +244,7 @@ Adapt a model to a speaker. The files corresponding to a speaker are specified
 via disjoint data partitions. Checkpoints and logs are stored in `runs/`.
 
 ```
-python -m promovits.train \
+python -m promonet.train \
     --config <config> \
     --dataset <dataset> \
     --train_partition <train_partition> \
@@ -272,7 +272,7 @@ Performs objective evaluation and generates examples for subjective evaluation.
 Also performs benchmarking of generation speed. Results are stored in `eval/`.
 
 ```
-python -m promovits.evaluate \
+python -m promonet.evaluate \
     --config <name> \
     --datasets <datasets> \
     --gpus <gpus>

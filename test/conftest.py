@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-import promovits
+import promonet
 
 
 ###############################################################################
@@ -13,7 +13,7 @@ import promovits
 @pytest.fixture(scope='session')
 def audio():
     """Retrieve the test audio"""
-    return promovits.load.audio(path('test.wav'))
+    return promonet.load.audio(path('test.wav'))
 
 
 ###############################################################################
