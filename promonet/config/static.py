@@ -34,6 +34,12 @@ TIMER = promonet.time.Context()
 ###############################################################################
 
 
+# First stage of a two-stage model
+TWO_STAGE_1 = promonet.TWO_STAGE
+
+# Second stage of a two-stage model
+TWO_STAGE_2 = False
+
 # Number of input features to the generator
 # 178 is len(promonet.preprocess.text.symbols())
 NUM_FEATURES = (

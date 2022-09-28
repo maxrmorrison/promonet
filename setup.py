@@ -39,4 +39,5 @@ setup(
     package_data={'promonet': ['assets/*', 'assets/*/*']},
     long_description=long_description,
     long_description_content_type='text/markdown',
-    keywords=['audio', 'speech', 'prosody', 'pytorch', 'vits'])
+    keywords=['audio', 'speech', 'prosody', 'pytorch', 'vits'],
+    license='MIT')

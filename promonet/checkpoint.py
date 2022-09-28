@@ -20,7 +20,7 @@ def latest_path(directory, regex='generator-*.pt'):
     return files[-1]
 
 
-def load(checkpoint_path, model, optimizer=None):
+def load(checkpoint_path, model, optimizer=None, synthesizer_optimizer=None):
     """Load model checkpoint from file"""
     checkpoint_dict = torch.load(checkpoint_path, map_location='cpu')
 
@@ -31,27 +31,27 @@ def load(checkpoint_path, model, optimizer=None):
     if optimizer is not None:
         optimizer.load_state_dict(checkpoint_dict['optimizer'])
 
+    # Maybe restore two-stage synthesizer optimizer
+    if synthesizer_optimizer is not None:
+        synthesizer_optimizer.load_state_dict(
+            checkpoint_dict['synthesizer_optimizer'])
+
     # Restore training state
     step = checkpoint_dict['step']
 
-    # Maybe restore loss balancer
-    if 'balancer' in checkpoint_dict:
-        history = checkpoint_dict['balancer']
-    else:
-        history = None
-
     print("Loaded checkpoint '{}' (step {})" .format(checkpoint_path, step))
 
-    return model, optimizer, step, history
+    return model, optimizer, synthesizer_optimizer, step
 
 
-def save(model, optimizer, step, file, balancer=None):
+def save(model, optimizer, step, file, synthesizer_optimizer=None):
     """Save training checkpoint to disk"""
     print(f'Saving model and optimizer at step {step} to {file}')
     checkpoint = {
         'step': step,
         'model': model.state_dict(),
         'optimizer': optimizer.state_dict()}
-    if balancer is not None:
-        checkpoint['balancer'] = balancer.history.detach().cpu()
+    if synthesizer_optimizer is not None:
+        checkpoint['synthesizer_optimizer'] = \
+            synthesizer_optimizer.state_dict()
     torch.save(checkpoint, file)

@@ -30,7 +30,7 @@ def collate(batch):
     _, sorted_indices = torch.sort(lengths, dim=0, descending=True)
 
     # Get tensor size in frames and samples
-    max_length_features = max([p.shape[-1] for p in phonemes])
+    max_length_phonemes = max([p.shape[-1] for p in phonemes])
     max_length_samples = lengths.max().item()
     max_length_frames = max_length_samples // promonet.HOPSIZE
 
@@ -41,20 +41,20 @@ def collate(batch):
     # Initialize padded tensors
     if promonet.PPG_FEATURES or promonet.SPECTROGRAM_ONLY:
         padded_phonemes = torch.zeros(
-            (len(batch), promonet.PPG_CHANNELS, max_length_features),
+            (len(batch), promonet.PPG_CHANNELS, max_length_phonemes),
             dtype=torch.float)
     else:
         padded_phonemes = torch.zeros(
-            (len(batch), max_length_features),
+            (len(batch), max_length_phonemes),
             dtype=torch.long)
     padded_pitch = torch.zeros(
-        (len(batch), max_length_features),
+        (len(batch), max_length_frames),
         dtype=torch.float)
     padded_periodicity = torch.zeros(
-        (len(batch), max_length_features),
+        (len(batch), max_length_frames),
         dtype=torch.float)
     padded_loudness = torch.zeros(
-        (len(batch), max_length_features),
+        (len(batch), max_length_frames),
         dtype=torch.float)
     padded_spectrograms = torch.zeros(
         (len(batch), promonet.NUM_FFT // 2 + 1, max_length_frames),
@@ -75,9 +75,9 @@ def collate(batch):
             padded_phonemes[i, :feature_lengths[i]] = phonemes[index]
 
         # Prepare prosody features
-        padded_pitch[i, :feature_lengths[i]] = pitch[index]
-        padded_periodicity[i, :feature_lengths[i]] = periodicity[index]
-        padded_loudness[i, :feature_lengths[i]] = loudness[index]
+        padded_pitch[i, :spectrogram_lengths[i]] = pitch[index]
+        padded_periodicity[i, :spectrogram_lengths[i]] = periodicity[index]
+        padded_loudness[i, :spectrogram_lengths[i]] = loudness[index]
 
         # Prepare spectrogram
         padded_spectrograms[i, :, :spectrogram_lengths[i]] = \

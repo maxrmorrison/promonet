@@ -69,7 +69,7 @@ def from_file_to_file(audio_file, output_file, mels=False):
 
 def from_files_to_files(audio_files, output_files, mels=False):
     """Compute spectrogram from audio files and save to disk"""
-    # TODO - this multiprocessing fails
+    # TODO - multiprocessing fails
     # with mp.get_context('spawn').Pool() as pool:
     #     pool.starmap(preprocess_fn, zip(audio_files, output_files))
     preprocess_fn = functools.partial(from_file_to_file, mels=mels)

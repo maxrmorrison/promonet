@@ -29,7 +29,7 @@ def phonemes(file):
     """Load phonemes and interleave blanks"""
     phonemes = torch.load(file)
     interleaved = torch.zeros((1, len(phonemes) * 2 + 1))
-    interleaved[1::2] = phonemes
+    interleaved[:, 1::2] = phonemes
     return interleaved
 
 

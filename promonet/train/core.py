@@ -119,8 +119,17 @@ def train(
     # Create optimizers #
     #####################
 
-    generator_optimizer = promonet.OPTIMIZER(generator.parameters())
     discriminator_optimizer = promonet.OPTIMIZER(discriminators.parameters())
+    if promonet.TWO_STAGE:
+        generator_optimizer = promonet.OPTIMIZER([
+            {'params': generator.generator.parameters()},
+            {'params': generator.speaker_embedding_vocoder.parameters()}])
+        synthesizer_optimizer = promonet.OPTIMIZER([
+            {'params': generator.feature_encoder.parameters()},
+            {'params': generator.speaker_embedding.parameters()}])
+    else:
+        generator_optimizer = promonet.OPTIMIZER(generator.parameters())
+        synthesizer_optimizer = None
 
     ##############################
     # Maybe load from checkpoint #
@@ -139,20 +148,21 @@ def train(
         (
             generator,
             generator_optimizer,
-            step,
-            balancer_history
+            synthesizer_optimizer,
+            step
         ) = promonet.checkpoint.load(
             generator_path,
             generator,
-            generator_optimizer
+            generator_optimizer,
+            synthesizer_optimizer
         )
 
         # Load discriminator
         (
             discriminators,
             discriminator_optimizer,
-            step,
-            _
+            _,
+            step
         ) = promonet.checkpoint.load(
             discriminator_path,
             discriminators,
@@ -174,30 +184,8 @@ def train(
         last_epoch=step // len(train_loader.dataset) if step else -1)
     generator_scheduler = scheduler_fn(generator_optimizer)
     discriminator_scheduler = scheduler_fn(discriminator_optimizer)
-
-    ########################
-    # Create loss balancer #
-    ########################
-
-    if promonet.LOSS_BALANCE:
-
-        # Initialize loss weights
-        balancer = promonet.loss.WeightBalancer(
-            promonet.ADVERSARIAL_LOSS_WEIGHT,
-            promonet.FEATURE_MATCHING_LOSS_WEIGHT,
-            promonet.KL_DIVERGENCE_LOSS_WEIGHT,
-            promonet.MEL_LOSS_WEIGHT,
-            start=step)
-
-        # Load history from checkpoint
-        if step > 0 and balancer_history is not None:
-            balancer.history = balancer_history
-
-        # Move loss balancer to training device
-        balancer = balancer.to(device)
-
-    else:
-        balancer = None
+    if promonet.TWO_STAGE:
+        synthesizer_scheduler = scheduler_fn(synthesizer_optimizer)
 
     #########
     # Train #
@@ -270,6 +258,7 @@ def train(
                     latent_mask,
                     slice_indices,
                     autoregressive,
+                    predicted_spectrogram,
                     durations,
                     attention,
                     prior,
@@ -284,9 +273,13 @@ def train(
                     segment_size = \
                         promonet.CHUNK_SIZE // promonet.HOPSIZE
 
-                    # Slice mels
+                    # Slice spectral features
                     mel_slices = promonet.model.slice_segments(
                         mels,
+                        start_indices=slice_indices,
+                        segment_size=segment_size)
+                    spectrogram_slices = promonet.model.slice_segments(
+                        spectrograms,
                         start_indices=slice_indices,
                         segment_size=segment_size)
 
@@ -394,95 +387,85 @@ def train(
 
                 with torch.cuda.amp.autocast(enabled=False):
 
+                    generator_losses = 0.
+
                     # Get duration loss
                     if durations is not None:
                         duration_loss = torch.sum(durations.float())
+                        generator_losses += duration_loss
                     else:
                         duration_loss = 0
 
                     # Get melspectrogram loss
                     mel_loss = torch.nn.functional.l1_loss(mel_slices, generated_mels)
+                    generator_losses +=  promonet.MEL_LOSS_WEIGHT * mel_loss
 
-                    # Get KL divergence loss between features and spectrogram
-                    kl_divergence_loss = promonet.loss.kl(
-                        prior.float(),
-                        true_logstd.float(),
-                        predicted_mean.float(),
-                        predicted_logstd.float(),
-                        latent_mask)
+                    if not promonet.TWO_STAGE:
+                        # Get KL divergence loss between features and spectrogram
+                        kl_divergence_loss = promonet.loss.kl(
+                            prior.float(),
+                            true_logstd.float(),
+                            predicted_mean.float(),
+                            predicted_logstd.float(),
+                            latent_mask)
+                        generator_losses += promonet.KL_DIVERGENCE_LOSS_WEIGHT * kl_divergence_loss
 
                     # Get feature matching loss
                     feature_matching_loss = promonet.loss.feature_matching(
                         real_feature_maps,
                         fake_feature_maps)
+                    generator_losses += promonet.FEATURE_MATCHING_LOSS_WEIGHT * feature_matching_loss
 
                     # Get adversarial loss
                     adversarial_loss, adversarial_losses = \
                         promonet.loss.generator(
                             [logit.float() for logit in fake_logits])
-
-                    # Get loss weights
-                    if promonet.LOSS_BALANCE:
-                        (
-                            adversarial_weight,
-                            feature_matching_weight,
-                            kl_weight,
-                            mel_weight
-                        ) = balancer()
-                    else:
-                        (
-                            adversarial_weight,
-                            feature_matching_weight,
-                            kl_weight,
-                            mel_weight
-                        ) = (
-                            promonet.ADVERSARIAL_LOSS_WEIGHT,
-                            promonet.FEATURE_MATCHING_LOSS_WEIGHT,
-                            promonet.KL_DIVERGENCE_LOSS_WEIGHT,
-                            promonet.MEL_LOSS_WEIGHT
-                        )
-                    generator_losses = (
-                        adversarial_weight * adversarial_loss +
-                        duration_loss +
-                        feature_matching_weight * feature_matching_loss +
-                        kl_weight * kl_divergence_loss +
-                        mel_weight * mel_loss)
-
-            # Maybe update loss balancer
-            if promonet.LOSS_BALANCE:
-                balancer.update(
-                    adversarial_weight * adversarial_loss,
-                    feature_matching_weight * feature_matching_loss,
-                    kl_weight * kl_divergence_loss,
-                    mel_weight * mel_loss)
-
+                    generator_losses += promonet.ADVERSARIAL_LOSS_WEIGHT * adversarial_loss
 
             ######################
             # Optimize generator #
             ######################
 
-            generator_optimizer.zero_grad()
+                generator_optimizer.zero_grad()
 
-            # Backward pass
-            scaler.scale(generator_losses).backward()
+                # Backward pass
+                scaler.scale(generator_losses).backward()
 
-            # Maybe perform gradient clipping
-            if promonet.GRADIENT_CLIP_GENERATOR is not None:
+                # Maybe perform gradient clipping
+                if promonet.GRADIENT_CLIP_GENERATOR is not None:
 
-                # Unscale gradients
-                scaler.unscale_(generator_optimizer)
+                    # Unscale gradients
+                    scaler.unscale_(generator_optimizer)
 
-                # Clip gradients
-                torch.nn.utils.clip_grad_norm_(
-                    generator.parameters(),
-                    promonet.GRADIENT_CLIP_GENERATOR)
+                    # Clip gradients
+                    torch.nn.utils.clip_grad_norm_(
+                        generator.parameters(),
+                        promonet.GRADIENT_CLIP_GENERATOR)
 
-            # Update weights
-            scaler.step(generator_optimizer)
+                # Update weights
+                scaler.step(generator_optimizer)
 
-            # Update gradient scaler
-            scaler.update()
+            ###################################
+            # Maybe do two-stage optimization #
+            ###################################
 
+                if promonet.TWO_STAGE:
+
+                    # Compute synthesizer loss as L1 between spectrograms
+                    synthesizer_loss = torch.nn.functional.l1_loss(
+                        spectrogram_slices,
+                        predicted_spectrogram)
+
+                    synthesizer_optimizer.zero_grad()
+
+                    # Backward pass
+                    scaler.scale(synthesizer_loss).backward()
+
+                    # Update weights
+                    scaler.step(synthesizer_optimizer)
+
+                # Update gradient scaler
+                scaler.update()
 
             ###########
             # Logging #
@@ -500,17 +483,7 @@ def train(
                             generator_optimizer.param_groups[0]['lr'],
                         'loss/generator/feature-matching':
                             feature_matching_loss,
-                        'loss/generator/mels': mel_loss,
-                        'loss/generator/kl-divergence':
-                            kl_divergence_loss,
-                        'loss/generator/weights/adversarial':
-                            adversarial_weight,
-                        'loss/generator/weights/kl':
-                            kl_weight,
-                        'loss/generator/weights/feature_matching':
-                            feature_matching_weight,
-                        'loss/generator/weights/mel':
-                            mel_weight}
+                        'loss/generator/mels': mel_loss}
                     if durations is not None:
                         scalars['loss/generator/duration'] = \
                             duration_loss
@@ -523,6 +496,10 @@ def train(
                     scalars.update(
                         {f'loss/discriminator/fake-{i:02d}': value
                         for i, value in enumerate(fake_discriminator_losses)})
+                    if promonet.TWO_STAGE:
+                        scalars['loss/synthesizer'] = synthesizer_loss
+                    else:
+                        scalars['loss/generator/kl-divergence'] = kl_divergence_loss
                     promonet.write.scalars(log_directory, step, scalars)
 
                     # Log mels and attention matrix
@@ -540,6 +517,10 @@ def train(
                         figures['train/attention'] = \
                             promonet.plot.alignment(
                                 attention[0, 0].data.cpu().numpy())
+                    if promonet.TWO_STAGE:
+                        figures['train/slice/synthesizer'] = \
+                            promonet.plot.spectrogram(
+                                predicted_spectrogram[0].data.cpu().numpy())
                     promonet.write.figures(log_directory, step, figures)
 
                 ############
@@ -573,17 +554,22 @@ def train(
                         generator_optimizer,
                         step,
                         output_directory / f'generator-{step:08d}.pt',
-                        balancer)
+                        synthesizer_optimizer)
                     promonet.checkpoint.save(
                         discriminators,
                         discriminator_optimizer,
                         step,
-                        output_directory / f'discriminator-{step:08d}.pt',
-                        None)
+                        output_directory / f'discriminator-{step:08d}.pt')
 
-            # Update training step count
+            # Maybe finish training
             if step >= steps:
                 break
+
+            # Transition from training to fine-tuning two-stage system
+            if promonet.TWO_STAGE and step == steps // 2:
+                promonet.TWO_STAGE_1 = False
+                promonet.TWO_STAGE_2 = True
+
             step += 1
 
             # Update progress bar
@@ -593,6 +579,8 @@ def train(
         # Update learning rate every epoch
         generator_scheduler.step()
         discriminator_scheduler.step()
+        if promonet.TWO_STAGE:
+            synthesizer_scheduler.step()
 
     # Close progress bar
     if not rank:
@@ -603,7 +591,8 @@ def train(
         generator,
         generator_optimizer,
         step,
-        output_directory / f'generator-{step:08d}.pt')
+        output_directory / f'generator-{step:08d}.pt',
+        synthesizer_scheduler)
     promonet.checkpoint.save(
         discriminators,
         discriminator_optimizer,

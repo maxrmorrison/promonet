@@ -1,5 +1,4 @@
 # Trainings
-# - T5 encoder
 # - scale-up promonet
 # - scale-up promovoco
 # - scale-up spectral

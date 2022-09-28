@@ -63,8 +63,8 @@ class T5(T5PreTrainedModel):
         return_dict: Optional[bool] = False
     ) -> Union[Tuple[torch.FloatTensor], BaseModelOutput]:
         return self.encoder(
-            attention_mask=mask.unsqueeze(2) * mask.unsqueeze(-1),
-            inputs_embeds=inputs * mask,
+            attention_mask=(mask.unsqueeze(2) * mask.unsqueeze(-1))[:, 0],
+            inputs_embeds=(inputs * mask).permute(0, 2, 1),
             output_attentions=output_attentions,
             output_hidden_states=output_hidden_states,
             return_dict=return_dict)

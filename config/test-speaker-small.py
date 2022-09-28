@@ -1,5 +1,44 @@
 # Configuration name
-CONFIG = 'condition-both-mrd-snake-filter-clip-augment-balance-small'
+CONFIG = 'test-speaker-small'
+
+# Batch size (per gpu)
+BATCH_SIZE = 16
+
+# Number of training steps
+NUM_STEPS = 100000
+
+# Discriminator phoneme conditioning
+DISCRIM_PHONEME_CONDITION = True
+
+# Discriminator augmentation ratio conditioning
+DISCRIM_RATIO_CONDITION = True
+
+# Pass the augmentation ratio through the latent
+LATENT_RATIO_SHORTCUT = True
+
+
+###############################################################################
+# Loss parameters
+###############################################################################
+
+
+# Weight applied to the discriminator loss
+ADVERSARIAL_LOSS_WEIGHT = 2.
+
+# Weight applied to the KL divergence loss
+KL_DIVERGENCE_LOSS_WEIGHT = 1.
+
+# Weight applied to the feature matching loss
+FEATURE_MATCHING_LOSS_WEIGHT = 2.
+
+# Weight applied to the melspectrogram loss
+MEL_LOSS_WEIGHT = 45.
+
+
+###############################################################################
+# condition-both-mrd-snake-filter-clip-augment-small
+###############################################################################
+
 
 # Whether to use pitch augmentation
 AUGMENT_PITCH = True
@@ -25,17 +64,14 @@ LATENT_PERIODICITY_SHORTCUT = True
 # Pass pitch through the latent
 LATENT_PITCH_SHORTCUT = True
 
-# Loss balancing
-LOSS_BALANCE = True
-
 # Loudness features
 LOUDNESS_FEATURES = True
 
 # Whether to use the multi-resolution spectrogram discriminator from UnivNet
-MULTI_RESOLUTION_DISCRIMINATOR = True
+MULTI_RESOLUTION_DISCRIMINATOR = False
 
 # Whether to use the multi-scale waveform discriminator from MelGAN
-MULTI_SCALE_DISCRIMINATOR = False
+MULTI_SCALE_DISCRIMINATOR = True
 
 # Periodicity conditioning
 PERIODICITY_FEATURES = True
@@ -55,7 +91,3 @@ SNAKE = True
 
 # Whether to use a low-pass filter when using snake
 SNAKE_FILTER = True
-
-# Reduce batch size and steps for development
-BATCH_SIZE = 16
-NUM_STEPS = 100000

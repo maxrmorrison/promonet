@@ -144,7 +144,7 @@ PPG_INTERP_METHOD = None
 # Only use spectral features
 SPECTROGRAM_ONLY = False
 
-# Generate spectral features
+# Whether to use a two-stage model
 TWO_STAGE = False
 
 
@@ -260,9 +260,6 @@ FEATURE_MATCHING_LOSS_WEIGHT = 1.
 
 # Whether to omit the first activation of each discriminator
 FEATURE_MATCHING_OMIT_FIRST = False
-
-# Loss balancing
-LOSS_BALANCE = False
 
 # Weight applied to the melspectrogram loss
 MEL_LOSS_WEIGHT = 45.
