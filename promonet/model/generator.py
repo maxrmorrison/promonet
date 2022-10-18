@@ -343,12 +343,11 @@ class LatentToAudioGenerator(torch.nn.Module):
             x = self.ups[i](x)
 
             # Residual block
-            xs = None
             for j in range(self.num_kernels):
-                if xs is None:
-                    xs = self.resblocks[i * self.num_kernels + j](x)
-                else:
+                if j:
                     xs += self.resblocks[i * self.num_kernels + j](x)
+                else:
+                    xs = self.resblocks[i * self.num_kernels + j](x)
             x = xs / self.num_kernels
 
         # Final activation
@@ -422,6 +421,10 @@ class Generator(torch.nn.Module):
         # Autoregressive
         if promonet.AUTOREGRESSIVE:
             self.autoregressive = Autoregressive()
+
+        # Template features
+        if promonet.TEMPLATE_FEATURES:
+            self.template_encoder = promonet.model.template.Encoder()
 
         # Pitch embedding
         if promonet.PITCH_FEATURES and promonet.PITCH_EMBEDDING:
@@ -500,7 +503,8 @@ class Generator(torch.nn.Module):
             ratios=None,
             spectrograms=None,
             spectrogram_lengths=None,
-            audio=None):
+            audio=None,
+            template=None):
         """Generator entry point"""
         # Default augmentation ratio is 1
         if ratios is None and promonet.AUGMENT_PITCH:
@@ -526,7 +530,8 @@ class Generator(torch.nn.Module):
             speakers,
             ratios,
             spectrograms,
-            spectrogram_lengths
+            spectrogram_lengths,
+            template
         )
 
         # Use different speaker embedding for two-stage models
@@ -597,6 +602,7 @@ class Generator(torch.nn.Module):
             ratios=None,
             spectrograms=None,
             spectrogram_lengths=None,
+            template=None,
             noise_scale=.667,
             length_scale=1,
             noise_scale_w=.8):
@@ -620,6 +626,11 @@ class Generator(torch.nn.Module):
         # Maybe add periodicity features
         if promonet.PERIODICITY_FEATURES:
             features = torch.cat((features, periodicity[:, None]), dim=1)
+
+        # Maybe add template features
+        if promonet.TEMPLATE_FEATURES:
+            template_encoding = self.template_encoder(template)
+            features = torch.cat((features, template_encoding), dim=1)
 
         # Maybe just use the spectrogram
         if promonet.SPECTROGRAM_ONLY:
@@ -728,6 +739,8 @@ class Generator(torch.nn.Module):
                     loudness,
                     slice_indices,
                     slice_size)
+            else:
+                loudness_slice = None
 
             # Maybe slice pitch
             if (
@@ -738,6 +751,8 @@ class Generator(torch.nn.Module):
                     periodicity,
                     slice_indices,
                     slice_size)
+            else:
+                periodicity_slice = None
 
             # Maybe slice pitch
             if (
@@ -748,6 +763,8 @@ class Generator(torch.nn.Module):
                     pitch,
                     slice_indices,
                     slice_size)
+            else:
+                pitch_slice = None
 
             # Maybe slice PPGs
             if promonet.LATENT_PHONEME_SHORTCUT:
@@ -755,12 +772,21 @@ class Generator(torch.nn.Module):
                     phonemes,
                     slice_indices,
                     slice_size)
+            else:
+                phoneme_slice = None
 
             # Slice spectral features
             spectrogram_slice = promonet.model.slice_segments(
                 spectrograms,
                 slice_indices,
                 slice_size)
+
+            # Maybe slice template features
+            if promonet.TEMPLATE_RESIDUAL:
+                template = promonet.model.slice_segments(
+                    template,
+                    slice_indices * promonet.HOPSIZE,
+                    promonet.CHUNK_SIZE)
 
         # Generation
         else:
@@ -904,7 +930,8 @@ class Generator(torch.nn.Module):
             prior,
             predicted_mean,
             predicted_logstd,
-            true_logstd)
+            true_logstd,
+            template)
 
 
 class Autoregressive(torch.nn.Module):

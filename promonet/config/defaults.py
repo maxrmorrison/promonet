@@ -144,6 +144,12 @@ PPG_INTERP_METHOD = None
 # Only use spectral features
 SPECTROGRAM_ONLY = False
 
+# Whether to use template features and encoder
+TEMPLATE_FEATURES = False
+
+# Whether to pass residual sample-rate template features
+TEMPLATE_RESIDUAL = False
+
 # Whether to use a two-stage model
 TWO_STAGE = False
 

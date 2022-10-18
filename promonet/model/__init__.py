@@ -7,5 +7,6 @@ from .t5 import T5
 from . import attention
 from . import generator
 from . import modules
+from . import template
 from . import transform
 # from . import monotonic_align

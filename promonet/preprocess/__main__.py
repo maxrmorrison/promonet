@@ -13,7 +13,7 @@ def parse_args():
     parser.add_argument(
         '--datasets',
         nargs='+',
-        default=['vctk'],
+        default=['daps', 'vctk'],
         help='The name of the datasets to use')
     parser.add_argument(
         '--features',

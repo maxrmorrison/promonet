@@ -8,6 +8,7 @@ import promonet
 ###############################################################################
 
 
+# UNUSED
 def features(sequence, grid):
     """Interpolate features using a grid"""
     index = promonet.PPG_CHANNELS

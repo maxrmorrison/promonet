@@ -1,16 +1,18 @@
 # Trainings
+# - cosine templates
+# - longer two-stage
+# - two-stage without MRD
 # - scale-up promonet
 # - scale-up promovoco
 # - scale-up spectral
 # - scale-up spectral + latent
 # - method ablations
-# - feature ablations
 
 # Development
-# - source-filter
-# - two-stage + latent
+# - xFormers **
+# - new ppgs
 # - subjective evals
-# - Am I clipping pitch above fmax or below fmin?
+# - Am I clipping pitch above fmax or below fmin? Error analysis
 # - HN-USFGAN baseline
 
 # Low priority

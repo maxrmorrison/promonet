@@ -27,8 +27,18 @@ class DiscriminatorP(torch.nn.Module):
             conv_fn(512, 1024, (kernel_size, 1), (stride, 1), padding),
             conv_fn(1024, 1024, (kernel_size, 1), 1, padding)])
         self.conv_post = conv_fn(1024, 1, (3, 1), 1, (1, 0))
+        if promonet.TEMPLATE_RESIDUAL:
+            self.template_encoder = torch.nn.Conv1d(1, 8, 7, padding='same')
 
-    def forward(self, x, pitch, periodicity, loudness, phonemes, ratios=None):
+    def forward(
+        self,
+        x,
+        pitch,
+        periodicity,
+        loudness,
+        phonemes,
+        ratios=None,
+        template=None):
         # Maybe add pitch conditioning
         if promonet.DISCRIM_PITCH_CONDITION:
             pitch = torch.nn.functional.interpolate(
@@ -72,6 +82,10 @@ class DiscriminatorP(torch.nn.Module):
                 (x, ratios.repeat(x.shape[2], 1, 1).permute(2, 1, 0)),
                 dim=1)
 
+        # Maybe add templates
+        if promonet.TEMPLATE_RESIDUAL:
+            x = torch.cat((x, self.template_encoder(template)), dim=1)
+
         feature_maps = []
 
         # 1d to 2d
@@ -109,7 +123,15 @@ class DiscriminatorR(torch.nn.Module):
         ])
         self.conv_post = conv_fn(32, 1, (3, 3), padding=(1, 1))
 
-    def forward(self, audio, pitch, periodicity, loudness, phonemes, ratios=None):
+    def forward(
+        self,
+        audio,
+        pitch,
+        periodicity,
+        loudness,
+        phonemes,
+        ratios=None,
+        template=None):
         # Compute spectral features
         features = self.spectrogram(audio)
 
@@ -157,6 +179,10 @@ class DiscriminatorR(torch.nn.Module):
                 (features, ratios.repeat(*shape).permute(3, 2, 1, 0)),
                 dim=2)
 
+        # Maybe add templates
+        if promonet.TEMPLATE_RESIDUAL:
+            x = torch.cat((x, self.spectrogram(template)), dim=2)
+
         # Forward pass and save activations
         fmap = []
         x = features
@@ -202,8 +228,18 @@ class DiscriminatorS(torch.nn.Module):
             conv_fn(1024, 1024, 41, 4, groups=256, padding=20),
             conv_fn(1024, 1024, 5, 1, padding=2), ])
         self.conv_post = conv_fn(1024, 1, 3, 1, padding=1)
+        if promonet.TEMPLATE_RESIDUAL:
+            self.template_encoder = torch.nn.Conv1d(1, 8, 7, padding='same')
 
-    def forward(self, x, pitch, periodicity, loudness, phonemes, ratios=None):
+    def forward(
+        self,
+        x,
+        pitch,
+        periodicity,
+        loudness,
+        phonemes,
+        ratios=None,
+        template=None):
         # Maybe add pitch conditioning
         if promonet.DISCRIM_PITCH_CONDITION:
             pitch = torch.nn.functional.interpolate(
@@ -250,6 +286,10 @@ class DiscriminatorS(torch.nn.Module):
                 ),
                 dim=1)
 
+        # Maybe add templates
+        if promonet.TEMPLATE_RESIDUAL:
+            x = torch.cat((x, self.template_encoder(template)), dim=1)
+
         # Forward pass and save activations
         feature_maps = []
         for layer in self.convs:
@@ -285,7 +325,8 @@ class Discriminator(torch.nn.Module):
         periodicity,
         loudness,
         phonemes,
-        ratios=None):
+        ratios=None,
+        template=None):
         logits_real = []
         logits_fake = []
         feature_maps_real = []
@@ -297,7 +338,8 @@ class Discriminator(torch.nn.Module):
                 periodicity=periodicity,
                 loudness=loudness,
                 phonemes=phonemes,
-                ratios=ratios)
+                ratios=ratios,
+                template=template)
             logit_real, feature_map_real = discriminator_fn(y)
             logit_fake, feature_map_fake = discriminator_fn(y_hat)
             logits_real.append(logit_real)

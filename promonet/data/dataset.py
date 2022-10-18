@@ -40,6 +40,7 @@ class Dataset(torch.utils.data.Dataset):
         stem = self.stems[index]
         text = promonet.load.text(self.cache / f'{stem[:-4]}.txt')
         audio = promonet.load.audio(self.cache / f'{stem}.wav')
+        template = promonet.load.audio(self.cache / f'{stem}-template.wav')
         pitch = promonet.load.pitch(self.cache / f'{stem}-pitch.pt')
         periodicity = torch.load(self.cache / f'{stem}-periodicity.pt')
         loudness = torch.load(self.cache / f'{stem}-loudness.pt')
@@ -70,6 +71,7 @@ class Dataset(torch.utils.data.Dataset):
             loudness,
             spectrogram,
             audio,
+            template,
             torch.tensor(speaker, dtype=torch.long),
             int(stem[-3:]) / 100.)
 
