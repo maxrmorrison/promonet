@@ -2,6 +2,7 @@ import functools
 import math
 import multiprocessing as mp
 
+import numba
 import torch
 import torchaudio
 import tqdm
@@ -34,22 +35,20 @@ def from_prosody(pitch, periodicity, loudness):
     pitch = 2 ** interp_fn(torch.log2(pitch)[:, None]).squeeze()
     periodicity = interp_fn(periodicity[:, None]).squeeze()
 
-    # Create template
-    result = torch.zeros_like(pitch)
-    for i in range(1, len(result)):
-
-        # Autoregressively generate unwrapped phase
-        result[i] = result[i - 1] + SAMPLE_RATE_RADIANS * pitch[i]
+    # Autoregressively generate phase
+    result = torch.tensor(loop(pitch.cpu().numpy()))
 
     # Convert phase to pitched waveform
-    result = torch.cos(result)[None]
-    # result = sawtooth(result)[None]
+    # result = torch.cos(result)[None]
+    result = sawtooth(result)[None]
 
     # Add some noise
-    result += periodicity * (2 * torch.rand_like(result) - 1)
+    result += (1 - periodicity.cpu()) * (2 * torch.rand_like(result) - 1)
 
     # Apply loudness scaling
-    return promonet.baseline.loudness.scale(result, loudness)
+    result = promonet.baseline.loudness.scale(result, loudness.cpu())
+
+    return result.to(pitch.device)
 
 
 def from_file_to_file(prefix):
@@ -68,12 +67,27 @@ def from_files_to_files(prefixes):
     # iterator = tqdm.tqdm(prefixes)
     # for prefix in prefixes:
     #     from_file_to_file(prefix)
-    #     print(prefix)
+    #     print(prefix.resolve())
 
 
 ###############################################################################
 # Utilities
 ###############################################################################
+
+
+@numba.njit
+def loop(pitch):
+    """Run autoregressive loop with numba"""
+    # Create template
+    result = numba.typed.List()
+    result.append(0.)
+    for i in range(1, len(pitch)):
+
+        # Autoregressively generate unwrapped phase
+        sample = result[i - 1] + SAMPLE_RATE_RADIANS * pitch[i]
+        result.append(sample)
+
+    return result
 
 
 def sawtooth(phase):

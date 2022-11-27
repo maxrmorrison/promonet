@@ -1,6 +1,7 @@
 # Trainings
+# - sawtooth templates **
+# - template spectrogram
 # - cosine templates
-# - longer two-stage
 # - two-stage without MRD
 # - scale-up promonet
 # - scale-up promovoco
@@ -10,7 +11,7 @@
 
 # Development
 # - xFormers **
-# - new ppgs
+# - new ppgs **
 # - subjective evals
 # - Am I clipping pitch above fmax or below fmin? Error analysis
 # - HN-USFGAN baseline
