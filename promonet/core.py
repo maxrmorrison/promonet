@@ -1,6 +1,7 @@
 import pysodic
 import torch
 import torchaudio
+import tqdm
 
 import promonet
 
@@ -247,6 +248,17 @@ def from_files_to_files(
 ###############################################################################
 # Utilities
 ###############################################################################
+
+
+def iterator(iterable, message, initial=0, total=None):
+    """Create a tqdm iterator"""
+    total = len(iterable) if total is None else total
+    return tqdm.tqdm(
+        iterable,
+        desc=message,
+        dynamic_ncols=True,
+        initial=initial,
+        total=total)
 
 
 def resample(audio, sample_rate, target_rate=promonet.SAMPLE_RATE):

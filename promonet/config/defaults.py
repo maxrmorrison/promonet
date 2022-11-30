@@ -141,6 +141,9 @@ PPG_FEATURES = False
 # Available method are ['nearest', 'linear']
 PPG_INTERP_METHOD = None
 
+# Type of PPGs to use
+PPG_TYPE = None
+
 # Only use spectral features
 SPECTROGRAM_ONLY = False
 

@@ -80,7 +80,13 @@ class Dataset(torch.utils.data.Dataset):
 
     def get_ppg(self, stem, length):
         """Load PPG features"""
-        ppg = torch.load(self.cache / f'{stem}-ppg.pt')
+        feature = '-ppg'
+
+        # Maybe use a different type of PPGs
+        if promonet.PPG_TYPE is not None:
+            feature += '-' + promonet.PPG_TYPE
+
+        ppg = torch.load(self.cache / f'{stem}-{feature}.pt')
 
         # Maybe resample length
         if ppg.shape[1] != length:
