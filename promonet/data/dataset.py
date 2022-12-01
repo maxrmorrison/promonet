@@ -80,7 +80,7 @@ class Dataset(torch.utils.data.Dataset):
 
     def get_ppg(self, stem, length):
         """Load PPG features"""
-        feature = '-ppg'
+        feature = 'ppg'
 
         # Maybe use a different type of PPGs
         if promonet.PPG_TYPE is not None:
