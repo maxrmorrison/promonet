@@ -142,7 +142,7 @@ PPG_FEATURES = False
 PPG_INTERP_METHOD = None
 
 # Type of PPGs to use
-PPG_TYPE = None
+PPG_MODEL = None
 
 # Only use spectral features
 SPECTROGRAM_ONLY = False

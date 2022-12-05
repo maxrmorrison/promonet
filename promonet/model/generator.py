@@ -156,12 +156,11 @@ class PhonemeEncoder(torch.nn.Module):
         channels,
         1)
 
-  def forward(self, features, feature_lengths, speaker_embeddings):
+  def forward(self, features, feature_lengths):
     # Embed features
     embeddings = self.input_layer(features)
     if not promonet.PPG_FEATURES and not promonet.SPECTROGRAM_ONLY:
         embeddings = embeddings.permute(0, 2, 1) * self.scale
-    embeddings += self.cond(speaker_embeddings)
 
     # Construct binary mask from lengths
     mask = promonet.model.sequence_mask(feature_lengths, embeddings.size(2))
@@ -651,7 +650,7 @@ class Generator(torch.nn.Module):
             predicted_mean,
             predicted_logstd,
             feature_mask
-        ) = self.feature_encoder(features, lengths, speaker_embeddings)
+        ) = self.feature_encoder(features, lengths)
 
         if self.training:
 

@@ -1,6 +1,9 @@
 import torch
 import torchaudio
 import tqdm
+from pathlib import Path
+
+import ppgs
 
 import promonet
 
@@ -16,8 +19,11 @@ CHECKPOINT_FILE = promonet.ASSETS_DIR / 'checkpoints' / 'ppg.pt'
 # PPG model configuration
 CONFIG_FILE = promonet.ASSETS_DIR / 'configs' / 'ppg.yaml'
 
+# Directory containing PPG checkpoints
+PPG_DIR = Path.home() / 'ppgs' / 'ppgs' / 'assets'
+
 # Sample rate of the PPG model
-SAMPLE_RATE = 16000
+# SAMPLE_RATE = 16000
 
 
 ###############################################################################
@@ -32,25 +38,49 @@ def from_audio(
     checkpoint_file=CHECKPOINT_FILE,
     gpu=None):
     """Compute PPGs from audio"""
-    device = torch.device('cpu' if gpu is None else f'cuda:{gpu}')
+    # device = torch.device('cpu' if gpu is None else f'cuda:{gpu}')
 
     # Cache model
-    if not hasattr(from_audio, 'model'):
-        from_audio.model = promonet.preprocess.ppg.conformer_ppg_model.build_ppg_model.load_ppg_model(
-            config,
-            checkpoint_file,
-            device)
+    # if not hasattr(from_audio, 'model'):
+    #     from_audio.model = promonet.preprocess.ppg.conformer_ppg_model.build_ppg_model.load_ppg_model(
+    #         config,
+    #         checkpoint_file,
+    #         device)
 
     # Maybe resample
-    audio = promonet.resample(audio, sample_rate, SAMPLE_RATE)
+    # audio = promonet.resample(audio, sample_rate, SAMPLE_RATE)
 
     # Setup features
-    audio = audio.to(device)
-    length = torch.tensor([audio.shape[-1]], dtype=torch.long, device=device)
+    # audio = audio.to(device)
+    # length = torch.tensor([audio.shape[-1]], dtype=torch.long, device=device)
 
     # Infer ppgs
-    with torch.no_grad():
-        return from_audio.model(audio, length)[0].T
+    # with torch.no_grad():
+        # return from_audio.model(audio, length)[0].T
+
+    # Resolve model argument
+    if promonet.PPG_MODEL == 'senone-base':
+        name = 'basemodel'
+        preprocess_only = True
+    elif promonet.PPG_MODEL == 'senone-phoneme':
+        name = 'basemodel'
+        preprocess_only = False
+    elif promonet.PPG_MODEL == 'w2v2-base':
+        name = 'basemodelW2V2'
+        preprocess_only = True
+    elif promonet.PPG_MODEL == 'w2v2-phoneme':
+        name = 'basemodelW2V2'
+        preprocess_only = False
+    else:
+        raise ValueError(f'Model {promonet.PPG_MODEL} is not defined')
+
+    # Infer ppgs
+    return ppgs.from_audio(
+        audio,
+        sample_rate,
+        preprocess_only=preprocess_only,
+        checkpoint=PPG_DIR / 'checkpoints' / f'{name}.pt',
+        gpu=gpu)
 
 
 def from_file(audio_file, gpu=None):

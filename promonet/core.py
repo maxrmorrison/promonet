@@ -133,6 +133,7 @@ def from_audio(
         speakers = torch.zeros(1, dtype=torch.long, device=device)
 
         # Generate
+        import pdb; pdb.set_trace()
         with torch.no_grad():
             return from_audio.generator(
                 features.to(device),

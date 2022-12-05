@@ -45,11 +45,7 @@ class PPG:
         return {'ppg': torch.sqrt(self.total / self.count).item()}
 
     def update(self, predicted, target):
-        # TODO - add PPG module to recompute corresponding PPGs
-        try:
-            self.total += ((predicted - target) ** 2).sum()
-        except Exception:
-            self.total += torch.zeros(1)
+        self.total += ((predicted - target) ** 2).sum()
         self.count += predicted.shape[-1]
 
     def reset(self):

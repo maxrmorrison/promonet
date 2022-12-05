@@ -83,8 +83,8 @@ class Dataset(torch.utils.data.Dataset):
         feature = 'ppg'
 
         # Maybe use a different type of PPGs
-        if promonet.PPG_TYPE is not None:
-            feature += '-' + promonet.PPG_TYPE
+        if promonet.PPG_MODEL is not None:
+            feature += '-' + promonet.PPG_MODEL
 
         ppg = torch.load(self.cache / f'{stem}-{feature}.pt')
 

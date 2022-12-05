@@ -470,15 +470,18 @@ def speaker(
                 # Get predicted PPGs
                 size = prosody_args[0].shape[-1]
                 mode = promonet.PPG_INTERP_METHOD
+                ppg_model = (
+                    '' if promonet.PPG_MODEL is None else
+                    f'-{promonet.PPG_MODEL}')
                 predicted_ppgs = torch.nn.functional.interpolate(
-                    torch.load(f'{predicted_prefix}-ppg.pt')[None],
+                    torch.load(f'{predicted_prefix}-ppg{ppg_model}.pt')[None],
                     size=size,
                     mode=mode,
                     align_corners=None if mode == 'nearest' else False)[0]
 
                 # Get target PPGs
                 target_ppgs = torch.nn.functional.interpolate(
-                    torch.load(f'{target_prefix}-ppg.pt')[None],
+                    torch.load(f'{target_prefix}-ppg{ppg_model}.pt')[None],
                     size=size,
                     mode=mode,
                     align_corners=None if mode == 'nearest' else False)[0]
