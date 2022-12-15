@@ -1,5 +1,5 @@
 # Configuration name
-CONFIG = 'test'
+CONFIG = 'test-ablate-mrd-small'
 
 # Batch size (per gpu)
 BATCH_SIZE = 16
@@ -14,7 +14,7 @@ DISCRIM_PHONEME_CONDITION = True
 DISCRIM_RATIO_CONDITION = True
 
 # Pass the phonemes through the latent
-LATENT_PHONEME_SHORTCUT = False
+LATENT_PHONEME_SHORTCUT = True
 
 # Pass the augmentation ratio through the latent
 LATENT_RATIO_SHORTCUT = True
@@ -71,10 +71,10 @@ LATENT_PITCH_SHORTCUT = True
 LOUDNESS_FEATURES = True
 
 # Whether to use the multi-resolution spectrogram discriminator from UnivNet
-MULTI_RESOLUTION_DISCRIMINATOR = False
+MULTI_RESOLUTION_DISCRIMINATOR = True
 
 # Whether to use the multi-scale waveform discriminator from MelGAN
-MULTI_SCALE_DISCRIMINATOR = True
+MULTI_SCALE_DISCRIMINATOR = False
 
 # Periodicity conditioning
 PERIODICITY_FEATURES = True
