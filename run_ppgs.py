@@ -11,6 +11,7 @@ import promonet
 ###############################################################################
 
 
+# TODO - remove hard coding
 PPG_DIR = Path.home() / 'ppgs' / 'ppgs' / 'assets'
 
 

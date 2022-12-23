@@ -12,6 +12,9 @@ import torch
 # Configuration name
 CONFIG = 'promonet'
 
+# Module name
+MODULE = 'promonet'
+
 
 ###############################################################################
 # Audio parameters
