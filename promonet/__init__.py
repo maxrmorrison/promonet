@@ -1,23 +1,13 @@
 # Trainings
-# - sawtooth templates **
-# - template spectrogram
-# - cosine templates
-# - two-stage without MRD
-# - scale-up promonet
-# - scale-up promovoco
-# - scale-up spectral
-# - scale-up spectral + latent
-# - method ablations
+# -
 
 # Development
+# - clean-up
 # - xFormers **
 # - new ppgs **
 # - subjective evals
 # - Am I clipping pitch above fmax or below fmin? Error analysis
 # - HN-USFGAN baseline
-
-# Low priority
-# - address loudness-scaling acting as bias in V/UV F1 computation (by rescaling)
 
 
 ###############################################################################
