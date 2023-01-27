@@ -1,10 +1,7 @@
-# Trainings
-# -
-
 # Development
-# - clean-up
-# - xFormers **
-# - new ppgs **
+# - debug ppgs**
+# - clean-up*
+# - xFormers
 # - subjective evals
 # - Am I clipping pitch above fmax or below fmin? Error analysis
 # - HN-USFGAN baseline

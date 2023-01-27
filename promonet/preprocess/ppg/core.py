@@ -58,7 +58,7 @@ def from_audio(
     with torch.no_grad():
         return from_audio.model(audio, length)[0].T
 
-    # Resolve model argument
+    # # Resolve model argument
     # if promonet.PPG_MODEL == 'senone-base':
     #     name = 'basemodel'
     #     preprocess_only = True
@@ -74,7 +74,7 @@ def from_audio(
     # else:
     #     raise ValueError(f'Model {promonet.PPG_MODEL} is not defined')
 
-    # Infer ppgs
+    # # Infer ppgs
     # return ppgs.from_audio(
     #     audio,
     #     sample_rate,
