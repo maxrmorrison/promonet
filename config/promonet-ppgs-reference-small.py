@@ -16,7 +16,7 @@ DISCRIM_PHONEME_CONDITION = True
 DISCRIM_RATIO_CONDITION = True
 
 # Pass the phonemes through the latent
-LATENT_PHONEME_SHORTCUT = False
+LATENT_PHONEME_SHORTCUT = True
 
 # Pass the augmentation ratio through the latent
 LATENT_RATIO_SHORTCUT = True

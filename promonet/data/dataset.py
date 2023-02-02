@@ -31,6 +31,7 @@ class Dataset(torch.utils.data.Dataset):
             self.stems.extend([f'{stem}-{ratios[stem]}' for stem in stems])
 
         # Store spectrogram lengths for bucketing
+        # TODO - use torchaudio.info
         audio_files = list([self.cache / f'{stem}.wav' for stem in self.stems])
         self.spectrogram_lengths = [
             os.path.getsize(audio_file) // (2 * promonet.HOPSIZE)

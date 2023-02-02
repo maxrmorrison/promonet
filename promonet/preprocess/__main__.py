@@ -11,6 +11,10 @@ import promonet
 def parse_args():
     parser = argparse.ArgumentParser(description='Preprocess a dataset')
     parser.add_argument(
+        '--config',
+        nargs='+',
+        help='The name of the datasets to use')
+    parser.add_argument(
         '--datasets',
         nargs='+',
         default=['daps', 'vctk'],
@@ -24,7 +28,12 @@ def parse_args():
         '--gpu',
         type=int,
         help='The index of the gpu to use')
-    return parser.parse_args()
+
+    # Delete config files
+    args = parser.parse_args()
+    del args.config
+    return args
+
 
 
 if __name__ == '__main__':

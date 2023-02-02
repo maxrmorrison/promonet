@@ -1,3 +1,5 @@
+MODULE = 'promonet'
+
 # Configuration name
 CONFIG = 'promonet-ppgs-w2v2-base-small'
 
@@ -11,7 +13,7 @@ NUM_STEPS = 100000
 PPG_CHANNELS = 768
 
 # Type of PPGs to use
-PPG_TYPE = 'w2v2-base'
+PPG_MODEL = 'w2v2-base'
 
 # Discriminator phoneme conditioning
 DISCRIM_PHONEME_CONDITION = True
@@ -20,7 +22,7 @@ DISCRIM_PHONEME_CONDITION = True
 DISCRIM_RATIO_CONDITION = True
 
 # Pass the phonemes through the latent
-LATENT_PHONEME_SHORTCUT = False
+LATENT_PHONEME_SHORTCUT = True
 
 # Pass the augmentation ratio through the latent
 LATENT_RATIO_SHORTCUT = True

@@ -1,5 +1,7 @@
+MODULE = 'promonet'
+
 # Configuration name
-CONFIG = 'promonet-ppgs-senone-phoneme-small'
+CONFIG = 'promonet-ppgs-senone-phoneme-latent-small'
 
 # Batch size (per gpu)
 BATCH_SIZE = 16
@@ -11,7 +13,7 @@ NUM_STEPS = 100000
 PPG_CHANNELS = 42
 
 # Type of PPGs to use
-PPG_TYPE = 'senone-phoneme'
+PPG_MODEL = 'senone-phoneme'
 
 # Discriminator phoneme conditioning
 DISCRIM_PHONEME_CONDITION = True
@@ -20,7 +22,7 @@ DISCRIM_PHONEME_CONDITION = True
 DISCRIM_RATIO_CONDITION = True
 
 # Pass the phonemes through the latent
-LATENT_PHONEME_SHORTCUT = False
+LATENT_PHONEME_SHORTCUT = True
 
 # Pass the augmentation ratio through the latent
 LATENT_RATIO_SHORTCUT = True
