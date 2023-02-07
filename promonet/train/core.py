@@ -265,7 +265,7 @@ def train(
                 template)
 
             # Convert to mels
-            mels = promonet.preprocess.spectrogram.linear_to_mel(
+            mels = promonet.data.preprocess.spectrogram.linear_to_mel(
                 spectrograms)
 
             with torch.cuda.amp.autocast():
@@ -324,7 +324,7 @@ def train(
                     # See Github issue https://github.com/jaywalnut310/vits/issues/15
                     # For progress, see https://github.com/pytorch/pytorch/issues/74537
                     generated = generated.float()
-                    generated_mels = promonet.preprocess.spectrogram.from_audio(
+                    generated_mels = promonet.data.preprocess.spectrogram.from_audio(
                         generated,
                         True)
                     audio = promonet.model.slice_segments(
@@ -689,7 +689,7 @@ def evaluate(directory, step, generator, valid_loader, gpu):
                 waveforms[f'original/{i:02d}-audio'] = audio[0]
 
                 # Log original melspectrogram
-                mels = promonet.preprocess.spectrogram.linear_to_mel(
+                mels = promonet.data.preprocess.spectrogram.linear_to_mel(
                     spectrogram[0]).cpu().numpy()
                 figures[f'original/{i:02d}-mels'] = \
                     promonet.plot.spectrogram(mels)
@@ -778,7 +778,7 @@ def evaluate(directory, step, generator, valid_loader, gpu):
 
                     # Maybe make template
                     if promonet.TEMPLATE_FEATURES:
-                        template = promonet.preprocess.template.from_prosody(
+                        template = promonet.data.preprocess.template.from_prosody(
                             shifted_pitch,
                             periodicity,
                             loudness)[None]
@@ -876,7 +876,7 @@ def evaluate(directory, step, generator, valid_loader, gpu):
 
                     # Maybe make template
                     if promonet.TEMPLATE_FEATURES:
-                        template = promonet.preprocess.template.from_prosody(
+                        template = promonet.data.preprocess.template.from_prosody(
                             stretched_pitch,
                             stretched_periodicity,
                             stretched_loudness)[None]
@@ -949,7 +949,7 @@ def evaluate(directory, step, generator, valid_loader, gpu):
 
                     # Maybe make template
                     if promonet.TEMPLATE_FEATURES:
-                        template = promonet.preprocess.template.from_prosody(
+                        template = promonet.data.preprocess.template.from_prosody(
                             pitch,
                             periodicity,
                             scaled_loudness)[None]
@@ -1040,7 +1040,7 @@ def evaluate(directory, step, generator, valid_loader, gpu):
 
 def ppgs(audio, size, gpu=None):
     """Extract aligned PPGs"""
-    predicted_phonemes = promonet.preprocess.ppg.from_audio(
+    predicted_phonemes = promonet.data.preprocess.ppg.from_audio(
         audio[0],
         gpu=gpu)
     mode = promonet.PPG_INTERP_METHOD

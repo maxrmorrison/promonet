@@ -41,7 +41,7 @@ TWO_STAGE_1 = promonet.TWO_STAGE
 TWO_STAGE_2 = False
 
 # Number of input features to the generator
-# 178 is len(promonet.preprocess.text.symbols())
+# 178 is len(promonet.data.preprocess.text.symbols())
 NUM_FEATURES = (
     178 if not promonet.PPG_FEATURES and not promonet.SPECTROGRAM_ONLY else (
         promonet.LOUDNESS_FEATURES +

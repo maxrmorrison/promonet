@@ -9,7 +9,7 @@ import promonet
 def test_core(audio):
     """Test generation"""
     # Preprocess
-    features = promonet.preprocess.spectrogram.from_audio(audio)
+    features = promonet.data.preprocess.spectrogram.from_audio(audio)
 
     # Vocode
     vocoded_from_features = promonet.from_features(features)

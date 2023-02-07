@@ -21,7 +21,7 @@ def parse_args():
         help='The name of the datasets to use')
     parser.add_argument(
         '--features',
-        default=promonet.preprocess.ALL_FEATURES,
+        default=promonet.data.preprocess.ALL_FEATURES,
         nargs='+',
         help='The features to preprocess')
     parser.add_argument(
@@ -37,4 +37,4 @@ def parse_args():
 
 
 if __name__ == '__main__':
-    promonet.preprocess.datasets(**vars(parse_args()))
+    promonet.data.preprocess.datasets(**vars(parse_args()))

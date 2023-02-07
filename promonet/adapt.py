@@ -41,7 +41,7 @@ def speaker(
             torchaudio.save(f'{i:06d}.wav', audio, promonet.SAMPLE_RATE)
 
         # Preprocess features
-        promonet.preprocess.files(
+        promonet.data.preprocess.from_files_to_files(
             Path(),
             Path().rglob('*.wav'),
             features=['ppg', 'prosody', 'spectrogram'],

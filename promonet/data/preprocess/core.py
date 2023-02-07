@@ -57,7 +57,7 @@ def from_files_to_files(
         if 'phonemes' in features:
             phoneme_files = [
                 f'{file.stem}-text.pt' for file in text_files]
-            promonet.preprocess.text.from_files_to_files(
+            promonet.data.preprocess.text.from_files_to_files(
                 text_files,
                 phoneme_files)
 
@@ -65,14 +65,14 @@ def from_files_to_files(
         if 'spectrogram' in features:
             spectrogram_files = [
                 f'{file.stem}-spectrogram.pt' for file in audio_files]
-            promonet.preprocess.spectrogram.from_files_to_files(
+            promonet.data.preprocess.spectrogram.from_files_to_files(
                 audio_files,
                 spectrogram_files)
 
         # Preprocess phonetic posteriorgrams
         if 'ppg' in features:
             ppg_files = [f'{file.stem}-ppg.pt' for file in audio_files]
-            promonet.preprocess.ppg.from_files_to_files(
+            promonet.data.preprocess.ppg.from_files_to_files(
                 audio_files,
                 ppg_files,
                 gpu)
@@ -91,7 +91,7 @@ def from_files_to_files(
         # Template waveform
         if 'template' in features:
             prefixes = [Path(file.stem) for file in audio_files]
-            promonet.preprocess.template.from_files_to_files(prefixes)
+            promonet.data.preprocess.template.from_files_to_files(prefixes)
 
 
 def prosody(audio, sample_rate=promonet.SAMPLE_RATE, text=None, gpu=None):

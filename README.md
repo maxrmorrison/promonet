@@ -137,11 +137,11 @@ checkpoint = promonet.adapt.speaker(name, directory, gpus=gpus)
 audio = promonet.load.audio('test.wav')
 
 # Get prosody features to edit
-pitch, loudness = promonet.preprocess.prosody(audio, gpu=gpus[0])
+pitch, loudness = promonet.preprocess(audio, gpu=gpus[0])
 
 # (Optional) If you have the text transcript, you can edit phoneme
 #            durations using a forced alignment representation
-pitch, loudness, alignment = promonet.preprocess.prosody(
+pitch, loudness, alignment = promonet.preprocess(
     audio,
     text=promonet.load.text('test.txt'),
     gpu=gpus[0])
@@ -205,7 +205,7 @@ python -m promonet.data.download --datasets <datasets>
 Prepares features for training. Features are stored in `data/cache/`.
 
 ```
-python -m promonet.preprocess --datasets <datasets> --gpu <gpu>
+python -m promonet.data.preprocess --datasets <datasets> --gpu <gpu>
 ```
 
 

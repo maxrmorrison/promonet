@@ -9,7 +9,7 @@ import promonet
 def test_mels(audio, true_mels):
     """Test melspectrogram preprocessing"""
     # Preprocess
-    spectrogram = promonet.preprocess.spectrogram.from_audio(audio, mels=True)
+    spectrogram = promonet.data.preprocess.spectrogram.from_audio(audio, mels=True)
 
     # Should be correct shape
     correct_shape = (promonet.NUM_MELS, audio.shape[1] // promonet.HOPSIZE)
@@ -22,7 +22,7 @@ def test_mels(audio, true_mels):
 def test_spectrogram(audio, true_spectrogram):
     """Test spectrogram preprocessing"""
     # Preprocess
-    spectrogram = promonet.preprocess.spectrogram.from_audio(audio)
+    spectrogram = promonet.data.preprocess.spectrogram.from_audio(audio)
 
     # Should be correct shape
     correct_shape = (
@@ -37,7 +37,7 @@ def test_spectrogram(audio, true_spectrogram):
 def test_text(text, true_features):
     """Test text preprocessing"""
     # Preprocess
-    features = promonet.preprocess.text(text)
+    features = promonet.data.preprocess.text(text)
 
     # Should be correct shape
     correct_shape = (promonet.NUM_PHONEMES, len(text))

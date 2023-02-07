@@ -72,7 +72,7 @@ def from_audio(
     # Get phonetic posteriorgrams
     with promonet.time.timer('features/ppgs'):
         if promonet.PPG_FEATURES or promonet.SPECTROGRAM_ONLY:
-            features = promonet.preprocess.ppg.from_audio(
+            features = promonet.data.preprocess.ppg.from_audio(
                 audio,
                 sample_rate,
                 gpu=gpu)
@@ -99,7 +99,7 @@ def from_audio(
     # Maybe get text features
     with promonet.time.timer('features/text'):
         if not promonet.PPG_FEATURES and not promonet.SPECTROGRAM_ONLY:
-            features = promonet.preprocess.text.from_string(text)
+            features = promonet.data.preprocess.text.from_string(text)
 
     # Setup model
     device = torch.device('cpu' if gpu is None else f'cuda:{gpu}')

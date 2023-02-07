@@ -385,7 +385,7 @@ def speaker(
         # Ignore warnings when MFA fails, as we retry failures with P2FA
         with warnings.catch_warnings():
             warnings.simplefilter('ignore')
-        promonet.preprocess.from_files_to_files(
+        promonet.data.preprocess.from_files_to_files(
             objective_directory / file.parent.name,
             value,
             text_files,

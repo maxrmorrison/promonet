@@ -43,26 +43,50 @@ SAMPLE_RATE = 22050  # Hz
 # Number of spectrogram channels
 WINDOW_SIZE = 1024
 
+###############################################################################
+# Data parameters
+###############################################################################
+
+
+# Number of buckets to partition training and validation data into based on
+# length to avoid excess padding
+# TODO
+BUCKETS = 8
+
+# Names of all datasets
+DATASETS = ['daps', 'vctk']
+
+# Datasets for evaluation
+EVALUATION_DATASETS = DATASETS
+
 
 ###############################################################################
 # Directories
 ###############################################################################
 
 
+# Root location for saving outputs
+# TEMPORARY
+# ROOT_DIR = Path(__file__).parent.parent.parent
+ROOT_DIR = Path('/data/max/promonet')
+
 # Location to save assets to be bundled with pip release
 ASSETS_DIR = Path(__file__).parent.parent / 'assets'
 
 # Location of preprocessed features
-CACHE_DIR = Path(__file__).parent.parent.parent / 'data' / 'cache'
+CACHE_DIR = ROOT_DIR / 'data' / 'cache'
 
 # Location of datasets on disk
-DATA_DIR = Path(__file__).parent.parent.parent / 'data' / 'datasets'
+DATA_DIR = ROOT_DIR / 'data' / 'datasets'
 
 # Location to save evaluation artifacts
-EVAL_DIR = Path(__file__).parent.parent.parent / 'eval'
+EVAL_DIR = ROOT_DIR / 'eval'
 
 # Location to save training and adaptation artifacts
-RUNS_DIR = Path(__file__).parent.parent.parent / 'runs'
+RUNS_DIR = ROOT_DIR / 'runs'
+
+# Location of compressed datasets on disk
+SOURCES_DIR = ROOT_DIR / 'data' / 'sources'
 
 
 ###############################################################################
@@ -74,7 +98,7 @@ RUNS_DIR = Path(__file__).parent.parent.parent / 'runs'
 BENCHMARK = False
 
 # The model to use for evaluation.
-# One of ['promonet', 'promospec', 'qpcargan', 'clpcnet', 'psola', 'world].
+# One of ['promonet', 'psola', 'world].
 MODEL = 'promonet'
 
 
