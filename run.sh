@@ -8,7 +8,7 @@
 python -m promonet.data.download
 
 # Setup experiments
-python -m promonet.data.preprocess --gpu $1
+python -m promonet.data.preprocess --features spectrogram ppg prosody --gpu $1
 python -m promonet.data.augment --gpu $1
 python -m promonet.partition
 
