@@ -3,15 +3,16 @@ from pathlib import Path
 import pysodic
 
 import promonet
-
+import ppgs
 
 ###############################################################################
 # Constants
 ###############################################################################
 
 
-ALL_FEATURES = ['ppg', 'prosody', 'phonemes', 'spectrogram']
+ALL_FEATURES = ['ppg', 'prosody', 'phonemes', 'spectrogram'] + ppgs.REPRESENTATION_MAP.keys()
 
+PPG_DIR = Path.home() / 'ppgs' / 'ppgs' / 'assets' #TODO fix this to not be... this
 
 ###############################################################################
 # Data preprocessing
@@ -52,6 +53,14 @@ def from_files_to_files(
     """Preprocess from files"""
     # Change directory
     with promonet.data.chdir(output_directory):
+
+        for feature in features:
+            if feature in ppgs.REPRESENTATION_MAP.keys():
+                base_files = [f'{file.stem}-{feature}-base.pt' for file in audio_files]
+                phoneme_files = [f'{file.stem}-{feature}-phoneme.pt' for file in audio_files]
+                ppgs.from_files_to_files(audio_files, base_files, representation=feature, preprocess_only=True, gpu=gpu)
+                ppgs.from_files_to_files(audio_files, phoneme_files, representation=feature, preprocess_only=False, gpu=gpu)
+
 
         # Preprocess phonemes from text
         if 'phonemes' in features:

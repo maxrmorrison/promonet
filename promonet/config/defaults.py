@@ -67,8 +67,9 @@ EVALUATION_DATASETS = DATASETS
 
 # Root location for saving outputs
 # TEMPORARY
-# ROOT_DIR = Path(__file__).parent.parent.parent
-ROOT_DIR = Path('/data/max/promonet')
+ROOT_DIR = Path(__file__).parent.parent.parent
+
+# ROOT_DIR = Path('/data/max/promonet')
 
 # Location to save assets to be bundled with pip release
 ASSETS_DIR = Path(__file__).parent.parent / 'assets'
