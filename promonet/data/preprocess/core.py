@@ -25,73 +25,63 @@ def datasets(datasets, features=ALL_FEATURES, gpu=None):
         # Get cache directory
         directory = promonet.CACHE_DIR / dataset
 
-        # Iterate over speakers
-        for speaker_directory in directory.glob('*'):
+        # Get text and audio files for this speaker
+        text_files = sorted(list(directory.rglob('*.txt')))
+        audio_files = sorted(list(directory.rglob('*-100.wav')))
+        audio_files = [
+            file for file in audio_files if '-template' not in file.stem]
 
-            # Get text and audio files for this speaker
-            text_files = sorted(list(speaker_directory.rglob('*.txt')))
-            audio_files = sorted(list(speaker_directory.rglob('*.wav')))
-            audio_files = [
-                file for file in audio_files if '-template' not in file.stem]
-
-            # Preprocess files
-            from_files_to_files(
-                speaker_directory,
-                audio_files,
-                text_files,
-                features,
-                gpu)
+        # Preprocess files
+        from_files_to_files(audio_files, text_files, features, gpu)
 
 
 def from_files_to_files(
-    output_directory,
     audio_files,
     text_files=None,
     features=ALL_FEATURES,
     gpu=None):
     """Preprocess from files"""
-    # Change directory
-    with promonet.data.chdir(output_directory):
+    # Preprocess phonemes from text
+    if 'phonemes' in features:
+        phoneme_files = [
+            file.parent / f'{file.stem}-text.pt' for file in text_files]
+        promonet.data.preprocess.text.from_files_to_files(
+            text_files,
+            phoneme_files)
 
-        # Preprocess phonemes from text
-        if 'phonemes' in features:
-            phoneme_files = [
-                f'{file.stem}-text.pt' for file in text_files]
-            promonet.data.preprocess.text.from_files_to_files(
-                text_files,
-                phoneme_files)
+    # Preprocess spectrograms
+    if 'spectrogram' in features:
+        spectrogram_files = [
+            file.parent / f'{file.stem}-spectrogram.pt'
+            for file in audio_files]
+        promonet.data.preprocess.spectrogram.from_files_to_files(
+            audio_files,
+            spectrogram_files)
 
-        # Preprocess spectrograms
-        if 'spectrogram' in features:
-            spectrogram_files = [
-                f'{file.stem}-spectrogram.pt' for file in audio_files]
-            promonet.data.preprocess.spectrogram.from_files_to_files(
-                audio_files,
-                spectrogram_files)
+    # Preprocess phonetic posteriorgrams
+    if 'ppg' in features:
+        ppg_files = [
+            file.parent / f'{file.stem}-ppg.pt' for file in audio_files]
+        promonet.data.preprocess.ppg.from_files_to_files(
+            audio_files,
+            ppg_files,
+            gpu)
 
-        # Preprocess phonetic posteriorgrams
-        if 'ppg' in features:
-            ppg_files = [f'{file.stem}-ppg.pt' for file in audio_files]
-            promonet.data.preprocess.ppg.from_files_to_files(
-                audio_files,
-                ppg_files,
-                gpu)
+    # Preprocess prosody features
+    if 'prosody' in features:
+        prefixes = [file.parent / file.stem for file in audio_files]
+        pysodic.from_files_to_files(
+            audio_files,
+            prefixes,
+            text_files,
+            promonet.HOPSIZE / promonet.SAMPLE_RATE,
+            promonet.WINDOW_SIZE / promonet.SAMPLE_RATE,
+            gpu)
 
-        # Preprocess prosody features
-        if 'prosody' in features:
-            prefixes = [Path(file.stem) for file in audio_files]
-            pysodic.from_files_to_files(
-                audio_files,
-                prefixes,
-                text_files,
-                promonet.HOPSIZE / promonet.SAMPLE_RATE,
-                promonet.WINDOW_SIZE / promonet.SAMPLE_RATE,
-                gpu)
-
-        # Template waveform
-        if 'template' in features:
-            prefixes = [Path(file.stem) for file in audio_files]
-            promonet.data.preprocess.template.from_files_to_files(prefixes)
+    # Template waveform
+    if 'template' in features:
+        prefixes = [Path(file.stem) for file in audio_files]
+        promonet.data.preprocess.template.from_files_to_files(prefixes)
 
 
 def prosody(audio, sample_rate=promonet.SAMPLE_RATE, text=None, gpu=None):
