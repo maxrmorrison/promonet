@@ -76,7 +76,7 @@ def from_files_to_files(
             text_files,
             promonet.HOPSIZE / promonet.SAMPLE_RATE,
             promonet.WINDOW_SIZE / promonet.SAMPLE_RATE,
-            gpu)
+            gpu=gpu)
 
     # Template waveform
     if 'template' in features:
@@ -97,13 +97,18 @@ def prosody(audio, sample_rate=promonet.SAMPLE_RATE, text=None, gpu=None):
             text,
             hopsize,
             window_size,
-            gpu)
+            gpu=gpu)
 
         # Pitch, loudness and alignment
         return output[0], output[2], output[5]
 
     # Get prosody features without alignment
-    output = pysodic.from_audio(audio, sample_rate, hopsize, window_size, gpu)
+    output = pysodic.from_audio(
+        audio,
+        sample_rate,
+        hopsize,
+        window_size,
+        gpu=gpu)
 
     # Pitch and loudness
     return output[0], output[2]
