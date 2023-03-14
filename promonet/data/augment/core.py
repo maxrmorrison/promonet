@@ -1,6 +1,7 @@
 import functools
 import json
 import multiprocessing as mp
+import os
 
 import resampy
 import soundfile
@@ -67,7 +68,7 @@ def datasets(datasets):
                 from_file_to_file,
                 speaker_directory)
             augment_iterator = list(zip(audio_files, ratios))
-            with mp.get_context('spawn').Pool() as pool:
+            with mp.get_context('spawn').Pool(os.cpu_count() // 2) as pool:
                 pool.starmap(augment_fn, augment_iterator)
 
             # Save augmentation info
