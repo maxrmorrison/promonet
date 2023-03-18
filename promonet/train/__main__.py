@@ -44,7 +44,8 @@ def parse_args():
     parser.add_argument(
         '--config',
         type=Path,
-        default=promonet.DEFAULT_CONFIGURATION,
+        nargs='+',
+        default=[promonet.DEFAULT_CONFIGURATION],
         help='The configuration file')
     parser.add_argument(
         '--dataset',
@@ -67,7 +68,11 @@ def parse_args():
         type=int,
         nargs='+',
         help='The gpus to run training on')
-    return parser.parse_args()
+
+    # Delete config files
+    args = parser.parse_args()
+    args.config = args.config[0]
+    return args
 
 
 if __name__ == '__main__':

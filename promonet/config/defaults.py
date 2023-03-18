@@ -1,7 +1,4 @@
-import functools
 from pathlib import Path
-
-import torch
 
 
 ###############################################################################
@@ -11,6 +8,9 @@ import torch
 
 # Configuration name
 CONFIG = 'promonet'
+
+# Module name
+MODULE = 'promonet'
 
 
 ###############################################################################
@@ -24,9 +24,6 @@ FMAX = 550.  # Hz
 
 # Audio hopsize
 HOPSIZE = 256  # samples
-
-# Maximum sample value of 16-bit audio
-MAX_SAMPLE_VALUE = 32768
 
 # Number of melspectrogram channels
 NUM_MELS = 80
@@ -42,24 +39,44 @@ WINDOW_SIZE = 1024
 
 
 ###############################################################################
+# Data parameters
+###############################################################################
+
+
+# Number of buckets to partition training and validation data into based on
+# length to avoid excess padding
+# TODO
+BUCKETS = 8
+
+# Names of all datasets
+DATASETS = ['daps', 'vctk']
+
+
+###############################################################################
 # Directories
 ###############################################################################
 
+
+# Root location for saving outputs
+ROOT_DIR = Path(__file__).parent.parent.parent
 
 # Location to save assets to be bundled with pip release
 ASSETS_DIR = Path(__file__).parent.parent / 'assets'
 
 # Location of preprocessed features
-CACHE_DIR = Path(__file__).parent.parent.parent / 'data' / 'cache'
+CACHE_DIR = ROOT_DIR / 'data' / 'cache'
 
 # Location of datasets on disk
-DATA_DIR = Path(__file__).parent.parent.parent / 'data' / 'datasets'
+DATA_DIR = ROOT_DIR / 'data' / 'datasets'
 
 # Location to save evaluation artifacts
-EVAL_DIR = Path(__file__).parent.parent.parent / 'eval'
+EVAL_DIR = ROOT_DIR / 'eval'
 
 # Location to save training and adaptation artifacts
-RUNS_DIR = Path(__file__).parent.parent.parent / 'runs'
+RUNS_DIR = ROOT_DIR / 'runs'
+
+# Location of compressed datasets on disk
+SOURCES_DIR = ROOT_DIR / 'data' / 'sources'
 
 
 ###############################################################################
@@ -71,7 +88,7 @@ RUNS_DIR = Path(__file__).parent.parent.parent / 'runs'
 BENCHMARK = False
 
 # The model to use for evaluation.
-# One of ['promonet', 'promospec', 'qpcargan', 'clpcnet', 'psola', 'world].
+# One of ['promonet', 'psola', 'world].
 MODEL = 'promonet'
 
 
@@ -139,19 +156,15 @@ PPG_FEATURES = False
 
 # Type of interpolation method to use to scale PPG features
 # Available method are ['nearest', 'linear']
-PPG_INTERP_METHOD = None
+# TODO - deprecate in favor of aligned features
+PPG_INTERP_METHOD = 'nearest'
 
 # Type of PPGs to use
+# TODO - deprecate in favor of best model
 PPG_MODEL = None
 
 # Only use spectral features
 SPECTROGRAM_ONLY = False
-
-# Whether to use template features and encoder
-TEMPLATE_FEATURES = False
-
-# Whether to pass residual sample-rate template features
-TEMPLATE_RESIDUAL = False
 
 # Whether to use a two-stage model
 TWO_STAGE = False
@@ -190,10 +203,7 @@ AR_INPUT_SIZE = 512
 AR_OUTPUT_SIZE = 128
 
 # The size of the latent bottleneck
-BOTTLENECK_SIZE = 192
-
-# Whether to use causal layers
-CAUSAL = False
+HIDDEN_CHANNELS = 192
 
 # Hidden dimension channel size
 FILTER_CHANNELS = 768
@@ -228,17 +238,8 @@ RESBLOCK_DILATION_SIZES = [[1, 3, 5], [1, 3, 5], [1, 3, 5]]
 # Whether to use snake activation in the audio generator
 SNAKE = False
 
-# Whether to use exact filter values as BigVGan
-SNAKE_EXACT = False
-
-# Whether to use a low-pass filter when using snake
-SNAKE_FILTER = False
-
 # Speaker embedding size
 SPEAKER_CHANNELS = 256
-
-# Whether to use a T5X stack for phoneme encoding
-T5_ENCODER = False
 
 # Initial channel size for upsampling layers
 UPSAMPLE_INITIAL_SIZE = 512
@@ -275,19 +276,6 @@ MEL_LOSS_WEIGHT = 45.
 
 
 ###############################################################################
-# Optimizers
-###############################################################################
-
-
-# Optimizer for training
-OPTIMIZER = functools.partial(
-    torch.optim.AdamW,
-    lr=2e-4,
-    betas=[0.8, 0.99],
-    eps=1e-9)
-
-
-###############################################################################
 # Text parameters
 ###############################################################################
 
@@ -313,9 +301,6 @@ CHUNK_SIZE = 8192
 # Whether to perform gradient clipping on the generator
 GRADIENT_CLIP_GENERATOR = None
 
-# Per-epoch decay rate of the learning rate
-LEARNING_RATE_DECAY = .999875
-
 # Number of training steps
 NUM_STEPS = 300000
 
@@ -327,6 +312,3 @@ NUM_WORKERS = 2
 
 # Seed for all random number generators
 RANDOM_SEED = 1234
-
-# Aligner to use to evaluate training
-TRAIN_ALIGNER = 'p2fa'

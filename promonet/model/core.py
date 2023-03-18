@@ -1,6 +1,6 @@
 import torch
 
-from .constants import CONV1D
+import promonet
 
 
 ###############################################################################
@@ -86,7 +86,8 @@ def slice_segments(segments, start_indices, segment_size, fill_value=0.):
 
 def causal_weight_norm_conv1d(*args, **kwargs):
     """Construct Conv1d layer with weight normalization"""
-    return torch.nn.utils.weight_norm(CONV1D(*args, **kwargs))
+    return torch.nn.utils.weight_norm(
+        promonet.model.modules.CausalConv1d(*args, **kwargs))
 
 
 def weight_norm_conv1d(*args, **kwargs):

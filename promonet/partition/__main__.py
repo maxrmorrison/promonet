@@ -4,19 +4,19 @@ import promonet
 
 
 ###############################################################################
-# Download datasets
+# Partition datasets
 ###############################################################################
 
 
 def parse_args():
     """Parse command-line arguments"""
-    parser = argparse.ArgumentParser(description='Download datasets')
+    parser = argparse.ArgumentParser(description='Partition datasets')
     parser.add_argument(
         '--datasets',
         nargs='+',
-        default=promonet.DATASETS,
-        help='The datasets to download')
+        help='The datasets to partition')
     return parser.parse_args()
 
 
-promonet.data.download.datasets(**vars(parse_args()))
+if __name__ == '__main__':
+    promonet.partition.datasets(**vars(parse_args()))

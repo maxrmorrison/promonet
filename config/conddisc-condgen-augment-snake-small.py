@@ -1,16 +1,10 @@
 MODULE = 'promonet'
 
 # Configuration name
-CONFIG = 'promovoco-small'
+CONFIG = 'conddisc-condgen-augment-snake-small'
 
 # Whether to use pitch augmentation
 AUGMENT_PITCH = True
-
-# Discriminator phoneme conditioning
-DISCRIM_PHONEME_CONDITION = True
-
-# Discriminator augmentation ratio conditioning
-DISCRIM_RATIO_CONDITION = True
 
 # Discriminator loudness conditioning
 DISCRIM_LOUDNESS_CONDITION = True
@@ -18,8 +12,14 @@ DISCRIM_LOUDNESS_CONDITION = True
 # Discriminator periodicity conditioning
 DISCRIM_PERIODICITY_CONDITION = True
 
+# Discriminator phoneme conditioning
+DISCRIM_PHONEME_CONDITION = True
+
 # Discriminator pitch conditioning
 DISCRIM_PITCH_CONDITION = True
+
+# Discriminator augmentation ratio conditioning
+DISCRIM_RATIO_CONDITION = True
 
 # Whether to perform gradient clipping on the generator
 GRADIENT_CLIP_GENERATOR = 1000.
@@ -51,11 +51,12 @@ PITCH_FEATURES = True
 # Phonemic posteriorgram conditioning
 PPG_FEATURES = True
 
+# Type of interpolation method to use to scale PPG features
+# Available method are ['nearest', 'linear']
+PPG_INTERP_METHOD = 'nearest'
+
 # Whether to use snake activation in the audio generator
 SNAKE = True
-
-# Whether to omit latent generation
-VOCODER = True
 
 # Reduce batch size and steps for development
 BATCH_SIZE = 16

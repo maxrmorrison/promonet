@@ -39,5 +39,5 @@ def spectrogram(x):
 
 def spectrogram_from_audio(audio):
     """Plot spectrogram given audio signal"""
-    mels = promonet.preprocess.spectrogram.from_audio(audio.float(), True)
+    mels = promonet.data.preprocess.spectrogram.from_audio(audio.float(), True)
     return spectrogram(mels.cpu().numpy())
