@@ -119,8 +119,8 @@ def train(
     # Create optimizers #
     #####################
 
-    discriminator_optimizer = promonet.OPTIMIZER(discriminators.parameters())
-    generator_optimizer = promonet.OPTIMIZER(generator.parameters())
+    discriminator_optimizer = torch.optim.AdamW(discriminators.parameters())
+    generator_optimizer = torch.optim.AdamW(generator.parameters())
 
     ##############################
     # Maybe load from checkpoint #
@@ -161,17 +161,6 @@ def train(
 
         # Train from scratch
         step = 0
-
-    #####################
-    # Create schedulers #
-    #####################
-
-    scheduler_fn = functools.partial(
-        torch.optim.lr_scheduler.ExponentialLR,
-        gamma=promonet.LEARNING_RATE_DECAY,
-        last_epoch=step // len(train_loader.dataset) if step else -1)
-    generator_scheduler = scheduler_fn(generator_optimizer)
-    discriminator_scheduler = scheduler_fn(discriminator_optimizer)
 
     #########
     # Train #
@@ -545,20 +534,12 @@ def train(
 
                 if step % promonet.EVALUATION_INTERVAL == 0:
 
-                    # This context manager changes which forced aligner is
-                    # used. MFA is slow and less robust to errors than P2FA,
-                    # and works better with speaker adaptation, which we don't
-                    # perform here. However, the installation of P2FA is
-                    # more complicated. Therefore, we allow either aligner
-                    # to be used to evaluate training.
-                    with pyfoal.backend(promonet.TRAIN_ALIGNER):
-
-                        evaluate(
-                            log_directory,
-                            step,
-                            generator,
-                            valid_loader,
-                            gpu)
+                    evaluate(
+                        log_directory,
+                        step,
+                        generator,
+                        valid_loader,
+                        gpu)
 
                 ###################
                 # Save checkpoint #
@@ -600,10 +581,6 @@ def train(
             # Update progress bar
             if not rank:
                 progress.update()
-
-        # Update learning rate every epoch
-        generator_scheduler.step()
-        discriminator_scheduler.step()
 
     # Close progress bar
     if not rank:

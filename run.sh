@@ -12,8 +12,19 @@ python -m promonet.data.augment --gpu $1
 python -m promonet.data.preprocess --features spectrogram ppg prosody --gpu $1
 python -m promonet.partition
 
-# Train
-python -m promonet.train --config config/test-ablate-mrd-small.py --gpus $1
+# First pass experiment trainings
+# python -m promonet.train --config config/base-small.py --gpus $1
+# python -m promonet.train --config config/conddisc-small.py --gpus $1
+# python -m promonet.train --config config/conddisc-condgen-small.py --gpus $1
+# python -m promonet.train --config config/conddisc-condgen-augment-small.py --gpus $1
+python -m promonet.train --config config/conddisc-condgen-augment-snake-small.py --gpus $1
+
+# Baseline trainings
+# python -m promonet.train --config config/promovoco-small.py --gpus $1
+# python -m promonet.train --config config/spectral-small.py --gpus $1
+# python -m promonet.train --config config/spectral-voco-small.py --gpus $1
+# python -m promonet.train --config config/two-stage-small.py --gpus $1
+# python -m promonet.train --config config/vits.py --gpus $1
 
 # Evaluate
 python -m promonet.evaluate --config config/psola.py

@@ -84,6 +84,3 @@ ADDITIONAL_FEATURES_LATENT = (
 # Global input channels
 GLOBAL_CHANNELS = promonet.SPEAKER_CHANNELS + (
     promonet.AUGMENT_PITCH and not promonet.SPECTROGRAM_ONLY)
-
-# Hidden dimension channel sizes
-HIDDEN_CHANNELS = promonet.BOTTLENECK_SIZE
