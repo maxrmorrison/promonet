@@ -1,10 +1,8 @@
 # Development
-# - debug ppgs**
-# - clean-up*
-# - xFormers
+# - refactor*
 # - subjective evals
 # - Am I clipping pitch above fmax or below fmin? Error analysis
-# - HN-USFGAN baseline
+# - Baselines
 
 
 ###############################################################################

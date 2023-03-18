@@ -1,6 +1,7 @@
 import functools
 import json
 import multiprocessing as mp
+import os
 
 import resampy
 import soundfile
@@ -67,7 +68,7 @@ def datasets(datasets):
                 from_file_to_file,
                 speaker_directory)
             augment_iterator = list(zip(audio_files, ratios))
-            with mp.get_context('spawn').Pool() as pool:
+            with mp.get_context('spawn').Pool(os.cpu_count() // 2) as pool:
                 pool.starmap(augment_fn, augment_iterator)
 
             # Save augmentation info
@@ -84,7 +85,7 @@ def datasets(datasets):
 def from_file_to_file(directory, audio_file, ratio):
     """Perform data augmentation on a file and save"""
     # Load audio
-    audio, sample_rate = soundfile.read(audio_file)
+    audio, sample_rate = soundfile.read(str(audio_file))
 
     # Scale audio
     scaled = resampy.resample(
@@ -99,5 +100,4 @@ def from_file_to_file(directory, audio_file, ratio):
     file = (
         directory /
         f'{audio_file.stem.split("-")[0]}-{int(ratio * 100):03d}.wav')
-    soundfile.write(file, scaled, promonet.SAMPLE_RATE)
-
+    soundfile.write(str(file), scaled, promonet.SAMPLE_RATE)
