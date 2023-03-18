@@ -1,5 +1,3 @@
-from pathlib import Path
-
 import pysodic
 
 import promonet
@@ -28,8 +26,6 @@ def datasets(datasets, features=ALL_FEATURES, gpu=None):
         # Get text and audio files for this speaker
         text_files = sorted(list(directory.rglob('*.txt')))
         audio_files = sorted(list(directory.rglob('*-100.wav')))
-        audio_files = [
-            file for file in audio_files if '-template' not in file.stem]
 
         # Preprocess files
         from_files_to_files(audio_files, text_files, features, gpu)
@@ -77,11 +73,6 @@ def from_files_to_files(
             promonet.HOPSIZE / promonet.SAMPLE_RATE,
             promonet.WINDOW_SIZE / promonet.SAMPLE_RATE,
             gpu=gpu)
-
-    # Template waveform
-    if 'template' in features:
-        prefixes = [Path(file.stem) for file in audio_files]
-        promonet.data.preprocess.template.from_files_to_files(prefixes)
 
 
 def prosody(audio, sample_rate=promonet.SAMPLE_RATE, text=None, gpu=None):

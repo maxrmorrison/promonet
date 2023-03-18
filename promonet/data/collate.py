@@ -19,7 +19,6 @@ def collate(batch):
         loudness,
         spectrograms,
         audio,
-        templates,
         speakers,
         ratios
     ) = zip(*batch)
@@ -63,9 +62,6 @@ def collate(batch):
     padded_audio = torch.zeros(
         (len(batch), 1, max_length_samples),
         dtype=torch.float)
-    padded_templates = torch.zeros(
-        (len(batch), 1, max_length_frames * promonet.HOPSIZE),
-        dtype=torch.float)
     for i, index in enumerate(sorted_indices):
 
         # Get lengths
@@ -90,10 +86,6 @@ def collate(batch):
         # Prepare audio
         padded_audio[i, :, :lengths[index]] = audio[index]
 
-        # Prepare template
-        length = spectrogram_lengths[i] * promonet.HOPSIZE
-        padded_templates[i, :, :length] = templates[index]
-
     return (
         text,
         padded_phonemes,
@@ -105,5 +97,4 @@ def collate(batch):
         torch.tensor(ratios, dtype=torch.float),
         padded_spectrograms,
         spectrogram_lengths,
-        padded_audio,
-        padded_templates)
+        padded_audio)

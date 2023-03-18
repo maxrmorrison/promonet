@@ -51,8 +51,7 @@ NUM_FEATURES = (
         (
             (promonet.NUM_FFT // 2 + 1) if promonet.SPECTROGRAM_ONLY else
             promonet.PPG_FEATURES * promonet.PPG_CHANNELS
-        ) +
-        256 * promonet.TEMPLATE_FEATURES
+        )
     )
 )
 
@@ -63,8 +62,7 @@ NUM_FEATURES_DISCRIM = (
     promonet.DISCRIM_PERIODICITY_CONDITION +
     promonet.DISCRIM_PITCH_CONDITION +
     promonet.DISCRIM_RATIO_CONDITION +
-    promonet.DISCRIM_PHONEME_CONDITION * promonet.PPG_CHANNELS +
-    promonet.TEMPLATE_RESIDUAL * 8)
+    promonet.DISCRIM_PHONEME_CONDITION * promonet.PPG_CHANNELS)
 
 # Number of additional input features to the latent-to-audio model
 ADDITIONAL_FEATURES_LATENT = (

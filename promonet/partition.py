@@ -112,7 +112,7 @@ def daps():
     directory = promonet.CACHE_DIR / 'daps'
     stems = [
         f'{file.parent.name}/{file.stem}'
-        for file in directory.rglob('*.json')]
+        for file in directory.rglob('*.TextGrid')]
 
     # Create speaker adaptation partitions
     return adaptation_partitions(
@@ -127,7 +127,7 @@ def vctk():
     directory = promonet.CACHE_DIR / 'vctk'
     stems = {
         f'{file.parent.name}/{file.stem[:-4]}'
-        for file in directory.rglob('*.json')}
+        for file in directory.rglob('*.TextGrid')}
 
     # Create speaker adaptation partitions
     adapt_partitions = adaptation_partitions(

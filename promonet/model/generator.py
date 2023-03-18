@@ -421,10 +421,6 @@ class Generator(torch.nn.Module):
         if promonet.AUTOREGRESSIVE:
             self.autoregressive = Autoregressive()
 
-        # Template features
-        if promonet.TEMPLATE_FEATURES:
-            self.template_encoder = promonet.model.template.Encoder()
-
         # Pitch embedding
         if promonet.PITCH_FEATURES and promonet.PITCH_EMBEDDING:
             self.pitch_embedding = torch.nn.Embedding(
@@ -502,8 +498,7 @@ class Generator(torch.nn.Module):
             ratios=None,
             spectrograms=None,
             spectrogram_lengths=None,
-            audio=None,
-            template=None):
+            audio=None):
         """Generator entry point"""
         # Default augmentation ratio is 1
         if ratios is None and promonet.AUGMENT_PITCH:
@@ -529,8 +524,7 @@ class Generator(torch.nn.Module):
             speakers,
             ratios,
             spectrograms,
-            spectrogram_lengths,
-            template
+            spectrogram_lengths
         )
 
         # Use different speaker embedding for two-stage models
@@ -601,7 +595,6 @@ class Generator(torch.nn.Module):
             ratios=None,
             spectrograms=None,
             spectrogram_lengths=None,
-            template=None,
             noise_scale=.667,
             length_scale=1,
             noise_scale_w=.8):
@@ -625,11 +618,6 @@ class Generator(torch.nn.Module):
         # Maybe add periodicity features
         if promonet.PERIODICITY_FEATURES:
             features = torch.cat((features, periodicity[:, None]), dim=1)
-
-        # Maybe add template features
-        if promonet.TEMPLATE_FEATURES:
-            template_encoding = self.template_encoder(template)
-            features = torch.cat((features, template_encoding), dim=1)
 
         # Maybe just use the spectrogram
         if promonet.SPECTROGRAM_ONLY:
@@ -780,13 +768,6 @@ class Generator(torch.nn.Module):
                 slice_indices,
                 slice_size)
 
-            # Maybe slice template features
-            if promonet.TEMPLATE_RESIDUAL:
-                template = promonet.model.slice_segments(
-                    template,
-                    slice_indices * promonet.HOPSIZE,
-                    promonet.CHUNK_SIZE)
-
         # Generation
         else:
 
@@ -929,8 +910,7 @@ class Generator(torch.nn.Module):
             prior,
             predicted_mean,
             predicted_logstd,
-            true_logstd,
-            template)
+            true_logstd)
 
 
 class Autoregressive(torch.nn.Module):
