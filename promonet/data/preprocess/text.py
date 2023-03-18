@@ -1,9 +1,8 @@
 import multiprocessing as mp
+import os
 import re
 
 import torch
-import tqdm
-
 import phonemizer
 import unidecode
 
@@ -32,16 +31,8 @@ def from_file_to_file(text_file, output_file):
 
 def from_files_to_files(text_files, output_files):
     """Convert text files to sequences of integer indices and save to disk"""
-    # TODO - multiprocessing deadlocks
-    # with mp.get_context('spawn').Pool() as pool:
-    #     pool.starmap(from_file_to_file, zip(text_files, output_files))
-    iterator = tqdm.tqdm(
-        zip(text_files, output_files),
-        total=len(text_files),
-        desc='Text preprocessing',
-        dynamic_ncols=True)
-    for text_file, output_file in iterator:
-        from_file_to_file(text_file, output_file)
+    with mp.get_context('spawn').Pool(os.cpu_count() // 2) as pool:
+        pool.starmap(from_file_to_file, zip(text_files, output_files))
 
 
 ###############################################################################

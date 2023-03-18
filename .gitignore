@@ -17,6 +17,3 @@ runs/
 
 *.c
 monotonic_align/monotonic_align
-
-profile.out
-profile.txt
