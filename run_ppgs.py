@@ -11,6 +11,7 @@ import promonet
 ###############################################################################
 
 
+# TODO - remove hard coding
 PPG_DIR = Path.home() / 'ppgs' / 'ppgs' / 'assets'
 
 
@@ -38,8 +39,6 @@ def main(model, gpu=None):
 
     # Get audio files
     audio_files = sorted(list(promonet.CACHE_DIR.rglob('*.wav')))
-    audio_files = [
-            file for file in audio_files if '-template' not in file.stem]
 
     # Get output file paths
     output_files = [

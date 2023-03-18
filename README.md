@@ -3,12 +3,10 @@
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![Downloads](https://pepy.tech/badge/promonet)](https://pepy.tech/project/promonet) -->
 
-Official code for the paper _Adaptive End-to-End Voice Modification_
-[[paper]](https://www.maxrmorrison.com/pdfs/morrison2022adaptive.pdf)
+Official code for the paper _Adaptive Neural Speech Prosody Editing_
+[[paper]](https://www.maxrmorrison.com/pdfs/morrison2023adaptive.pdf)
 [[companion website]](https://www.maxrmorrison.com/sites/promonet/)
 
-
-TODO - sphinx documentation
 
 ## Installation
 
@@ -137,11 +135,11 @@ checkpoint = promonet.adapt.speaker(name, directory, gpus=gpus)
 audio = promonet.load.audio('test.wav')
 
 # Get prosody features to edit
-pitch, loudness = promonet.preprocess.prosody(audio, gpu=gpus[0])
+pitch, loudness = promonet.preprocess(audio, gpu=gpus[0])
 
 # (Optional) If you have the text transcript, you can edit phoneme
 #            durations using a forced alignment representation
-pitch, loudness, alignment = promonet.preprocess.prosody(
+pitch, loudness, alignment = promonet.preprocess(
     audio,
     text=promonet.load.text('test.txt'),
     gpu=gpus[0])
@@ -205,7 +203,7 @@ python -m promonet.data.download --datasets <datasets>
 Prepares features for training. Features are stored in `data/cache/`.
 
 ```
-python -m promonet.preprocess --datasets <datasets> --gpu <gpu>
+python -m promonet.data.preprocess --datasets <datasets> --gpu <gpu>
 ```
 
 
@@ -279,29 +277,21 @@ python -m promonet.evaluate \
 ```
 
 
-## Running tests
-
-```
-pip install pytest
-pytest
-```
-
-
 ## Citation
 
 ### IEEE
-M. Morrison and B. Pardo, "Adaptive End-to-End Voice Modification," Submitted
-to ICML 2022, July 2022.
+M. Morrison and B. Pardo, "Adaptive Neural Speech Prosody Editing," Submitted
+to ICML 2023, July 2023.
 
 
 ### BibTex
 
 ```
-@inproceedings{morrison2022adaptive,
-    title={Adaptive End-to-End Voice Modification},
+@inproceedings{morrison2023adaptive,
+    title={Adaptive Neural Speech Prosody Editing},
     author={Morrison, Max and Pardo, Bryan},
-    booktitle={Submitted to ICML 2022},
+    booktitle={Submitted to ICML 2023},
     month={July},
-    year={2022}
+    year={2023}
 }
 ```

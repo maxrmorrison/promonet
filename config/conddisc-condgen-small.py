@@ -1,16 +1,7 @@
 MODULE = 'promonet'
 
 # Configuration name
-CONFIG = 'promovoco-small'
-
-# Whether to use pitch augmentation
-AUGMENT_PITCH = True
-
-# Discriminator phoneme conditioning
-DISCRIM_PHONEME_CONDITION = True
-
-# Discriminator augmentation ratio conditioning
-DISCRIM_RATIO_CONDITION = True
+CONFIG = 'conddisc-condgen-small'
 
 # Discriminator loudness conditioning
 DISCRIM_LOUDNESS_CONDITION = True
@@ -18,11 +9,11 @@ DISCRIM_LOUDNESS_CONDITION = True
 # Discriminator periodicity conditioning
 DISCRIM_PERIODICITY_CONDITION = True
 
+# Discriminator phoneme conditioning
+DISCRIM_PHONEME_CONDITION = True
+
 # Discriminator pitch conditioning
 DISCRIM_PITCH_CONDITION = True
-
-# Whether to perform gradient clipping on the generator
-GRADIENT_CLIP_GENERATOR = 1000.
 
 # Pass loudness through the latent
 LATENT_LOUDNESS_SHORTCUT = True
@@ -36,9 +27,6 @@ LATENT_PHONEME_SHORTCUT = True
 # Pass pitch through the latent
 LATENT_PITCH_SHORTCUT = True
 
-# Pass the augmentation ratio through the latent
-LATENT_RATIO_SHORTCUT = True
-
 # Loudness features
 LOUDNESS_FEATURES = True
 
@@ -50,12 +38,6 @@ PITCH_FEATURES = True
 
 # Phonemic posteriorgram conditioning
 PPG_FEATURES = True
-
-# Whether to use snake activation in the audio generator
-SNAKE = True
-
-# Whether to omit latent generation
-VOCODER = True
 
 # Reduce batch size and steps for development
 BATCH_SIZE = 16

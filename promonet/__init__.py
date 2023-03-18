@@ -1,23 +1,8 @@
-# Trainings
-# - sawtooth templates **
-# - template spectrogram
-# - cosine templates
-# - two-stage without MRD
-# - scale-up promonet
-# - scale-up promovoco
-# - scale-up spectral
-# - scale-up spectral + latent
-# - method ablations
-
 # Development
-# - xFormers **
-# - new ppgs **
+# - refactor*
 # - subjective evals
 # - Am I clipping pitch above fmax or below fmin? Error analysis
-# - HN-USFGAN baseline
-
-# Low priority
-# - address loudness-scaling acting as bias in V/UV F1 computation (by rescaling)
+# - Baselines
 
 
 ###############################################################################
@@ -30,7 +15,7 @@ from .config import defaults
 
 # Modify configuration
 import yapecs
-yapecs.configure(defaults)
+yapecs.configure('promonet', defaults)
 
 # Import configuration parameters
 from .config.defaults import *
@@ -56,6 +41,5 @@ from . import loudness
 from . import model
 from . import partition
 from . import plot
-from . import preprocess
 from . import train
 from . import write
