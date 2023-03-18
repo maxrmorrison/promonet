@@ -119,8 +119,8 @@ def train(
     # Create optimizers #
     #####################
 
-    discriminator_optimizer = promonet.OPTIMIZER(discriminators.parameters())
-    generator_optimizer = promonet.OPTIMIZER(generator.parameters())
+    discriminator_optimizer = torch.optim.AdamW(discriminators.parameters())
+    generator_optimizer = torch.optim.AdamW(generator.parameters())
 
     ##############################
     # Maybe load from checkpoint #
@@ -161,17 +161,6 @@ def train(
 
         # Train from scratch
         step = 0
-
-    #####################
-    # Create schedulers #
-    #####################
-
-    scheduler_fn = functools.partial(
-        torch.optim.lr_scheduler.ExponentialLR,
-        gamma=promonet.LEARNING_RATE_DECAY,
-        last_epoch=step // len(train_loader.dataset) if step else -1)
-    generator_scheduler = scheduler_fn(generator_optimizer)
-    discriminator_scheduler = scheduler_fn(discriminator_optimizer)
 
     #########
     # Train #
@@ -247,7 +236,6 @@ def train(
                 spectrograms,
                 spectrogram_lengths,
                 audio,
-                template
             ) = (item.to(device) for item in batch[1:])
 
             # Bundle training input
@@ -261,8 +249,7 @@ def train(
                 ratios,
                 spectrograms,
                 spectrogram_lengths,
-                audio,
-                template)
+                audio)
 
             # Convert to mels
             mels = promonet.data.preprocess.spectrogram.linear_to_mel(
@@ -547,20 +534,12 @@ def train(
 
                 if step % promonet.EVALUATION_INTERVAL == 0:
 
-                    # This context manager changes which forced aligner is
-                    # used. MFA is slow and less robust to errors than P2FA,
-                    # and works better with speaker adaptation, which we don't
-                    # perform here. However, the installation of P2FA is
-                    # more complicated. Therefore, we allow either aligner
-                    # to be used to evaluate training.
-                    with pyfoal.backend(promonet.TRAIN_ALIGNER):
-
-                        evaluate(
-                            log_directory,
-                            step,
-                            generator,
-                            valid_loader,
-                            gpu)
+                    evaluate(
+                        log_directory,
+                        step,
+                        generator,
+                        valid_loader,
+                        gpu)
 
                 ###################
                 # Save checkpoint #
@@ -602,10 +581,6 @@ def train(
             # Update progress bar
             if not rank:
                 progress.update()
-
-        # Update learning rate every epoch
-        generator_scheduler.step()
-        discriminator_scheduler.step()
 
     # Close progress bar
     if not rank:
@@ -674,8 +649,7 @@ def evaluate(directory, step, generator, valid_loader, gpu):
                 _,
                 spectrogram,
                 _,
-                audio,
-                template
+                audio
             ) = (item.to(device) for item in batch[1:])
 
             # Ensure audio and generated are same length
@@ -723,8 +697,7 @@ def evaluate(directory, step, generator, valid_loader, gpu):
                 loudness,
                 lengths,
                 speakers,
-                spectrograms=spectrogram,
-                template=template)
+                spectrograms=spectrogram)
 
             # Get prosody features
             (
@@ -776,15 +749,6 @@ def evaluate(directory, step, generator, valid_loader, gpu):
                     # Shift pitch
                     shifted_pitch = ratio * pitch
 
-                    # Maybe make template
-                    if promonet.TEMPLATE_FEATURES:
-                        template = promonet.data.preprocess.template.from_prosody(
-                            shifted_pitch,
-                            periodicity,
-                            loudness)[None]
-                    else:
-                        template = None
-
                     # Generate pitch-shifted speech
                     shifted, *_ = generator(
                         phonemes,
@@ -792,8 +756,7 @@ def evaluate(directory, step, generator, valid_loader, gpu):
                         periodicity,
                         loudness,
                         lengths,
-                        speakers,
-                        template=template)
+                        speakers)
 
                     # Get prosody features
                     (
@@ -874,15 +837,6 @@ def evaluate(directory, step, generator, valid_loader, gpu):
                         dtype=torch.long,
                         device=device)
 
-                    # Maybe make template
-                    if promonet.TEMPLATE_FEATURES:
-                        template = promonet.data.preprocess.template.from_prosody(
-                            stretched_pitch,
-                            stretched_periodicity,
-                            stretched_loudness)[None]
-                    else:
-                        template = None
-
                     # Generate
                     stretched, *_ = generator(
                         stretched_phonemes,
@@ -890,8 +844,7 @@ def evaluate(directory, step, generator, valid_loader, gpu):
                         stretched_periodicity,
                         stretched_loudness,
                         stretched_length,
-                        speakers,
-                        template=template)
+                        speakers)
 
                     # Get prosody features
                     (
@@ -947,15 +900,6 @@ def evaluate(directory, step, generator, valid_loader, gpu):
                     # Scale loudness
                     scaled_loudness = loudness + 10 * math.log2(ratio)
 
-                    # Maybe make template
-                    if promonet.TEMPLATE_FEATURES:
-                        template = promonet.data.preprocess.template.from_prosody(
-                            pitch,
-                            periodicity,
-                            scaled_loudness)[None]
-                    else:
-                        template = None
-
                     # Generate loudness-scaled speech
                     scaled, *_ = generator(
                         phonemes,
@@ -963,8 +907,7 @@ def evaluate(directory, step, generator, valid_loader, gpu):
                         periodicity,
                         scaled_loudness,
                         lengths,
-                        speakers,
-                        template=template)
+                        speakers)
 
                     # Get prosody features
                     (

@@ -42,43 +42,6 @@ class CausalConv1d(torch.nn.Conv1d):
         return result
 
 
-class CausalTransposeConv1d(torch.nn.ConvTranspose1d):
-    """Causal transpose convolution"""
-
-    def __init__(
-            self,
-            in_channels,
-            out_channels,
-            kernel_size,
-            stride=1,
-            padding=0,
-            output_padding=0,
-            groups=1,
-            bias=True,
-            dilation=1):
-
-        # Omit padding
-        super().__init__(
-            in_channels,
-            out_channels,
-            kernel_size=kernel_size,
-            stride=stride,
-            padding=0,
-            output_padding=output_padding,
-            groups=groups,
-            bias=bias,
-            dilation=dilation)
-
-        # Number of non-causal elements to be removed
-        self.causal_padding = dilation * (kernel_size - 1) + 1 - stride
-
-    def forward(self, input):
-        result = super().forward(input)
-        if self.causal_padding != 0:
-            result = result[:, :, :-self.causal_padding]
-        return result
-
-
 class LayerNorm(torch.nn.Module):
 
     def __init__(self, channels, eps=1e-5):
@@ -508,30 +471,13 @@ class Snake(torch.nn.Module):
             torch.ones(1, channels, 1),
             requires_grad=True)
 
-        # Maybe initialize Kaiser window
-        if promonet.SNAKE_FILTER:
-            self.kernel = torch.nn.Parameter(
-                self.filter(),
-                requires_grad=False)
+        # Initialize Kaiser window
+        self.kernel = torch.nn.Parameter(
+            self.filter(),
+            requires_grad=False)
 
     def filter(self):
         """Compute anti-aliasing low-pass filter"""
-        if promonet.SNAKE_EXACT:
-            return torch.tensor([
-                0.0020,
-                0.0094,
-                -0.0255,
-                -0.0577,
-                0.1286,
-                0.4432,
-                0.4432,
-                0.1286,
-                -0.0577,
-                -0.0255,
-                0.0094,
-                0.0020
-            ])[None, None]
-
         # Create kaiser window
         length = 12
         window = torch.kaiser_window(
@@ -551,60 +497,54 @@ class Snake(torch.nn.Module):
         return aliasing_filter[None, None]
 
     def forward(self, x):
-        # Maybe apply anti-aliasing filter
-        if promonet.SNAKE_FILTER:
+        # Zero-insertion interpolation
+        y = torch.zeros(
+            (x.shape[0], x.shape[1], self.scale_factor * x.shape[2]),
+            dtype=x.dtype,
+            device=x.device)
+        y[..., ::2] = x * self.scale_factor
 
-            # Zero-insertion interpolation
-            y = torch.zeros(
-                (x.shape[0], x.shape[1], self.scale_factor * x.shape[2]),
-                dtype=x.dtype,
-                device=x.device)
-            y[..., ::2] = x * self.scale_factor
+        # Treat each channel as a new batch
+        shape = y.shape
+        y = y.view(shape[0] * shape[1], 1, shape[2])
 
-            # Treat each channel as a new batch
-            shape = y.shape
-            y = y.view(shape[0] * shape[1], 1, shape[2])
+        # Replication padding
+        padding = promonet.model.get_padding(self.kernel.shape[2])
+        x = torch.nn.functional.pad(
+            y,
+            (padding, padding + 1),
+            mode='replicate')
 
-            # Replication padding
-            padding = promonet.model.get_padding(self.kernel.shape[2])
-            x = torch.nn.functional.pad(
-                y,
-                (padding, padding + 1),
-                mode='replicate')
+        # Lowpass filter
+        x = torch.nn.functional.conv1d(x, self.kernel)
 
-            # Lowpass filter
-            x = torch.nn.functional.conv1d(x, self.kernel)
-
-            # Recover channel dimension
-            x = x.reshape(shape)
+        # Recover channel dimension
+        x = x.reshape(shape)
 
         # Apply snake activation
         x = x + (1. / (self.alpha + 1e-9)) * torch.sin(self.alpha * x) ** 2
 
-        # Maybe apply anti-aliasing filter
-        if promonet.SNAKE_FILTER:
+        # Treat each channel as a new batch
+        shape = x.shape
+        x = x.view(shape[0] * shape[1], 1, shape[2])
 
-            # Treat each channel as a new batch
-            shape = x.shape
-            x = x.view(shape[0] * shape[1], 1, shape[2])
+        # Replication padding
+        padding = promonet.model.get_padding(
+            self.kernel.shape[2],
+            1,
+            self.scale_factor)
+        x = torch.nn.functional.pad(
+            x,
+            (padding, padding),
+            mode='replicate')
 
-            # Replication padding
-            padding = promonet.model.get_padding(
-                self.kernel.shape[2],
-                1,
-                self.scale_factor)
-            x = torch.nn.functional.pad(
-                x,
-                (padding, padding),
-                mode='replicate')
+        # Filter and downsample
+        x = torch.nn.functional.conv1d(
+            x,
+            self.kernel,
+            stride=self.scale_factor)
 
-            # Filter and downsample
-            x = torch.nn.functional.conv1d(
-                x,
-                self.kernel,
-                stride=self.scale_factor)
-
-            # Recover channel dimension
-            x = x.reshape(shape[0], shape[1], shape[2] // self.scale_factor)
+        # Recover channel dimension
+        x = x.reshape(shape[0], shape[1], shape[2] // self.scale_factor)
 
         return x

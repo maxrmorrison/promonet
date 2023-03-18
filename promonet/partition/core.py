@@ -16,7 +16,6 @@ DAPS
 * test_adapt_{:02d} - Test dataset for speaker adaptation
     (10 speakers; 10 examples per speaker; 4-10 seconds)
 """
-import argparse
 import functools
 import itertools
 import json
@@ -83,18 +82,25 @@ VCTK_ADAPTATION_SPEAKERS = [
 ###############################################################################
 
 
-def dataset(name):
-    """Partition datasets and save partitions to disk"""
-    # Handle vctk
-    if name == 'vctk':
-        return vctk()
+def datasets(datasets):
+    """Partition datasets and save to disk"""
+    for name in datasets:
 
-    # Handle daps
-    if name == 'daps':
-        return daps()
+        # Partition
+        if name == 'vctk':
+            partition = vctk()
+        elif name == 'daps':
+            partition = daps()
 
-    # All other datasets are assumed to be for speaker adaptation
-    return adaptation(name)
+        # All other datasets are assumed to be for speaker adaptation
+        else:
+            partition = adaptation(name)
+
+        # Save to disk
+        file = promonet.PARTITION_DIR / f'{name}.json'
+        file.parent.mkdir(exist_ok=True, parents=True)
+        with open(file, 'w') as file:
+            json.dump(partition, file, ensure_ascii=False, indent=4)
 
 
 def adaptation(name):
@@ -112,7 +118,7 @@ def daps():
     directory = promonet.CACHE_DIR / 'daps'
     stems = [
         f'{file.parent.name}/{file.stem}'
-        for file in directory.rglob('*.json')]
+        for file in directory.rglob('*.TextGrid')]
 
     # Create speaker adaptation partitions
     return adaptation_partitions(
@@ -127,7 +133,7 @@ def vctk():
     directory = promonet.CACHE_DIR / 'vctk'
     stems = {
         f'{file.parent.name}/{file.stem[:-4]}'
-        for file in directory.rglob('*.json')}
+        for file in directory.rglob('*.TextGrid')}
 
     # Create speaker adaptation partitions
     adapt_partitions = adaptation_partitions(
@@ -194,43 +200,3 @@ def meets_length_criteria(directory, stem):
     """Returns True if the audio file duration is within the length criteria"""
     size = (directory / f'{stem}-100.wav').stat().st_size
     return MIN_TEST_SAMPLE_LENGTH_BYTES <= size <= MAX_TEST_SAMPLE_LENGTH_BYTES
-
-
-###############################################################################
-# Entry point
-###############################################################################
-
-
-def main(datasets, overwrite):
-    """Partition datasets and save to disk"""
-    for name in datasets:
-
-        # Check if partition already exists
-        file = promonet.PARTITION_DIR / f'{name}.json'
-        if file.exists():
-            if not overwrite:
-                print(f'Not overwriting existing partition {file}')
-                continue
-
-        # Save to disk
-        file.parent.mkdir(exist_ok=True, parents=True)
-        with open(file, 'w') as file:
-            json.dump(dataset(name), file, ensure_ascii=False, indent=4)
-
-
-def parse_args():
-    """Parse command-line arguments"""
-    parser = argparse.ArgumentParser(description='Partition datasets')
-    parser.add_argument(
-        '--datasets',
-        nargs='+',
-        help='The datasets to partition')
-    parser.add_argument(
-        '--overwrite',
-        action='store_true',
-        help='Whether to overwrite existing partitions')
-    return parser.parse_args()
-
-
-if __name__ == '__main__':
-    main(**vars(parse_args()))

@@ -1,8 +1,8 @@
 import functools
 import json
-import os
 
 import torch
+import torchaudio
 
 import promonet
 
@@ -31,17 +31,15 @@ class Dataset(torch.utils.data.Dataset):
             self.stems.extend([f'{stem}-{ratios[stem]}' for stem in stems])
 
         # Store spectrogram lengths for bucketing
-        # TODO - use torchaudio.info
-        audio_files = list([self.cache / f'{stem}.wav' for stem in self.stems])
         self.spectrogram_lengths = [
-            os.path.getsize(audio_file) // (2 * promonet.HOPSIZE)
-            for audio_file in audio_files]
+            promonet.convert.samples_to_frames(
+                torchaudio.info(self.cache / f'{stem}.wav').num_frames)
+            for stem in self.stems]
 
     def __getitem__(self, index):
         stem = self.stems[index]
         text = promonet.load.text(self.cache / f'{stem[:-4]}.txt')
         audio = promonet.load.audio(self.cache / f'{stem}.wav')
-        template = promonet.load.audio(self.cache / f'{stem}-template.wav')
         pitch = promonet.load.pitch(self.cache / f'{stem}-pitch.pt')
         periodicity = torch.load(self.cache / f'{stem}-periodicity.pt')
         loudness = torch.load(self.cache / f'{stem}-loudness.pt')
@@ -72,7 +70,6 @@ class Dataset(torch.utils.data.Dataset):
             loudness,
             spectrogram,
             audio,
-            template,
             torch.tensor(speaker, dtype=torch.long),
             int(stem[-3:]) / 100.)
 

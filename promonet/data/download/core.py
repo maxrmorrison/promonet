@@ -32,7 +32,7 @@ def daps():
     """Download daps dataset"""
     # Download
     url = 'https://zenodo.org/record/4783456/files/daps-segmented.tar.gz?download=1'
-    file = promonet.DATA_DIR / 'daps.tar.gz'
+    file = promonet.SOURCES_DIR / 'daps.tar.gz'
     download_file(url, file)
 
     with promonet.data.chdir(promonet.DATA_DIR):
@@ -108,7 +108,7 @@ def vctk():
     """Download vctk dataset"""
     # Download
     url = 'https://datashare.ed.ac.uk/download/DS_10283_3443.zip'
-    file = promonet.DATA_DIR / 'vctk.zip'
+    file = promonet.SOURCES_DIR / 'vctk.zip'
     download_file(url, file)
 
     # Unzip

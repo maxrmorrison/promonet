@@ -1,5 +1,7 @@
+MODULE = 'promonet'
+
 # Configuration name
-CONFIG = 'ppg-nearest-pitch-periodicity-loudness-small'
+CONFIG = 'promonet-base-small'
 
 # Loudness features
 LOUDNESS_FEATURES = True
@@ -12,10 +14,6 @@ PITCH_FEATURES = True
 
 # Phonemic posteriorgram conditioning
 PPG_FEATURES = True
-
-# Type of interpolation method to use to scale PPG features
-# Available method are ['nearest', 'linear']
-PPG_INTERP_METHOD = 'nearest'
 
 # Reduce batch size and steps for development
 BATCH_SIZE = 16

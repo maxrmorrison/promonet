@@ -1,7 +1,4 @@
-import functools
 from pathlib import Path
-
-import torch
 
 
 ###############################################################################
@@ -28,9 +25,6 @@ FMAX = 550.  # Hz
 # Audio hopsize
 HOPSIZE = 256  # samples
 
-# Maximum sample value of 16-bit audio
-MAX_SAMPLE_VALUE = 32768
-
 # Number of melspectrogram channels
 NUM_MELS = 80
 
@@ -42,6 +36,7 @@ SAMPLE_RATE = 22050  # Hz
 
 # Number of spectrogram channels
 WINDOW_SIZE = 1024
+
 
 ###############################################################################
 # Data parameters
@@ -166,19 +161,15 @@ PPG_FEATURES = False
 
 # Type of interpolation method to use to scale PPG features
 # Available method are ['nearest', 'linear']
-PPG_INTERP_METHOD = None
+# TODO - deprecate in favor of aligned features
+PPG_INTERP_METHOD = 'nearest'
 
 # Type of PPGs to use
+# TODO - deprecate in favor of best model
 PPG_MODEL = None
 
 # Only use spectral features
 SPECTROGRAM_ONLY = False
-
-# Whether to use template features and encoder
-TEMPLATE_FEATURES = False
-
-# Whether to pass residual sample-rate template features
-TEMPLATE_RESIDUAL = False
 
 # Whether to use a two-stage model
 TWO_STAGE = False
@@ -217,10 +208,7 @@ AR_INPUT_SIZE = 512
 AR_OUTPUT_SIZE = 128
 
 # The size of the latent bottleneck
-BOTTLENECK_SIZE = 192
-
-# Whether to use causal layers
-CAUSAL = False
+HIDDEN_CHANNELS = 192
 
 # Hidden dimension channel size
 FILTER_CHANNELS = 768
@@ -255,17 +243,8 @@ RESBLOCK_DILATION_SIZES = [[1, 3, 5], [1, 3, 5], [1, 3, 5]]
 # Whether to use snake activation in the audio generator
 SNAKE = False
 
-# Whether to use exact filter values as BigVGan
-SNAKE_EXACT = False
-
-# Whether to use a low-pass filter when using snake
-SNAKE_FILTER = False
-
 # Speaker embedding size
 SPEAKER_CHANNELS = 256
-
-# Whether to use a T5X stack for phoneme encoding
-T5_ENCODER = False
 
 # Initial channel size for upsampling layers
 UPSAMPLE_INITIAL_SIZE = 512
@@ -302,19 +281,6 @@ MEL_LOSS_WEIGHT = 45.
 
 
 ###############################################################################
-# Optimizers
-###############################################################################
-
-
-# Optimizer for training
-OPTIMIZER = functools.partial(
-    torch.optim.AdamW,
-    lr=2e-4,
-    betas=[0.8, 0.99],
-    eps=1e-9)
-
-
-###############################################################################
 # Text parameters
 ###############################################################################
 
@@ -340,9 +306,6 @@ CHUNK_SIZE = 8192
 # Whether to perform gradient clipping on the generator
 GRADIENT_CLIP_GENERATOR = None
 
-# Per-epoch decay rate of the learning rate
-LEARNING_RATE_DECAY = .999875
-
 # Number of training steps
 NUM_STEPS = 300000
 
@@ -354,6 +317,3 @@ NUM_WORKERS = 2
 
 # Seed for all random number generators
 RANDOM_SEED = 1234
-
-# Aligner to use to evaluate training
-TRAIN_ALIGNER = 'p2fa'
