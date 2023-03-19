@@ -6,4 +6,5 @@ from . import preprocess
 from . import sampler
 from .collate import collate
 from .dataset import Dataset
-from .loader import loaders
+from .loader import loader
+from .sampler import sampler

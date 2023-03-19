@@ -24,8 +24,9 @@ def datasets(datasets, features=ALL_FEATURES, gpu=None):
         directory = promonet.CACHE_DIR / dataset
 
         # Get text and audio files for this speaker
-        text_files = sorted(list(directory.rglob('*.txt')))
-        audio_files = sorted(list(directory.rglob('*-100.wav')))
+        audio_files = sorted(list(directory.rglob('*.wav')))
+        text_files = [
+            file.parent / f'{file.stem[:-4]}.txt' for file in audio_files]
 
         # Preprocess files
         from_files_to_files(audio_files, text_files, features, gpu)

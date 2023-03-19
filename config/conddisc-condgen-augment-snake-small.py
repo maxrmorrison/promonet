@@ -57,7 +57,3 @@ PPG_INTERP_METHOD = 'nearest'
 
 # Whether to use snake activation in the audio generator
 SNAKE = True
-
-# Reduce batch size and steps for development
-BATCH_SIZE = 16
-NUM_STEPS = 100000

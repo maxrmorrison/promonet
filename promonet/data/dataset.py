@@ -1,6 +1,7 @@
 import functools
 import json
 
+import numpy as np
 import torch
 import torchaudio
 
@@ -8,7 +9,7 @@ import promonet
 
 
 ###############################################################################
-# Speech modification dataset
+# Dataset
 ###############################################################################
 
 
@@ -31,7 +32,7 @@ class Dataset(torch.utils.data.Dataset):
             self.stems.extend([f'{stem}-{ratios[stem]}' for stem in stems])
 
         # Store spectrogram lengths for bucketing
-        self.spectrogram_lengths = [
+        self.lengths = [
             promonet.convert.samples_to_frames(
                 torchaudio.info(self.cache / f'{stem}.wav').num_frames)
             for stem in self.stems]
@@ -75,6 +76,22 @@ class Dataset(torch.utils.data.Dataset):
 
     def __len__(self):
         return len(self.stems)
+    
+    def buckets(self):
+        """Partition indices into buckets based on length for sampling"""
+        # Get the size of a bucket
+        size = len(self) // promonet.BUCKETS
+
+        # Get indices in order of length
+        indices = np.argsort(self.lengths)
+
+        # Split into buckets based on length
+        buckets = [indices[i:i + size] for i in range(0, len(self), size)]
+
+        # Add max length of each bucket
+        buckets = [(self.lengths[bucket[-1]], bucket) for bucket in buckets]
+
+        return buckets
 
     def get_ppg(self, stem, length):
         """Load PPG features"""

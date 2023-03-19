@@ -3,10 +3,8 @@ import functools
 import math
 import os
 
-import pyfoal
 import pysodic
 import torch
-import torchinfo
 import tqdm
 
 import promonet
@@ -90,11 +88,8 @@ def train(
     #######################
 
     torch.manual_seed(promonet.RANDOM_SEED)
-    train_loader, valid_loader = promonet.data.loaders(
-        dataset,
-        train_partition,
-        valid_partition,
-        gpu)
+    train_loader = promonet.data.loader(dataset, train_partition, gpu)
+    valid_loader = promonet.data.loader(dataset, valid_partition, gpu)
 
     #################
     # Create models #
@@ -168,9 +163,6 @@ def train(
 
     # Automatic mixed precision (amp) gradient scaler
     scaler = torch.cuda.amp.GradScaler()
-
-    # Print model summaries on the first step
-    # printed = False
 
     # Get total number of steps
     if adapt:
@@ -323,18 +315,6 @@ def train(
                     if autoregressive is not None:
                         generated = torch.cat((autoregressive, generated), dim=-1)
                         audio = torch.cat((autoregressive, audio), dim=-1)
-
-                    # Print model summaries first time
-                    # if not printed:
-                    #     print(torchinfo.summary(
-                    #         generator,
-                    #         input_data=generator_input,
-                    #         device=device))
-                    #     print(torchinfo.summary(
-                    #         discriminators,
-                    #         input_data=(audio, generated.detach()),
-                    #         device=device))
-                    #     printed = True
 
                 #######################
                 # Train discriminator #

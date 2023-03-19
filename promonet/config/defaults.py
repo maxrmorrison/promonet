@@ -43,10 +43,11 @@ WINDOW_SIZE = 1024
 ###############################################################################
 
 
-# Number of buckets to partition training and validation data into based on
-# length to avoid excess padding
-# TODO
-BUCKETS = 8
+# Maximum ratio for data augmentation
+AUGMENTATION_RATIO_MAX = 2.
+
+# Minimum ratio for data augmentation
+AUGMENTATION_RATIO_MIN = .5
 
 # Names of all datasets
 DATASETS = ['daps', 'vctk']
@@ -58,7 +59,9 @@ DATASETS = ['daps', 'vctk']
 
 
 # Root location for saving outputs
-ROOT_DIR = Path(__file__).parent.parent.parent
+# TEMPORARY
+# ROOT_DIR = Path(__file__).parent.parent.parent
+ROOT_DIR = Path('/data/max/promonet')
 
 # Location to save assets to be bundled with pip release
 ASSETS_DIR = Path(__file__).parent.parent / 'assets'
@@ -160,14 +163,10 @@ PPG_FEATURES = False
 PPG_INTERP_METHOD = 'nearest'
 
 # Type of PPGs to use
-# TODO - deprecate in favor of best model
 PPG_MODEL = None
 
 # Only use spectral features
 SPECTROGRAM_ONLY = False
-
-# Whether to use a two-stage model
-TWO_STAGE = False
 
 
 ###############################################################################
@@ -241,6 +240,9 @@ SNAKE = False
 # Speaker embedding size
 SPEAKER_CHANNELS = 256
 
+# Whether to use a two-stage model
+TWO_STAGE = False
+
 # Initial channel size for upsampling layers
 UPSAMPLE_INITIAL_SIZE = 512
 
@@ -292,8 +294,12 @@ MAX_TEXT_LEN = 190
 ###############################################################################
 
 
-# Batch size (per gpu)
-BATCH_SIZE = 64
+# Number of buckets to partition training and validation data into based on
+# length to avoid excess padding
+BUCKETS = 8
+
+# Maximum number of frames in a batch (per GPU)
+MAX_FRAMES = 32000
 
 # Number of samples generated during training
 CHUNK_SIZE = 8192
@@ -302,7 +308,7 @@ CHUNK_SIZE = 8192
 GRADIENT_CLIP_GENERATOR = None
 
 # Number of training steps
-NUM_STEPS = 300000
+NUM_STEPS = 100000
 
 # Number of adaptation steps
 NUM_ADAPTATION_STEPS = 5000

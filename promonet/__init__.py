@@ -1,10 +1,3 @@
-# Development
-# - refactor*
-# - subjective evals
-# - Am I clipping pitch above fmax or below fmin? Error analysis
-# - Baselines
-
-
 ###############################################################################
 # Configuration
 ###############################################################################
@@ -29,6 +22,7 @@ from .config.static import *
 
 
 from .core import *
+from . import adapt
 from . import baseline
 from . import checkpoint
 from . import convert

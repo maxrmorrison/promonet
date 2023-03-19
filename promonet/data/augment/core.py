@@ -1,4 +1,3 @@
-import functools
 import json
 import multiprocessing as mp
 import os
@@ -7,16 +6,6 @@ import resampy
 import soundfile
 import torch
 import promonet
-import tqdm
-
-
-###############################################################################
-# Constants
-###############################################################################
-
-
-MAX_RATIO = 2.
-MIN_RATIO = .5
 
 
 ###############################################################################
@@ -31,58 +20,35 @@ def datasets(datasets):
         # Get cache directory
         directory = promonet.CACHE_DIR / dataset
 
-        # Seed random ratio sampling
+        # Get files
+        audio_files = sorted(directory.rglob('-100.wav'))
+
+        # Sample ratios
         torch.manual_seed(promonet.RANDOM_SEED)
+        distribution = torch.distributions.uniform.Uniform(
+            torch.log2(torch.tensor(promonet.AUGMENTATION_RATIO_MIN)),
+            torch.log2(torch.tensor(promonet.AUGMENTATION_RATIO_MAX)))
+        ratios = 2 ** distribution.sample([len(audio_files)])
+        
+        # Prevent duplicates
+        ratios[(ratios * 100).to(torch.int) == 100] += 1
 
-        # Save all augmentation ratios
-        all_ratios = {}
+        # Perform multiprocessed augmentation
+        iterator = list(zip(audio_files, ratios))
+        with mp.get_context('spawn').Pool(os.cpu_count() // 2) as pool:
+            pool.starmap(from_file_to_file, iterator)
 
-        # Iterate over speakers
-        directories = sorted(directory.glob('*'))
-        speaker_iterator = tqdm.tqdm(
-            directories,
-            desc=f'Augmenting {dataset}',
-            dynamic_ncols=True,
-            total=len(directories))
-        for speaker_directory in speaker_iterator:
-
-            # Get text and audio files for this speaker
-            audio_files = sorted(list(speaker_directory.rglob('*.wav')))
-            audio_files = [
-                file for file in audio_files if file.stem.endswith('-100')]
-            text_files = sorted(list(speaker_directory.rglob('*.txt')))
-            text_files = [
-                file for file in text_files if file.stem.endswith('-100')]
-
-            # Sample ratios
-            distribution = torch.distributions.uniform.Uniform(
-                torch.log2(torch.tensor(MIN_RATIO)),
-                torch.log2(torch.tensor(MAX_RATIO)))
-            ratios = 2 ** distribution.sample([len(audio_files)])
-
-            # Prevent duplicates
-            ratios[(ratios * 100).to(torch.int) == 100] += 1
-
-            # Perform multiprocessed augmentation
-            augment_fn = functools.partial(
-                from_file_to_file,
-                speaker_directory)
-            augment_iterator = list(zip(audio_files, ratios))
-            with mp.get_context('spawn').Pool(os.cpu_count() // 2) as pool:
-                pool.starmap(augment_fn, augment_iterator)
-
-            # Save augmentation info
-            for audio_file, ratio in augment_iterator:
-                key = \
-                    f'{speaker_directory.stem}/{audio_file.stem.split("-")[0]}'
-                all_ratios[key] = f'{int(ratio * 100):03d}'
-
-        # Save all augmentation info to disk
+        # Save augmentation info
+        ratio_dict = {}
+        for audio_file, ratio in iterator:
+            key = \
+                f'{audio_file.parent.name}/{audio_file.stem.split("-")[0]}'
+            ratio_dict[key] = f'{int(ratio * 100):03d}'
         with open(promonet.AUGMENT_DIR / f'{dataset}.json', 'w') as file:
-            json.dump(all_ratios, file, indent=4)
+            json.dump(ratio_dict, file, indent=4)
 
 
-def from_file_to_file(directory, audio_file, ratio):
+def from_file_to_file(audio_file, ratio):
     """Perform data augmentation on a file and save"""
     # Load audio
     audio, sample_rate = soundfile.read(str(audio_file))
@@ -98,6 +64,6 @@ def from_file_to_file(directory, audio_file, ratio):
 
     # Save to disk
     file = (
-        directory /
+        audio_file.parent /
         f'{audio_file.stem.split("-")[0]}-{int(ratio * 100):03d}.wav')
     soundfile.write(str(file), scaled, promonet.SAMPLE_RATE)

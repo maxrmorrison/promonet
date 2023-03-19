@@ -56,7 +56,3 @@ SNAKE = True
 
 # Whether to omit latent generation
 VOCODER = True
-
-# Reduce batch size and steps for development
-BATCH_SIZE = 16
-NUM_STEPS = 100000

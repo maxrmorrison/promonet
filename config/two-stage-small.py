@@ -60,7 +60,3 @@ SNAKE = True
 
 # Whether to use a two-stage model (text -> mels; mels -> waveform)
 TWO_STAGE = True
-
-# Reduce batch size and steps for development
-BATCH_SIZE = 16
-NUM_STEPS = 200000

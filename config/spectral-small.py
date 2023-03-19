@@ -14,7 +14,3 @@ SNAKE = True
 
 # Only use spectral features
 SPECTROGRAM_ONLY = True
-
-# Reduce batch size and steps for development
-BATCH_SIZE = 16
-NUM_STEPS = 100000
