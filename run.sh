@@ -2,10 +2,10 @@
 # "Adaptive Neural Speech Prosody Editing"
 
 # Args
-# $1 - list of indices of GPUs to use
+# $1 - index of GPU to use
 
 # Download datasets
-python -m promonet.data.download
+# python -m promonet.data.download
 
 # Setup experiments
 python -m promonet.data.augment
