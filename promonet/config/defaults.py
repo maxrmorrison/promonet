@@ -9,9 +9,6 @@ from pathlib import Path
 # Configuration name
 CONFIG = 'promonet'
 
-# Module name
-MODULE = 'promonet'
-
 
 ###############################################################################
 # Audio parameters
