@@ -658,7 +658,7 @@ def evaluate(directory, step, generator, valid_loader, gpu):
                 spectrogram,
                 _,
                 audio,
-                stems
+                _
             ) = batch
             text = text[0]
 
