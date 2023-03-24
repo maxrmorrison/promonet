@@ -218,6 +218,7 @@ def train(
 
             # Unpack batch
             (
+                _,
                 phonemes,
                 pitch,
                 periodicity,
@@ -228,7 +229,36 @@ def train(
                 spectrograms,
                 spectrogram_lengths,
                 audio,
-            ) = (item.to(device) for item in batch[1:])
+                _
+            ) = batch
+
+            # Copy to device
+            (
+                phonemes,
+                pitch,
+                periodicity,
+                loudness,
+                lengths,
+                speakers,
+                ratios,
+                spectrograms,
+                spectrogram_lengths,
+                audio
+            ) = (
+                item.to(device) for item in
+                (
+                    phonemes,
+                    pitch,
+                    periodicity,
+                    loudness,
+                    lengths,
+                    speakers,
+                    ratios,
+                    spectrograms,
+                    spectrogram_lengths,
+                    audio
+                )
+            )
 
             # Bundle training input
             generator_input = (
@@ -267,7 +297,7 @@ def train(
                 with torch.cuda.amp.autocast(enabled=False):
 
                     # Slice segments for training discriminator
-                    segment_size = promonet.convert.samples_to_framples(
+                    segment_size = promonet.convert.samples_to_frames(
                         promonet.CHUNK_SIZE)
 
                     # Slice spectral features
@@ -615,9 +645,9 @@ def evaluate(directory, step, generator, valid_loader, gpu):
         for i, batch in enumerate(valid_loader):
             waveforms, figures = {}, {}
 
-            # Unpack batch
-            text = batch[0][0]
+            # Unpack
             (
+                text,
                 phonemes,
                 pitch,
                 periodicity,
@@ -627,8 +657,33 @@ def evaluate(directory, step, generator, valid_loader, gpu):
                 _,
                 spectrogram,
                 _,
+                audio,
+                stems
+            ) = batch
+            text = text[0]
+
+            # Copy to device
+            (
+                phonemes,
+                pitch,
+                periodicity,
+                loudness,
+                lengths,
+                speakers,
+                spectrogram,
                 audio
-            ) = (item.to(device) for item in batch[1:])
+            ) = (
+                item.to(device) for item in (
+                    phonemes,
+                    pitch,
+                    periodicity,
+                    loudness,
+                    lengths,
+                    speakers,
+                    spectrogram,
+                    audio
+                )
+            )
 
             # Ensure audio and generated are same length
             trim = audio.shape[-1] % promonet.HOPSIZE
