@@ -164,7 +164,7 @@ class WaveNet(torch.nn.Module):
         self.drop = torch.nn.Dropout(p_dropout)
 
         if gin_channels != 0:
-            cond_layer = promonet.model.CONV1D(
+            cond_layer = torch.nn.Conv1d(
                 gin_channels,
                 2 * hidden_channels * n_layers,
                 1)
@@ -175,7 +175,7 @@ class WaveNet(torch.nn.Module):
         for i in range(n_layers):
             dilation = dilation_rate ** i
             padding = int((kernel_size * dilation - dilation) / 2)
-            in_layer = promonet.model.CONV1D(
+            in_layer = torch.nn.Conv1d(
                 hidden_channels,
                 2 * hidden_channels,
                 kernel_size,
@@ -190,7 +190,7 @@ class WaveNet(torch.nn.Module):
             else:
                 res_skip_channels = hidden_channels
 
-            res_skip_layer = promonet.model.CONV1D(
+            res_skip_layer = torch.nn.Conv1d(
                 hidden_channels,
                 res_skip_channels,
                 1)
@@ -362,7 +362,7 @@ class ResidualCouplingLayer(torch.nn.Module):
         self.half_channels = channels // 2
         self.mean_only = mean_only
 
-        self.pre = promonet.model.CONV1D(
+        self.pre = torch.nn.Conv1d(
             self.half_channels,
             hidden_channels,
             1)
@@ -373,7 +373,7 @@ class ResidualCouplingLayer(torch.nn.Module):
             n_layers,
             p_dropout=p_dropout,
             gin_channels=gin_channels)
-        self.post = promonet.model.CONV1D(
+        self.post = torch.nn.Conv1d(
             hidden_channels,
             self.half_channels * (2 - mean_only),
             1)

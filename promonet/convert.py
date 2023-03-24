@@ -1,3 +1,5 @@
+import warnings
+
 import torch
 
 import promonet
@@ -43,3 +45,36 @@ def hz_to_bins(
 
     # Convert to integer bin
     return ((num_bins - 1) * normalized).to(torch.long)
+
+
+###############################################################################
+# Time conversions
+###############################################################################
+
+
+def seconds_to_frames(seconds):
+    """Convert seconds to frames"""
+    return int(seconds * promonet.SAMPLE_RATE / promonet.HOPSIZE)
+
+
+def frames_to_samples(frames):
+    """Convert number of frames to samples"""
+    return frames * promonet.HOPSIZE
+
+
+def frames_to_seconds(frames):
+    """Convert number of frames to seconds"""
+    return frames * samples_to_seconds(promonet.HOPSIZE)
+
+
+def samples_to_seconds(samples, sample_rate=promonet.SAMPLE_RATE):
+    """Convert time in samples to seconds"""
+    return samples / sample_rate
+
+
+def samples_to_frames(samples):
+    """Convert time in samples to frames"""
+    with warnings.catch_warnings():
+        warnings.simplefilter('ignore')
+        return samples // promonet.HOPSIZE
+    

@@ -296,7 +296,7 @@ MAX_TEXT_LEN = 190
 BUCKETS = 8
 
 # Maximum number of frames in a batch (per GPU)
-MAX_FRAMES = 32000
+MAX_FRAMES = 10000
 
 # Number of samples generated during training
 CHUNK_SIZE = 8192

@@ -261,15 +261,14 @@ def train(
                     prior,
                     predicted_mean,
                     predicted_logstd,
-                    true_logstd,
-                    residual
+                    true_logstd
                 ) = generator(*generator_input)
 
                 with torch.cuda.amp.autocast(enabled=False):
 
                     # Slice segments for training discriminator
-                    segment_size = \
-                        promonet.CHUNK_SIZE // promonet.HOPSIZE
+                    segment_size = promonet.convert.samples_to_framples(
+                        promonet.CHUNK_SIZE)
 
                     # Slice spectral features
                     mel_slices = promonet.model.slice_segments(
@@ -283,7 +282,8 @@ def train(
 
                     # Update indices to handle autoregression
                     if promonet.AUTOREGRESSIVE:
-                        ar_frames = promonet.AR_INPUT_SIZE // promonet.HOPSIZE
+                        ar_frames = promonet.convert.samples_to_frames(
+                            promonet.AR_INPUT_SIZE)
                         indices = slice_indices - ar_frames
                         size = segment_size + ar_frames
                     else:
@@ -329,8 +329,7 @@ def train(
                         periodicity_slices,
                         loudness_slices,
                         phoneme_slices,
-                        ratios,
-                        residual)
+                        ratios)
 
                     with torch.cuda.amp.autocast(enabled=False):
 
@@ -370,8 +369,7 @@ def train(
                         periodicity_slices,
                         loudness_slices,
                         phoneme_slices,
-                        ratios,
-                        residual)
+                        ratios)
 
                 ####################
                 # Generator losses #
@@ -649,25 +647,21 @@ def evaluate(directory, step, generator, valid_loader, gpu):
                     promonet.plot.spectrogram(mels)
 
             # Extract prosody features
-            try:
-                (
-                    pitch,
-                    periodicity,
-                    loudness,
-                    voicing,
-                    phones,
-                    _
-                ) = pysodic.from_audio_and_text(
-                    audio[0],
-                    promonet.SAMPLE_RATE,
-                    text,
-                    promonet.HOPSIZE / promonet.SAMPLE_RATE,
-                    promonet.WINDOW_SIZE / promonet.SAMPLE_RATE,
-                    gpu)
-            except Exception as error:
-                print(error)
-                import pdb; pdb.set_trace()
-                pass
+            (
+                pitch,
+                periodicity,
+                loudness,
+                voicing,
+                phones,
+                _
+            ) = pysodic.from_audio_and_text(
+                audio[0],
+                promonet.SAMPLE_RATE,
+                text,
+                promonet.HOPSIZE / promonet.SAMPLE_RATE,
+                promonet.WINDOW_SIZE / promonet.SAMPLE_RATE,
+                gpu=gpu
+            )
 
             # Reconstruct speech
             generated, *_ = generator(
@@ -693,7 +687,7 @@ def evaluate(directory, step, generator, valid_loader, gpu):
                 text,
                 promonet.HOPSIZE / promonet.SAMPLE_RATE,
                 promonet.WINDOW_SIZE / promonet.SAMPLE_RATE,
-                gpu
+                gpu=gpu
             )
 
             # Get ppgs
@@ -752,7 +746,7 @@ def evaluate(directory, step, generator, valid_loader, gpu):
                         text,
                         promonet.HOPSIZE / promonet.SAMPLE_RATE,
                         promonet.WINDOW_SIZE / promonet.SAMPLE_RATE,
-                        gpu
+                        gpu=gpu
                     )
 
                     # Get ppgs
@@ -840,7 +834,7 @@ def evaluate(directory, step, generator, valid_loader, gpu):
                         text,
                         promonet.HOPSIZE / promonet.SAMPLE_RATE,
                         promonet.WINDOW_SIZE / promonet.SAMPLE_RATE,
-                        gpu
+                        gpu=gpu
                     )
 
                     # Get ppgs
@@ -903,7 +897,7 @@ def evaluate(directory, step, generator, valid_loader, gpu):
                         text,
                         promonet.HOPSIZE / promonet.SAMPLE_RATE,
                         promonet.WINDOW_SIZE / promonet.SAMPLE_RATE,
-                        gpu
+                        gpu=gpu
                     )
 
                     # Get ppgs

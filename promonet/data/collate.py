@@ -32,7 +32,7 @@ def collate(batch):
     # Get tensor size in frames and samples
     max_length_phonemes = max([p.shape[-1] for p in phonemes])
     max_length_samples = lengths.max().item()
-    max_length_frames = max_length_samples // promonet.HOPSIZE
+    max_length_frames = promonet.convert.samples_to_frames(max_length_samples)
 
     # We store original lengths for, e.g., loss evaluation
     feature_lengths = torch.empty((len(batch),), dtype=torch.long)
@@ -66,7 +66,8 @@ def collate(batch):
 
         # Get lengths
         feature_lengths[i] = phonemes[index].shape[-1]
-        spectrogram_lengths[i] = lengths[index].item() // promonet.HOPSIZE
+        spectrogram_lengths[i] = promonet.convert.samples_to_frames(
+            lengths[index].item())
 
         # Prepare phoneme features
         if promonet.PPG_FEATURES or promonet.SPECTROGRAM_ONLY:

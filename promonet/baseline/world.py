@@ -65,7 +65,7 @@ def from_audio(
         vocoded = promonet.baseline.loudness.scale(vocoded, target_loudness)
 
     # Ensure correct length
-    length = len(pitch) * promonet.HOPSIZE
+    length = promonet.convert.frames_to_samples(len(pitch))
     if vocoded.shape[1] != length:
         temp = torch.zeros((1, length))
         crop_point = min(length, vocoded.shape[1])
@@ -100,7 +100,8 @@ def analyze(audio):
     frame_period = promonet.HOPSIZE / promonet.SAMPLE_RATE * 1000.
 
     # Extract pitch
-    samples = promonet.HOPSIZE * (len(audio) // promonet.HOPSIZE)
+    frames = promonet.convert.samples_to_frames(len(audio))
+    samples = promonet.convert.frames_to_samples(frames)
     pitch, time = pyworld.dio(audio[:samples],
                               promonet.SAMPLE_RATE,
                               frame_period=frame_period,
@@ -109,7 +110,6 @@ def analyze(audio):
                               allowed_range=ALLOWED_RANGE)
 
     # Make sure number of frames is correct
-    frames = len(audio) // promonet.HOPSIZE
     if len(pitch) > frames:
         difference = len(pitch) - frames
         pitch = pitch[:-difference]

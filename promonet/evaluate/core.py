@@ -506,7 +506,8 @@ def speaker(
     # Get the total number of samples we have generated
     files = subjective_directory.rglob('*.wav')
     results['num_samples'] = sum([file.stat().st_size for file in files]) // 4
-    results['num_frames'] = results['num_samples'] // promonet.HOPSIZE
+    results['num_frames'] = promonet.convert.samples_to_frames(
+        results['num_samples'])
 
     # Get results for this speaker
     results['objective']['average'] = {

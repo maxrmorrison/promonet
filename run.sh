@@ -8,9 +8,9 @@
 # python -m promonet.data.download
 
 # Setup experiments
-python -m promonet.data.augment
-python -m promonet.data.preprocess --features spectrogram ppg prosody --gpu $1
-python -m promonet.partition
+# python -m promonet.data.augment
+# python -m promonet.data.preprocess --features spectrogram ppg prosody --gpu $1
+# python -m promonet.partition
 
 # First pass experiments trainings and evaluations
 # python -m promonet.train --config config/base-small.py --gpus $1
