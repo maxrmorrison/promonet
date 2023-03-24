@@ -431,10 +431,10 @@ class Generator(torch.nn.Module):
     def ar_loop(self, latents, speaker_embedding):
         """Perform autoregressive generation from latent space"""
         # Save output size
-        output_length = latents.shape[2] * promonet.HOPSIZE
+        output_length = promonet.convert.frames_to_samples(latents.shape[2])
 
         # Get feature chunk size
-        feat_chunk = promonet.CHUNK_SIZE // promonet.HOPSIZE
+        feat_chunk = promonet.convert.samples_to_frames(promonet.CHUNK_SIZE)
 
         # Zero-pad features to be a multiple of the chunk size
         padding = (feat_chunk - (latents.shape[2] % feat_chunk)) % feat_chunk
@@ -447,7 +447,7 @@ class Generator(torch.nn.Module):
             device=latents.device)
 
         # Get output signal length
-        signal_length = latents.shape[2] * promonet.HOPSIZE
+        signal_length = promonet.convert.frames_to_samples(latents.shape[2])
 
         # Autoregressive loop
         generated = torch.zeros(
@@ -470,7 +470,7 @@ class Generator(torch.nn.Module):
                 chunk, *_ = self.generator(features, g=speaker_embedding)
 
                 # Place newly generated chunk
-                start = i * promonet.HOPSIZE
+                start = promonet.convert.frames_to_samples(i)
                 generated[start:start + promonet.CHUNK_SIZE] += chunk.squeeze()
 
                 # Update AR context
@@ -539,8 +539,9 @@ class Generator(torch.nn.Module):
 
             # During training, get slices of previous audio
             if self.training:
-                indices = \
-                    slice_indices * promonet.HOPSIZE - promonet.AR_INPUT_SIZE
+                indices = (
+                    promonet.convert.frames_to_samples(slice_indices) -
+                    promonet.AR_INPUT_SIZE)
                 autoregressive = promonet.model.slice_segments(
                     audio,
                     indices,
@@ -708,7 +709,7 @@ class Generator(torch.nn.Module):
                         predicted_logstd.transpose(1, 2)).transpose(1, 2)
 
             # Extract random segments of latent representation for training decoder
-            slice_size = promonet.CHUNK_SIZE // promonet.HOPSIZE
+            slice_size = promonet.convert.samples_to_frames(promonet.CHUNK_SIZE)
             latents, slice_indices = promonet.model.random_slice_segments(
                 latents,
                 spectrogram_lengths,
