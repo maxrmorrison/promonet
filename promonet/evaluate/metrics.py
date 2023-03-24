@@ -20,7 +20,7 @@ class Metrics:
         self.ppg = PPG()
 
     def __call__(self):
-        return self.prosody() | self.ppg()
+        return {**self.prosody(), **self.ppg()}
 
     def update(self, prosody_args, ppg_args):
         self.prosody.update(*prosody_args)
