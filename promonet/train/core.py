@@ -95,7 +95,10 @@ def train(
     # Create models #
     #################
 
-    num_speakers = 109  # Number of speakers in VCTK dataset
+    # Number of speakers in VCTK dataset
+    # TODO - fix hardcoding
+    num_speakers = 109  
+    
     generator = promonet.model.Generator(num_speakers).to(device)
     discriminators = promonet.model.Discriminator().to(device)
 
@@ -206,7 +209,7 @@ def train(
             initial=step,
             total=steps,
             dynamic_ncols=True,
-            desc=f'Training {promonet.CONFIG}')
+            desc=f'{"Adapting" if adapt else "Training"} {promonet.CONFIG}')
     while step < steps:
 
         # Seed sampler
@@ -590,21 +593,22 @@ def train(
             if not rank:
                 progress.update()
 
-    # Close progress bar
     if not rank:
+
+        # Close progress bar
         progress.close()
 
-    # Save final model
-    promonet.checkpoint.save(
-        generator,
-        generator_optimizer,
-        step,
-        output_directory / f'generator-{step:08d}.pt')
-    promonet.checkpoint.save(
-        discriminators,
-        discriminator_optimizer,
-        step,
-        output_directory / f'discriminator-{step:08d}.pt')
+        # Save final model
+        promonet.checkpoint.save(
+            generator,
+            generator_optimizer,
+            step,
+            output_directory / f'generator-{step:08d}.pt')
+        promonet.checkpoint.save(
+            discriminators,
+            discriminator_optimizer,
+            step,
+            output_directory / f'discriminator-{step:08d}.pt')
 
 
 ###############################################################################
