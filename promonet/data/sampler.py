@@ -67,7 +67,9 @@ class Sampler:
                 torch.randperm(len(bucket), generator=generator).tolist()]
 
             # Get current batch size
-            size = promonet.MAX_FRAMES // max_length
+            size = min(
+                promonet.MAX_FRAMES // max_length,
+                promonet.MAX_BATCH_SIZE)
             
             # Make batches
             batches.extend(
