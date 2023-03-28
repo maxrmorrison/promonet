@@ -72,7 +72,8 @@ class Dataset(torch.utils.data.Dataset):
             spectrogram,
             audio,
             torch.tensor(speaker, dtype=torch.long),
-            int(stem[-3:]) / 100.)
+            int(stem[-3:]) / 100.,
+            stem)
 
     def __len__(self):
         return len(self.stems)

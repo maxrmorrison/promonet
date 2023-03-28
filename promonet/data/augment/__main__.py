@@ -14,7 +14,7 @@ def parse_args():
     parser.add_argument(
         '--datasets',
         nargs='+',
-        default=['vctk'],
+        default=promonet.DATASETS,
         help='The name of the datasets to augment')
     return parser.parse_args()
 
