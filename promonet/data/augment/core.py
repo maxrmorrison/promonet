@@ -21,7 +21,7 @@ def datasets(datasets):
         directory = promonet.CACHE_DIR / dataset
 
         # Get files
-        audio_files = sorted(directory.rglob('-100.wav'))
+        audio_files = sorted(directory.rglob('*-100.wav'))
 
         # Sample ratios
         torch.manual_seed(promonet.RANDOM_SEED)

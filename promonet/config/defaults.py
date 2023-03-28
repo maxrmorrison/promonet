@@ -9,9 +9,6 @@ from pathlib import Path
 # Configuration name
 CONFIG = 'promonet'
 
-# Module name
-MODULE = 'promonet'
-
 
 ###############################################################################
 # Audio parameters
@@ -43,65 +40,17 @@ WINDOW_SIZE = 1024
 ###############################################################################
 
 
-# Maximum ratio for data augmentation
+# Whether to use pitch augmentation
+AUGMENT_PITCH = False
+
+# Maximum ratio for pitch augmentation
 AUGMENTATION_RATIO_MAX = 2.
 
-# Minimum ratio for data augmentation
+# Minimum ratio for pitch augmentation
 AUGMENTATION_RATIO_MIN = .5
 
 # Names of all datasets
 DATASETS = ['daps', 'vctk']
-
-
-###############################################################################
-# Directories
-###############################################################################
-
-
-# Root location for saving outputs
-# TEMPORARY
-# ROOT_DIR = Path(__file__).parent.parent.parent
-ROOT_DIR = Path('/data/max/promonet')
-
-# Location to save assets to be bundled with pip release
-ASSETS_DIR = Path(__file__).parent.parent / 'assets'
-
-# Location of preprocessed features
-CACHE_DIR = ROOT_DIR / 'data' / 'cache'
-
-# Location of datasets on disk
-DATA_DIR = ROOT_DIR / 'data' / 'datasets'
-
-# Location to save evaluation artifacts
-EVAL_DIR = ROOT_DIR / 'eval'
-
-# Location to save training and adaptation artifacts
-RUNS_DIR = ROOT_DIR / 'runs'
-
-# Location of compressed datasets on disk
-SOURCES_DIR = ROOT_DIR / 'data' / 'sources'
-
-
-###############################################################################
-# Evaluation
-###############################################################################
-
-
-# Whether to perform benchmarking
-BENCHMARK = False
-
-# The model to use for evaluation.
-# One of ['promonet', 'psola', 'world].
-MODEL = 'promonet'
-
-
-###############################################################################
-# Features
-###############################################################################
-
-
-# Whether to use pitch augmentation
-AUGMENT_PITCH = False
 
 # Discriminator loudness conditioning
 DISCRIM_LOUDNESS_CONDITION = False
@@ -135,6 +84,12 @@ LATENT_RATIO_SHORTCUT = False
 
 # A-weighted loudness conditioning
 LOUDNESS_FEATURES = False
+
+# Maximum length of text input
+MAX_TEXT_LEN = 190
+
+# Minimum length of text input
+MIN_TEXT_LEN = 1
 
 # Periodicity conditioning
 PERIODICITY_FEATURES = False
@@ -170,9 +125,41 @@ SPECTROGRAM_ONLY = False
 
 
 ###############################################################################
+# Directories
+###############################################################################
+
+
+# Root location for saving outputs
+# TEMPORARY
+# ROOT_DIR = Path(__file__).parent.parent.parent
+ROOT_DIR = Path('/data/max/promonet')
+
+# Location to save assets to be bundled with pip release
+ASSETS_DIR = Path(__file__).parent.parent / 'assets'
+
+# Location of preprocessed features
+CACHE_DIR = ROOT_DIR / 'data' / 'cache'
+
+# Location of datasets on disk
+DATA_DIR = ROOT_DIR / 'data' / 'datasets'
+
+# Location to save evaluation artifacts
+EVAL_DIR = ROOT_DIR / 'eval'
+
+# Location to save training and adaptation artifacts
+RUNS_DIR = ROOT_DIR / 'runs'
+
+# Location of compressed datasets on disk
+SOURCES_DIR = ROOT_DIR / 'data' / 'sources'
+
+
+###############################################################################
 # Logging parameters
 ###############################################################################
 
+
+# Whether to perform benchmarking during evaluation
+BENCHMARK = False
 
 # Number of steps between saving checkpoints
 CHECKPOINT_INTERVAL = 25000  # steps
@@ -211,7 +198,11 @@ FILTER_CHANNELS = 768
 KERNEL_SIZE = 3
 
 # (Negative) slope of leaky ReLU activations
-LRELU_SLOPE = 0.1
+LRELU_SLOPE = .1
+
+# The model to use for evaluation.
+# One of ['promonet', 'psola', 'world].
+MODEL = 'promonet'
 
 # Whether to use the multi-resolution spectrogram discriminator from UnivNet
 MULTI_RESOLUTION_DISCRIMINATOR = False
@@ -278,18 +269,6 @@ MEL_LOSS_WEIGHT = 45.
 
 
 ###############################################################################
-# Text parameters
-###############################################################################
-
-
-# Minimum length of text input
-MIN_TEXT_LEN = 1
-
-# Maximum length of text input
-MAX_TEXT_LEN = 190
-
-
-###############################################################################
 # Training parameters
 ###############################################################################
 
@@ -298,14 +277,17 @@ MAX_TEXT_LEN = 190
 # length to avoid excess padding
 BUCKETS = 8
 
+# Set a maximum on the batch size, regardless of frame count
+MAX_BATCH_SIZE = 32
+
 # Maximum number of frames in a batch (per GPU)
-MAX_FRAMES = 32000
+MAX_FRAMES = 10000
 
 # Number of samples generated during training
 CHUNK_SIZE = 8192
 
-# Whether to perform gradient clipping on the generator
-GRADIENT_CLIP_GENERATOR = None
+# Gradients with norms above this value are clipped to this value
+GRADIENT_CLIP_GENERATOR = 1000.
 
 # Number of training steps
 NUM_STEPS = 100000

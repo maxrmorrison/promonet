@@ -78,12 +78,13 @@ def from_audio(
                 gpu=gpu)
 
             # Maybe resample length
-            if features.shape[1] != audio.shape[1] // promonet.HOPSIZE:
+            frames = promonet.convert.samples_to_frames(audio.shape[1])
+            if features.shape[1] !=  frames:
                 align_corners = \
                     None if promonet.PPG_INTERP_METHOD == 'nearest' else False
                 features = torch.nn.functional.interpolate(
                     features[None],
-                    size=audio.shape[1] // promonet.HOPSIZE,
+                    size=frames,
                     mode=promonet.PPG_INTERP_METHOD,
                     align_corners=align_corners)[0]
 

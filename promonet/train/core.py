@@ -95,7 +95,10 @@ def train(
     # Create models #
     #################
 
-    num_speakers = 109  # Number of speakers in VCTK dataset
+    # Number of speakers in VCTK dataset
+    # TODO - fix hardcoding
+    num_speakers = 109  
+    
     generator = promonet.model.Generator(num_speakers).to(device)
     discriminators = promonet.model.Discriminator().to(device)
 
@@ -206,7 +209,7 @@ def train(
             initial=step,
             total=steps,
             dynamic_ncols=True,
-            desc=f'Training {promonet.CONFIG}')
+            desc=f'{"Adapting" if adapt else "Training"} {promonet.CONFIG}')
     while step < steps:
 
         # Seed sampler
@@ -218,6 +221,7 @@ def train(
 
             # Unpack batch
             (
+                _,
                 phonemes,
                 pitch,
                 periodicity,
@@ -228,7 +232,36 @@ def train(
                 spectrograms,
                 spectrogram_lengths,
                 audio,
-            ) = (item.to(device) for item in batch[1:])
+                _
+            ) = batch
+
+            # Copy to device
+            (
+                phonemes,
+                pitch,
+                periodicity,
+                loudness,
+                lengths,
+                speakers,
+                ratios,
+                spectrograms,
+                spectrogram_lengths,
+                audio
+            ) = (
+                item.to(device) for item in
+                (
+                    phonemes,
+                    pitch,
+                    periodicity,
+                    loudness,
+                    lengths,
+                    speakers,
+                    ratios,
+                    spectrograms,
+                    spectrogram_lengths,
+                    audio
+                )
+            )
 
             # Bundle training input
             generator_input = (
@@ -261,15 +294,14 @@ def train(
                     prior,
                     predicted_mean,
                     predicted_logstd,
-                    true_logstd,
-                    residual
+                    true_logstd
                 ) = generator(*generator_input)
 
                 with torch.cuda.amp.autocast(enabled=False):
 
                     # Slice segments for training discriminator
-                    segment_size = \
-                        promonet.CHUNK_SIZE // promonet.HOPSIZE
+                    segment_size = promonet.convert.samples_to_frames(
+                        promonet.CHUNK_SIZE)
 
                     # Slice spectral features
                     mel_slices = promonet.model.slice_segments(
@@ -283,7 +315,8 @@ def train(
 
                     # Update indices to handle autoregression
                     if promonet.AUTOREGRESSIVE:
-                        ar_frames = promonet.AR_INPUT_SIZE // promonet.HOPSIZE
+                        ar_frames = promonet.convert.samples_to_frames(
+                            promonet.AR_INPUT_SIZE)
                         indices = slice_indices - ar_frames
                         size = segment_size + ar_frames
                     else:
@@ -329,8 +362,7 @@ def train(
                         periodicity_slices,
                         loudness_slices,
                         phoneme_slices,
-                        ratios,
-                        residual)
+                        ratios)
 
                     with torch.cuda.amp.autocast(enabled=False):
 
@@ -370,8 +402,7 @@ def train(
                         periodicity_slices,
                         loudness_slices,
                         phoneme_slices,
-                        ratios,
-                        residual)
+                        ratios)
 
                 ####################
                 # Generator losses #
@@ -562,21 +593,22 @@ def train(
             if not rank:
                 progress.update()
 
-    # Close progress bar
     if not rank:
+
+        # Close progress bar
         progress.close()
 
-    # Save final model
-    promonet.checkpoint.save(
-        generator,
-        generator_optimizer,
-        step,
-        output_directory / f'generator-{step:08d}.pt')
-    promonet.checkpoint.save(
-        discriminators,
-        discriminator_optimizer,
-        step,
-        output_directory / f'discriminator-{step:08d}.pt')
+        # Save final model
+        promonet.checkpoint.save(
+            generator,
+            generator_optimizer,
+            step,
+            output_directory / f'generator-{step:08d}.pt')
+        promonet.checkpoint.save(
+            discriminators,
+            discriminator_optimizer,
+            step,
+            output_directory / f'discriminator-{step:08d}.pt')
 
 
 ###############################################################################
@@ -617,9 +649,9 @@ def evaluate(directory, step, generator, valid_loader, gpu):
         for i, batch in enumerate(valid_loader):
             waveforms, figures = {}, {}
 
-            # Unpack batch
-            text = batch[0][0]
+            # Unpack
             (
+                text,
                 phonemes,
                 pitch,
                 periodicity,
@@ -629,8 +661,33 @@ def evaluate(directory, step, generator, valid_loader, gpu):
                 _,
                 spectrogram,
                 _,
+                audio,
+                _
+            ) = batch
+            text = text[0]
+
+            # Copy to device
+            (
+                phonemes,
+                pitch,
+                periodicity,
+                loudness,
+                lengths,
+                speakers,
+                spectrogram,
                 audio
-            ) = (item.to(device) for item in batch[1:])
+            ) = (
+                item.to(device) for item in (
+                    phonemes,
+                    pitch,
+                    periodicity,
+                    loudness,
+                    lengths,
+                    speakers,
+                    spectrogram,
+                    audio
+                )
+            )
 
             # Ensure audio and generated are same length
             trim = audio.shape[-1] % promonet.HOPSIZE
@@ -649,25 +706,21 @@ def evaluate(directory, step, generator, valid_loader, gpu):
                     promonet.plot.spectrogram(mels)
 
             # Extract prosody features
-            try:
-                (
-                    pitch,
-                    periodicity,
-                    loudness,
-                    voicing,
-                    phones,
-                    _
-                ) = pysodic.from_audio_and_text(
-                    audio[0],
-                    promonet.SAMPLE_RATE,
-                    text,
-                    promonet.HOPSIZE / promonet.SAMPLE_RATE,
-                    promonet.WINDOW_SIZE / promonet.SAMPLE_RATE,
-                    gpu)
-            except Exception as error:
-                print(error)
-                import pdb; pdb.set_trace()
-                pass
+            (
+                pitch,
+                periodicity,
+                loudness,
+                voicing,
+                phones,
+                _
+            ) = pysodic.from_audio_and_text(
+                audio[0],
+                promonet.SAMPLE_RATE,
+                text,
+                promonet.HOPSIZE / promonet.SAMPLE_RATE,
+                promonet.WINDOW_SIZE / promonet.SAMPLE_RATE,
+                gpu=gpu
+            )
 
             # Reconstruct speech
             generated, *_ = generator(
@@ -693,7 +746,7 @@ def evaluate(directory, step, generator, valid_loader, gpu):
                 text,
                 promonet.HOPSIZE / promonet.SAMPLE_RATE,
                 promonet.WINDOW_SIZE / promonet.SAMPLE_RATE,
-                gpu
+                gpu=gpu
             )
 
             # Get ppgs
@@ -752,7 +805,7 @@ def evaluate(directory, step, generator, valid_loader, gpu):
                         text,
                         promonet.HOPSIZE / promonet.SAMPLE_RATE,
                         promonet.WINDOW_SIZE / promonet.SAMPLE_RATE,
-                        gpu
+                        gpu=gpu
                     )
 
                     # Get ppgs
@@ -840,7 +893,7 @@ def evaluate(directory, step, generator, valid_loader, gpu):
                         text,
                         promonet.HOPSIZE / promonet.SAMPLE_RATE,
                         promonet.WINDOW_SIZE / promonet.SAMPLE_RATE,
-                        gpu
+                        gpu=gpu
                     )
 
                     # Get ppgs
@@ -903,7 +956,7 @@ def evaluate(directory, step, generator, valid_loader, gpu):
                         text,
                         promonet.HOPSIZE / promonet.SAMPLE_RATE,
                         promonet.WINDOW_SIZE / promonet.SAMPLE_RATE,
-                        gpu
+                        gpu=gpu
                     )
 
                     # Get ppgs

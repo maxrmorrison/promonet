@@ -25,6 +25,7 @@ def datasets(datasets, features=ALL_FEATURES, gpu=None):
 
         # Get text and audio files for this speaker
         audio_files = sorted(list(directory.rglob('*.wav')))
+        audio_files = [file for file in audio_files if '-' in file.stem]
         text_files = [
             file.parent / f'{file.stem[:-4]}.txt' for file in audio_files]
 
