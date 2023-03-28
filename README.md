@@ -1,108 +1,49 @@
-# promonet
-<!-- [![PyPI](https://img.shields.io/pypi/v/promonet.svg)](https://pypi.python.org/pypi/promonet)
+<h1 align="center">Prosody Modification Network (ProMoNet)</h1>
+<div align="center">
+
+[![PyPI](https://img.shields.io/pypi/v/promonet.svg)](https://pypi.python.org/pypi/promonet)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
-[![Downloads](https://pepy.tech/badge/promonet)](https://pepy.tech/project/promonet) -->
+[![Downloads](https://pepy.tech/badge/promonet)](https://pepy.tech/project/promonet)
+
+</div>
 
 Official code for the paper _Adaptive Neural Speech Prosody Editing_
 [[paper]](https://www.maxrmorrison.com/pdfs/morrison2023adaptive.pdf)
 [[companion website]](https://www.maxrmorrison.com/sites/promonet/)
 
 
+## Table of contents
+
+- [Installation](#installation)
+- [Usage](#usage)
+    * [Example](#example)
+    * [Adaptation][#adaptation]
+    * [Generation][#generation]
+- [Training](#training)
+    * [Download](#download)
+    * [Preprocess](#preprocess)
+    * [Partition](#partition)
+    * [Train](#train)
+    * [Monitor](#monitor)
+    * [Evaluate](#evaluate)
+- [Citation](#citation)
+
+
 ## Installation
 
-```
-# Create a new conda environment with MFA
-conda create -n promonet -c conda-forge montreal-forced-aligner -y
-
-# Activate conda environment
-conda activate promonet
-
-# Option 1) Install from pypi
-pip install promonet
-
-# Option 2) Install from source
-git clone git@github.com:maxrmorrison/promonet
-cd promonet
-pip install -e .
-```
-
-If you would like to perform text-to-speech, you must also install the `espeak`
-backend for the grapheme-to-phoneme module as well compile the code for
-monotonic alignment search (MAS).
-
-```
-# Install espeak
-apt-get install espeak
-```
-
-```
-# Compile MAS
-cd promonet/monotonic_align
-python setup.py build_ext --inplace
-```
-
-
-## Configuration
-
-We use [`yapecs`](https://github.com/maxrmorrison/yapecs) for experiment
-configuration. Configuration files for experiments described in our paper
-can be found in `config/`.
+`pip install promonet`
 
 
 ## Usage
 
+### Example
+
 To use `promonet` for speech prosody editing, you must first perform speaker
-adaptation. To do so, create a directory of `.wav` audio files that will be
-used for adaptation. Then, use either the CLI or API to perform adaptation
-and generation.
+adaptation on a dataset of recordings of the target speaker. You can then use
+the resulting model checkpoint to perform prosody modification in the target
+speaker's voice. All of this can be done using either the API or CLI.
 
-
-### Command-line interface (CLI)
-
-TODO - give comparable example as API section
-
-```
-python -m promonet
-    [-h]
-    [--config CONFIG]
-    --audio_files AUDIO_FILES [AUDIO_FILES ...]
-    --output_files OUTPUT_FILES [OUTPUT_FILES ...]
-    [--target_alignment_files TARGET_ALIGNMENT_FILES [TARGET_ALIGNMENT_FILES ...]]
-    [--target_loudness_files TARGET_LOUDNESS_FILES [TARGET_LOUDNESS_FILES ...]]
-    [--target_periodicity_files TARGET_PERIODICITY_FILES [TARGET_PERIODICITY_FILES ...]]
-    [--target_pitch_files TARGET_PITCH_FILES [TARGET_PITCH_FILES ...]]
-    [--checkpoint CHECKPOINT]
-    [--gpu GPU]
-
-Perform prosody editing
-
-required arguments:
-  --audio_files AUDIO_FILES [AUDIO_FILES ...]
-                        The audio files to process
-  --output_files OUTPUT_FILES [OUTPUT_FILES ...]
-                        The files to save the output audio
-
-optional arguments:
-  -h, --help            show this help message and exit
-  --config CONFIG       The configuration file
-  --target_alignment_files TARGET_ALIGNMENT_FILES [TARGET_ALIGNMENT_FILES ...]
-                        The files with the target phoneme alignment
-  --target_loudness_files TARGET_LOUDNESS_FILES [TARGET_LOUDNESS_FILES ...]
-                        The files with the per-frame target loudness
-  --target_periodicity_files TARGET_PERIODICITY_FILES [TARGET_PERIODICITY_FILES ...]
-                        The files with the per-frame target periodicity
-  --target_pitch_files TARGET_PITCH_FILES [TARGET_PITCH_FILES ...]
-                        The files with the per-frame target pitch
-  --checkpoint CHECKPOINT
-                        The generator checkpoint
-  --gpu GPU             The index of the gpu to use for generation
-```
-
-
-### Application programming interface (API)
-
-The following is an example of performing speaker adaptation followed by
-prosody editing.
+#### Application programming interface (API)
 
 ```
 import promonet
@@ -156,12 +97,11 @@ shifted = promonet.from_audio(
     gpu=gpus[0])
 
 # Perform time-stretching
-target_alignment = copy.deepcopy(alignment)
-durations = [ratio * p.duration() for p in target_alignment.phonemes()]
-target_alignment.update(durations=durations)
+alignment.update(
+    durations=[ratio * p.duration() for p in target_alignment.phonemes()])
 stretched = promonet.from_audio(
     audio,
-    target_alignment=target_alignment,
+    target_alignment=alignment,
     checkpoint=checkpoint,
     gpu=gpus[0])
 
@@ -175,18 +115,106 @@ scaled = promonet.from_audio(
 ```
 
 
-## Reproducing results
+#### Command-line interface (CLI)
 
-For the following subsections, the arguments are as follows
-- `config` - The configuration file
-- `checkpoint` - Path to a checkpoint on disk
-- `dataset` - The name of the dataset to use. One of [`vctk` or `daps`].
-- `datasets` - A list of datasets to use
-- `gpu` - The index of the gpu to use
-- `gpus` - A list of indices of gpus to use for distributed data parallelism
-  (DDP)
-- `num` - The number of samples to evaluate
+**TODO**
 
+
+### Adaptation
+
+#### Application programming interface (API)
+
+##### `promonet.from_`
+
+**TODO**
+
+
+##### `promonet.from_file`
+
+**TODO**
+
+
+##### `promonet.from_file_to_file`
+
+**TODO**
+
+
+##### `promonet.from_files_to_files`
+
+**TODO**
+
+
+#### Command-line interface (CLI)
+
+
+### Generation
+
+#### Application programming interface (API)
+
+##### `promonet.from_`
+
+**TODO**
+
+
+##### `promonet.from_file`
+
+**TODO**
+
+
+##### `promonet.from_file_to_file`
+
+**TODO**
+
+
+##### `promonet.from_files_to_files`
+
+**TODO**
+
+
+#### Command-line interface (CLI)
+
+**TODO**
+
+```
+python -m promonet
+    [-h]
+    [--config CONFIG]
+    --audio_files AUDIO_FILES [AUDIO_FILES ...]
+    --output_files OUTPUT_FILES [OUTPUT_FILES ...]
+    [--target_alignment_files TARGET_ALIGNMENT_FILES [TARGET_ALIGNMENT_FILES ...]]
+    [--target_loudness_files TARGET_LOUDNESS_FILES [TARGET_LOUDNESS_FILES ...]]
+    [--target_periodicity_files TARGET_PERIODICITY_FILES [TARGET_PERIODICITY_FILES ...]]
+    [--target_pitch_files TARGET_PITCH_FILES [TARGET_PITCH_FILES ...]]
+    [--checkpoint CHECKPOINT]
+    [--gpu GPU]
+
+Perform prosody editing
+
+required arguments:
+  --audio_files AUDIO_FILES [AUDIO_FILES ...]
+                        The audio files to process
+  --output_files OUTPUT_FILES [OUTPUT_FILES ...]
+                        The files to save the output audio
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --config CONFIG       The configuration file
+  --target_alignment_files TARGET_ALIGNMENT_FILES [TARGET_ALIGNMENT_FILES ...]
+                        The files with the target phoneme alignment
+  --target_loudness_files TARGET_LOUDNESS_FILES [TARGET_LOUDNESS_FILES ...]
+                        The files with the per-frame target loudness
+  --target_periodicity_files TARGET_PERIODICITY_FILES [TARGET_PERIODICITY_FILES ...]
+                        The files with the per-frame target periodicity
+  --target_pitch_files TARGET_PITCH_FILES [TARGET_PITCH_FILES ...]
+                        The files with the per-frame target pitch
+  --checkpoint CHECKPOINT
+                        The generator checkpoint
+  --gpu GPU             The index of the gpu to use for generation
+```
+
+
+
+## Training
 
 ### Download
 
@@ -217,9 +245,6 @@ used in our work are provided for each dataset in
 python -m promonet.partition --datasets <datasets>
 ```
 
-The optional `--overwrite` flag forces the existing partition to be
-overwritten.
-
 
 ### Train
 
@@ -229,25 +254,6 @@ Trains a model. Checkpoints and logs are stored in `runs/`.
 python -m promonet.train \
     --config <config> \
     --dataset <dataset> \
-    --gpus <gpus>
-```
-
-If the config file has been previously run, the most recent checkpoint will
-automatically be loaded and training will resume from that checkpoint.
-
-
-### Adapt
-
-Adapt a model to a speaker. The files corresponding to a speaker are specified
-via disjoint data partitions. Checkpoints and logs are stored in `runs/`.
-
-```
-python -m promonet.train \
-    --config <config> \
-    --dataset <dataset> \
-    --train_partition <train_partition> \
-    --valid_partition <valid_partition> \
-    --adapt \
     --gpus <gpus>
 ```
 
