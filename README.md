@@ -17,8 +17,8 @@ Official code for the paper _Adaptive Neural Speech Prosody Editing_
 - [Installation](#installation)
 - [Usage](#usage)
     * [Example](#example)
-    * [Adaptation][#adaptation]
-    * [Generation][#generation]
+    * [Adaptation](#adaptation)
+    * [Generation](#generation)
 - [Training](#training)
     * [Download](#download)
     * [Preprocess](#preprocess)
