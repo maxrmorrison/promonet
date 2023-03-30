@@ -43,6 +43,7 @@ adaptation on a dataset of recordings of the target speaker. You can then use
 the resulting model checkpoint to perform prosody modification in the target
 speaker's voice. All of this can be done using either the API or CLI.
 
+
 #### Application programming interface (API)
 
 ```
@@ -173,8 +174,6 @@ scaled = promonet.from_audio(
 
 #### Command-line interface (CLI)
 
-**TODO**
-
 ```
 python -m promonet
     [-h]
@@ -208,10 +207,9 @@ optional arguments:
   --target_pitch_files TARGET_PITCH_FILES [TARGET_PITCH_FILES ...]
                         The files with the per-frame target pitch
   --checkpoint CHECKPOINT
-                        The generator checkpoint
-  --gpu GPU             The index of the gpu to use for generation
+                        The model checkpoint
+  --gpu GPU             The GPU index
 ```
-
 
 
 ## Training
