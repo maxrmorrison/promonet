@@ -8,6 +8,8 @@ data/cache/*
 !data/cache/.gitkeep
 data/datasets/*
 !data/datasets/.gitkeep
+data/sources/*
+!data/sources/.gitkeep
 eval/objective/*
 !eval/objective/.gitkeep
 eval/subjective/*

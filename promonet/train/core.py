@@ -97,8 +97,8 @@ def train(
 
     # Number of speakers in VCTK dataset
     # TODO - fix hardcoding
-    num_speakers = 109  
-    
+    num_speakers = 109
+
     generator = promonet.model.Generator(num_speakers).to(device)
     discriminators = promonet.model.Discriminator().to(device)
 
@@ -487,6 +487,7 @@ def train(
 
             if not rank:
 
+                # TODO - move losses to evalute and use both train and valid loaders
                 if step % promonet.LOG_INTERVAL == 0:
 
                     # Log losses
@@ -497,8 +498,6 @@ def train(
                     else:
                         scalars.update({
                         'loss/discriminator/total': discriminator_losses,
-                        'learning_rate':
-                            generator_optimizer.param_groups[0]['lr'],
                         'loss/generator/feature-matching':
                             feature_matching_loss,
                         'loss/generator/mels': mel_loss})
@@ -517,27 +516,6 @@ def train(
                         if not promonet.TWO_STAGE:
                             scalars['loss/generator/kl-divergence'] = kl_divergence_loss
                     promonet.write.scalars(log_directory, step, scalars)
-
-                    # Log mels and attention matrix
-                    figures = {
-                        'train/slice/original':
-                            promonet.plot.spectrogram(
-                                mel_slices[0].data.cpu().numpy()),
-                        'train/slice/generated':
-                            promonet.plot.spectrogram(
-                                generated_mels[0].data.cpu().numpy()),
-                        'train/original':
-                            promonet.plot.spectrogram(
-                                mels[0].data.cpu().numpy())}
-                    if attention is not None:
-                        figures['train/attention'] = \
-                            promonet.plot.alignment(
-                                attention[0, 0].data.cpu().numpy())
-                    if promonet.TWO_STAGE:
-                        figures['train/slice/synthesizer'] = \
-                            promonet.plot.spectrogram(
-                                predicted_spectrogram[0].data.cpu().numpy())
-                    promonet.write.figures(log_directory, step, figures)
 
                 ############
                 # Evaluate #
@@ -616,38 +594,37 @@ def train(
 ###############################################################################
 
 
-def evaluate(directory, step, generator, valid_loader, gpu):
+def evaluate(directory, step, generator, loader, gpu):
     """Perform model evaluation"""
     device = 'cpu' if gpu is None else f'cuda:{gpu}'
 
-    # Prepare generator for evaluation
-    generator.eval()
+    # Setup prosody evaluation
+    metric_fn = functools.partial(
+        promonet.evaluate.metrics.Metrics,
+        gpu)
+    metrics = {'reconstruction': metric_fn()}
 
-    # Turn off gradient computation
-    with torch.no_grad():
+    # Maybe add evaluation of prosody control
+    if promonet.PITCH_FEATURES:
+        metrics.update({
+            'shifted-050': metric_fn(),
+            'shifted-200': metric_fn()})
+    if promonet.PPG_FEATURES:
+        metrics.update({
+            'stretched-050': metric_fn(),
+            'stretched-200': metric_fn()})
+    if promonet.LOUDNESS_FEATURES:
+        metrics.update({
+            'scaled-050': metric_fn(),
+            'scaled-200': metric_fn()})
 
-        # Setup prosody evaluation
-        metric_fn = functools.partial(
-            promonet.evaluate.metrics.Metrics,
-            gpu)
-        metrics = {'reconstruction': metric_fn()}
+    # Audio and figures for tensorboard
+    waveforms, figures = {}, {}
 
-        # Maybe add evaluation of prosody control
-        if promonet.PITCH_FEATURES:
-            metrics.update({
-                'shifted-050': metric_fn(),
-                'shifted-200': metric_fn()})
-        if promonet.PPG_FEATURES:
-            metrics.update({
-                'stretched-050': metric_fn(),
-                'stretched-200': metric_fn()})
-        if promonet.LOUDNESS_FEATURES:
-            metrics.update({
-                'scaled-050': metric_fn(),
-                'scaled-200': metric_fn()})
+    # Setup model for inference
+    with promonet.inference_context(generator):
 
-        for i, batch in enumerate(valid_loader):
-            waveforms, figures = {}, {}
+        for i, batch in enumerate(loader):
 
             # Unpack
             (
@@ -698,12 +675,6 @@ def evaluate(directory, step, generator, valid_loader, gpu):
 
                 # Log original audio
                 waveforms[f'original/{i:02d}-audio'] = audio[0]
-
-                # Log original melspectrogram
-                mels = promonet.data.preprocess.spectrogram.linear_to_mel(
-                    spectrogram[0]).cpu().numpy()
-                figures[f'original/{i:02d}-mels'] = \
-                    promonet.plot.spectrogram(mels)
 
             # Extract prosody features
             (

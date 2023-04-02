@@ -29,8 +29,6 @@ setup(
         'tensorboard',
         'torch',
         'torchaudio',
-        'torchcrepe',
-        'torchinfo',
         'torchvision',
         'tqdm',
         'Unidecode',
