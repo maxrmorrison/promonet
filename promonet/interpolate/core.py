@@ -8,27 +8,6 @@ import promonet
 ###############################################################################
 
 
-# UNUSED
-def features(sequence, grid):
-    """Interpolate features using a grid"""
-    index = promonet.PPG_CHANNELS
-
-    # Interpolate PPGs
-    feats = ppgs(sequence[:, :index], grid)
-
-    # Maybe interpolate loudness
-    if promonet.LOUDNESS_FEATURES:
-        loudness = grid_sample(sequence[:, index:index + 1], grid)
-        feats = torch.cat((feats, loudness), dim=1)
-
-    # Maybe interpolate periodicity
-    if promonet.PERIODICITY_FEATURES:
-        periodicity = grid_sample(sequence[:, -1:], grid)
-        feats = torch.cat((feats, periodicity), dim=1)
-
-    return feats
-
-
 def pitch(sequence, grid):
     """Interpolate pitch using a grid"""
     return 2 ** grid_sample(torch.log2(sequence), grid)

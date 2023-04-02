@@ -485,17 +485,17 @@ class Generator(torch.nn.Module):
             return generated[None, None, :output_length]
 
     def forward(
-            self,
-            features,
-            pitch,
-            periodicity,
-            loudness,
-            lengths,
-            speakers,
-            ratios=None,
-            spectrograms=None,
-            spectrogram_lengths=None,
-            audio=None):
+        self,
+        features,
+        pitch,
+        periodicity,
+        loudness,
+        lengths,
+        speakers,
+        ratios=None,
+        spectrograms=None,
+        spectrogram_lengths=None,
+        audio=None):
         """Generator entry point"""
         # Default augmentation ratio is 1
         if ratios is None and promonet.AUGMENT_PITCH:
@@ -583,19 +583,19 @@ class Generator(torch.nn.Module):
             *args)
 
     def latents(
-            self,
-            phonemes,
-            pitch,
-            periodicity,
-            loudness,
-            lengths,
-            speakers,
-            ratios=None,
-            spectrograms=None,
-            spectrogram_lengths=None,
-            noise_scale=.667,
-            length_scale=1,
-            noise_scale_w=.8):
+        self,
+        phonemes,
+        pitch,
+        periodicity,
+        loudness,
+        lengths,
+        speakers,
+        ratios=None,
+        spectrograms=None,
+        spectrogram_lengths=None,
+        noise_scale=.667,
+        length_scale=1,
+        noise_scale_w=.8):
         """Get latent representation"""
         features = phonemes
 

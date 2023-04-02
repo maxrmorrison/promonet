@@ -1,4 +1,3 @@
-from .core import *
 from . import augment
 from . import dataset
 from . import download

@@ -35,7 +35,7 @@ def daps():
     file = promonet.SOURCES_DIR / 'daps.tar.gz'
     download_file(url, file)
 
-    with promonet.data.chdir(promonet.DATA_DIR):
+    with promonet.chdir(promonet.DATA_DIR):
 
         # Unzip
         with tarfile.open(file, 'r:gz') as tfile:
@@ -55,7 +55,7 @@ def daps():
     speaker_count = {}
     output_directory = promonet.CACHE_DIR / 'daps'
     output_directory.mkdir(exist_ok=True, parents=True)
-    with promonet.data.chdir(output_directory):
+    with promonet.chdir(output_directory):
 
         # Iterate over files
         iterator = tqdm.tqdm(
@@ -136,7 +136,7 @@ def vctk():
     speaker_count = {}
     output_directory = promonet.CACHE_DIR / 'vctk'
     output_directory.mkdir(exist_ok=True, parents=True)
-    with promonet.data.chdir(output_directory):
+    with promonet.chdir(output_directory):
 
         # Iterate over files
         iterator = tqdm.tqdm(

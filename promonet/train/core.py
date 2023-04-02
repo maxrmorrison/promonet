@@ -618,7 +618,7 @@ def evaluate(directory, step, generator, loader, gpu):
     waveforms, figures, scalars = {}, {}, {}
 
     # Setup model for inference
-    with promonet.inference_context(generator):
+    with promonet.generation_context(generator):
 
         for i, batch in enumerate(loader):
 

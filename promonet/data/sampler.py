@@ -70,14 +70,14 @@ class Sampler:
             size = min(
                 promonet.MAX_FRAMES // max_length,
                 promonet.MAX_BATCH_SIZE)
-            
+
             # Make batches
             batches.extend(
                 [bucket[i:i + size] for i in range(0, len(bucket), size)])
 
         # Shuffle
         return [
-            batches[i] for i in 
+            batches[i] for i in
             torch.randperm(len(batches), generator=generator).tolist()]
 
     def set_epoch(self, epoch):
@@ -87,7 +87,7 @@ class Sampler:
 class DistributedSampler(Sampler):
 
     def __init__(self, dataset):
-        super().__init__()
+        super().__init__(dataset)
         self.rank = torch.distributed.get_rank()
         self.num_replicas = torch.distributed.get_world_size()
         self.length = math.ceil(len(dataset) / self.num_replicas)
