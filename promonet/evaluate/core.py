@@ -113,7 +113,10 @@ def speaker(
             output_file.parent.mkdir(exist_ok=True, parents=True)
             shutil.copyfile(input_file, output_file)
 
-    # Generate reconstructions
+    ##################
+    # Reconstruction #
+    ##################
+
     files = {
         'original': sorted(list(
             original_subjective_directory.rglob('*-original-100.wav')))}
@@ -149,7 +152,10 @@ def speaker(
             output_file.parent.mkdir(exist_ok=True, parents=True)
             shutil.copyfile(input_file, output_file)
 
-    # Constant-ratio pitch-shifting
+    ##################
+    # Pitch shifting #
+    ##################
+
     original_pitch_files = list(
         original_objective_directory.rglob('*-original-100-pitch.pt'))
     for ratio in RATIOS:
@@ -208,7 +214,10 @@ def speaker(
             checkpoint=checkpoint,
             gpu=None if gpus is None else gpus[0])
 
-    # Constant-ratio time-stretching
+    ###################
+    # Time stretching #
+    ###################
+
     original_alignment_files = sorted(
         file for file in
         original_objective_directory.rglob('*-original-100-alignment.json'))
@@ -309,7 +318,10 @@ def speaker(
             checkpoint=checkpoint,
             gpu=None if gpus is None else gpus[0])
 
-    # Constant-ratio loudness-scaling
+    ####################
+    # Loudness scaling #
+    ####################
+
     original_loudness_files = sorted(list(
         original_objective_directory.rglob('*-original-100-loudness.pt')))
     for ratio in RATIOS:
@@ -365,7 +377,10 @@ def speaker(
             checkpoint=checkpoint,
             gpu=None if gpus is None else gpus[0])
 
-    # Extract prosody from generated files
+    ############################
+    # Speech -> representation #
+    ############################
+
     for key, value in files.items():
         output_prefixes = [
             objective_directory / file.parent.name / file.stem
@@ -432,7 +447,10 @@ def speaker(
                         torch.tensor(indices, dtype=torch.long)[None],
                         indices_file)
 
-    # Perform objective evaluation
+    ############
+    # Evaluate #
+    ############
+
     speaker_metrics = default_metrics(gpus)
     results = {'objective': {'raw': {}}}
     for key, value in files.items():
@@ -442,7 +460,7 @@ def speaker(
 
             # Get prosody metrics
             gpu = None if gpus is None else gpus[0]
-            file_metrics = promonet.evaluate.metrics.Metrics(gpu)
+            file_metrics = promonet.evaluate.Metrics(gpu)
 
             # Get target filepath
             target_prefix = \
@@ -629,7 +647,7 @@ def default_metrics(gpus):
     """Construct the default metrics dictionary for each condition"""
     # Bind shared parameter
     gpu = None if gpus is None else gpus[0]
-    metric_fn = functools.partial(promonet.evaluate.metrics.Metrics, gpu)
+    metric_fn = functools.partial(promonet.evaluate.Metrics, gpu)
 
     # Create metric object for each condition
     metrics = {'original-100': metric_fn()}
@@ -640,6 +658,7 @@ def default_metrics(gpus):
     return metrics
 
 
+# TODO - deprecate in favor of aligned PPGs
 def load_ppgs(file, size):
     """Load and interpolate PPGs"""
     mode = promonet.PPG_INTERP_METHOD

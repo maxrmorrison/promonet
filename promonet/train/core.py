@@ -487,10 +487,9 @@ def train(
 
             if not rank:
 
-                # TODO - move losses to evalute and use both train and valid loaders
                 if step % promonet.LOG_INTERVAL == 0:
 
-                    # Log losses
+                    # Log training losses
                     scalars = {
                         'loss/generator/total': generator_losses}
                     if promonet.TWO_STAGE_1:
@@ -517,12 +516,7 @@ def train(
                             scalars['loss/generator/kl-divergence'] = kl_divergence_loss
                     promonet.write.scalars(log_directory, step, scalars)
 
-                ############
-                # Evaluate #
-                ############
-
-                if step % promonet.EVALUATION_INTERVAL == 0:
-
+                    # Evaluate on validation data
                     evaluate(
                         log_directory,
                         step,
@@ -550,12 +544,12 @@ def train(
             if step >= steps:
                 break
 
-            # Transition from training to fine-tuning two-stage system
+            # Two-stage model transition from training synthesizer to vocoder
             if promonet.TWO_STAGE and step == steps // 2:
                 promonet.TWO_STAGE_1 = False
                 promonet.TWO_STAGE_2 = True
 
-                # Freeze weights
+                # Freeze all weights
                 for param in generator.parameters():
                     param.requires_grad = False
 
@@ -565,10 +559,12 @@ def train(
                 for param in generator.generator.parameters():
                     param.requires_grad = True
 
-            step += 1
-
-            # Update progress bar
             if not rank:
+
+                # Increment steps
+                step += 1
+
+                # Update progress bar
                 progress.update()
 
     if not rank:
@@ -600,7 +596,7 @@ def evaluate(directory, step, generator, loader, gpu):
 
     # Setup prosody evaluation
     metric_fn = functools.partial(
-        promonet.evaluate.metrics.Metrics,
+        promonet.evaluate.Metrics,
         gpu)
     metrics = {'reconstruction': metric_fn()}
 
@@ -618,8 +614,8 @@ def evaluate(directory, step, generator, loader, gpu):
             'scaled-050': metric_fn(),
             'scaled-200': metric_fn()})
 
-    # Audio and figures for tensorboard
-    waveforms, figures = {}, {}
+    # Audio, figures, and scalars for tensorboard
+    waveforms, figures, scalars = {}, {}, {}
 
     # Setup model for inference
     with promonet.inference_context(generator):
@@ -671,9 +667,8 @@ def evaluate(directory, step, generator, loader, gpu):
             if trim > 0:
                 audio = audio[..., :-trim]
 
-            if not step:
-
-                # Log original audio
+            # Log original audio on first evaluation
+            if step == 0:
                 waveforms[f'original/{i:02d}-audio'] = audio[0]
 
             # Extract prosody features
@@ -693,7 +688,11 @@ def evaluate(directory, step, generator, loader, gpu):
                 gpu=gpu
             )
 
-            # Reconstruct speech
+            ##################
+            # Reconstruction #
+            ##################
+
+            # Generate
             generated, *_ = generator(
                 phonemes,
                 pitch,
@@ -746,7 +745,10 @@ def evaluate(directory, step, generator, loader, gpu):
                 prosody_args,
                 ppg_args)
 
-            # Maybe log pitch-shifting
+            ##################
+            # Pitch shifting #
+            ##################
+
             if promonet.PITCH_FEATURES:
                 for ratio in [.5, 2.]:
 
@@ -805,7 +807,10 @@ def evaluate(directory, step, generator, loader, gpu):
                         prosody_args,
                         ppg_args)
 
-            # Maybe log time-stretching
+            ###################
+            # Time stretching #
+            ###################
+
             if promonet.PPG_FEATURES:
                 for ratio in [.5, 2.]:
 
@@ -885,8 +890,7 @@ def evaluate(directory, step, generator, loader, gpu):
                         predicted_loudness,
                         predicted_voicing,
                         stretched_phones,
-                        predicted_phones
-                    )
+                        predicted_phones)
                     ppg_args = (stretched_phonemes, predicted_phonemes)
                     log(
                         stretched,
@@ -897,7 +901,10 @@ def evaluate(directory, step, generator, loader, gpu):
                         prosody_args,
                         ppg_args)
 
-            # Maybe log loudness-scaling
+            ####################
+            # Loudness scaling #
+            ####################
+
             if promonet.LOUDNESS_FEATURES:
                 for ratio in [.5, 2.]:
 
@@ -956,35 +963,18 @@ def evaluate(directory, step, generator, loader, gpu):
                         prosody_args,
                         ppg_args)
 
-            # Write audio and mels to Tensorboard
-            promonet.write.audio(directory, step, waveforms)
-            promonet.write.figures(directory, step, figures)
-
     # Format prosody metrics
-    scalars = {}
     for condition in metrics:
-        for name, value in metrics[condition]().items():
+        for key, value in metrics[condition]().items():
+            scalars[f'{condition}/{key}'] = value
 
-            if name == 'voicing':
-
-                # Write precision, recall, and f1 metrics
-                for subname, subvalue in value.items():
-                    key = f'{condition}/{name}-{subname}'
-                    scalars[key] = subvalue
-
-            else:
-
-                # Write metric
-                key = f'{condition}/{name}'
-                scalars[key] = value
-
-    # Write prosody metrics to tensorboard
+    # Write to Tensorboard
+    promonet.write.audio(directory, step, waveforms)
+    promonet.write.figures(directory, step, figures)
     promonet.write.scalars(directory, step, scalars)
 
-    # Prepare generator for training
-    generator.train()
 
-
+# TODO - deprecate in favor of aligned PPGs
 def ppgs(audio, size, gpu=None):
     """Extract aligned PPGs"""
     predicted_phonemes = promonet.data.preprocess.ppg.from_audio(
