@@ -1,5 +1,5 @@
 import torch
-import torchcrepe
+import pysodic
 
 
 def limit(audio, delay=40, attack_coef=.9, release_coef=.9995, threshold=.99):
@@ -31,9 +31,6 @@ def limit(audio, delay=40, attack_coef=.9, release_coef=.9995, threshold=.99):
     return audio[:, delay - 1:]
 
 
-def normalize(
-    loudness,
-    min_db=torchcrepe.loudness.MIN_DB,
-    ref_db=torchcrepe.loudness.REF_DB):
+def normalize(loudness, min_db=pysodic.MIN_DB, ref_db=pysodic.REF_DB):
     """Normalize loudness to [-1., 1.]"""
     return (loudness - min_db) / (ref_db - min_db)

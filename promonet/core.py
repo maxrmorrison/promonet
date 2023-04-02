@@ -1,3 +1,5 @@
+import contextlib
+
 import pysodic
 import torch
 import torchaudio
@@ -11,6 +13,9 @@ import promonet
 ###############################################################################
 
 
+# TODO - from_features
+# TODO - preprocess
+# TODO - infer
 def from_audio(
     audio,
     sample_rate=promonet.SAMPLE_RATE,
@@ -249,6 +254,28 @@ def from_files_to_files(
 ###############################################################################
 # Utilities
 ###############################################################################
+
+
+@contextlib.contextmanager
+def inference_context(model):
+    device_type = next(model.parameters()).device.type
+
+    # Prepare model for evaluation
+    model.eval()
+
+    # Turn off gradient computation
+    with torch.no_grad():
+
+        # Automatic mixed precision on GPU
+        if device_type == 'cuda':
+            with torch.autocast(device_type):
+                yield
+
+        else:
+            yield
+
+    # Prepare model for training
+    model.train()
 
 
 def iterator(iterable, message, initial=0, total=None):

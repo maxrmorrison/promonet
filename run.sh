@@ -13,10 +13,10 @@
 # python -m promonet.partition
 
 # First pass experiments trainings and evaluations
-# python -m promonet.train --config config/base-small.py --gpus $1
-# python -m promonet.train --config config/conddisc-small.py --gpus $1
-# python -m promonet.train --config config/conddisc-condgen-small.py --gpus $1
-# python -m promonet.train --config config/conddisc-condgen-augment-small.py --gpus $1
+python -m promonet.train --config config/base-small.py --gpus $1
+python -m promonet.train --config config/conddisc-small.py --gpus $1
+python -m promonet.train --config config/conddisc-condgen-small.py --gpus $1
+python -m promonet.train --config config/conddisc-condgen-augment-small.py --gpus $1
 python -m promonet.train --config config/conddisc-condgen-augment-snake-small.py --gpus $1
 
 # Baseline trainings and evaluations

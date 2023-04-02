@@ -215,7 +215,7 @@ N_HEADS = 2
 N_LAYERS = 6
 
 # Dropout probability
-P_DROPOUT = 0.1
+P_DROPOUT = .1
 
 # Kernel sizes of residual block
 RESBLOCK_KERNEL_SIZES = [3, 7, 11]
