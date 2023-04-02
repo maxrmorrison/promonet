@@ -163,10 +163,7 @@ BENCHMARK = False
 CHECKPOINT_INTERVAL = 25000  # steps
 
 # Number of steps between logging to Tensorboard
-LOG_INTERVAL = 1000  # steps
-
-# Number of steps between evaluation
-EVALUATION_INTERVAL = 2500  # steps
+LOG_INTERVAL = 2500  # steps
 
 
 ###############################################################################
