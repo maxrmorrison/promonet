@@ -1,4 +1,5 @@
 import contextlib
+import os
 
 import pysodic
 import torch
@@ -257,7 +258,18 @@ def from_files_to_files(
 
 
 @contextlib.contextmanager
-def inference_context(model):
+def chdir(directory):
+    """Context manager for changing the current working directory"""
+    curr_dir = os.getcwd()
+    try:
+        os.chdir(directory)
+        yield
+    finally:
+        os.chdir(curr_dir)
+
+
+@contextlib.contextmanager
+def generation_context(model):
     device_type = next(model.parameters()).device.type
 
     # Prepare model for evaluation

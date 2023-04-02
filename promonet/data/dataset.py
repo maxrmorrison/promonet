@@ -77,7 +77,7 @@ class Dataset(torch.utils.data.Dataset):
 
     def __len__(self):
         return len(self.stems)
-    
+
     def buckets(self):
         """Partition indices into buckets based on length for sampling"""
         # Get the size of a bucket
@@ -90,9 +90,7 @@ class Dataset(torch.utils.data.Dataset):
         buckets = [indices[i:i + size] for i in range(0, len(self), size)]
 
         # Add max length of each bucket
-        buckets = [(self.lengths[bucket[-1]], bucket) for bucket in buckets]
-
-        return buckets
+        return [(self.lengths[bucket[-1]], bucket) for bucket in buckets]
 
     def get_ppg(self, stem, length):
         """Load PPG features"""
@@ -105,6 +103,7 @@ class Dataset(torch.utils.data.Dataset):
         ppg = torch.load(self.cache / f'{stem}-{feature}.pt')
 
         # Maybe resample length
+        # TODO - deprecate in favor of aligned features
         if ppg.shape[1] != length:
             mode = promonet.PPG_INTERP_METHOD
             ppg = torch.nn.functional.interpolate(

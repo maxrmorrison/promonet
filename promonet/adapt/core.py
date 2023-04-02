@@ -23,7 +23,7 @@ def from_files_to_files(
     cache.mkdir(exist_ok=True, parents=True)
 
     # Preprocess
-    with promonet.data.chdir(cache):
+    with promonet.chdir(cache):
 
         # Preprocess audio
         for i, file in enumerate(directory.rglob('.wav')):
