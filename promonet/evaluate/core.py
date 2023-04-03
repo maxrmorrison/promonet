@@ -20,8 +20,6 @@ eval
 import functools
 import json
 import shutil
-import traceback
-import warnings
 
 import pyfoal
 import pypar
@@ -381,71 +379,17 @@ def speaker(
     # Speech -> representation #
     ############################
 
-    for key, value in files.items():
-        output_prefixes = [
-            objective_directory / file.parent.name / file.stem
-            for file in value]
+    for audio_files in files.values():
         text_files = [
             original_objective_directory /
             file.parent.name /
             f'{file.stem}-text.txt'
-            for file in value]
-
-        # Make sure alignments don't already exist
-        for prefix in output_prefixes:
-            file = prefix.parent / f'{prefix.stem}-alignment.json'
-            file.unlink(missing_ok=True)
-
-        # Ignore warnings when MFA fails, as we retry failures with P2FA
-        with warnings.catch_warnings():
-            warnings.simplefilter('ignore')
+            for file in audio_files]
         promonet.data.preprocess.from_files_to_files(
             objective_directory / file.parent.name,
-            value,
+            audio_files,
             text_files,
             gpu=None if gpus is None else gpus[0])
-
-        # Get any failed alignments to retry
-        p2fa_args = []
-        iterator = zip(text_files, value, output_prefixes)
-        for text_file, audio_file, prefix in iterator:
-            output_file = prefix.parent / f'{prefix.stem}-alignment.json'
-            if not output_file.exists():
-                p2fa_args.append((text_file, audio_file, output_file))
-
-        # If any alignments did not succeed with MFA, retry with P2FA
-        if p2fa_args:
-            with pyfoal.backend('p2fa'):
-                pyfoal.from_files_to_files(
-                    *zip(*p2fa_args),
-                    num_workers=promonet.NUM_WORKERS)
-
-                # Convert alignments to phoneme indices
-                for file in [arg[2] for arg in p2fa_args]:
-
-                    # Load alignment
-                    alignment = pypar.Alignment(file)
-
-                    # Get times to sample phonemes
-                    pitch = torch.load(
-                        file.parent / file.name.replace(
-                            'alignment.json', 'pitch.pt'))
-                    hopsize = promonet.HOPSIZE / promonet.SAMPLE_RATE
-                    times = torch.arange(pitch.shape[1]) * hopsize
-
-                    # Convert to indices
-                    indices = pyfoal.convert.alignment_to_indices(
-                        alignment,
-                        hopsize,
-                        times=times)
-
-                    # Save indices
-                    indices_file = (
-                        file.parent /
-                        f'{file.stem.replace("alignment", "phonemes")}.pt')
-                    torch.save(
-                        torch.tensor(indices, dtype=torch.long)[None],
-                        indices_file)
 
     ############
     # Evaluate #
@@ -471,48 +415,42 @@ def speaker(
                 objective_directory / file.parent.name / file.stem
 
             # Update metrics
-            try:
-                prosody_args = (
-                    torch.load(f'{predicted_prefix}-pitch.pt'),
-                    torch.load(f'{predicted_prefix}-periodicity.pt'),
-                    torch.load(f'{predicted_prefix}-loudness.pt'),
-                    torch.load(f'{predicted_prefix}-voicing.pt'),
-                    torch.load(f'{target_prefix}-pitch.pt'),
-                    torch.load(f'{target_prefix}-periodicity.pt'),
-                    torch.load(f'{target_prefix}-loudness.pt'),
-                    torch.load(f'{target_prefix}-voicing.pt'),
-                    torch.load(f'{predicted_prefix}-phonemes.pt'),
-                    torch.load(f'{target_prefix}-phonemes.pt'))
+            prosody_args = (
+                torch.load(f'{predicted_prefix}-pitch.pt'),
+                torch.load(f'{predicted_prefix}-periodicity.pt'),
+                torch.load(f'{predicted_prefix}-loudness.pt'),
+                torch.load(f'{predicted_prefix}-voicing.pt'),
+                torch.load(f'{target_prefix}-pitch.pt'),
+                torch.load(f'{target_prefix}-periodicity.pt'),
+                torch.load(f'{target_prefix}-loudness.pt'),
+                torch.load(f'{target_prefix}-voicing.pt'),
+                torch.load(f'{predicted_prefix}-phonemes.pt'),
+                torch.load(f'{target_prefix}-phonemes.pt'))
 
-                # Get predicted PPGs
-                size = prosody_args[0].shape[-1]
-                mode = promonet.PPG_INTERP_METHOD
-                ppg_model = (
-                    '' if promonet.PPG_MODEL is None else
-                    f'-{promonet.PPG_MODEL}')
-                predicted_ppgs = torch.nn.functional.interpolate(
-                    torch.load(f'{predicted_prefix}-ppg{ppg_model}.pt')[None],
-                    size=size,
-                    mode=mode,
-                    align_corners=None if mode == 'nearest' else False)[0]
+            # Get predicted PPGs
+            size = prosody_args[0].shape[-1]
+            mode = promonet.PPG_INTERP_METHOD
+            ppg_model = (
+                '' if promonet.PPG_MODEL is None else
+                f'-{promonet.PPG_MODEL}')
+            predicted_ppgs = torch.nn.functional.interpolate(
+                torch.load(f'{predicted_prefix}-ppg{ppg_model}.pt')[None],
+                size=size,
+                mode=mode,
+                align_corners=None if mode == 'nearest' else False)[0]
 
-                # Get target PPGs
-                target_ppgs = torch.nn.functional.interpolate(
-                    torch.load(f'{target_prefix}-ppg{ppg_model}.pt')[None],
-                    size=size,
-                    mode=mode,
-                    align_corners=None if mode == 'nearest' else False)[0]
+            # Get target PPGs
+            target_ppgs = torch.nn.functional.interpolate(
+                torch.load(f'{target_prefix}-ppg{ppg_model}.pt')[None],
+                size=size,
+                mode=mode,
+                align_corners=None if mode == 'nearest' else False)[0]
 
-                ppg_args = (predicted_ppgs, target_ppgs)
-
-                condition = '-'.join(target_prefix.stem.split('-')[1:3])
-                metrics[condition].update(prosody_args, ppg_args)
-                speaker_metrics[condition].update(prosody_args, ppg_args)
-                file_metrics.update(prosody_args, ppg_args)
-            except Exception as error:
-                print(traceback.format_exc())
-                import pdb; pdb.set_trace()
-                pass
+            ppg_args = (predicted_ppgs, target_ppgs)
+            condition = '-'.join(target_prefix.stem.split('-')[1:3])
+            metrics[condition].update(prosody_args, ppg_args)
+            speaker_metrics[condition].update(prosody_args, ppg_args)
+            file_metrics.update(prosody_args, ppg_args)
 
             # Get results for this file
             results['objective']['raw'][key].append(
