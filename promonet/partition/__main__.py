@@ -4,20 +4,20 @@ import promonet
 
 
 ###############################################################################
-# Data augmentation
+# Partition datasets
 ###############################################################################
 
 
 def parse_args():
     """Parse command-line arguments"""
-    parser = argparse.ArgumentParser(description='Perform data augmentation')
+    parser = argparse.ArgumentParser(description='Partition datasets')
     parser.add_argument(
         '--datasets',
-        nargs='+',
         default=promonet.DATASETS,
-        help='The name of the datasets to augment')
+        nargs='+',
+        help='The datasets to partition')
     return parser.parse_args()
 
 
 if __name__ == '__main__':
-    promonet.data.augment.datasets(**vars(parse_args()))
+    promonet.partition.datasets(**vars(parse_args()))

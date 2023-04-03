@@ -41,7 +41,6 @@ def load(checkpoint_path, model, optimizer=None):
 
 def save(model, optimizer, step, file):
     """Save training checkpoint to disk"""
-    print(f'Saving model and optimizer at step {step} to {file}')
     checkpoint = {
         'step': step,
         'model': model.state_dict(),

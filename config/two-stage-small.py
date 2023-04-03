@@ -1,32 +1,7 @@
+MODULE = 'promonet'
+
 # Configuration name
 CONFIG = 'two-stage-small'
-
-# First stage of two-stage model
-TWO_STAGE = True
-
-# Discriminator phoneme conditioning
-DISCRIM_PHONEME_CONDITION = True
-
-# Discriminator augmentation ratio conditioning
-DISCRIM_RATIO_CONDITION = True
-
-
-###############################################################################
-# Loss parameters
-###############################################################################
-
-
-# Weight applied to the discriminator loss
-ADVERSARIAL_LOSS_WEIGHT = 2.
-
-# Weight applied to the KL divergence loss
-KL_DIVERGENCE_LOSS_WEIGHT = 1.
-
-# Weight applied to the feature matching loss
-FEATURE_MATCHING_LOSS_WEIGHT = 2.
-
-# Weight applied to the melspectrogram loss
-MEL_LOSS_WEIGHT = 45.
 
 # Whether to use pitch augmentation
 AUGMENT_PITCH = True
@@ -37,20 +12,35 @@ DISCRIM_LOUDNESS_CONDITION = True
 # Discriminator periodicity conditioning
 DISCRIM_PERIODICITY_CONDITION = True
 
+# Discriminator phoneme conditioning
+DISCRIM_PHONEME_CONDITION = True
+
 # Discriminator pitch conditioning
 DISCRIM_PITCH_CONDITION = True
+
+# Discriminator augmentation ratio conditioning
+DISCRIM_RATIO_CONDITION = True
 
 # Whether to perform gradient clipping on the generator
 GRADIENT_CLIP_GENERATOR = 1000.
 
+# Pass loudness through the latent
+LATENT_LOUDNESS_SHORTCUT = True
+
+# Pass periodicity through the latent
+LATENT_PERIODICITY_SHORTCUT = True
+
+# Pass the phonemes through the latent
+LATENT_PHONEME_SHORTCUT = True
+
+# Pass pitch through the latent
+LATENT_PITCH_SHORTCUT = True
+
+# Pass the augmentation ratio through the latent
+LATENT_RATIO_SHORTCUT = True
+
 # Loudness features
 LOUDNESS_FEATURES = True
-
-# Whether to use the multi-resolution spectrogram discriminator from UnivNet
-MULTI_RESOLUTION_DISCRIMINATOR = True
-
-# Whether to use the multi-scale waveform discriminator from MelGAN
-MULTI_SCALE_DISCRIMINATOR = False
 
 # Periodicity conditioning
 PERIODICITY_FEATURES = True
@@ -68,9 +58,5 @@ PPG_INTERP_METHOD = 'nearest'
 # Whether to use snake activation in the audio generator
 SNAKE = True
 
-# Whether to use a low-pass filter when using snake
-SNAKE_FILTER = True
-
-# Reduce batch size and steps for development
-BATCH_SIZE = 16
-NUM_STEPS = 100000
+# Whether to use a two-stage model (text -> mels; mels -> waveform)
+TWO_STAGE = True

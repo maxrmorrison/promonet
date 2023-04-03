@@ -71,10 +71,10 @@ class MultiHeadAttention(torch.nn.Module):
         # Setup layers
         self.n_heads = n_heads
         self.window_size = window_size
-        self.conv_q = promonet.model.CONV1D(channels, channels, 1)
-        self.conv_k = promonet.model.CONV1D(channels, channels, 1)
-        self.conv_v = promonet.model.CONV1D(channels, channels, 1)
-        self.conv_o = promonet.model.CONV1D(channels, out_channels, 1)
+        self.conv_q = torch.nn.Conv1d(channels, channels, 1)
+        self.conv_k = torch.nn.Conv1d(channels, channels, 1)
+        self.conv_v = torch.nn.Conv1d(channels, channels, 1)
+        self.conv_o = torch.nn.Conv1d(channels, out_channels, 1)
         self.dropout = torch.nn.Dropout(p_dropout)
 
         # Setup relative positional embedding

@@ -1,12 +1,3 @@
-# Development
-# - debug ppgs**
-# - clean-up*
-# - xFormers
-# - subjective evals
-# - Am I clipping pitch above fmax or below fmin? Error analysis
-# - HN-USFGAN baseline
-
-
 ###############################################################################
 # Configuration
 ###############################################################################
@@ -31,6 +22,7 @@ from .config.static import *
 
 
 from .core import *
+from . import adapt
 from . import baseline
 from . import checkpoint
 from . import convert

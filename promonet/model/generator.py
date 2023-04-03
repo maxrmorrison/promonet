@@ -125,7 +125,7 @@ class PhonemeEncoder(torch.nn.Module):
 
     channels = promonet.HIDDEN_CHANNELS
     if promonet.PPG_FEATURES or promonet.SPECTROGRAM_ONLY:
-        self.input_layer = promonet.model.CONV1D(
+        self.input_layer = torch.nn.Conv1d(
             promonet.NUM_FEATURES,
             channels,
             promonet.KERNEL_SIZE,
@@ -135,23 +135,20 @@ class PhonemeEncoder(torch.nn.Module):
         self.input_layer = torch.nn.Embedding(
             promonet.NUM_FEATURES,
             channels)
-    if promonet.T5_ENCODER:
-        self.encoder = promonet.model.T5()
-    else:
-        self.encoder = promonet.model.attention.Encoder(
-            channels,
-            promonet.FILTER_CHANNELS)
+    self.encoder = promonet.model.attention.Encoder(
+        channels,
+        promonet.FILTER_CHANNELS)
 
     self.channels = \
         promonet.NUM_FFT // 2 + 1 if promonet.TWO_STAGE else 2 * channels
-    self.projection = promonet.model.CONV1D(
+    self.projection = torch.nn.Conv1d(
         channels,
         self.channels,
         1)
     self.scale = math.sqrt(self.channels)
 
     # Speaker conditioning
-    self.cond = promonet.model.CONV1D(
+    self.cond = torch.nn.Conv1d(
         promonet.GLOBAL_CHANNELS,
         channels,
         1)
@@ -220,7 +217,7 @@ class SpectrogramEncoder(torch.nn.Module):
     def __init__(self, kernel_size=5, dilation_rate=1, n_layers=16):
         super().__init__()
         self.channels = promonet.HIDDEN_CHANNELS
-        self.pre = promonet.model.CONV1D(
+        self.pre = torch.nn.Conv1d(
             promonet.NUM_FFT // 2 + 1,
             self.channels,
             1)
@@ -230,7 +227,7 @@ class SpectrogramEncoder(torch.nn.Module):
             dilation_rate,
             n_layers,
             gin_channels=promonet.GLOBAL_CHANNELS)
-        self.proj = promonet.model.CONV1D(
+        self.proj = torch.nn.Conv1d(
             self.channels,
             2 * self.channels,
             1)
@@ -257,7 +254,7 @@ class LatentToAudioGenerator(torch.nn.Module):
         self.sampling_rates = rates.flip([0]).to(torch.int).tolist()
 
         # Initial convolution
-        self.conv_pre = promonet.model.CONV1D(
+        self.conv_pre = torch.nn.Conv1d(
             initial_channel,
             promonet.UPSAMPLE_INITIAL_SIZE,
             7,
@@ -283,7 +280,7 @@ class LatentToAudioGenerator(torch.nn.Module):
 
             # Upsampling layer
             self.ups.append(torch.nn.utils.weight_norm(
-                promonet.model.TRANSPOSECONV1D(
+                torch.nn.ConvTranspose1d(
                     input_channels,
                     output_channels,
                     kernel_size,
@@ -308,7 +305,7 @@ class LatentToAudioGenerator(torch.nn.Module):
             torch.nn.LeakyReLU(promonet.LRELU_SLOPE))
 
         # Final conv
-        self.conv_post = promonet.model.CONV1D(
+        self.conv_post = torch.nn.Conv1d(
             output_channels,
             1,
             7,
@@ -320,7 +317,7 @@ class LatentToAudioGenerator(torch.nn.Module):
         self.ups.apply(promonet.model.init_weights)
 
         # Speaker conditioning
-        self.cond = promonet.model.CONV1D(
+        self.cond = torch.nn.Conv1d(
             gin_channels,
             promonet.UPSAMPLE_INITIAL_SIZE,
             1)
@@ -421,10 +418,6 @@ class Generator(torch.nn.Module):
         if promonet.AUTOREGRESSIVE:
             self.autoregressive = Autoregressive()
 
-        # Template features
-        if promonet.TEMPLATE_FEATURES:
-            self.template_encoder = promonet.model.template.Encoder()
-
         # Pitch embedding
         if promonet.PITCH_FEATURES and promonet.PITCH_EMBEDDING:
             self.pitch_embedding = torch.nn.Embedding(
@@ -438,10 +431,10 @@ class Generator(torch.nn.Module):
     def ar_loop(self, latents, speaker_embedding):
         """Perform autoregressive generation from latent space"""
         # Save output size
-        output_length = latents.shape[2] * promonet.HOPSIZE
+        output_length = promonet.convert.frames_to_samples(latents.shape[2])
 
         # Get feature chunk size
-        feat_chunk = promonet.CHUNK_SIZE // promonet.HOPSIZE
+        feat_chunk = promonet.convert.samples_to_frames(promonet.CHUNK_SIZE)
 
         # Zero-pad features to be a multiple of the chunk size
         padding = (feat_chunk - (latents.shape[2] % feat_chunk)) % feat_chunk
@@ -454,7 +447,7 @@ class Generator(torch.nn.Module):
             device=latents.device)
 
         # Get output signal length
-        signal_length = latents.shape[2] * promonet.HOPSIZE
+        signal_length = promonet.convert.frames_to_samples(latents.shape[2])
 
         # Autoregressive loop
         generated = torch.zeros(
@@ -477,7 +470,7 @@ class Generator(torch.nn.Module):
                 chunk, *_ = self.generator(features, g=speaker_embedding)
 
                 # Place newly generated chunk
-                start = i * promonet.HOPSIZE
+                start = promonet.convert.frames_to_samples(i)
                 generated[start:start + promonet.CHUNK_SIZE] += chunk.squeeze()
 
                 # Update AR context
@@ -492,18 +485,17 @@ class Generator(torch.nn.Module):
             return generated[None, None, :output_length]
 
     def forward(
-            self,
-            features,
-            pitch,
-            periodicity,
-            loudness,
-            lengths,
-            speakers,
-            ratios=None,
-            spectrograms=None,
-            spectrogram_lengths=None,
-            audio=None,
-            template=None):
+        self,
+        features,
+        pitch,
+        periodicity,
+        loudness,
+        lengths,
+        speakers,
+        ratios=None,
+        spectrograms=None,
+        spectrogram_lengths=None,
+        audio=None):
         """Generator entry point"""
         # Default augmentation ratio is 1
         if ratios is None and promonet.AUGMENT_PITCH:
@@ -529,8 +521,7 @@ class Generator(torch.nn.Module):
             speakers,
             ratios,
             spectrograms,
-            spectrogram_lengths,
-            template
+            spectrogram_lengths
         )
 
         # Use different speaker embedding for two-stage models
@@ -548,8 +539,9 @@ class Generator(torch.nn.Module):
 
             # During training, get slices of previous audio
             if self.training:
-                indices = \
-                    slice_indices * promonet.HOPSIZE - promonet.AR_INPUT_SIZE
+                indices = (
+                    promonet.convert.frames_to_samples(slice_indices) -
+                    promonet.AR_INPUT_SIZE)
                 autoregressive = promonet.model.slice_segments(
                     audio,
                     indices,
@@ -591,20 +583,19 @@ class Generator(torch.nn.Module):
             *args)
 
     def latents(
-            self,
-            phonemes,
-            pitch,
-            periodicity,
-            loudness,
-            lengths,
-            speakers,
-            ratios=None,
-            spectrograms=None,
-            spectrogram_lengths=None,
-            template=None,
-            noise_scale=.667,
-            length_scale=1,
-            noise_scale_w=.8):
+        self,
+        phonemes,
+        pitch,
+        periodicity,
+        loudness,
+        lengths,
+        speakers,
+        ratios=None,
+        spectrograms=None,
+        spectrogram_lengths=None,
+        noise_scale=.667,
+        length_scale=1,
+        noise_scale_w=.8):
         """Get latent representation"""
         features = phonemes
 
@@ -625,11 +616,6 @@ class Generator(torch.nn.Module):
         # Maybe add periodicity features
         if promonet.PERIODICITY_FEATURES:
             features = torch.cat((features, periodicity[:, None]), dim=1)
-
-        # Maybe add template features
-        if promonet.TEMPLATE_FEATURES:
-            template_encoding = self.template_encoder(template)
-            features = torch.cat((features, template_encoding), dim=1)
 
         # Maybe just use the spectrogram
         if promonet.SPECTROGRAM_ONLY:
@@ -723,7 +709,7 @@ class Generator(torch.nn.Module):
                         predicted_logstd.transpose(1, 2)).transpose(1, 2)
 
             # Extract random segments of latent representation for training decoder
-            slice_size = promonet.CHUNK_SIZE // promonet.HOPSIZE
+            slice_size = promonet.convert.samples_to_frames(promonet.CHUNK_SIZE)
             latents, slice_indices = promonet.model.random_slice_segments(
                 latents,
                 spectrogram_lengths,
@@ -779,13 +765,6 @@ class Generator(torch.nn.Module):
                 spectrograms,
                 slice_indices,
                 slice_size)
-
-            # Maybe slice template features
-            if promonet.TEMPLATE_RESIDUAL:
-                template = promonet.model.slice_segments(
-                    template,
-                    slice_indices * promonet.HOPSIZE,
-                    promonet.CHUNK_SIZE)
 
         # Generation
         else:
@@ -912,7 +891,7 @@ class Generator(torch.nn.Module):
 
         # Maybe remove latents and keep other features
         if promonet.VOCODER:
-            latents = latents[:, promonet.BOTTLENECK_SIZE:]
+            latents = latents[:, promonet.HIDDEN_CHANNELS:]
 
         # Two-stage models do not use the flow, just the feature encoder
         if promonet.TWO_STAGE:
@@ -929,8 +908,7 @@ class Generator(torch.nn.Module):
             prior,
             predicted_mean,
             predicted_logstd,
-            true_logstd,
-            template)
+            true_logstd)
 
 
 class Autoregressive(torch.nn.Module):

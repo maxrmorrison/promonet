@@ -23,10 +23,8 @@ def constant(tensor, ratio):
 def from_alignments(source, target):
     """Create time-stretch grid to convert source alignment to target"""
     # Get number of source and target frames
-    source_frames = int(
-        source.duration() * promonet.SAMPLE_RATE / promonet.HOPSIZE)
-    target_frames = int(
-        target.duration() * promonet.SAMPLE_RATE / promonet.HOPSIZE)
+    source_frames = promonet.convert.seconds_to_frames(source.duration())
+    target_frames = promonet.convert.seconds_to_frames(target.duration())
 
     # Get relative rate at each frame
     rates = pypar.compare.per_frame_rate(

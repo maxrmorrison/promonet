@@ -35,6 +35,5 @@ def parse_args():
     return args
 
 
-
 if __name__ == '__main__':
     promonet.data.preprocess.datasets(**vars(parse_args()))
