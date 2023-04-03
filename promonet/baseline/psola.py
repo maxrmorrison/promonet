@@ -97,4 +97,4 @@ def time_stretch(audio, sample_rate, grid, tmpdir):
         manipulation,
         "Get resynthesis (overlap-add)").values[0]
 
-    return stretched[:promonet.HOPSIZE * len(rates)]
+    return stretched[:promonet.convert.frames_to_samples(len(rates))]

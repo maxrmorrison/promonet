@@ -1,14 +1,15 @@
 import functools
 import json
-import os
 
+import numpy as np
 import torch
+import torchaudio
 
 import promonet
 
 
 ###############################################################################
-# Speech modification dataset
+# Dataset
 ###############################################################################
 
 
@@ -31,17 +32,15 @@ class Dataset(torch.utils.data.Dataset):
             self.stems.extend([f'{stem}-{ratios[stem]}' for stem in stems])
 
         # Store spectrogram lengths for bucketing
-        # TODO - use torchaudio.info
-        audio_files = list([self.cache / f'{stem}.wav' for stem in self.stems])
-        self.spectrogram_lengths = [
-            os.path.getsize(audio_file) // (2 * promonet.HOPSIZE)
-            for audio_file in audio_files]
+        self.lengths = [
+            promonet.convert.samples_to_frames(
+                torchaudio.info(self.cache / f'{stem}.wav').num_frames)
+            for stem in self.stems]
 
     def __getitem__(self, index):
         stem = self.stems[index]
         text = promonet.load.text(self.cache / f'{stem[:-4]}.txt')
         audio = promonet.load.audio(self.cache / f'{stem}.wav')
-        template = promonet.load.audio(self.cache / f'{stem}-template.wav')
         pitch = promonet.load.pitch(self.cache / f'{stem}-pitch.pt')
         periodicity = torch.load(self.cache / f'{stem}-periodicity.pt')
         loudness = torch.load(self.cache / f'{stem}-loudness.pt')
@@ -72,12 +71,26 @@ class Dataset(torch.utils.data.Dataset):
             loudness,
             spectrogram,
             audio,
-            template,
             torch.tensor(speaker, dtype=torch.long),
-            int(stem[-3:]) / 100.)
+            int(stem[-3:]) / 100.,
+            stem)
 
     def __len__(self):
         return len(self.stems)
+
+    def buckets(self):
+        """Partition indices into buckets based on length for sampling"""
+        # Get the size of a bucket
+        size = len(self) // promonet.BUCKETS
+
+        # Get indices in order of length
+        indices = np.argsort(self.lengths)
+
+        # Split into buckets based on length
+        buckets = [indices[i:i + size] for i in range(0, len(self), size)]
+
+        # Add max length of each bucket
+        return [(self.lengths[bucket[-1]], bucket) for bucket in buckets]
 
     def get_ppg(self, stem, length):
         """Load PPG features"""
@@ -90,6 +103,7 @@ class Dataset(torch.utils.data.Dataset):
         ppg = torch.load(self.cache / f'{stem}-{feature}.pt')
 
         # Maybe resample length
+        # TODO - deprecate in favor of aligned features
         if ppg.shape[1] != length:
             mode = promonet.PPG_INTERP_METHOD
             ppg = torch.nn.functional.interpolate(

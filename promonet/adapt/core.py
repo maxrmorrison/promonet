@@ -1,4 +1,3 @@
-import argparse
 import shutil
 from pathlib import Path
 
@@ -9,11 +8,11 @@ import promonet
 
 
 ###############################################################################
-# Speaker adaptation
+# TODO - Speaker adaptation API
 ###############################################################################
 
 
-def speaker(
+def from_files_to_files(
     config,
     name,
     directory,
@@ -24,7 +23,7 @@ def speaker(
     cache.mkdir(exist_ok=True, parents=True)
 
     # Preprocess
-    with promonet.data.chdir(cache):
+    with promonet.chdir(cache):
 
         # Preprocess audio
         for i, file in enumerate(directory.rglob('.wav')):
@@ -65,42 +64,3 @@ def speaker(
         adapt_directory,
         adapt=True,
         gpus=gpus)
-
-
-###############################################################################
-# Entry point
-###############################################################################
-
-
-def parse_args():
-    """Parse command-line arguments"""
-    parser = argparse.ArgumentParser(description='Perform speaker adaptation')
-    parser.add_argument(
-        '--config',
-        type=Path,
-        default=promonet.DEFAULT_CONFIGURATION,
-        help='The configuration file')
-    parser.add_argument(
-        '--name',
-        required=True,
-        help='The name of the speaker')
-    parser.add_argument(
-        '--directory',
-        type=Path,
-        required=True,
-        help='Directory containing speech audio for speaker adaptation')
-    parser.add_argument(
-        '--checkpoint',
-        type=Path,
-        default=promonet.DEFAULT_CHECKPOINT,
-        help='The checkpoint to use for adaptation')
-    parser.add_argument(
-        '--gpus',
-        type=int,
-        nargs='+',
-        help='The gpus to run training on')
-    return parser.parse_args()
-
-
-if __name__ == '__main__':
-    speaker(**vars(parse_args()))

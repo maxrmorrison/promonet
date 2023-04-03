@@ -1,3 +1,6 @@
+import contextlib
+import os
+
 import pysodic
 import torch
 import torchaudio
@@ -7,10 +10,13 @@ import promonet
 
 
 ###############################################################################
-# promonet generation
+# Generation API
 ###############################################################################
 
 
+# TODO - from_features
+# TODO - preprocess
+# TODO - infer
 def from_audio(
     audio,
     sample_rate=promonet.SAMPLE_RATE,
@@ -78,12 +84,13 @@ def from_audio(
                 gpu=gpu)
 
             # Maybe resample length
-            if features.shape[1] != audio.shape[1] // promonet.HOPSIZE:
+            frames = promonet.convert.samples_to_frames(audio.shape[1])
+            if features.shape[1] !=  frames:
                 align_corners = \
                     None if promonet.PPG_INTERP_METHOD == 'nearest' else False
                 features = torch.nn.functional.interpolate(
                     features[None],
-                    size=audio.shape[1] // promonet.HOPSIZE,
+                    size=frames,
                     mode=promonet.PPG_INTERP_METHOD,
                     align_corners=align_corners)[0]
 
@@ -248,6 +255,39 @@ def from_files_to_files(
 ###############################################################################
 # Utilities
 ###############################################################################
+
+
+@contextlib.contextmanager
+def chdir(directory):
+    """Context manager for changing the current working directory"""
+    curr_dir = os.getcwd()
+    try:
+        os.chdir(directory)
+        yield
+    finally:
+        os.chdir(curr_dir)
+
+
+@contextlib.contextmanager
+def generation_context(model):
+    device_type = next(model.parameters()).device.type
+
+    # Prepare model for evaluation
+    model.eval()
+
+    # Turn off gradient computation
+    with torch.no_grad():
+
+        # Automatic mixed precision on GPU
+        if device_type == 'cuda':
+            with torch.autocast(device_type):
+                yield
+
+        else:
+            yield
+
+    # Prepare model for training
+    model.train()
 
 
 def iterator(iterable, message, initial=0, total=None):

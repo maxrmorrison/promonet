@@ -1,5 +1,3 @@
-from pathlib import Path
-
 import pysodic
 
 import promonet
@@ -26,26 +24,17 @@ def datasets(datasets, features=ALL_FEATURES, gpu=None):
         # Get cache directory
         directory = promonet.CACHE_DIR / dataset
 
-        # Iterate over speakers
-        for speaker_directory in directory.glob('*'):
+        # Get text and audio files for this speaker
+        audio_files = sorted(list(directory.rglob('*.wav')))
+        audio_files = [file for file in audio_files if '-' in file.stem]
+        text_files = [
+            file.parent / f'{file.stem[:-4]}.txt' for file in audio_files]
 
-            # Get text and audio files for this speaker
-            text_files = sorted(list(speaker_directory.rglob('*.txt')))
-            audio_files = sorted(list(speaker_directory.rglob('*.wav')))
-            audio_files = [
-                file for file in audio_files if '-template' not in file.stem]
-
-            # Preprocess files
-            from_files_to_files(
-                speaker_directory,
-                audio_files,
-                text_files,
-                features,
-                gpu)
+        # Preprocess files
+        from_files_to_files(audio_files, text_files, features, gpu)
 
 
 def from_files_to_files(
-    output_directory,
     audio_files,
     text_files=None,
     features=ALL_FEATURES,
@@ -116,13 +105,18 @@ def prosody(audio, sample_rate=promonet.SAMPLE_RATE, text=None, gpu=None):
             text,
             hopsize,
             window_size,
-            gpu)
+            gpu=gpu)
 
         # Pitch, loudness and alignment
         return output[0], output[2], output[5]
 
     # Get prosody features without alignment
-    output = pysodic.from_audio(audio, sample_rate, hopsize, window_size, gpu)
+    output = pysodic.from_audio(
+        audio,
+        sample_rate,
+        hopsize,
+        window_size,
+        gpu=gpu)
 
     # Pitch and loudness
     return output[0], output[2]

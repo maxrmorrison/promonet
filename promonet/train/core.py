@@ -3,10 +3,8 @@ import functools
 import math
 import os
 
-import pyfoal
 import pysodic
 import torch
-import torchinfo
 import tqdm
 
 import promonet
@@ -90,17 +88,17 @@ def train(
     #######################
 
     torch.manual_seed(promonet.RANDOM_SEED)
-    train_loader, valid_loader = promonet.data.loaders(
-        dataset,
-        train_partition,
-        valid_partition,
-        gpu)
+    train_loader = promonet.data.loader(dataset, train_partition, gpu)
+    valid_loader = promonet.data.loader(dataset, valid_partition, gpu)
 
     #################
     # Create models #
     #################
 
-    num_speakers = 109  # Number of speakers in VCTK dataset
+    # Number of speakers in VCTK dataset
+    # TODO - fix hardcoding
+    num_speakers = 109
+
     generator = promonet.model.Generator(num_speakers).to(device)
     discriminators = promonet.model.Discriminator().to(device)
 
@@ -119,8 +117,8 @@ def train(
     # Create optimizers #
     #####################
 
-    discriminator_optimizer = promonet.OPTIMIZER(discriminators.parameters())
-    generator_optimizer = promonet.OPTIMIZER(generator.parameters())
+    discriminator_optimizer = torch.optim.AdamW(discriminators.parameters())
+    generator_optimizer = torch.optim.AdamW(generator.parameters())
 
     ##############################
     # Maybe load from checkpoint #
@@ -162,26 +160,12 @@ def train(
         # Train from scratch
         step = 0
 
-    #####################
-    # Create schedulers #
-    #####################
-
-    scheduler_fn = functools.partial(
-        torch.optim.lr_scheduler.ExponentialLR,
-        gamma=promonet.LEARNING_RATE_DECAY,
-        last_epoch=step // len(train_loader.dataset) if step else -1)
-    generator_scheduler = scheduler_fn(generator_optimizer)
-    discriminator_scheduler = scheduler_fn(discriminator_optimizer)
-
     #########
     # Train #
     #########
 
     # Automatic mixed precision (amp) gradient scaler
     scaler = torch.cuda.amp.GradScaler()
-
-    # Print model summaries on the first step
-    # printed = False
 
     # Get total number of steps
     if adapt:
@@ -225,7 +209,7 @@ def train(
             initial=step,
             total=steps,
             dynamic_ncols=True,
-            desc=f'Training {promonet.CONFIG}')
+            desc=f'{"Adapting" if adapt else "Training"} {promonet.CONFIG}')
     while step < steps:
 
         # Seed sampler
@@ -237,6 +221,7 @@ def train(
 
             # Unpack batch
             (
+                _,
                 phonemes,
                 pitch,
                 periodicity,
@@ -247,8 +232,36 @@ def train(
                 spectrograms,
                 spectrogram_lengths,
                 audio,
-                template
-            ) = (item.to(device) for item in batch[1:])
+                _
+            ) = batch
+
+            # Copy to device
+            (
+                phonemes,
+                pitch,
+                periodicity,
+                loudness,
+                lengths,
+                speakers,
+                ratios,
+                spectrograms,
+                spectrogram_lengths,
+                audio
+            ) = (
+                item.to(device) for item in
+                (
+                    phonemes,
+                    pitch,
+                    periodicity,
+                    loudness,
+                    lengths,
+                    speakers,
+                    ratios,
+                    spectrograms,
+                    spectrogram_lengths,
+                    audio
+                )
+            )
 
             # Bundle training input
             generator_input = (
@@ -261,8 +274,7 @@ def train(
                 ratios,
                 spectrograms,
                 spectrogram_lengths,
-                audio,
-                template)
+                audio)
 
             # Convert to mels
             mels = promonet.data.preprocess.spectrogram.linear_to_mel(
@@ -282,15 +294,14 @@ def train(
                     prior,
                     predicted_mean,
                     predicted_logstd,
-                    true_logstd,
-                    residual
+                    true_logstd
                 ) = generator(*generator_input)
 
                 with torch.cuda.amp.autocast(enabled=False):
 
                     # Slice segments for training discriminator
-                    segment_size = \
-                        promonet.CHUNK_SIZE // promonet.HOPSIZE
+                    segment_size = promonet.convert.samples_to_frames(
+                        promonet.CHUNK_SIZE)
 
                     # Slice spectral features
                     mel_slices = promonet.model.slice_segments(
@@ -304,7 +315,8 @@ def train(
 
                     # Update indices to handle autoregression
                     if promonet.AUTOREGRESSIVE:
-                        ar_frames = promonet.AR_INPUT_SIZE // promonet.HOPSIZE
+                        ar_frames = promonet.convert.samples_to_frames(
+                            promonet.AR_INPUT_SIZE)
                         indices = slice_indices - ar_frames
                         size = segment_size + ar_frames
                     else:
@@ -337,18 +349,6 @@ def train(
                         generated = torch.cat((autoregressive, generated), dim=-1)
                         audio = torch.cat((autoregressive, audio), dim=-1)
 
-                    # Print model summaries first time
-                    # if not printed:
-                    #     print(torchinfo.summary(
-                    #         generator,
-                    #         input_data=generator_input,
-                    #         device=device))
-                    #     print(torchinfo.summary(
-                    #         discriminators,
-                    #         input_data=(audio, generated.detach()),
-                    #         device=device))
-                    #     printed = True
-
                 #######################
                 # Train discriminator #
                 #######################
@@ -362,8 +362,7 @@ def train(
                         periodicity_slices,
                         loudness_slices,
                         phoneme_slices,
-                        ratios,
-                        residual)
+                        ratios)
 
                     with torch.cuda.amp.autocast(enabled=False):
 
@@ -403,8 +402,7 @@ def train(
                         periodicity_slices,
                         loudness_slices,
                         phoneme_slices,
-                        ratios,
-                        residual)
+                        ratios)
 
                 ####################
                 # Generator losses #
@@ -491,7 +489,7 @@ def train(
 
                 if step % promonet.LOG_INTERVAL == 0:
 
-                    # Log losses
+                    # Log training losses
                     scalars = {
                         'loss/generator/total': generator_losses}
                     if promonet.TWO_STAGE_1:
@@ -499,8 +497,6 @@ def train(
                     else:
                         scalars.update({
                         'loss/discriminator/total': discriminator_losses,
-                        'learning_rate':
-                            generator_optimizer.param_groups[0]['lr'],
                         'loss/generator/feature-matching':
                             feature_matching_loss,
                         'loss/generator/mels': mel_loss})
@@ -520,47 +516,13 @@ def train(
                             scalars['loss/generator/kl-divergence'] = kl_divergence_loss
                     promonet.write.scalars(log_directory, step, scalars)
 
-                    # Log mels and attention matrix
-                    figures = {
-                        'train/slice/original':
-                            promonet.plot.spectrogram(
-                                mel_slices[0].data.cpu().numpy()),
-                        'train/slice/generated':
-                            promonet.plot.spectrogram(
-                                generated_mels[0].data.cpu().numpy()),
-                        'train/original':
-                            promonet.plot.spectrogram(
-                                mels[0].data.cpu().numpy())}
-                    if attention is not None:
-                        figures['train/attention'] = \
-                            promonet.plot.alignment(
-                                attention[0, 0].data.cpu().numpy())
-                    if promonet.TWO_STAGE:
-                        figures['train/slice/synthesizer'] = \
-                            promonet.plot.spectrogram(
-                                predicted_spectrogram[0].data.cpu().numpy())
-                    promonet.write.figures(log_directory, step, figures)
-
-                ############
-                # Evaluate #
-                ############
-
-                if step % promonet.EVALUATION_INTERVAL == 0:
-
-                    # This context manager changes which forced aligner is
-                    # used. MFA is slow and less robust to errors than P2FA,
-                    # and works better with speaker adaptation, which we don't
-                    # perform here. However, the installation of P2FA is
-                    # more complicated. Therefore, we allow either aligner
-                    # to be used to evaluate training.
-                    with pyfoal.backend(promonet.TRAIN_ALIGNER):
-
-                        evaluate(
-                            log_directory,
-                            step,
-                            generator,
-                            valid_loader,
-                            gpu)
+                    # Evaluate on validation data
+                    evaluate(
+                        log_directory,
+                        step,
+                        generator,
+                        valid_loader,
+                        gpu)
 
                 ###################
                 # Save checkpoint #
@@ -582,12 +544,12 @@ def train(
             if step >= steps:
                 break
 
-            # Transition from training to fine-tuning two-stage system
+            # Two-stage model transition from training synthesizer to vocoder
             if promonet.TWO_STAGE and step == steps // 2:
                 promonet.TWO_STAGE_1 = False
                 promonet.TWO_STAGE_2 = True
 
-                # Freeze weights
+                # Freeze all weights
                 for param in generator.parameters():
                     param.requires_grad = False
 
@@ -597,31 +559,30 @@ def train(
                 for param in generator.generator.parameters():
                     param.requires_grad = True
 
-            step += 1
-
-            # Update progress bar
             if not rank:
+
+                # Increment steps
+                step += 1
+
+                # Update progress bar
                 progress.update()
 
-        # Update learning rate every epoch
-        generator_scheduler.step()
-        discriminator_scheduler.step()
-
-    # Close progress bar
     if not rank:
+
+        # Close progress bar
         progress.close()
 
-    # Save final model
-    promonet.checkpoint.save(
-        generator,
-        generator_optimizer,
-        step,
-        output_directory / f'generator-{step:08d}.pt')
-    promonet.checkpoint.save(
-        discriminators,
-        discriminator_optimizer,
-        step,
-        output_directory / f'discriminator-{step:08d}.pt')
+        # Save final model
+        promonet.checkpoint.save(
+            generator,
+            generator_optimizer,
+            step,
+            output_directory / f'generator-{step:08d}.pt')
+        promonet.checkpoint.save(
+            discriminators,
+            discriminator_optimizer,
+            step,
+            output_directory / f'discriminator-{step:08d}.pt')
 
 
 ###############################################################################
@@ -629,42 +590,41 @@ def train(
 ###############################################################################
 
 
-def evaluate(directory, step, generator, valid_loader, gpu):
+def evaluate(directory, step, generator, loader, gpu):
     """Perform model evaluation"""
     device = 'cpu' if gpu is None else f'cuda:{gpu}'
 
-    # Prepare generator for evaluation
-    generator.eval()
+    # Setup prosody evaluation
+    metric_fn = functools.partial(
+        promonet.evaluate.Metrics,
+        gpu)
+    metrics = {'reconstruction': metric_fn()}
 
-    # Turn off gradient computation
-    with torch.no_grad():
+    # Maybe add evaluation of prosody control
+    if promonet.PITCH_FEATURES:
+        metrics.update({
+            'shifted-050': metric_fn(),
+            'shifted-200': metric_fn()})
+    if promonet.PPG_FEATURES:
+        metrics.update({
+            'stretched-050': metric_fn(),
+            'stretched-200': metric_fn()})
+    if promonet.LOUDNESS_FEATURES:
+        metrics.update({
+            'scaled-050': metric_fn(),
+            'scaled-200': metric_fn()})
 
-        # Setup prosody evaluation
-        metric_fn = functools.partial(
-            promonet.evaluate.metrics.Metrics,
-            gpu)
-        metrics = {'reconstruction': metric_fn()}
+    # Audio, figures, and scalars for tensorboard
+    waveforms, figures, scalars = {}, {}, {}
 
-        # Maybe add evaluation of prosody control
-        if promonet.PITCH_FEATURES:
-            metrics.update({
-                'shifted-050': metric_fn(),
-                'shifted-200': metric_fn()})
-        if promonet.PPG_FEATURES:
-            metrics.update({
-                'stretched-050': metric_fn(),
-                'stretched-200': metric_fn()})
-        if promonet.LOUDNESS_FEATURES:
-            metrics.update({
-                'scaled-050': metric_fn(),
-                'scaled-200': metric_fn()})
+    # Setup model for inference
+    with promonet.generation_context(generator):
 
-        for i, batch in enumerate(valid_loader):
-            waveforms, figures = {}, {}
+        for i, batch in enumerate(loader):
 
-            # Unpack batch
-            text = batch[0][0]
+            # Unpack
             (
+                text,
                 phonemes,
                 pitch,
                 periodicity,
@@ -675,47 +635,64 @@ def evaluate(directory, step, generator, valid_loader, gpu):
                 spectrogram,
                 _,
                 audio,
-                template
-            ) = (item.to(device) for item in batch[1:])
+                _
+            ) = batch
+            text = text[0]
+
+            # Copy to device
+            (
+                phonemes,
+                pitch,
+                periodicity,
+                loudness,
+                lengths,
+                speakers,
+                spectrogram,
+                audio
+            ) = (
+                item.to(device) for item in (
+                    phonemes,
+                    pitch,
+                    periodicity,
+                    loudness,
+                    lengths,
+                    speakers,
+                    spectrogram,
+                    audio
+                )
+            )
 
             # Ensure audio and generated are same length
             trim = audio.shape[-1] % promonet.HOPSIZE
             if trim > 0:
                 audio = audio[..., :-trim]
 
-            if not step:
-
-                # Log original audio
+            # Log original audio on first evaluation
+            if step == 0:
                 waveforms[f'original/{i:02d}-audio'] = audio[0]
 
-                # Log original melspectrogram
-                mels = promonet.data.preprocess.spectrogram.linear_to_mel(
-                    spectrogram[0]).cpu().numpy()
-                figures[f'original/{i:02d}-mels'] = \
-                    promonet.plot.spectrogram(mels)
-
             # Extract prosody features
-            try:
-                (
-                    pitch,
-                    periodicity,
-                    loudness,
-                    voicing,
-                    phones,
-                    _
-                ) = pysodic.from_audio_and_text(
-                    audio[0],
-                    promonet.SAMPLE_RATE,
-                    text,
-                    promonet.HOPSIZE / promonet.SAMPLE_RATE,
-                    promonet.WINDOW_SIZE / promonet.SAMPLE_RATE,
-                    gpu)
-            except Exception as error:
-                print(error)
-                import pdb; pdb.set_trace()
-                pass
+            (
+                pitch,
+                periodicity,
+                loudness,
+                voicing,
+                phones,
+                _
+            ) = pysodic.from_audio_and_text(
+                audio[0],
+                promonet.SAMPLE_RATE,
+                text,
+                promonet.HOPSIZE / promonet.SAMPLE_RATE,
+                promonet.WINDOW_SIZE / promonet.SAMPLE_RATE,
+                gpu=gpu
+            )
 
-            # Reconstruct speech
+            ##################
+            # Reconstruction #
+            ##################
+
+            # Generate
             generated, *_ = generator(
                 phonemes,
                 pitch,
@@ -723,8 +700,7 @@ def evaluate(directory, step, generator, valid_loader, gpu):
                 loudness,
                 lengths,
                 speakers,
-                spectrograms=spectrogram,
-                template=template)
+                spectrograms=spectrogram)
 
             # Get prosody features
             (
@@ -740,7 +716,7 @@ def evaluate(directory, step, generator, valid_loader, gpu):
                 text,
                 promonet.HOPSIZE / promonet.SAMPLE_RATE,
                 promonet.WINDOW_SIZE / promonet.SAMPLE_RATE,
-                gpu
+                gpu=gpu
             )
 
             # Get ppgs
@@ -769,21 +745,15 @@ def evaluate(directory, step, generator, valid_loader, gpu):
                 prosody_args,
                 ppg_args)
 
-            # Maybe log pitch-shifting
+            ##################
+            # Pitch shifting #
+            ##################
+
             if promonet.PITCH_FEATURES:
                 for ratio in [.5, 2.]:
 
                     # Shift pitch
                     shifted_pitch = ratio * pitch
-
-                    # Maybe make template
-                    if promonet.TEMPLATE_FEATURES:
-                        template = promonet.data.preprocess.template.from_prosody(
-                            shifted_pitch,
-                            periodicity,
-                            loudness)[None]
-                    else:
-                        template = None
 
                     # Generate pitch-shifted speech
                     shifted, *_ = generator(
@@ -792,8 +762,7 @@ def evaluate(directory, step, generator, valid_loader, gpu):
                         periodicity,
                         loudness,
                         lengths,
-                        speakers,
-                        template=template)
+                        speakers)
 
                     # Get prosody features
                     (
@@ -809,7 +778,7 @@ def evaluate(directory, step, generator, valid_loader, gpu):
                         text,
                         promonet.HOPSIZE / promonet.SAMPLE_RATE,
                         promonet.WINDOW_SIZE / promonet.SAMPLE_RATE,
-                        gpu
+                        gpu=gpu
                     )
 
                     # Get ppgs
@@ -838,7 +807,10 @@ def evaluate(directory, step, generator, valid_loader, gpu):
                         prosody_args,
                         ppg_args)
 
-            # Maybe log time-stretching
+            ###################
+            # Time stretching #
+            ###################
+
             if promonet.PPG_FEATURES:
                 for ratio in [.5, 2.]:
 
@@ -874,15 +846,6 @@ def evaluate(directory, step, generator, valid_loader, gpu):
                         dtype=torch.long,
                         device=device)
 
-                    # Maybe make template
-                    if promonet.TEMPLATE_FEATURES:
-                        template = promonet.data.preprocess.template.from_prosody(
-                            stretched_pitch,
-                            stretched_periodicity,
-                            stretched_loudness)[None]
-                    else:
-                        template = None
-
                     # Generate
                     stretched, *_ = generator(
                         stretched_phonemes,
@@ -890,8 +853,7 @@ def evaluate(directory, step, generator, valid_loader, gpu):
                         stretched_periodicity,
                         stretched_loudness,
                         stretched_length,
-                        speakers,
-                        template=template)
+                        speakers)
 
                     # Get prosody features
                     (
@@ -907,7 +869,7 @@ def evaluate(directory, step, generator, valid_loader, gpu):
                         text,
                         promonet.HOPSIZE / promonet.SAMPLE_RATE,
                         promonet.WINDOW_SIZE / promonet.SAMPLE_RATE,
-                        gpu
+                        gpu=gpu
                     )
 
                     # Get ppgs
@@ -928,8 +890,7 @@ def evaluate(directory, step, generator, valid_loader, gpu):
                         predicted_loudness,
                         predicted_voicing,
                         stretched_phones,
-                        predicted_phones
-                    )
+                        predicted_phones)
                     ppg_args = (stretched_phonemes, predicted_phonemes)
                     log(
                         stretched,
@@ -940,21 +901,15 @@ def evaluate(directory, step, generator, valid_loader, gpu):
                         prosody_args,
                         ppg_args)
 
-            # Maybe log loudness-scaling
+            ####################
+            # Loudness scaling #
+            ####################
+
             if promonet.LOUDNESS_FEATURES:
                 for ratio in [.5, 2.]:
 
                     # Scale loudness
                     scaled_loudness = loudness + 10 * math.log2(ratio)
-
-                    # Maybe make template
-                    if promonet.TEMPLATE_FEATURES:
-                        template = promonet.data.preprocess.template.from_prosody(
-                            pitch,
-                            periodicity,
-                            scaled_loudness)[None]
-                    else:
-                        template = None
 
                     # Generate loudness-scaled speech
                     scaled, *_ = generator(
@@ -963,8 +918,7 @@ def evaluate(directory, step, generator, valid_loader, gpu):
                         periodicity,
                         scaled_loudness,
                         lengths,
-                        speakers,
-                        template=template)
+                        speakers)
 
                     # Get prosody features
                     (
@@ -980,7 +934,7 @@ def evaluate(directory, step, generator, valid_loader, gpu):
                         text,
                         promonet.HOPSIZE / promonet.SAMPLE_RATE,
                         promonet.WINDOW_SIZE / promonet.SAMPLE_RATE,
-                        gpu
+                        gpu=gpu
                     )
 
                     # Get ppgs
@@ -1009,35 +963,18 @@ def evaluate(directory, step, generator, valid_loader, gpu):
                         prosody_args,
                         ppg_args)
 
-            # Write audio and mels to Tensorboard
-            promonet.write.audio(directory, step, waveforms)
-            promonet.write.figures(directory, step, figures)
-
     # Format prosody metrics
-    scalars = {}
     for condition in metrics:
-        for name, value in metrics[condition]().items():
+        for key, value in metrics[condition]().items():
+            scalars[f'{condition}/{key}'] = value
 
-            if name == 'voicing':
-
-                # Write precision, recall, and f1 metrics
-                for subname, subvalue in value.items():
-                    key = f'{condition}/{name}-{subname}'
-                    scalars[key] = subvalue
-
-            else:
-
-                # Write metric
-                key = f'{condition}/{name}'
-                scalars[key] = value
-
-    # Write prosody metrics to tensorboard
+    # Write to Tensorboard
+    promonet.write.audio(directory, step, waveforms)
+    promonet.write.figures(directory, step, figures)
     promonet.write.scalars(directory, step, scalars)
 
-    # Prepare generator for training
-    generator.train()
 
-
+# TODO - deprecate in favor of aligned PPGs
 def ppgs(audio, size, gpu=None):
     """Extract aligned PPGs"""
     predicted_phonemes = promonet.data.preprocess.ppg.from_audio(
