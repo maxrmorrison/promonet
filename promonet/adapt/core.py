@@ -1,4 +1,3 @@
-import shutil
 from pathlib import Path
 from typing import List, Optional
 
@@ -14,7 +13,6 @@ import promonet
 
 
 def speaker(
-    config: Path,
     name: str,
     files: List[Path],
     checkpoint: Path = promonet.DEFAULT_CHECKPOINT,
@@ -22,7 +20,6 @@ def speaker(
     """Perform speaker adaptation
 
     Args:
-        config: The configuration file
         name: The name of the speaker
         files: The audio files to use for adaptation
         checkpoint: The model checkpoint
@@ -62,11 +59,8 @@ def speaker(
     promonet.partition.dataset(name)
 
     # Directory to save configuration, checkpoints, and logs
-    adapt_directory = promonet.RUNS_DIR / config.stem / 'adapt' / name
+    adapt_directory = promonet.RUNS_DIR / promonet.CONFIG / 'adapt' / name
     adapt_directory.mkdir(exist_ok=True, parents=True)
-
-    # Save configuration
-    shutil.copyfile(config, adapt_directory / config.name)
 
     # Perform adaptation and return generator checkpoint
     return promonet.train.run(

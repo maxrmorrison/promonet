@@ -184,7 +184,6 @@ python -m promonet \
 
 ```
 def speaker(
-    config: Path,
     name: str,
     files: List[Path],
     checkpoint: Path = promonet.DEFAULT_CHECKPOINT,
@@ -192,7 +191,6 @@ def speaker(
     """Perform speaker adaptation
 
     Args:
-        config: The configuration file
         name: The name of the speaker
         files: The audio files to use for adaptation
         checkpoint: The model checkpoint
