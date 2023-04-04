@@ -13,11 +13,6 @@ def parse_args():
     """Parse command-line arguments"""
     parser = argparse.ArgumentParser(description='Perform speaker adaptation')
     parser.add_argument(
-        '--config',
-        type=Path,
-        default=promonet.DEFAULT_CONFIGURATION,
-        help='The configuration file')
-    parser.add_argument(
         '--name',
         required=True,
         help='The name of the speaker')

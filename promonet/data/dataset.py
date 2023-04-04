@@ -103,7 +103,7 @@ class Dataset(torch.utils.data.Dataset):
         ppg = torch.load(self.cache / f'{stem}-{feature}.pt')
 
         # Maybe resample length
-        # TODO - deprecate in favor of aligned features
+        # TODO - deprecate in favor of aligned PPGs
         if ppg.shape[1] != length:
             mode = promonet.PPG_INTERP_METHOD
             ppg = torch.nn.functional.interpolate(
