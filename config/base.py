@@ -1,7 +1,7 @@
 MODULE = 'promonet'
 
 # Configuration name
-CONFIG = 'promonet-base-small'
+CONFIG = 'base'
 
 # Loudness features
 LOUDNESS_FEATURES = True

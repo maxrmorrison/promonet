@@ -1,7 +1,7 @@
 MODULE = 'promonet'
 
 # Configuration name
-CONFIG = 'spectral-voco-small'
+CONFIG = 'spectral'
 
 # Whether to use pitch augmentation
 AUGMENT_PITCH = True
@@ -14,6 +14,3 @@ SNAKE = True
 
 # Only use spectral features
 SPECTROGRAM_ONLY = True
-
-# Whether to omit latent generation
-VOCODER = True

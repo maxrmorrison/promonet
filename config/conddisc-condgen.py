@@ -1,7 +1,7 @@
 MODULE = 'promonet'
 
 # Configuration name
-CONFIG = 'conddisc-condgen-small'
+CONFIG = 'conddisc-condgen'
 
 # Discriminator loudness conditioning
 DISCRIM_LOUDNESS_CONDITION = True

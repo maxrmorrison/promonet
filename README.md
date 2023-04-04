@@ -118,34 +118,95 @@ scaled = promonet.from_audio(
 
 #### Command-line interface (CLI)
 
-**TODO**
+```
+###############################################################################
+# Speaker adaptation
+###############################################################################
+
+
+# Adapt the base model defined by the configuration and checkpoint to speaker
+# <name> using a list of audio files and the indicated GPUs
+python -m promonet.adapt \
+    --config <config> \
+    --name <name> \
+    --files <files> \
+    --checkpoint <checkpoint> \
+    --gpus <gpus>
+
+
+###############################################################################
+# Prosody editing
+###############################################################################
+
+
+# Perform reconstruction
+python -m promonet \
+    --config <config> \
+    --audio_files <audio_files> \
+    --output_files <output_files> \
+    --checkpoint <checkpoint> \
+    --gpu <gpu>
+
+# Perform pitch-shifting
+python -m promonet \
+    --config <config> \
+    --audio_files <audio_files> \
+    --output_files <output_files> \
+    --target_pitch_files <target_pitch_files> \
+    --checkpoint <checkpoint> \
+    --gpu <gpu>
+
+# Perform time-stretching
+python -m promonet \
+    --config <config> \
+    --audio_files <audio_files> \
+    --output_files <output_files> \
+    --target_alignment_files <target_alignment_files> \
+    --checkpoint <checkpoint> \
+    --gpu <gpu>
+
+# Perform loudness-scaling
+python -m promonet \
+    --config <config> \
+    --audio_files <audio_files> \
+    --output_files <output_files> \
+    --target_loudness_files <target_loudness_files> \
+    --checkpoint <checkpoint> \
+    --gpu <gpu>
+```
 
 
 ### Adaptation
 
 #### Application programming interface (API)
 
-##### `promonet.from_`
+##### `promonet.adapt.speaker`
 
-**TODO**
+```
+def speaker(
+    config: Path,
+    name: str,
+    files: List[Path],
+    checkpoint: Path = promonet.DEFAULT_CHECKPOINT,
+    gpus: Optional[int] = None) -> Path:
+    """Perform speaker adaptation
 
+    Args:
+        config: The configuration file
+        name: The name of the speaker
+        files: The audio files to use for adaptation
+        checkpoint: The model checkpoint
+        gpus: The gpus to run adaptation on
 
-##### `promonet.from_file`
-
-**TODO**
-
-
-##### `promonet.from_file_to_file`
-
-**TODO**
-
-
-##### `promonet.from_files_to_files`
-
-**TODO**
+    Returns:
+        checkpoint: The file containing the trained generator checkpoint
+    """
+```
 
 
 #### Command-line interface (CLI)
+
+**TODO**
 
 
 ### Generation
