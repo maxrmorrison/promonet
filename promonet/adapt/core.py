@@ -1,5 +1,6 @@
 import shutil
 from pathlib import Path
+from typing import List, Optional
 
 import torch
 import torchaudio
@@ -8,43 +9,54 @@ import promonet
 
 
 ###############################################################################
-# TODO - Speaker adaptation API
+# Speaker adaptation API
 ###############################################################################
 
 
-def from_files_to_files(
-    config,
-    name,
-    directory,
-    checkpoint=promonet.DEFAULT_CHECKPOINT,
-    gpus=None):
-    """Perform speaker adaptation"""
-    cache = promonet.CACHE_DIR / name
+def speaker(
+    config: Path,
+    name: str,
+    files: List[Path],
+    checkpoint: Path = promonet.DEFAULT_CHECKPOINT,
+    gpus: Optional[int] = None) -> Path:
+    """Perform speaker adaptation
+
+    Args:
+        config: The configuration file
+        name: The name of the speaker
+        files: The audio files to use for adaptation
+        checkpoint: The model checkpoint
+        gpus: The gpus to run adaptation on
+
+    Returns:
+        checkpoint: The file containing the trained generator checkpoint
+    """
+    # Make a new cache directory sequentially
+    cache = promonet.CACHE_DIR / 'adapt' / name
     cache.mkdir(exist_ok=True, parents=True)
 
-    # Preprocess
-    with promonet.chdir(cache):
+    # Preprocess audio
+    for i, file in enumerate(files):
 
-        # Preprocess audio
-        for i, file in enumerate(directory.rglob('.wav')):
+        # Convert to 22.05k
+        audio = promonet.load.audio(file)
 
-            # Convert to 22.05k
-            audio = promonet.load.audio(file)
+        # If audio is too quiet, increase the volume
+        maximum = torch.abs(audio).max()
+        if maximum < .35:
+            audio *= .35 / maximum
 
-            # If audio is too quiet, increase the volume
-            maximum = torch.abs(audio).max()
-            if maximum < .35:
-                audio *= .35 / maximum
+        # Save to cache
+        torchaudio.save(cache / f'{i:06d}.wav', audio, promonet.SAMPLE_RATE)
 
-            # Save to cache
-            torchaudio.save(f'{i:06d}.wav', audio, promonet.SAMPLE_RATE)
+    # TODO - augment
 
-        # Preprocess features
-        promonet.data.preprocess.from_files_to_files(
-            Path(),
-            Path().rglob('*.wav'),
-            features=['ppg', 'prosody', 'spectrogram'],
-            gpu=None if gpus is None else gpus[0])
+    # Preprocess features
+    promonet.data.preprocess.from_files_to_files(
+        cache,
+        cache.rglob('*.wav'),
+        features=['ppg', 'prosody', 'spectrogram'],
+        gpu=None if gpus is None else gpus[0])
 
     # Partition (all files are used for training)
     promonet.partition.dataset(name)

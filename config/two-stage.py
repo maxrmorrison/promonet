@@ -1,7 +1,7 @@
 MODULE = 'promonet'
 
 # Configuration name
-CONFIG = 'two-stage-small'
+CONFIG = 'two-stage'
 
 # Whether to use pitch augmentation
 AUGMENT_PITCH = True

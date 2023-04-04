@@ -1,7 +1,7 @@
 MODULE = 'promonet'
 
 # Configuration name
-CONFIG = 'conddisc-condgen-augment-snake-small'
+CONFIG = 'conddisc-condgen-augment-snake'
 
 # Whether to use pitch augmentation
 AUGMENT_PITCH = True
