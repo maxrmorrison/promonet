@@ -16,7 +16,7 @@ import promonet
 
 # TODO - from_features
 # TODO - preprocess
-# TODO - infer
+# TODO - generate
 def from_audio(
     audio,
     sample_rate=promonet.SAMPLE_RATE,

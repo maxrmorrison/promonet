@@ -709,7 +709,7 @@ def evaluate(directory, step, generator, loader, gpu):
                 predicted_loudness,
                 predicted_voicing,
                 predicted_phones,
-                _
+                predicted_alignment
             ) = pysodic.from_audio_and_text(
                 generated[0],
                 promonet.SAMPLE_RATE,
@@ -724,26 +724,31 @@ def evaluate(directory, step, generator, loader, gpu):
 
             # Log generated audio
             key = f'reconstruction/{i:02d}'
-            prosody_args = (
-                pitch,
-                periodicity,
-                loudness,
-                voicing,
+            waveforms[f'{key}-audio'] = generated[0]
+
+            # Log prosody figure
+            figures[key] = promonet.plot.from_features(
+                generated,
                 predicted_pitch,
                 predicted_periodicity,
                 predicted_loudness,
-                predicted_voicing,
-                phones,
-                predicted_phones)
-            ppg_args = (phonemes, predicted_phonemes)
-            log(
-                generated,
-                key,
-                waveforms,
-                figures,
-                metrics,
-                prosody_args,
-                ppg_args)
+                predicted_alignment)
+
+            # Update metrics
+            metrics[key.split('/')[0]].update(
+                (
+                    pitch,
+                    periodicity,
+                    loudness,
+                    voicing,
+                    predicted_pitch,
+                    predicted_periodicity,
+                    predicted_loudness,
+                    predicted_voicing,
+                    phones,
+                    predicted_phones
+                ),
+                (phonemes, predicted_phonemes))
 
             ##################
             # Pitch shifting #
@@ -771,7 +776,7 @@ def evaluate(directory, step, generator, loader, gpu):
                         predicted_loudness,
                         predicted_voicing,
                         predicted_phones,
-                        _
+                        predicted_alignment
                     ) = pysodic.from_audio_and_text(
                         shifted[0],
                         promonet.SAMPLE_RATE,
@@ -784,28 +789,33 @@ def evaluate(directory, step, generator, loader, gpu):
                     # Get ppgs
                     predicted_phonemes = ppgs(shifted, phonemes.shape[2], gpu)
 
-                    # Log pitch-shifted audios
+                    # Log pitch-shifted audio
                     key = f'shifted-{int(ratio * 100):03d}/{i:02d}'
-                    prosody_args = (
-                        shifted_pitch,
-                        periodicity,
-                        loudness,
-                        voicing,
+                    waveforms[f'{key}-audio'] = shifted[0]
+
+                    # Log prosody figure
+                    figures[key] = promonet.plot.from_features(
+                        shifted,
                         predicted_pitch,
                         predicted_periodicity,
                         predicted_loudness,
-                        predicted_voicing,
-                        phones,
-                        predicted_phones)
-                    ppg_args = (phonemes, predicted_phonemes)
-                    log(
-                        shifted,
-                        key,
-                        waveforms,
-                        figures,
-                        metrics,
-                        prosody_args,
-                        ppg_args)
+                        predicted_alignment)
+
+                    # Update metrics
+                    metrics[key.split('/')[0]].update(
+                        (
+                            shifted_pitch,
+                            periodicity,
+                            loudness,
+                            voicing,
+                            predicted_pitch,
+                            predicted_periodicity,
+                            predicted_loudness,
+                            predicted_voicing,
+                            phones,
+                            predicted_phones
+                        ),
+                        (phonemes, predicted_phonemes))
 
             ###################
             # Time stretching #
@@ -862,7 +872,7 @@ def evaluate(directory, step, generator, loader, gpu):
                         predicted_loudness,
                         predicted_voicing,
                         predicted_phones,
-                        _
+                        predicted_alignment
                     ) = pysodic.from_audio_and_text(
                         stretched[0],
                         promonet.SAMPLE_RATE,
@@ -878,28 +888,33 @@ def evaluate(directory, step, generator, loader, gpu):
                         stretched_phonemes.shape[2],
                         gpu)
 
-                    # Log to tensorboard
+                    # Log time-stretched audio
                     key = f'stretched-{int(ratio * 100):03d}/{i:02d}'
-                    prosody_args = (
-                        stretched_pitch,
-                        stretched_periodicity,
-                        stretched_loudness,
-                        stretched_voicing,
+                    waveforms[f'{key}-audio'] = stretched[0]
+
+                    # Log prosody figure
+                    figures[key] = promonet.plot.from_features(
+                        stretched,
                         predicted_pitch,
                         predicted_periodicity,
                         predicted_loudness,
-                        predicted_voicing,
-                        stretched_phones,
-                        predicted_phones)
-                    ppg_args = (stretched_phonemes, predicted_phonemes)
-                    log(
-                        stretched,
-                        key,
-                        waveforms,
-                        figures,
-                        metrics,
-                        prosody_args,
-                        ppg_args)
+                        predicted_alignment)
+
+                    # Update metrics
+                    metrics[key.split('/')[0]].update(
+                        (
+                            stretched_pitch,
+                            stretched_periodicity,
+                            stretched_loudness,
+                            stretched_voicing,
+                            predicted_pitch,
+                            predicted_periodicity,
+                            predicted_loudness,
+                            predicted_voicing,
+                            stretched_phones,
+                            predicted_phones
+                        ),
+                        (stretched_phonemes, predicted_phonemes))
 
             ####################
             # Loudness scaling #
@@ -927,7 +942,7 @@ def evaluate(directory, step, generator, loader, gpu):
                         predicted_loudness,
                         predicted_voicing,
                         predicted_phones,
-                        _
+                        predicted_alignment
                     ) = pysodic.from_audio_and_text(
                         scaled[0],
                         promonet.SAMPLE_RATE,
@@ -942,26 +957,31 @@ def evaluate(directory, step, generator, loader, gpu):
 
                     # Log loudness-scaled audio
                     key = f'scaled-{int(ratio * 100):03d}/{i:02d}'
-                    prosody_args = (
-                        pitch,
-                        periodicity,
-                        scaled_loudness,
-                        voicing,
+                    waveforms[f'{key}-audio'] = scaled[0]
+
+                    # Log prosody figure
+                    figures[key] = promonet.plot.from_features(
+                        scaled,
                         predicted_pitch,
                         predicted_periodicity,
                         predicted_loudness,
-                        predicted_voicing,
-                        phones,
-                        predicted_phones)
-                    ppg_args = (phonemes, predicted_phonemes)
-                    log(
-                        scaled,
-                        key,
-                        waveforms,
-                        figures,
-                        metrics,
-                        prosody_args,
-                        ppg_args)
+                        predicted_alignment)
+
+                    # Update metrics
+                    metrics[key.split('/')[0]].update(
+                        (
+                            pitch,
+                            periodicity,
+                            scaled_loudness,
+                            voicing,
+                            predicted_pitch,
+                            predicted_periodicity,
+                            predicted_loudness,
+                            predicted_voicing,
+                            phones,
+                            predicted_phones
+                        ),
+                        (phonemes, predicted_phonemes))
 
     # Format prosody metrics
     for condition in metrics:
@@ -986,25 +1006,6 @@ def ppgs(audio, size, gpu=None):
         size=size,
         mode=mode,
         align_corners=None if mode == 'nearest' else False)[0]
-
-
-###############################################################################
-# Logging
-###############################################################################
-
-
-def log(audio, key, waveforms, figures, metrics, prosody_args, ppg_args):
-    """Update training logs"""
-    audio = audio[0]
-
-    # Log time-stretched audio
-    waveforms[f'{key}-audio'] = audio
-
-    # Log time-stretched melspectrogram
-    figures[f'{key}-mels'] = promonet.plot.spectrogram_from_audio(audio)
-
-    # Update metrics
-    metrics[key.split('/')[0]].update(prosody_args, ppg_args)
 
 
 ###############################################################################
