@@ -1,43 +1,71 @@
 import matplotlib.pyplot as plt
+import pyfoal
+import pysodic
 
 import promonet
 
 
 ###############################################################################
-# Plotting utilities
+# Plot prosody
 ###############################################################################
 
 
-def alignment(x, info=None):
-    """Plot alignment"""
-    figure, axis = plt.subplots(figsize=(6, 4))
-    image = axis.imshow(
-        x.transpose(),
-        aspect='auto',
-        origin='lower',
-        interpolation='none')
-    figure.colorbar(image, ax=axis)
-    xlabel = 'Decoder timestep'
-    if info is not None:
-        xlabel += '\n\n' + info
-    plt.xlabel(xlabel)
-    plt.ylabel('Encoder timestep')
-    plt.tight_layout()
+def from_features(audio, pitch, periodicity, loudness, alignment):
+    """Plot prosody from features"""
+    figure, axes = plt.subplots(5, 1, figsize=(18, 6))
+
+    # Plot audio
+    axes[0].plot(audio.squeeze(), color='black', linewidth=.5)
+    axes[0].set_axis_off()
+    axes[0].set_ylim([-1., 1.])
+
+    # Plot pitch
+    axes[1].plot(pitch.squeeze(), color='black', linewidth=.5)
+    axes[1].set_axis_off()
+
+    # Plot periodicity
+    axes[2].plot(periodicity.squeeze(), color='black', linewidth=.5)
+    axes[2].set_axis_off()
+
+    # Plot loudness
+    axes[3].plot(loudness.squeeze(), color='black', linewidth=.5)
+    axes[3].set_axis_off()
+
+    # Plot alignment
+    pyfoal.plot.phonemes(axes[4], alignment, 5)
+
     return figure
 
 
-def spectrogram(x):
-    """Plot spectrogram"""
-    figure, axis = plt.subplots(figsize=(10, 2))
-    image = axis.imshow(x, aspect='auto', origin='lower', interpolation='none')
-    plt.colorbar(image, ax=axis)
-    plt.xlabel('Frames')
-    plt.ylabel('Channels')
-    plt.tight_layout()
-    return figure
+def from_file(text_file, audio_file, gpu=None):
+    """Plot prosody from text and audio on disk"""
+    # Load
+    text = promonet.load.text(text_file)
+    audio = promonet.load.audio(audio_file)
+
+    # Plot
+    return from_text_and_audio(text, audio, gpu)
 
 
-def spectrogram_from_audio(audio):
-    """Plot spectrogram given audio signal"""
-    mels = promonet.data.preprocess.spectrogram.from_audio(audio.float(), True)
-    return spectrogram(mels.cpu().numpy())
+def from_file_to_file(text_file, audio_file, output_file, gpu=None):
+    """Plot prosody from text and audio on disk and save to disk"""
+    # Plot
+    figure = from_file(text_file, audio_file, gpu)
+
+    # Save
+    figure.savefig(output_file, bbox_inches='tight', pad_inches=0, dpi=300)
+
+
+def from_text_and_audio(text, audio, gpu=None):
+    """Plot prosody from text and audio inputs"""
+    # Preprocess
+    pitch, periodicity, loudness, _, alignment = pysodic.from_audio_and_text(
+        audio,
+        promonet.SAMPLE_RATE,
+        text,
+        promonet.HOPSIZE / promonet.SAMPLE_RATE,
+        promonet.WINDOW_SIZE / promonet.SAMPLE_RATE,
+        gpu=gpu)
+
+    # Plot
+    return from_features(audio, pitch, periodicity, loudness, alignment)
