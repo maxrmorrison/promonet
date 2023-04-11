@@ -21,9 +21,6 @@ DISCRIM_PERIODICITY_CONDITION = True
 # Discriminator pitch conditioning
 DISCRIM_PITCH_CONDITION = True
 
-# Whether to perform gradient clipping on the generator
-GRADIENT_CLIP_GENERATOR = 1000.
-
 # Pass loudness through the latent
 LATENT_LOUDNESS_SHORTCUT = True
 
@@ -50,9 +47,6 @@ PITCH_FEATURES = True
 
 # Phonemic posteriorgram conditioning
 PPG_FEATURES = True
-
-# Whether to use snake activation in the audio generator
-SNAKE = True
 
 # Whether to omit latent generation
 VOCODER = True

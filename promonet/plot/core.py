@@ -15,20 +15,20 @@ def from_features(audio, pitch, periodicity, loudness, alignment):
     figure, axes = plt.subplots(5, 1, figsize=(18, 6))
 
     # Plot audio
-    axes[0].plot(audio.squeeze(), color='black', linewidth=.5)
+    axes[0].plot(audio.squeeze().cpu(), color='black', linewidth=.5)
     axes[0].set_axis_off()
     axes[0].set_ylim([-1., 1.])
 
     # Plot pitch
-    axes[1].plot(pitch.squeeze(), color='black', linewidth=.5)
+    axes[1].plot(pitch.squeeze().cpu(), color='black', linewidth=.5)
     axes[1].set_axis_off()
 
     # Plot periodicity
-    axes[2].plot(periodicity.squeeze(), color='black', linewidth=.5)
+    axes[2].plot(periodicity.squeeze().cpu(), color='black', linewidth=.5)
     axes[2].set_axis_off()
 
     # Plot loudness
-    axes[3].plot(loudness.squeeze(), color='black', linewidth=.5)
+    axes[3].plot(loudness.squeeze().cpu(), color='black', linewidth=.5)
     axes[3].set_axis_off()
 
     # Plot alignment

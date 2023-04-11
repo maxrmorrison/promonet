@@ -21,9 +21,6 @@ DISCRIM_PITCH_CONDITION = True
 # Discriminator augmentation ratio conditioning
 DISCRIM_RATIO_CONDITION = True
 
-# Whether to perform gradient clipping on the generator
-GRADIENT_CLIP_GENERATOR = 1000.
-
 # Pass loudness through the latent
 LATENT_LOUDNESS_SHORTCUT = True
 
@@ -54,9 +51,6 @@ PPG_FEATURES = True
 # Type of interpolation method to use to scale PPG features
 # Available method are ['nearest', 'linear']
 PPG_INTERP_METHOD = 'nearest'
-
-# Whether to use snake activation in the audio generator
-SNAKE = True
 
 # Whether to use a two-stage model (text -> mels; mels -> waveform)
 TWO_STAGE = True
