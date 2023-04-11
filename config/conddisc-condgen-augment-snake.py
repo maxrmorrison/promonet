@@ -1,5 +1,11 @@
 MODULE = 'promonet'
 
+
+# TEMPORARY
+# Number of steps between logging to Tensorboard
+LOG_INTERVAL = 10  # steps
+
+
 # Configuration name
 CONFIG = 'conddisc-condgen-augment-snake'
 
@@ -20,9 +26,6 @@ DISCRIM_PITCH_CONDITION = True
 
 # Discriminator augmentation ratio conditioning
 DISCRIM_RATIO_CONDITION = True
-
-# Whether to perform gradient clipping on the generator
-GRADIENT_CLIP_GENERATOR = 1000.
 
 # Pass loudness through the latent
 LATENT_LOUDNESS_SHORTCUT = True
