@@ -3,6 +3,7 @@ import functools
 import math
 import os
 
+import matplotlib.pyplot as plt
 import pysodic
 import torch
 import tqdm
@@ -79,6 +80,11 @@ def train(
         rank = torch.distributed.get_rank()
     else:
         rank = None
+
+    # Prevent matplotlib from warning us about all the figures we will have
+    # open at once during evaluation. The figures are correctly closed.
+    if not rank:
+        plt.rcParams.update({'figure.max_open_warning': 100})
 
     # Get torch device
     device = torch.device('cpu' if gpu is None else f'cuda:{gpu}')
