@@ -8,7 +8,7 @@ import promonet
 ###############################################################################
 
 
-ALL_FEATURES = ['ppg', 'prosody', 'phonemes', 'spectrogram']
+ALL_FEATURES = ['ppg', 'prosody', 'spectrogram']
 
 
 ###############################################################################
@@ -39,14 +39,6 @@ def from_files_to_files(
     features=ALL_FEATURES,
     gpu=None):
     """Preprocess from files"""
-    # Preprocess phonemes from text
-    if 'phonemes' in features:
-        phoneme_files = [
-            file.parent / f'{file.stem}-text.pt' for file in text_files]
-        promonet.data.preprocess.text.from_files_to_files(
-            text_files,
-            phoneme_files)
-
     # Preprocess spectrograms
     if 'spectrogram' in features:
         spectrogram_files = [

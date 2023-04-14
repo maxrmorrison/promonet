@@ -29,9 +29,9 @@ def from_features(
     axes[0].set_ylim([-1., 1.])
 
     # Plot pitch
-    axes[1].plot(pitch.squeeze().cpu(), color='black', linewidth=.5)
+    axes[1].plot(pitch.squeeze().cpu(), color='black', linewidth=1.)
     if target_pitch is not None:
-        axes[1].plot(target_pitch.squeeze().cpu(), color='green', linewidth=.5)
+        axes[1].plot(target_pitch.squeeze().cpu(), color='green', linewidth=1.)
         if target_periodicity is not None:
             voicing = pysodic.voicing(periodicity)
             target_voicing = pysodic.voicing(target_periodicity)
@@ -39,39 +39,39 @@ def from_features(
             errors = voicing & target_voicing & (cents > 50.)
             pitch_errors = target_pitch.clone()
             pitch_errors[~errors] = float('nan')
-            axes[1].plot(pitch_errors.squeeze().cpu(), color='red', linewidth=.5)
+            axes[1].plot(pitch_errors.squeeze().cpu(), color='red', linewidth=1.)
     axes[1].set_axis_off()
 
     # Plot periodicity
-    axes[2].plot(periodicity.squeeze().cpu(), color='black', linewidth=.5)
+    axes[2].plot(periodicity.squeeze().cpu(), color='black', linewidth=1.)
     if target_periodicity is not None:
         axes[2].plot(
             target_periodicity.squeeze().cpu(),
             color='green',
-            linewidth=.5)
+            linewidth=1.)
         errors = torch.abs(periodicity - target_periodicity) > .1
         periodicity_errors = target_periodicity.clone()
         periodicity_errors[~errors] = float('nan')
         axes[2].plot(
             periodicity_errors.squeeze().cpu(),
             color='red',
-            linewidth=.5)
+            linewidth=1.)
     axes[2].set_axis_off()
 
     # Plot loudness
-    axes[3].plot(loudness.squeeze().cpu(), color='black', linewidth=.5)
+    axes[3].plot(loudness.squeeze().cpu(), color='black', linewidth=1.)
     if target_loudness is not None:
         axes[3].plot(
             target_loudness.squeeze().cpu(),
             color='green',
-            linewidth=.5)
+            linewidth=1.)
         errors = torch.abs(loudness - target_loudness) > 6.
         loudness_errors = target_loudness.clone()
         loudness_errors[~errors] = float('nan')
         axes[3].plot(
             loudness_errors.squeeze().cpu(),
             color='red',
-            linewidth=.5)
+            linewidth=1.)
     axes[3].set_axis_off()
 
     # Plot alignment

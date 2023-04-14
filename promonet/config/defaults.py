@@ -85,12 +85,6 @@ LATENT_RATIO_SHORTCUT = False
 # A-weighted loudness conditioning
 LOUDNESS_FEATURES = False
 
-# Maximum length of text input
-MAX_TEXT_LEN = 190
-
-# Minimum length of text input
-MIN_TEXT_LEN = 1
-
 # Periodicity conditioning
 PERIODICITY_FEATURES = False
 

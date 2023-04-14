@@ -18,7 +18,6 @@ setup(
         'librosa',
         'matplotlib',
         'numpy',
-        'phonemizer',
         # TEMPORARY - exclude until release
         # 'pysodic',
         # TEMPORARY - GPL dependency
@@ -29,9 +28,7 @@ setup(
         'tensorboard',
         'torch',
         'torchaudio',
-        'torchvision',
         'tqdm',
-        'Unidecode',
         'yapecs'],
     packages=find_packages(),
     package_data={'promonet': ['assets/*', 'assets/*/*']},
