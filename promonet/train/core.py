@@ -738,7 +738,10 @@ def evaluate(directory, step, generator, loader, gpu):
                 predicted_pitch,
                 predicted_periodicity,
                 predicted_loudness,
-                predicted_alignment)
+                predicted_alignment,
+                pitch,
+                periodicity,
+                loudness)
 
             # Update metrics
             metrics[key.split('/')[0]].update(
@@ -805,7 +808,10 @@ def evaluate(directory, step, generator, loader, gpu):
                         predicted_pitch,
                         predicted_periodicity,
                         predicted_loudness,
-                        predicted_alignment)
+                        predicted_alignment,
+                        shifted_pitch,
+                        periodicity,
+                        loudness)
 
                     # Update metrics
                     metrics[key.split('/')[0]].update(
@@ -904,7 +910,10 @@ def evaluate(directory, step, generator, loader, gpu):
                         predicted_pitch,
                         predicted_periodicity,
                         predicted_loudness,
-                        predicted_alignment)
+                        predicted_alignment,
+                        stretched_pitch,
+                        stretched_periodicity,
+                        stretched_loudness)
 
                     # Update metrics
                     metrics[key.split('/')[0]].update(
@@ -971,7 +980,10 @@ def evaluate(directory, step, generator, loader, gpu):
                         predicted_pitch,
                         predicted_periodicity,
                         predicted_loudness,
-                        predicted_alignment)
+                        predicted_alignment,
+                        pitch,
+                        periodicity,
+                        scaled_loudness)
 
                     # Update metrics
                     metrics[key.split('/')[0]].update(
