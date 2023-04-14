@@ -10,7 +10,15 @@ import promonet
 ###############################################################################
 
 
-def from_features(audio, pitch, periodicity, loudness, alignment):
+def from_features(
+        audio,
+        pitch,
+        periodicity,
+        loudness,
+        alignment,
+        target_pitch=None,
+        target_periodicity=None,
+        target_loudness=None):
     """Plot prosody from features"""
     figure, axes = plt.subplots(5, 1, figsize=(18, 6))
 
@@ -21,14 +29,26 @@ def from_features(audio, pitch, periodicity, loudness, alignment):
 
     # Plot pitch
     axes[1].plot(pitch.squeeze().cpu(), color='black', linewidth=.5)
+    if target_pitch is not None:
+        axes[1].plot(target_pitch.squeeze().cpu(), color='red', linewidth=.5)
     axes[1].set_axis_off()
 
     # Plot periodicity
     axes[2].plot(periodicity.squeeze().cpu(), color='black', linewidth=.5)
+    if target_periodicity is not None:
+        axes[2].plot(
+            target_periodicity.squeeze().cpu(),
+            color='red',
+            linewidth=.5)
     axes[2].set_axis_off()
 
     # Plot loudness
     axes[3].plot(loudness.squeeze().cpu(), color='black', linewidth=.5)
+    if target_loudness is not None:
+        axes[3].plot(
+            target_loudness.squeeze().cpu(),
+            color='red',
+            linewidth=.5)
     axes[3].set_axis_off()
 
     # Plot alignment
