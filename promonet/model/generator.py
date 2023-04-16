@@ -84,6 +84,7 @@ class StochasticDurationPredictor(torch.nn.Module):
                 device=x.device, dtype=x.dtype) * feature_mask
             z_q = e_q
             for flow in self.post_flows:
+                # TODO
                 z_q, logdet_q = flow(z_q, feature_mask, g=(x + h_w))
                 logdet_tot_q += logdet_q
             z_u, z1 = torch.split(z_q, [1, 1], 1)
@@ -692,6 +693,7 @@ class Generator(torch.nn.Module):
                             [1],
                             keepdim=True)
                         neg_cent = neg_cent1 + neg_cent2 + neg_cent3 + neg_cent4
+                        # TODO - causes segmentation faults
                         attention = promonet.model.monotonic_align.maximum_path(
                             neg_cent, attention_mask).unsqueeze(1).detach()
 
@@ -775,16 +777,17 @@ class Generator(torch.nn.Module):
         # Generation
         else:
 
+            slice_indices = None
+            durations = None
+            true_logstd = None
+
             # Mask denoting valid frames
             mask = promonet.model.sequence_mask(
                 lengths,
                 lengths[0]).unsqueeze(1).to(embeddings.dtype)
 
             if promonet.PPG_FEATURES or promonet.SPECTROGRAM_ONLY or promonet.TWO_STAGE:
-                slice_indices = None
                 attention = None
-                durations = None
-                true_logstd = None
 
             else:
 
@@ -797,10 +800,6 @@ class Generator(torch.nn.Module):
                     noise_scale=noise_scale_w)
                 w = torch.exp(logw) * feature_mask * length_scale
                 w_ceil = torch.ceil(w)
-
-                # Get total duration and sequence masks
-                spectrogram_lengths = torch.clamp_min(
-                    torch.sum(w_ceil, [1, 2]), 1).long()
 
                 # Compute attention between variable length input and output sequences
                 attention_mask = torch.unsqueeze(
