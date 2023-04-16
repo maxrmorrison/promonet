@@ -28,7 +28,7 @@ def partition(dataset):
 def phonemes(file):
     """Load phonemes and interleave blanks"""
     phonemes = torch.load(file)
-    interleaved = torch.zeros((1, len(phonemes) * 2 + 1))
+    interleaved = torch.zeros((1, phonemes.shape[1] * 2 + 1))
     interleaved[:, 1::2] = phonemes
     return interleaved
 

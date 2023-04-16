@@ -21,19 +21,19 @@ def fused_add_tanh_sigmoid_multiply(input_a, input_b, n_channels):
     return t_act * s_act
 
 
-# def generate_path(duration, mask):
-#     """
-#     duration: [b, 1, t_x]
-#     mask: [b, 1, t_y, t_x]
-#     """
-#     b, _, t_y, t_x = mask.shape
-#     cum_duration = torch.cumsum(duration, -1)
-#     cum_duration_flat = cum_duration.view(b * t_x)
-#     path = sequence_mask(cum_duration_flat, t_y).to(mask.dtype)
-#     path = path.view(b, t_x, t_y)
-#     pad_shape = convert_pad_shape([[0, 0], [1, 0], [0, 0]])
-#     path = path - torch.nn.functional.pad(path, pad_shape)[:, :-1]
-#     return path.unsqueeze(1).transpose(2, 3) * mask
+def generate_path(duration, mask):
+    """
+    duration: [b, 1, t_x]
+    mask: [b, 1, t_y, t_x]
+    """
+    b, _, t_y, t_x = mask.shape
+    cum_duration = torch.cumsum(duration, -1)
+    cum_duration_flat = cum_duration.view(b * t_x)
+    path = sequence_mask(cum_duration_flat, t_y).to(mask.dtype)
+    path = path.view(b, t_x, t_y)
+    pad_shape = convert_pad_shape([[0, 0], [1, 0], [0, 0]])
+    path = path - torch.nn.functional.pad(path, pad_shape)[:, :-1]
+    return path.unsqueeze(1).transpose(2, 3) * mask
 
 
 def get_padding(kernel_size, dilation=1, stride=1):

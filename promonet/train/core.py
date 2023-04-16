@@ -601,24 +601,23 @@ def evaluate(directory, step, generator, loader, gpu):
     device = 'cpu' if gpu is None else f'cuda:{gpu}'
 
     # Setup prosody evaluation
-    metric_fn = functools.partial(
-        promonet.evaluate.Metrics,
-        gpu)
-    metrics = {'reconstruction': metric_fn()}
-
-    # Maybe add evaluation of prosody control
-    if promonet.PITCH_FEATURES:
-        metrics.update({
-            'shifted-050': metric_fn(),
-            'shifted-200': metric_fn()})
     if promonet.PPG_FEATURES:
-        metrics.update({
-            'stretched-050': metric_fn(),
-            'stretched-200': metric_fn()})
-    if promonet.LOUDNESS_FEATURES:
-        metrics.update({
-            'scaled-050': metric_fn(),
-            'scaled-200': metric_fn()})
+        metric_fn = functools.partial(
+            promonet.evaluate.Metrics,
+            gpu)
+        metrics = {'reconstruction': metric_fn()}
+        if promonet.PITCH_FEATURES:
+            metrics.update({
+                'shifted-050': metric_fn(),
+                'shifted-200': metric_fn()})
+        if promonet.PPG_FEATURES:
+            metrics.update({
+                'stretched-050': metric_fn(),
+                'stretched-200': metric_fn()})
+        if promonet.LOUDNESS_FEATURES:
+            metrics.update({
+                'scaled-050': metric_fn(),
+                'scaled-200': metric_fn()})
 
     # Audio, figures, and scalars for tensorboard
     waveforms, figures, scalars = {}, {}, {}
@@ -726,38 +725,47 @@ def evaluate(directory, step, generator, loader, gpu):
             )
 
             # Get ppgs
-            predicted_phonemes = ppgs(generated, phonemes.shape[2], gpu)
+            predicted_phonemes = ppgs(generated, phonemes.shape[-1], gpu)
 
             # Log generated audio
             key = f'reconstruction/{i:02d}'
             waveforms[f'{key}-audio'] = generated[0]
 
             # Log prosody figure
-            figures[key] = promonet.plot.from_features(
-                generated,
-                predicted_pitch,
-                predicted_periodicity,
-                predicted_loudness,
-                predicted_alignment,
-                pitch,
-                periodicity,
-                loudness)
-
-            # Update metrics
-            metrics[key.split('/')[0]].update(
-                (
-                    pitch,
-                    periodicity,
-                    loudness,
-                    voicing,
+            if promonet.PPG_FEATURES:
+                figures[key] = promonet.plot.from_features(
+                    generated,
                     predicted_pitch,
                     predicted_periodicity,
                     predicted_loudness,
-                    predicted_voicing,
-                    phones,
-                    predicted_phones
-                ),
-                (phonemes, predicted_phonemes))
+                    predicted_alignment,
+                    pitch,
+                    periodicity,
+                    loudness)
+            else:
+                figures[key] = promonet.plot.from_features(
+                    generated,
+                    predicted_pitch,
+                    predicted_periodicity,
+                    predicted_loudness,
+                    predicted_alignment)
+
+            # Update metrics
+            if promonet.PPG_FEATURES:
+                metrics[key.split('/')[0]].update(
+                    (
+                        pitch,
+                        periodicity,
+                        loudness,
+                        voicing,
+                        predicted_pitch,
+                        predicted_periodicity,
+                        predicted_loudness,
+                        predicted_voicing,
+                        phones,
+                        predicted_phones
+                    ),
+                    (phonemes, predicted_phonemes))
 
             ##################
             # Pitch shifting #
@@ -1002,9 +1010,10 @@ def evaluate(directory, step, generator, loader, gpu):
                         (phonemes, predicted_phonemes))
 
     # Format prosody metrics
-    for condition in metrics:
-        for key, value in metrics[condition]().items():
-            scalars[f'{condition}/{key}'] = value
+    if promonet.PPG_FEATURES:
+        for condition in metrics:
+            for key, value in metrics[condition]().items():
+                scalars[f'{condition}/{key}'] = value
 
     # Write to Tensorboard
     promonet.write.audio(directory, step, waveforms)

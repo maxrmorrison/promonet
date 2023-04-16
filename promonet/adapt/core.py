@@ -28,7 +28,7 @@ def speaker(
     Returns:
         checkpoint: The file containing the trained generator checkpoint
     """
-    # Make a new cache directory sequentially
+    # Make a new cache directory
     cache = promonet.CACHE_DIR / 'adapt' / name
     cache.mkdir(exist_ok=True, parents=True)
 
@@ -52,7 +52,6 @@ def speaker(
     promonet.data.preprocess.from_files_to_files(
         cache,
         cache.rglob('*.wav'),
-        features=['ppg', 'prosody', 'spectrogram'],
         gpu=None if gpus is None else gpus[0])
 
     # Partition (all files are used for training)

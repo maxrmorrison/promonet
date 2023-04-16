@@ -13,18 +13,18 @@ import promonet
 def sampler(dataset, partition):
     """Create batch sampler"""
     # Maybe use distributed sampler for training
-    if partition == 'train':
+    if partition.startswith('train'):
         if torch.distributed.is_initialized():
             return DistributedSampler(dataset)
         else:
             return Sampler(dataset)
 
     # Deterministic random sampler for validation
-    elif partition == 'valid':
+    elif partition.startswith('valid'):
         return Sampler(dataset)
 
     # Sample test data sequentially
-    elif partition == 'test':
+    elif partition.startswith('test'):
         return torch.utils.data.BatchSampler(
             torch.utils.data.SequentialSampler(dataset),
             1,

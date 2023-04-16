@@ -337,7 +337,7 @@ class ElementwiseAffine(torch.nn.Module):
         self.m = torch.nn.Parameter(torch.zeros(channels,1))
         self.logs = torch.nn.Parameter(torch.zeros(channels,1))
 
-    def forward(self, x, x_mask, reverse=False):
+    def forward(self, x, x_mask, reverse=False, g=None):
         if not reverse:
             y = self.m + torch.exp(self.logs) * x
             y = y * x_mask
