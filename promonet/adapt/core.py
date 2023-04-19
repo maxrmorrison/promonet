@@ -61,6 +61,16 @@ def speaker(
     adapt_directory = promonet.RUNS_DIR / promonet.CONFIG / 'adapt' / name
     adapt_directory.mkdir(exist_ok=True, parents=True)
 
+    # Maybe resume adaptation
+    generator_path = promonet.checkpoint.latest_path(
+        adapt_directory,
+        'generator-*.pt')
+    discriminator_path = promonet.checkpoint.latest_path(
+        adapt_directory,
+        'discriminator-*.pt')
+    if generator_path and discriminator_path:
+        checkpoint = adapt_directory
+
     # Perform adaptation and return generator checkpoint
     return promonet.train.run(
         name,

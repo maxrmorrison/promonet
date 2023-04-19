@@ -108,7 +108,6 @@ PPG_FEATURES = False
 
 # Type of interpolation method to use to scale PPG features
 # Available method are ['nearest', 'linear']
-# TODO - deprecate in favor of aligned PPGs
 PPG_INTERP_METHOD = 'nearest'
 
 # Type of PPGs to use

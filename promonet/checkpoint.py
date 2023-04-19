@@ -34,8 +34,6 @@ def load(checkpoint_path, model, optimizer=None):
     # Restore training state
     step = checkpoint_dict['step']
 
-    print("Loaded checkpoint '{}' (step {})" .format(checkpoint_path, step))
-
     return model, optimizer, step
 
 
