@@ -101,10 +101,7 @@ def train(
     # Create models #
     #################
 
-    # Number of speakers in VCTK dataset
-    # TODO - fix hardcoding
-    num_speakers = 109
-
+    num_speakers = len(train_loader.dataset.speakers)
     generator = promonet.model.Generator(num_speakers).to(device)
     discriminators = promonet.model.Discriminator().to(device)
 
