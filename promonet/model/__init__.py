@@ -6,4 +6,3 @@ from . import attention
 from . import generator
 from . import modules
 from . import transform
-from . import monotonic_align

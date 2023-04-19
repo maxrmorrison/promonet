@@ -4,7 +4,6 @@ from setuptools import find_packages, setup
 with open('README.md', encoding='utf8') as file:
     long_description = file.read()
 
-
 setup(
     name='promonet',
     description='Prosody Modification Network',
@@ -13,10 +12,10 @@ setup(
     author_email='maxrmorrison@gmail.com',
     url='https://github.com/maxrmorrison/promonet',
     install_requires=[
-        'Cython',
         'espnet',
         'librosa',
         'matplotlib',
+        'monotonic_align @ git+ssh://git@github.com/resemble-ai/monotonic_align.git',
         'numpy',
         # TEMPORARY - exclude until release
         # 'pysodic',
