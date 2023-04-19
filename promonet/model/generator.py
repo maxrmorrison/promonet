@@ -85,7 +85,6 @@ class StochasticDurationPredictor(torch.nn.Module):
                 device=x.device, dtype=x.dtype) * feature_mask
             z_q = e_q
             for flow in self.post_flows:
-                # TODO
                 z_q, logdet_q = flow(z_q, feature_mask, g=(x + h_w))
                 logdet_tot_q += logdet_q
             z_u, z1 = torch.split(z_q, [1, 1], 1)
