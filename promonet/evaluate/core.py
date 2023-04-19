@@ -95,6 +95,9 @@ def speaker(
     # Stems to use for evaluation
     test_stems = sorted(promonet.load.partition(dataset)[test_partition])
 
+    # Evaluation device
+    gpu = None if gpus is None else gpus[0]
+
     # Copy original files
     for stem in test_stems:
 
@@ -142,7 +145,7 @@ def speaker(
         files['original'],
         files['reconstructed'],
         checkpoint=checkpoint,
-        gpu=None if gpus is None else gpus[0])
+        gpu=gpu)
 
     # Copy unchanged prosody features
     for file in files['reconstructed']:
@@ -227,7 +230,7 @@ def speaker(
             files[key],
             target_pitch_files=pitch_files,
             checkpoint=checkpoint,
-            gpu=None if gpus is None else gpus[0])
+            gpu=gpu)
 
     ###################
     # Time stretching #
@@ -331,7 +334,7 @@ def speaker(
             files[key],
             grid_files=grid_files,
             checkpoint=checkpoint,
-            gpu=None if gpus is None else gpus[0])
+            gpu=gpu)
 
     ####################
     # Loudness scaling #
@@ -390,7 +393,7 @@ def speaker(
             files[key],
             target_loudness_files=loudness_files,
             checkpoint=checkpoint,
-            gpu=None if gpus is None else gpus[0])
+            gpu=gpu)
 
     ############################
     # Speech -> representation #
@@ -404,7 +407,7 @@ def speaker(
         promonet.data.preprocess.ppg.from_files_to_files(
             audio_files,
             ppg_files,
-            gpus[0])
+            gpu)
 
         # Preprocess prosody features
         text_files = [
@@ -421,7 +424,7 @@ def speaker(
             text_files,
             promonet.HOPSIZE / promonet.SAMPLE_RATE,
             promonet.WINDOW_SIZE / promonet.SAMPLE_RATE,
-            gpu=gpus[0])
+            gpu=gpu)
 
     ############
     # Evaluate #
@@ -435,7 +438,6 @@ def speaker(
         for file in value:
 
             # Get prosody metrics
-            gpu = None if gpus is None else gpus[0]
             file_metrics = promonet.evaluate.Metrics(gpu)
 
             # Get target filepath

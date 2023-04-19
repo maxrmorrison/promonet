@@ -1,6 +1,7 @@
 import functools
 import math
 
+import monotonic_align
 import torch
 
 import promonet
@@ -693,8 +694,7 @@ class Generator(torch.nn.Module):
                             [1],
                             keepdim=True)
                         neg_cent = neg_cent1 + neg_cent2 + neg_cent3 + neg_cent4
-                        # TODO - causes segmentation faults
-                        attention = promonet.model.monotonic_align.maximum_path(
+                        attention = monotonic_align.maximum_path(
                             neg_cent, attention_mask).unsqueeze(1).detach()
 
                     # Calcuate duration of each feature

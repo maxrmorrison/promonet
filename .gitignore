@@ -16,6 +16,3 @@ eval/subjective/*
 !eval/subjective/config
 runs/
 !runs/.gitkeep
-
-*.c
-monotonic_align/monotonic_align
