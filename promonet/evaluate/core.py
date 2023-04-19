@@ -23,13 +23,14 @@ import shutil
 
 import pyfoal
 import pypar
+import pysodic
 import torch
 
 import promonet
 
 
 ###############################################################################
-# Perform evaluation
+# Constants
 ###############################################################################
 
 
@@ -55,6 +56,16 @@ def speaker(
     gpus=None):
     """Evaluate one adaptation speaker in a dataset"""
     if promonet.MODEL == 'promonet':
+
+        # Maybe resume adaptation
+        generator_path = promonet.checkpoint.latest_path(
+            output_directory,
+            'generator-*.pt')
+        discriminator_path = promonet.checkpoint.latest_path(
+            output_directory,
+            'discriminator-*.pt')
+        if generator_path and discriminator_path:
+            checkpoint = output_directory
 
         # Perform speaker adaptation and get generator checkpoint
         checkpoint = promonet.train.run(
@@ -94,15 +105,21 @@ def speaker(
         output_file.parent.mkdir(exist_ok=True, parents=True)
         shutil.copyfile(input_file, output_file)
 
-        # Copy prosody and text files
+        # Copy text files
+        text_files = (promonet.CACHE_DIR / dataset).rglob('*.txt')
+        for input_file in text_files:
+            output_file = \
+                original_objective_directory / f'{stem}-original-100-text.txt'
+            output_file.parent.mkdir(exist_ok=True, parents=True)
+            shutil.copyfile(input_file, output_file)
+
+        # Copy prosody files
         input_files = [
             path for path in (promonet.CACHE_DIR / dataset).glob(f'{stem}-100*')
             if path.suffix != '.wav']
         for input_file in input_files:
-            if input_file.suffix == '.json':
+            if input_file.suffix == '.TextGrid':
                 feature = 'alignment'
-            elif input_file.suffix == '.txt':
-                feature = 'text'
             else:
                 feature = input_file.stem.split('-')[-1]
             output_file = (
@@ -218,7 +235,7 @@ def speaker(
 
     original_alignment_files = sorted(
         file for file in
-        original_objective_directory.rglob('*-original-100-alignment.json'))
+        original_objective_directory.rglob('*-original-100-alignment.TextGrid'))
     for ratio in RATIOS:
         key = f'stretched-{int(ratio * 100):03d}'
 
@@ -380,16 +397,31 @@ def speaker(
     ############################
 
     for audio_files in files.values():
+        # Preprocess phonetic posteriorgrams
+        ppg_files = [
+            objective_directory / file.parent.name / f'{file.stem}-ppg.pt'
+            for file in audio_files]
+        promonet.data.preprocess.ppg.from_files_to_files(
+            audio_files,
+            ppg_files,
+            gpus[0])
+
+        # Preprocess prosody features
         text_files = [
             original_objective_directory /
             file.parent.name /
             f'{file.stem}-text.txt'
             for file in audio_files]
-        promonet.data.preprocess.from_files_to_files(
-            objective_directory / file.parent.name,
+        prefixes = [
+            objective_directory / file.parent.name / file.stem
+            for file in audio_files]
+        pysodic.from_files_to_files(
             audio_files,
+            prefixes,
             text_files,
-            gpu=None if gpus is None else gpus[0])
+            promonet.HOPSIZE / promonet.SAMPLE_RATE,
+            promonet.WINDOW_SIZE / promonet.SAMPLE_RATE,
+            gpu=gpus[0])
 
     ############
     # Evaluate #
@@ -594,14 +626,3 @@ def default_metrics(gpus):
             metrics[f'{condition}-{int(ratio * 100):03d}'] = metric_fn()
 
     return metrics
-
-
-# TODO - deprecate in favor of aligned PPGs
-def load_ppgs(file, size):
-    """Load and interpolate PPGs"""
-    mode = promonet.PPG_INTERP_METHOD
-    return torch.nn.functional.interpolate(
-        torch.load(file)[None],
-        size=size,
-        mode=mode,
-        align_corners=None if mode == 'nearest' else False)[0]

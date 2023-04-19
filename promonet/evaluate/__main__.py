@@ -14,8 +14,8 @@ def parse_args():
     parser = argparse.ArgumentParser(description='Perform evaluation')
     parser.add_argument(
         '--datasets',
-        required=True,
         nargs='+',
+        default=promonet.DATASETS,
         help='The datasets to evaluate')
     parser.add_argument(
         '--checkpoint',
