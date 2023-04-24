@@ -980,6 +980,8 @@ def ppgs(audio, size, gpu=None):
     predicted_phonemes = promonet.data.preprocess.ppg.from_audio(
         audio[0],
         gpu=gpu)
+    # Maybe resample length
+    # TODO - deprecate in favor of aligned features
     mode = promonet.PPG_INTERP_METHOD
     return torch.nn.functional.interpolate(
         predicted_phonemes[None],
