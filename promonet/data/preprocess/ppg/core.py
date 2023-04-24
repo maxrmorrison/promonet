@@ -25,6 +25,9 @@ PPG_DIR = Path.home() / 'ppgs' / 'ppgs' / 'assets'
 # Sample rate of the PPG model
 SAMPLE_RATE = 16000
 
+WINDOW_SIZE = 1024
+HOPSIZE = 160
+
 
 ###############################################################################
 # Phonetic posteriorgram
@@ -53,7 +56,9 @@ def from_audio(
 
         # Setup features
         audio = audio.to(device)
-        length = torch.tensor([audio.shape[-1]], dtype=torch.long, device=device)
+        pad = WINDOW_SIZE//2 - HOPSIZE//2
+        length = torch.tensor([audio.shape[-1]], dtype=torch.long, device=device) + 2*pad #needs to be caluclated prior to padding
+        audio = torch.nn.functional.pad(audio, (pad, pad))
 
         # Infer ppgs
         with torch.no_grad():
