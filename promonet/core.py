@@ -1,6 +1,7 @@
 import contextlib
 import os
 
+import pyfoal
 import pysodic
 import torch
 import torchaudio
@@ -14,9 +15,6 @@ import promonet
 ###############################################################################
 
 
-# TODO - from_features
-# TODO - preprocess
-# TODO - generate
 def from_audio(
     audio,
     sample_rate=promonet.SAMPLE_RATE,
@@ -28,10 +26,7 @@ def from_audio(
     gpu=None):
     """Perform prosody editing"""
     # Maybe use a baseline method instead
-    if promonet.MODEL == 'clpcnet':
-        with promonet.time.timer('generate'):
-            return promonet.baseline.clpcnet.from_audio(**locals())
-    elif promonet.MODEL == 'psola':
+    if promonet.MODEL == 'psola':
         with promonet.time.timer('generate'):
             return promonet.baseline.psola.from_audio(**locals())
     elif promonet.MODEL == 'world':
@@ -40,114 +35,18 @@ def from_audio(
     elif promonet.MODEL != 'promonet':
         raise ValueError(f'Model {promonet.MODEL} is not recognized')
 
-    # Maybe resample
-    with promonet.time.timer('resample'):
-        audio = resample(audio, sample_rate)
+    # Preprocess
+    features, target_pitch, periodicity, target_loudness = preprocess(
+        audio,
+        sample_rate,
+        text,
+        grid,
+        target_loudness,
+        target_pitch,
+        gpu)
 
-    # Extract prosody features
-    with promonet.time.timer('features/prosody'):
-        if promonet.PPG_FEATURES or promonet.SPECTROGRAM_ONLY:
-            pitch, periodicity, loudness, _ = \
-                pysodic.from_audio(
-                    audio,
-                    promonet.SAMPLE_RATE,
-                    promonet.HOPSIZE / promonet.SAMPLE_RATE,
-                    promonet.WINDOW_SIZE / promonet.SAMPLE_RATE,
-                    gpu)
-
-            # Maybe interpolate pitch
-            if target_pitch is None:
-                if grid is not None:
-                    pitch = promonet.interpolate.pitch(pitch, grid)
-                target_pitch = pitch
-
-            # Maybe interpolate periodicity
-            if grid is not None:
-                periodicity = promonet.interpolate.grid_sample(
-                    periodicity,
-                    grid)
-
-            # Maybe interpolate loudness
-            if target_loudness is None:
-                if grid is not None:
-                    loudness = promonet.interpolate.grid_sample(
-                        loudness,
-                        grid)
-                target_loudness = loudness
-
-    # Get phonetic posteriorgrams
-    with promonet.time.timer('features/ppgs'):
-        if promonet.PPG_FEATURES or promonet.SPECTROGRAM_ONLY:
-            features = promonet.data.preprocess.ppg.from_audio(
-                audio,
-                sample_rate,
-                gpu=gpu)
-
-            # Maybe resample length
-            frames = promonet.convert.samples_to_frames(audio.shape[1])
-            if features.shape[1] !=  frames:
-                align_corners = \
-                    None if promonet.PPG_INTERP_METHOD == 'nearest' else False
-                features = torch.nn.functional.interpolate(
-                    features[None],
-                    size=frames,
-                    mode=promonet.PPG_INTERP_METHOD,
-                    align_corners=align_corners)[0]
-
-            # Maybe stretch PPGs
-            if grid is not None:
-                features = promonet.interpolate.ppgs(features, grid)
-
-    # Convert pitch to indices
-    with promonet.time.timer('features/pitch'):
-        if target_pitch is not None:
-            target_pitch = promonet.convert.hz_to_bins(target_pitch)
-
-    # Maybe get text features
-    with promonet.time.timer('features/text'):
-        if not promonet.PPG_FEATURES and not promonet.SPECTROGRAM_ONLY:
-            features = promonet.data.preprocess.text.from_string(text)
-
-    # Setup model
-    device = torch.device('cpu' if gpu is None else f'cuda:{gpu}')
-    if not hasattr(from_audio, 'generator') or from_audio.device != device:
-        with promonet.time.timer('load'):
-            generator = promonet.model.Generator().to(device)
-            if checkpoint.is_dir():
-                promonet.checkpoint.latest_path(checkpoint)
-            generator = promonet.checkpoint.load(checkpoint, generator)[0]
-            generator.eval()
-            from_audio.generator = generator
-            from_audio.device = device
-
-    # Move features to GPU
-    with promonet.time.timer('features/copy'):
-        features = features.to(device)[None]
-        target_pitch = target_pitch.to(device)
-        periodicity = periodicity.to(device)
-        target_loudness = target_loudness.to(device)
-
-    # Generate audio
-    with promonet.time.timer('generate'):
-
-        # Default length is the entire sequence
-        lengths = torch.tensor(
-            (features.shape[-1],),
-            dtype=torch.long,
-            device=device)
-
-        # Default speaker is speaker 0
-        speakers = torch.zeros(1, dtype=torch.long, device=device)
-
-        # Generate
-        with torch.no_grad():
-            return from_audio.generator(
-                features.to(device),
-                pitch.to(device),
-                periodicity.to(device),
-                loudness.to(device),
-                lengths,
-                speakers)[0][0].cpu()
+    # Generate
+    generate(features, target_pitch, periodicity, target_loudness, checkpoint)
 
 
 def from_file(
@@ -250,6 +149,141 @@ def from_files_to_files(
         target_pitch_files)
     for item in iterator:
         from_file_to_file(*item, checkpoint=checkpoint, gpu=gpu)
+
+
+###############################################################################
+# Generation pipeline
+###############################################################################
+
+
+def generate(
+    features,
+    pitch,
+    periodicity,
+    loudness,
+    checkpoint=promonet.DEFAULT_CHECKPOINT):
+    """Generate speech from phoneme and prosody features"""
+    device = features.device
+
+    with promonet.time.timer('load'):
+
+        # Cache model
+        if not hasattr(generate, 'model') or generate.device != device:
+            model = promonet.model.Generator().to(device)
+            if checkpoint.is_dir():
+                checkpoint = promonet.checkpoint.latest_path(checkpoint)
+            model = promonet.checkpoint.load(checkpoint, model)[0]
+            generate.model = model
+            generate.device = device
+
+    with promonet.time.timer('generate'):
+
+        # Default length is the entire sequence
+        lengths = torch.tensor(
+            (features.shape[-1],),
+            dtype=torch.long,
+            device=device)
+
+        # Default speaker is speaker 0
+        speakers = torch.zeros(1, dtype=torch.long, device=device)
+
+        # Generate
+        with generation_context(generate.model):
+            return generate.model(
+                features,
+                pitch,
+                periodicity,
+                loudness,
+                lengths,
+                speakers)[0][0].cpu()
+
+
+def preprocess(
+    audio,
+    sample_rate=promonet.SAMPLE_RATE,
+    text=None,
+    grid=None,
+    target_loudness=None,
+    target_pitch=None,
+    gpu=None):
+    # Maybe resample
+    with promonet.time.timer('resample'):
+        audio = resample(audio, sample_rate)
+
+    # Extract prosody features
+    with promonet.time.timer('features/prosody'):
+        if promonet.PPG_FEATURES or promonet.SPECTROGRAM_ONLY:
+            pitch, periodicity, loudness, _ = \
+                pysodic.from_audio(
+                    audio,
+                    promonet.SAMPLE_RATE,
+                    promonet.HOPSIZE / promonet.SAMPLE_RATE,
+                    promonet.WINDOW_SIZE / promonet.SAMPLE_RATE,
+                    promonet.VOICING_THRESHOLD,
+                    gpu)
+
+            # Maybe interpolate pitch
+            if target_pitch is None:
+                if grid is not None:
+                    pitch = promonet.interpolate.pitch(pitch, grid)
+                target_pitch = pitch
+
+            # Maybe interpolate periodicity
+            if grid is not None:
+                periodicity = promonet.interpolate.grid_sample(
+                    periodicity,
+                    grid)
+
+            # Maybe interpolate loudness
+            if target_loudness is None:
+                if grid is not None:
+                    loudness = promonet.interpolate.grid_sample(
+                        loudness,
+                        grid)
+                target_loudness = loudness
+
+        # Convert pitch to indices
+        if target_pitch is not None:
+            target_pitch = promonet.convert.hz_to_bins(target_pitch)
+
+    with promonet.time.timer('features/phonemes'):
+
+        # Grapheme-to-phoneme
+        if not promonet.PPG_FEATURES and not promonet.SPECTROGRAM_ONLY:
+            _, features = pyfoal.g2p.from_text(text, to_indices=True)
+
+        # Phonetic posteriorgrams
+        if promonet.PPG_FEATURES or promonet.SPECTROGRAM_ONLY:
+            features = promonet.data.preprocess.ppg.from_audio(
+                audio,
+                sample_rate,
+                gpu=gpu)
+
+            # Maybe resample length
+            frames = promonet.convert.samples_to_frames(audio.shape[1])
+            if features.shape[1] != frames:
+                align_corners = \
+                    None if promonet.PPG_INTERP_METHOD == 'nearest' else False
+                features = torch.nn.functional.interpolate(
+                    features[None],
+                    size=frames,
+                    mode=promonet.PPG_INTERP_METHOD,
+                    align_corners=align_corners)[0]
+
+            # Maybe stretch PPGs
+            if grid is not None:
+                features = promonet.interpolate.ppgs(features, grid)
+
+    # Move features to GPU
+    with promonet.time.timer('cpu-to-gpu'):
+        device = torch.device('cpu' if gpu is None else f'cuda:{gpu}')
+        features = features.to(device)[None]
+        target_pitch = target_pitch.to(device)
+        periodicity = periodicity.to(device)
+        target_loudness = target_loudness.to(device)
+
+    return features, target_pitch, periodicity, target_loudness
+
 
 
 ###############################################################################

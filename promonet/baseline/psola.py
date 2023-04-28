@@ -48,7 +48,7 @@ def from_audio(
 
         # Scale loudness
         if target_loudness is not None:
-            audio = promonet.baseline.loudness.scale(audio, target_loudness)
+            audio = promonet.loudness.scale(audio, target_loudness)
 
         return audio
 

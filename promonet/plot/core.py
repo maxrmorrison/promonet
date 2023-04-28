@@ -33,8 +33,10 @@ def from_features(
     if target_pitch is not None:
         axes[1].plot(target_pitch.squeeze().cpu(), color='green', linewidth=1.)
         if target_periodicity is not None:
-            voicing = pysodic.voicing(periodicity)
-            target_voicing = pysodic.voicing(target_periodicity)
+            voicing = pysodic.voicing(periodicity, promonet.VOICING_THRESHOLD)
+            target_voicing = pysodic.voicing(
+                target_periodicity,
+                promonet.VOICING_THRESHOLD)
             cents = 1200 * torch.abs(torch.log2(pitch) - torch.log2(target_pitch))
             errors = voicing & target_voicing & (cents > 50.)
             pitch_errors = target_pitch.clone()
@@ -108,6 +110,7 @@ def from_text_and_audio(text, audio, gpu=None):
         text,
         promonet.HOPSIZE / promonet.SAMPLE_RATE,
         promonet.WINDOW_SIZE / promonet.SAMPLE_RATE,
+        promonet.VOICING_THRESHOLD,
         gpu=gpu)
 
     # Plot

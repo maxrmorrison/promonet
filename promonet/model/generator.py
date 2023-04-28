@@ -669,7 +669,7 @@ class Generator(torch.nn.Module):
 
                 else:
 
-                    # Compute attention mask **
+                    # Compute attention mask
                     attention_mask = feature_mask * mask.permute(0, 2, 1)
 
                     # Compute monotonic alignment
@@ -694,7 +694,9 @@ class Generator(torch.nn.Module):
                             keepdim=True)
                         neg_cent = neg_cent1 + neg_cent2 + neg_cent3 + neg_cent4
                         attention = monotonic_align.maximum_path(
-                            neg_cent, attention_mask).unsqueeze(1).detach()
+                            neg_cent.permute(0, 2, 1).contiguous(),
+                            attention_mask.permute(0, 2, 1).contiguous()
+                        ).unsqueeze(1).detach().permute(0, 1, 3, 2)
 
                     # Calcuate duration of each feature
                     w = attention.sum(2)

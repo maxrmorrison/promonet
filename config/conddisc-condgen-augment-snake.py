@@ -1,11 +1,5 @@
 MODULE = 'promonet'
 
-
-# TEMPORARY
-# Number of steps between logging to Tensorboard
-LOG_INTERVAL = 10  # steps
-
-
 # Configuration name
 CONFIG = 'conddisc-condgen-augment-snake'
 
@@ -53,10 +47,6 @@ PITCH_FEATURES = True
 
 # Phonemic posteriorgram conditioning
 PPG_FEATURES = True
-
-# Type of interpolation method to use to scale PPG features
-# Available method are ['nearest', 'linear']
-PPG_INTERP_METHOD = 'nearest'
 
 # Whether to use snake activation in the audio generator
 SNAKE = True

@@ -2,6 +2,7 @@ import functools
 import json
 
 import numpy as np
+import penn
 import torch
 import torchaudio
 
@@ -45,6 +46,12 @@ class Dataset(torch.utils.data.Dataset):
         periodicity = torch.load(self.cache / f'{stem}-periodicity.pt')
         loudness = torch.load(self.cache / f'{stem}-loudness.pt')
         spectrogram = torch.load(self.cache / f'{stem}-spectrogram.pt')
+
+        # Apply linear interpolation to unvoiced pitch regions
+        pitch = penn.voicing.interpolate(
+            pitch,
+            periodicity,
+            promonet.VOICING_THRESHOLD)
 
         # Get speaker index. Non-integer speaker names are assumed to be
         # for speaker adaptation and therefore default to index zero.
@@ -103,7 +110,6 @@ class Dataset(torch.utils.data.Dataset):
         ppg = torch.load(self.cache / f'{stem}-{feature}.pt')
 
         # Maybe resample length
-        # TODO - deprecate in favor of aligned PPGs
         if ppg.shape[1] != length:
             mode = promonet.PPG_INTERP_METHOD
             ppg = torch.nn.functional.interpolate(

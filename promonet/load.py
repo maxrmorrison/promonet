@@ -27,25 +27,10 @@ def partition(dataset):
 
 def phonemes(file):
     """Load phonemes and interleave blanks"""
-    phonemes = torch.load(file)
+    phonemes = torch.unique_consecutive(torch.load(file))[None]
     interleaved = torch.zeros((1, phonemes.shape[1] * 2 + 1))
     interleaved[:, 1::2] = phonemes
     return interleaved
-
-
-def pitch(file, indices=False):
-    """Load pitch from file"""
-    pitch = torch.load(file)
-
-    # Bound to range
-    pitch[pitch < promonet.FMIN] = promonet.FMIN
-    pitch[pitch > promonet.FMAX] = promonet.FMAX
-
-    # Maybe convert to indices
-    if indices:
-        return promonet.convert.hz_to_bins(pitch)
-
-    return pitch
 
 
 def text(file):
