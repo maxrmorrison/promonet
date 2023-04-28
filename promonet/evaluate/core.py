@@ -424,6 +424,7 @@ def speaker(
             text_files,
             promonet.HOPSIZE / promonet.SAMPLE_RATE,
             promonet.WINDOW_SIZE / promonet.SAMPLE_RATE,
+            promonet.VOICING_THRESHOLD,
             gpu=gpu)
 
     ############

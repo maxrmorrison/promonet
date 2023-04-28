@@ -29,7 +29,7 @@ def datasets(datasets):
             torch.log2(torch.tensor(promonet.AUGMENTATION_RATIO_MIN)),
             torch.log2(torch.tensor(promonet.AUGMENTATION_RATIO_MAX)))
         ratios = 2 ** distribution.sample([len(audio_files)])
-        
+
         # Prevent duplicates
         ratios[(ratios * 100).to(torch.int) == 100] += 1
 
@@ -46,6 +46,11 @@ def datasets(datasets):
             ratio_dict[key] = f'{int(ratio * 100):03d}'
         with open(promonet.AUGMENT_DIR / f'{dataset}.json', 'w') as file:
             json.dump(ratio_dict, file, indent=4)
+
+
+def from_files_to_files(audio_files):
+    """Perform data augmentation on audio files"""
+
 
 
 def from_file_to_file(audio_file, ratio):

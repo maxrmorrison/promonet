@@ -16,17 +16,15 @@ setup(
         'librosa',
         'matplotlib',
         'monotonic_align @ git+ssh://git@github.com/resemble-ai/monotonic_align.git',
-        'numpy',
-        # TEMPORARY - exclude until release
-        # 'pysodic',
-        # TEMPORARY - GPL dependency
-        'psola',
+        'numpy<1.24',
+        # 'pysodic',  # TEMPORARY - install manually until release of pysodic
+        'psola',  # TEMPORARY - GPL dependency
         'pyworld',
         'pyyaml',
         'scipy',
         'tensorboard',
-        'torch',
-        'torchaudio',
+        'torch<2.0.0',
+        'torchaudio<2.0.0',
         'tqdm',
         'yapecs'],
     packages=find_packages(),

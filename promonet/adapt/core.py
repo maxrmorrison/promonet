@@ -44,7 +44,7 @@ def speaker(
             audio *= .35 / maximum
 
         # Save to cache
-        torchaudio.save(cache / f'{i:06d}.wav', audio, promonet.SAMPLE_RATE)
+        torchaudio.save(cache / f'{i:06d}-100.wav', audio, promonet.SAMPLE_RATE)
 
     # TODO - augment
 

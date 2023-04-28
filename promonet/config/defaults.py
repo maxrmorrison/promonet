@@ -31,6 +31,9 @@ NUM_FFT = 1024
 # Audio sample rate
 SAMPLE_RATE = 22050  # Hz
 
+# Periodicity threshold of the voiced/unvoiced decision
+VOICING_THRESHOLD = .15
+
 # Number of spectrogram channels
 WINDOW_SIZE = 1024
 
@@ -275,7 +278,7 @@ MAX_FRAMES = 10000
 CHUNK_SIZE = 8192
 
 # Gradients with norms above this value are clipped to this value
-GRADIENT_CLIP_GENERATOR = 1000.
+GRADIENT_CLIP_GENERATOR = None
 
 # Number of training steps
 NUM_STEPS = 100000

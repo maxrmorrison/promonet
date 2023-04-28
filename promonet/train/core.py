@@ -333,7 +333,10 @@ def train(
                     pitch_slices = slice_fn(pitch, fill_value=pitch.mean())
                     periodicity_slices = slice_fn(periodicity)
                     loudness_slices = slice_fn(loudness, fill_value=loudness.min())
-                    phoneme_slices = slice_fn(phonemes)
+                    if promonet.PPG_FEATURES:
+                        phoneme_slices = slice_fn(phonemes)
+                    else:
+                        phoneme_slices = None
 
                     # Exit autocast context, as ComplexHalf type is not yet supported
                     # See Github issue https://github.com/jaywalnut310/vits/issues/15
@@ -687,6 +690,7 @@ def evaluate(directory, step, generator, loader, gpu):
                 text,
                 promonet.HOPSIZE / promonet.SAMPLE_RATE,
                 promonet.WINDOW_SIZE / promonet.SAMPLE_RATE,
+                promonet.VOICING_THRESHOLD,
                 gpu=gpu
             )
 
@@ -704,29 +708,34 @@ def evaluate(directory, step, generator, loader, gpu):
                 speakers,
                 spectrograms=spectrogram)
 
-            # Get prosody features
-            (
-                predicted_pitch,
-                predicted_periodicity,
-                predicted_loudness,
-                predicted_voicing,
-                predicted_phones,
-                predicted_alignment
-            ) = pysodic.from_audio_and_text(
-                generated[0],
-                promonet.SAMPLE_RATE,
-                text,
-                promonet.HOPSIZE / promonet.SAMPLE_RATE,
-                promonet.WINDOW_SIZE / promonet.SAMPLE_RATE,
-                gpu=gpu
-            )
-
-            # Get ppgs
-            predicted_phonemes = ppgs(generated, phonemes.shape[-1], gpu)
-
             # Log generated audio
             key = f'reconstruction/{i:02d}'
             waveforms[f'{key}-audio'] = generated[0]
+
+            # Get prosody features
+            try:
+                (
+                    predicted_pitch,
+                    predicted_periodicity,
+                    predicted_loudness,
+                    predicted_voicing,
+                    predicted_phones,
+                    predicted_alignment
+                ) = pysodic.from_audio_and_text(
+                    generated[0],
+                    promonet.SAMPLE_RATE,
+                    text,
+                    promonet.HOPSIZE / promonet.SAMPLE_RATE,
+                    promonet.WINDOW_SIZE / promonet.SAMPLE_RATE,
+                    promonet.VOICING_THRESHOLD,
+                    gpu=gpu
+                )
+            except Exception as error:
+                print(error)
+                continue
+
+            # Get ppgs
+            predicted_phonemes = ppgs(generated, phonemes.shape[-1], gpu)
 
             # Log prosody figure
             if promonet.PPG_FEATURES:
@@ -797,6 +806,7 @@ def evaluate(directory, step, generator, loader, gpu):
                         text,
                         promonet.HOPSIZE / promonet.SAMPLE_RATE,
                         promonet.WINDOW_SIZE / promonet.SAMPLE_RATE,
+                        promonet.VOICING_THRESHOLD,
                         gpu=gpu
                     )
 
@@ -860,8 +870,8 @@ def evaluate(directory, step, generator, loader, gpu):
                         loudness,
                         grid)
                     stretched_voicing = pysodic.features.voicing(
-                        stretched_pitch,
-                        stretched_periodicity)
+                        stretched_periodicity,
+                        promonet.VOICING_THRESHOLD)
                     stretched_phones = promonet.interpolate.grid_sample(
                         phones,
                         grid,
@@ -896,6 +906,7 @@ def evaluate(directory, step, generator, loader, gpu):
                         text,
                         promonet.HOPSIZE / promonet.SAMPLE_RATE,
                         promonet.WINDOW_SIZE / promonet.SAMPLE_RATE,
+                        promonet.VOICING_THRESHOLD,
                         gpu=gpu
                     )
 
@@ -969,6 +980,7 @@ def evaluate(directory, step, generator, loader, gpu):
                         text,
                         promonet.HOPSIZE / promonet.SAMPLE_RATE,
                         promonet.WINDOW_SIZE / promonet.SAMPLE_RATE,
+                        promonet.VOICING_THRESHOLD,
                         gpu=gpu
                     )
 
@@ -1018,7 +1030,6 @@ def evaluate(directory, step, generator, loader, gpu):
     promonet.write.scalars(directory, step, scalars)
 
 
-# TODO - deprecate in favor of aligned PPGs
 def ppgs(audio, size, gpu=None):
     """Extract aligned PPGs"""
     predicted_phonemes = promonet.data.preprocess.ppg.from_audio(
