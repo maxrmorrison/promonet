@@ -39,7 +39,37 @@ WINDOW_SIZE = 1024
 
 
 ###############################################################################
-# Data parameters
+# Directories
+###############################################################################
+
+
+# Root location for saving outputs
+# TEMPORARY
+ROOT_DIR = Path(__file__).parent.parent.parent
+
+# ROOT_DIR = Path('/data/max/promonet')
+
+# Location to save assets to be bundled with pip release
+ASSETS_DIR = Path(__file__).parent.parent / 'assets'
+
+# Location of preprocessed features
+CACHE_DIR = ROOT_DIR / 'data' / 'cache'
+
+# Location of datasets on disk
+DATA_DIR = ROOT_DIR / 'data' / 'datasets'
+
+# Location to save evaluation artifacts
+EVAL_DIR = ROOT_DIR / 'eval'
+
+# Location to save training and adaptation artifacts
+RUNS_DIR = ROOT_DIR / 'runs'
+
+# Location of compressed datasets on disk
+SOURCES_DIR = ROOT_DIR / 'data' / 'sources'
+
+
+###############################################################################
+# Evaluation
 ###############################################################################
 
 
