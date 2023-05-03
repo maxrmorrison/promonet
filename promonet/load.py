@@ -33,6 +33,17 @@ def phonemes(file):
     return interleaved
 
 
+def pitch(file):
+    """Load pitch from file"""
+    pitch = torch.load(file)
+
+    # Bound to range
+    pitch[pitch < promonet.FMIN] = promonet.FMIN
+    pitch[pitch > promonet.FMAX] = promonet.FMAX
+
+    return pitch
+
+
 def text(file):
     """Load text file"""
     with open(file) as file:

@@ -46,7 +46,12 @@ def from_audio(
         gpu)
 
     # Generate
-    generate(features, target_pitch, periodicity, target_loudness, checkpoint)
+    return generate(
+        features,
+        target_pitch,
+        periodicity,
+        target_loudness,
+        checkpoint)
 
 
 def from_file(
@@ -58,6 +63,8 @@ def from_file(
     checkpoint=promonet.DEFAULT_CHECKPOINT,
     gpu=None):
     """Edit speech on disk"""
+    device = torch.device('cpu' if gpu is None else f'cuda:{gpu}')
+
     # Load audio
     audio = promonet.load.audio(audio_file)
 
@@ -71,19 +78,19 @@ def from_file(
     if grid_file is None:
         grid = None
     else:
-        grid = torch.load(grid_file)
+        grid = torch.load(grid_file).to(device)
 
     # Load loudness
     if target_loudness_file is None:
         loudness = None
     else:
-        loudness = torch.load(target_loudness_file)
+        loudness = torch.load(target_loudness_file, map_location=device)
 
     # Load pitch
     if target_pitch_file is None:
         pitch = None
     else:
-        pitch = torch.load(target_pitch_file)
+        pitch = torch.load(target_pitch_file, map_location=device)
 
     # Generate
     return from_audio(
@@ -114,7 +121,7 @@ def from_file_to_file(
         target_loudness_file,
         target_pitch_file,
         checkpoint,
-        gpu)
+        gpu).to(device='cpu', dtype=torch.float32)
     output_file.parent.mkdir(exist_ok=True, parents=True)
     torchaudio.save(output_file, generated, promonet.SAMPLE_RATE)
 
@@ -206,6 +213,8 @@ def preprocess(
     target_loudness=None,
     target_pitch=None,
     gpu=None):
+    device = torch.device('cpu' if gpu is None else f'cuda:{gpu}')
+
     # Maybe resample
     with promonet.time.timer('resample'):
         audio = resample(audio, sample_rate)
@@ -274,16 +283,9 @@ def preprocess(
             if grid is not None:
                 features = promonet.interpolate.ppgs(features, grid)
 
-    # Move features to GPU
-    with promonet.time.timer('cpu-to-gpu'):
-        device = torch.device('cpu' if gpu is None else f'cuda:{gpu}')
         features = features.to(device)[None]
-        target_pitch = target_pitch.to(device)
-        periodicity = periodicity.to(device)
-        target_loudness = target_loudness.to(device)
 
     return features, target_pitch, periodicity, target_loudness
-
 
 
 ###############################################################################
