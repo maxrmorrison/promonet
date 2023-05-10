@@ -228,8 +228,7 @@ def preprocess(
                     promonet.SAMPLE_RATE,
                     promonet.HOPSIZE / promonet.SAMPLE_RATE,
                     promonet.WINDOW_SIZE / promonet.SAMPLE_RATE,
-                    promonet.VOICING_THRESHOLD,
-                    gpu)
+                    gpu=gpu)
 
             # Maybe interpolate pitch
             if target_pitch is None:

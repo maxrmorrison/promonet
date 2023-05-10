@@ -16,3 +16,5 @@ eval/subjective/*
 !eval/subjective/config
 runs/
 !runs/.gitkeep
+
+promonet/model/monotonic_align/core.c*

@@ -3,6 +3,7 @@ import json
 
 import numpy as np
 import penn
+import pysodic
 import torch
 import torchaudio
 
@@ -51,7 +52,7 @@ class Dataset(torch.utils.data.Dataset):
         pitch = penn.voicing.interpolate(
             pitch,
             periodicity,
-            promonet.VOICING_THRESHOLD)
+            pysodic.DEFAULT_VOICING_THRESHOLD)
 
         # Get speaker index. Non-integer speaker names are assumed to be
         # for speaker adaptation and therefore default to index zero.

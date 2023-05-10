@@ -1,8 +1,12 @@
+from Cython.Build import cythonize
 from setuptools import find_packages, setup
+
+import numpy as np
 
 
 with open('README.md', encoding='utf8') as file:
     long_description = file.read()
+
 
 setup(
     name='promonet',
@@ -11,11 +15,15 @@ setup(
     author='Max Morrison',
     author_email='maxrmorrison@gmail.com',
     url='https://github.com/maxrmorrison/promonet',
+    ext_modules=cythonize(
+        ['promonet/model/monotonic_align/core.pyx'],
+        compiler_directives={'language_level': '3'}),
+    include_dirs=[np.get_include(), 'monotonic_align'],
+    setup_requires=['numpy', 'cython'],
     install_requires=[
         'espnet',
         'librosa',
         'matplotlib',
-        'monotonic_align @ git+ssh://git@github.com/resemble-ai/monotonic_align.git',
         'numpy<1.24',
         # 'pysodic',  # TEMPORARY - install manually until release of pysodic
         'psola',  # TEMPORARY - GPL dependency
