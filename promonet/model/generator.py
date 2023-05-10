@@ -694,9 +694,9 @@ class Generator(torch.nn.Module):
                             keepdim=True)
                         neg_cent = neg_cent1 + neg_cent2 + neg_cent3 + neg_cent4
                         attention = monotonic_align.maximum_path(
-                            neg_cent.permute(0, 2, 1).contiguous(),
-                            attention_mask.permute(0, 2, 1).contiguous()
-                        ).unsqueeze(1).detach().permute(0, 1, 3, 2)
+                            neg_cent,
+                            attention_mask.squeeze(1)
+                        ).unsqueeze(1).detach()
 
                     # Calcuate duration of each feature
                     w = attention.sum(2)
@@ -736,7 +736,7 @@ class Generator(torch.nn.Module):
             else:
                 loudness_slice = None
 
-            # Maybe slice pitch
+            # Maybe slice periodicity
             if (
                 promonet.PERIODICITY_FEATURES and
                 promonet.LATENT_PERIODICITY_SHORTCUT

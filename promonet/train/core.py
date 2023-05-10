@@ -690,7 +690,6 @@ def evaluate(directory, step, generator, loader, gpu):
                 text,
                 promonet.HOPSIZE / promonet.SAMPLE_RATE,
                 promonet.WINDOW_SIZE / promonet.SAMPLE_RATE,
-                promonet.VOICING_THRESHOLD,
                 gpu=gpu
             )
 
@@ -727,7 +726,6 @@ def evaluate(directory, step, generator, loader, gpu):
                     text,
                     promonet.HOPSIZE / promonet.SAMPLE_RATE,
                     promonet.WINDOW_SIZE / promonet.SAMPLE_RATE,
-                    promonet.VOICING_THRESHOLD,
                     gpu=gpu
                 )
             except Exception as error:
@@ -806,7 +804,6 @@ def evaluate(directory, step, generator, loader, gpu):
                         text,
                         promonet.HOPSIZE / promonet.SAMPLE_RATE,
                         promonet.WINDOW_SIZE / promonet.SAMPLE_RATE,
-                        promonet.VOICING_THRESHOLD,
                         gpu=gpu
                     )
 
@@ -870,8 +867,7 @@ def evaluate(directory, step, generator, loader, gpu):
                         loudness,
                         grid)
                     stretched_voicing = pysodic.features.voicing(
-                        stretched_periodicity,
-                        promonet.VOICING_THRESHOLD)
+                        stretched_periodicity)
                     stretched_phones = promonet.interpolate.grid_sample(
                         phones,
                         grid,
@@ -906,7 +902,6 @@ def evaluate(directory, step, generator, loader, gpu):
                         text,
                         promonet.HOPSIZE / promonet.SAMPLE_RATE,
                         promonet.WINDOW_SIZE / promonet.SAMPLE_RATE,
-                        promonet.VOICING_THRESHOLD,
                         gpu=gpu
                     )
 
@@ -980,7 +975,6 @@ def evaluate(directory, step, generator, loader, gpu):
                         text,
                         promonet.HOPSIZE / promonet.SAMPLE_RATE,
                         promonet.WINDOW_SIZE / promonet.SAMPLE_RATE,
-                        promonet.VOICING_THRESHOLD,
                         gpu=gpu
                     )
 

@@ -31,9 +31,6 @@ NUM_FFT = 1024
 # Audio sample rate
 SAMPLE_RATE = 22050  # Hz
 
-# Periodicity threshold of the voiced/unvoiced decision
-VOICING_THRESHOLD = .15
-
 # Number of spectrogram channels
 WINDOW_SIZE = 1024
 
