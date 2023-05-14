@@ -415,10 +415,6 @@ class Generator(torch.nn.Module):
                 n_speakers,
                 promonet.SPEAKER_CHANNELS)
 
-        # Autoregressive
-        if promonet.AUTOREGRESSIVE:
-            self.autoregressive = Autoregressive()
-
         # Pitch embedding
         if promonet.PITCH_FEATURES and promonet.PITCH_EMBEDDING:
             self.pitch_embedding = torch.nn.Embedding(
@@ -428,62 +424,6 @@ class Generator(torch.nn.Module):
                 self.latent_pitch_embedding = torch.nn.Embedding(
                     promonet.PITCH_BINS,
                     promonet.PITCH_EMBEDDING_SIZE)
-
-    def ar_loop(self, latents, speaker_embedding):
-        """Perform autoregressive generation from latent space"""
-        # Save output size
-        output_length = promonet.convert.frames_to_samples(latents.shape[2])
-
-        # Get feature chunk size
-        feat_chunk = promonet.convert.samples_to_frames(promonet.CHUNK_SIZE)
-
-        # Zero-pad features to be a multiple of the chunk size
-        padding = (feat_chunk - (latents.shape[2] % feat_chunk)) % feat_chunk
-        latents = torch.nn.functional.pad(latents, (0, padding))
-
-        # Start with all zeros as conditioning
-        prev_samples = torch.zeros(
-            (latents.shape[0], 1, promonet.AR_INPUT_SIZE),
-            dtype=latents.dtype,
-            device=latents.device)
-
-        # Get output signal length
-        signal_length = promonet.convert.frames_to_samples(latents.shape[2])
-
-        # Autoregressive loop
-        generated = torch.zeros(
-            signal_length,
-            dtype=latents.dtype,
-            device=latents.device)
-        with torch.no_grad():
-            for i in range(0, latents.shape[2] - feat_chunk + 1, feat_chunk):
-
-                # Embed previous samples
-                ar_feats = self.autoregressive(prev_samples)
-                ar_feats = ar_feats.unsqueeze(2).repeat(1, 1, feat_chunk)
-
-                # Concatenate
-                features = torch.cat(
-                    (latents[:, :, i:i + feat_chunk], ar_feats),
-                    dim=1)
-
-                # Forward pass
-                chunk, *_ = self.generator(features, g=speaker_embedding)
-
-                # Place newly generated chunk
-                start = promonet.convert.frames_to_samples(i)
-                generated[start:start + promonet.CHUNK_SIZE] += chunk.squeeze()
-
-                # Update AR context
-                if promonet.AR_INPUT_SIZE <= promonet.CHUNK_SIZE:
-                    prev_samples = chunk[:, -promonet.AR_INPUT_SIZE:]
-                else:
-                    prev_samples[:, :, :-promonet.CHUNK_SIZE] = \
-                        prev_samples[:, :, promonet.CHUNK_SIZE:].clone()
-                    prev_samples[:, :, -promonet.CHUNK_SIZE:] = chunk
-
-            # Remove padding
-            return generated[None, None, :output_length]
 
     def forward(
         self,
@@ -536,32 +476,6 @@ class Generator(torch.nn.Module):
                     (speaker_embeddings, ratios[:, None, None]),
                     dim=1)
 
-        if promonet.AUTOREGRESSIVE:
-
-            # During training, get slices of previous audio
-            if self.training:
-                indices = (
-                    promonet.convert.frames_to_samples(slice_indices) -
-                    promonet.AR_INPUT_SIZE)
-                autoregressive = promonet.model.slice_segments(
-                    audio,
-                    indices,
-                    promonet.AR_INPUT_SIZE)
-
-                # Embed
-                ar_feats = self.autoregressive(autoregressive)
-                ar_feats = ar_feats.unsqueeze(2).repeat(1, 1, latents.shape[2])
-
-                # Concatenate
-                latents = torch.cat((latents, ar_feats), dim=1)
-
-            # During generation, run autoregressive loop
-            else:
-                generated = self.ar_loop(latents, speaker_embeddings)
-                return generated, mask, slice_indices, None, *args
-        else:
-            autoregressive = None
-
         # During first stage of two-stage generation, train the vocoder on
         # ground-truth spectrograms
         if self.training:
@@ -579,7 +493,6 @@ class Generator(torch.nn.Module):
             generated,
             mask,
             slice_indices,
-            autoregressive,
             spectrogram_slice,
             *args)
 
@@ -915,31 +828,3 @@ class Generator(torch.nn.Module):
             predicted_mean,
             predicted_logstd,
             true_logstd)
-
-
-class Autoregressive(torch.nn.Module):
-
-    def __init__(self):
-        super().__init__()
-
-        # Get activation function
-        activation_fn = functools.partial(torch.nn.LeakyReLU, .1)
-
-        # Make layers
-        model = [
-            torch.nn.Linear(promonet.AR_INPUT_SIZE, promonet.AR_HIDDEN_SIZE),
-            activation_fn()]
-        for _ in range(3):
-            model.extend([
-                torch.nn.Linear(
-                    promonet.AR_HIDDEN_SIZE,
-                    promonet.AR_HIDDEN_SIZE),
-                activation_fn()])
-        model.append(
-            torch.nn.Linear(
-                promonet.AR_HIDDEN_SIZE,
-                promonet.AR_OUTPUT_SIZE))
-        self.model = torch.nn.Sequential(*model)
-
-    def forward(self, x):
-        return self.model(x.squeeze(1))

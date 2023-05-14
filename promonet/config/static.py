@@ -74,7 +74,6 @@ ADDITIONAL_FEATURES_LATENT = (
     promonet.LATENT_PERIODICITY_SHORTCUT +
     promonet.LATENT_PHONEME_SHORTCUT * promonet.PPG_CHANNELS +
     promonet.LATENT_RATIO_SHORTCUT +
-    promonet.AUTOREGRESSIVE * promonet.AR_OUTPUT_SIZE +
     promonet.SPECTROGRAM_ONLY * (promonet.NUM_FFT // 2 + 1))
 
 
