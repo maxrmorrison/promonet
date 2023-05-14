@@ -194,18 +194,6 @@ LOG_INTERVAL = 2500  # steps
 ###############################################################################
 
 
-# Whether to use autoregression
-AUTOREGRESSIVE = False
-
-# The size of autoregressive embedding layers
-AR_HIDDEN_SIZE = 256
-
-# The number of previous samples to use for autoregression
-AR_INPUT_SIZE = 512
-
-# The size of the output autoregressive embedding
-AR_OUTPUT_SIZE = 128
-
 # The size of the latent bottleneck
 HIDDEN_CHANNELS = 192
 

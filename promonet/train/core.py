@@ -290,7 +290,6 @@ def train(
                     generated,
                     latent_mask,
                     slice_indices,
-                    autoregressive,
                     predicted_spectrogram,
                     durations,
                     attention,
@@ -316,16 +315,8 @@ def train(
                         start_indices=slice_indices,
                         segment_size=segment_size)
 
-                    # Update indices to handle autoregression
-                    if promonet.AUTOREGRESSIVE:
-                        ar_frames = promonet.convert.samples_to_frames(
-                            promonet.AR_INPUT_SIZE)
-                        indices = slice_indices - ar_frames
-                        size = segment_size + ar_frames
-                    else:
-                        indices, size = slice_indices, segment_size
-
                     # Slice prosody
+                    indices, size = slice_indices, segment_size
                     slice_fn = functools.partial(
                         promonet.model.slice_segments,
                         start_indices=indices,
@@ -349,11 +340,6 @@ def train(
                         audio,
                         slice_indices * promonet.HOPSIZE,
                         promonet.CHUNK_SIZE)
-
-                    # Prepend AR input so the discriminator sees boundaries
-                    if autoregressive is not None:
-                        generated = torch.cat((autoregressive, generated), dim=-1)
-                        audio = torch.cat((autoregressive, audio), dim=-1)
 
                 #######################
                 # Train discriminator #
@@ -1030,7 +1016,6 @@ def ppgs(audio, size, gpu=None):
         audio[0],
         gpu=gpu)
     # Maybe resample length
-    # TODO - deprecate in favor of aligned features
     mode = promonet.PPG_INTERP_METHOD
     return torch.nn.functional.interpolate(
         predicted_phonemes[None],
