@@ -41,10 +41,7 @@ WINDOW_SIZE = 1024
 
 
 # Root location for saving outputs
-# TEMPORARY
 ROOT_DIR = Path(__file__).parent.parent.parent
-
-# ROOT_DIR = Path('/data/max/promonet')
 
 # Location to save assets to be bundled with pip release
 ASSETS_DIR = Path(__file__).parent.parent / 'assets'
@@ -66,7 +63,7 @@ SOURCES_DIR = ROOT_DIR / 'data' / 'sources'
 
 
 ###############################################################################
-# Evaluation
+# Data parameters
 ###############################################################################
 
 
@@ -143,35 +140,11 @@ PPG_INTERP_METHOD = 'nearest'
 # Type of PPGs to use
 PPG_MODEL = None
 
+# Seed for all random number generators
+RANDOM_SEED = 1234
+
 # Only use spectral features
 SPECTROGRAM_ONLY = False
-
-
-###############################################################################
-# Directories
-###############################################################################
-
-
-# Root location for saving outputs
-ROOT_DIR = Path(__file__).parent.parent.parent
-
-# Location to save assets to be bundled with pip release
-ASSETS_DIR = Path(__file__).parent.parent / 'assets'
-
-# Location of preprocessed features
-CACHE_DIR = ROOT_DIR / 'data' / 'cache'
-
-# Location of datasets on disk
-DATA_DIR = ROOT_DIR / 'data' / 'datasets'
-
-# Location to save evaluation artifacts
-EVAL_DIR = ROOT_DIR / 'eval'
-
-# Location to save training and adaptation artifacts
-RUNS_DIR = ROOT_DIR / 'runs'
-
-# Location of compressed datasets on disk
-SOURCES_DIR = ROOT_DIR / 'data' / 'sources'
 
 
 ###############################################################################
@@ -187,6 +160,27 @@ CHECKPOINT_INTERVAL = 25000  # steps
 
 # Number of steps between logging to Tensorboard
 LOG_INTERVAL = 2500  # steps
+
+
+###############################################################################
+# Loss parameters
+###############################################################################
+
+
+# Weight applied to the discriminator loss
+ADVERSARIAL_LOSS_WEIGHT = 1.
+
+# Weight applied to the KL divergence loss
+KL_DIVERGENCE_LOSS_WEIGHT = 1.
+
+# Weight applied to the feature matching loss
+FEATURE_MATCHING_LOSS_WEIGHT = 1.
+
+# Whether to omit the first activation of each discriminator
+FEATURE_MATCHING_OMIT_FIRST = False
+
+# Weight applied to the melspectrogram loss
+MEL_LOSS_WEIGHT = 45.
 
 
 ###############################################################################
@@ -254,40 +248,19 @@ VOCODER = False
 
 
 ###############################################################################
-# Loss parameters
-###############################################################################
-
-
-# Weight applied to the discriminator loss
-ADVERSARIAL_LOSS_WEIGHT = 1.
-
-# Weight applied to the KL divergence loss
-KL_DIVERGENCE_LOSS_WEIGHT = 1.
-
-# Weight applied to the feature matching loss
-FEATURE_MATCHING_LOSS_WEIGHT = 1.
-
-# Whether to omit the first activation of each discriminator
-FEATURE_MATCHING_OMIT_FIRST = False
-
-# Weight applied to the melspectrogram loss
-MEL_LOSS_WEIGHT = 45.
-
-
-###############################################################################
 # Training parameters
 ###############################################################################
 
+
+# Number of items in a batch
+BATCH_SIZE = 32
 
 # Number of buckets to partition training and validation data into based on
 # length to avoid excess padding
 BUCKETS = 8
 
-# Set a maximum on the batch size, regardless of frame count
-MAX_BATCH_SIZE = 32
-
-# Maximum number of frames in a batch (per GPU)
-MAX_FRAMES = 10000
+# Maximum length of text during training
+MAX_TEXT_LENGTH = 190
 
 # Number of samples generated during training
 CHUNK_SIZE = 8192
@@ -303,6 +276,3 @@ NUM_ADAPTATION_STEPS = 5000
 
 # Number of data loading worker threads
 NUM_WORKERS = 2
-
-# Seed for all random number generators
-RANDOM_SEED = 1234

@@ -1,4 +1,3 @@
-import functools
 import math
 
 import monotonic_align
@@ -136,7 +135,7 @@ class PhonemeEncoder(torch.nn.Module):
         self.input_layer = torch.nn.Embedding(
             promonet.NUM_FEATURES,
             channels)
-    self.encoder = promonet.model.attention.Encoder(
+    self.encoder = promonet.model.transformer.Encoder(
         channels,
         promonet.FILTER_CHANNELS)
 
@@ -436,7 +435,9 @@ class Generator(torch.nn.Module):
         ratios=None,
         spectrograms=None,
         spectrogram_lengths=None,
-        audio=None):
+        noise_scale=1.,
+        length_scale=1.,
+        noise_scale_w=1.):
         """Generator entry point"""
         # Default augmentation ratio is 1
         if ratios is None and promonet.AUGMENT_PITCH:
@@ -462,7 +463,10 @@ class Generator(torch.nn.Module):
             speakers,
             ratios,
             spectrograms,
-            spectrogram_lengths
+            spectrogram_lengths,
+            noise_scale,
+            length_scale,
+            noise_scale_w
         )
 
         # Use different speaker embedding for two-stage models
@@ -507,9 +511,9 @@ class Generator(torch.nn.Module):
         ratios=None,
         spectrograms=None,
         spectrogram_lengths=None,
-        noise_scale=.667,
-        length_scale=1,
-        noise_scale_w=.8):
+        noise_scale=1.,
+        length_scale=1.,
+        noise_scale_w=1.):
         """Get latent representation"""
         features = phonemes
 
@@ -697,8 +701,7 @@ class Generator(torch.nn.Module):
 
             # Mask denoting valid frames
             mask = promonet.model.sequence_mask(
-                lengths,
-                lengths[0]).unsqueeze(1).to(embeddings.dtype)
+                lengths).unsqueeze(1).to(embeddings.dtype)
 
             if promonet.PPG_FEATURES or promonet.SPECTROGRAM_ONLY or promonet.TWO_STAGE:
                 attention = None

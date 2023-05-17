@@ -1,5 +1,7 @@
 import json
 
+import pyfoal
+import pypar
 import torch
 import torchaudio
 
@@ -25,11 +27,21 @@ def partition(dataset):
         return json.load(file)
 
 
-def phonemes(file):
+def phonemes(file, interleave=False):
     """Load phonemes and interleave blanks"""
+    # Load phonemes
     phonemes = torch.unique_consecutive(torch.load(file))[None]
-    interleaved = torch.zeros((1, phonemes.shape[1] * 2 + 1))
+
+    if not interleave:
+        return phonemes
+
+    # Interleave blanks
+    interleaved = torch.full(
+        (1, phonemes.shape[1] * 2 + 1),
+        pyfoal.convert.phoneme_to_index(pypar.SILENCE),
+        dtype=phonemes.dtype)
     interleaved[:, 1::2] = phonemes
+
     return interleaved
 
 

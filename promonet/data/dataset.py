@@ -26,12 +26,23 @@ class Dataset(torch.utils.data.Dataset):
         stems = promonet.load.partition(dataset)[partition]
         self.stems = [f'{stem}-100' for stem in stems]
 
-        # For training, maybe add augmented data
-        # This also applies to adaptation partitions: train-adapt-xx
-        if 'train' in partition and promonet.AUGMENT_PITCH:
-            with open(promonet.AUGMENT_DIR / f'{dataset}.json') as file:
-                ratios = json.load(file)
-            self.stems.extend([f'{stem}-{ratios[stem]}' for stem in stems])
+        if 'train' in partition:
+
+            # For training, maybe add augmented data
+            # This also applies to adaptation partitions: train-adapt-xx
+            if promonet.AUGMENT_PITCH:
+                with open(promonet.AUGMENT_DIR / f'{dataset}.json') as file:
+                    ratios = json.load(file)
+                self.stems.extend([f'{stem}-{ratios[stem]}' for stem in stems])
+
+            # Maybe limit the maximum length of text during training to improve
+            # GPU utilization
+            if promonet.MAX_TEXT_LENGTH is not None:
+                self.stems = [
+                    stem for stem in self.stems if len(
+                        promonet.load.phonemes(
+                            self.cache / f'{stem}-phonemes.pt')
+                    ) < promonet.MAX_TEXT_LENGTH]
 
         # Store spectrogram lengths for bucketing
         self.lengths = [
@@ -57,10 +68,7 @@ class Dataset(torch.utils.data.Dataset):
         # Get speaker index. Non-integer speaker names are assumed to be
         # for speaker adaptation and therefore default to index zero.
         if 'adapt' not in self.partition:
-            try:
-                speaker = int(stem.split('/')[0])
-            except ValueError:
-                speaker = 0
+            speaker = int(stem.split('/')[0])
         else:
             speaker = 0
 
@@ -69,7 +77,8 @@ class Dataset(torch.utils.data.Dataset):
             phonemes = self.get_ppg(stem, spectrogram.shape[1])
         else:
             phonemes = promonet.load.phonemes(
-                self.cache / f'{stem}-phonemes.pt')
+                self.cache / f'{stem}-phonemes.pt',
+                interleave=True)
 
         return (
             text,

@@ -276,8 +276,7 @@ def train(
                 speakers,
                 ratios,
                 spectrograms,
-                spectrogram_lengths,
-                audio)
+                spectrogram_lengths)
 
             # Convert to mels
             mels = promonet.data.preprocess.spectrogram.linear_to_mel(
@@ -691,7 +690,9 @@ def evaluate(directory, step, generator, loader, gpu):
                 loudness,
                 lengths,
                 speakers,
-                spectrograms=spectrogram)
+                spectrograms=spectrogram,
+                noise_scale=.667,
+                noise_scale_w=.8)
 
             # Log generated audio
             key = f'reconstruction/{i:02d}'

@@ -26,10 +26,10 @@ def piecewise_rational_quadratic(
     min_bin_height=DEFAULT_MIN_BIN_HEIGHT,
     min_derivative=DEFAULT_MIN_DERIVATIVE):
     if tails is None:
-        spline_fn = rational_quadratic_spline
+        spline_fn = rational_quadratic
         spline_kwargs = {}
     else:
-        spline_fn = unconstrained_rational_quadratic_spline
+        spline_fn = unconstrained_rational_quadratic
         spline_kwargs = {
             'tails': tails,
             'tail_bound': tail_bound}
@@ -52,7 +52,7 @@ def piecewise_rational_quadratic(
 ###############################################################################
 
 
-def unconstrained_rational_quadratic_spline(
+def unconstrained_rational_quadratic(
     inputs,
     unnormalized_widths,
     unnormalized_heights,
@@ -80,7 +80,7 @@ def unconstrained_rational_quadratic_spline(
     else:
         raise RuntimeError('{} tails are not implemented.'.format(tails))
 
-    outputs[inside_interval_mask], logabsdet[inside_interval_mask] = rational_quadratic_spline(
+    outputs[inside_interval_mask], logabsdet[inside_interval_mask] = rational_quadratic(
         inputs=inputs[inside_interval_mask],
         unnormalized_widths=unnormalized_widths[inside_interval_mask, :],
         unnormalized_heights=unnormalized_heights[inside_interval_mask, :],
@@ -97,7 +97,7 @@ def unconstrained_rational_quadratic_spline(
     return outputs, logabsdet
 
 
-def rational_quadratic_spline(
+def rational_quadratic(
     inputs,
     unnormalized_widths,
     unnormalized_heights,
