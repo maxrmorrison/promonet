@@ -443,7 +443,7 @@ class ConvFlow(torch.nn.Module):
         unnormalized_heights = h[..., self.num_bins:2*self.num_bins] / math.sqrt(self.filter_channels)
         unnormalized_derivatives = h[..., 2 * self.num_bins:]
 
-        x1, logabsdet = promonet.model.transform.piecewise_rational_quadratic(
+        x1, logabsdet = promonet.model.spline.piecewise_rational_quadratic(
             x1,
             unnormalized_widths,
             unnormalized_heights,
