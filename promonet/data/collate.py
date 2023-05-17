@@ -89,8 +89,8 @@ def collate(batch):
         padded_audio[i, :, :lengths[index]] = audio[index]
 
     # Sort stuff
-    text = text[sorted_indices]
-    stems = stems[sorted_indices]
+    text = [text[i] for i in sorted_indices]
+    stems = [stems[i] for i in sorted_indices]
     speakers = torch.tensor(speakers, dtype=torch.long)[sorted_indices]
     ratios = torch.tensor(ratios, dtype=torch.float)[sorted_indices]
 
