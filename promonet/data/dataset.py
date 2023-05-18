@@ -33,17 +33,23 @@ class Dataset(torch.utils.data.Dataset):
                 ratios = json.load(file)
             self.stems.extend([f'{stem}-{ratios[stem]}' for stem in stems])
 
-        # Maybe limit the maximum length of text during training to improve
+        # Maybe limit the maximum length during training to improve
         # GPU utilization
         if (
             ('train' in partition or 'valid' in partition) and
             promonet.MAX_TEXT_LENGTH is not None
         ):
             self.stems = [
-                stem for stem in self.stems if len(
-                    promonet.load.phonemes(
-                        self.cache / f'{stem}-phonemes.pt')
-                ) < promonet.MAX_TEXT_LENGTH]
+                stem for stem in self.stems if (
+                    len(
+                        promonet.load.phonemes(
+                            self.cache / f'{stem}-phonemes.pt')
+                    ) < promonet.MAX_TEXT_LENGTH and
+                    promonet.convert.samples_to_frames(
+                        torchaudio.info(self.cache / f'{stem}.wav').num_frames
+                    ) < promonet.MAX_FRAME_LENGTH
+                )
+            ]
 
         # Store spectrogram lengths for bucketing
         self.lengths = [

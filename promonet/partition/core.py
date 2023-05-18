@@ -31,9 +31,10 @@ import promonet
 ###############################################################################
 
 
-# Range of allowable test sample lengths
-MIN_TEST_SAMPLE_LENGTH = 4.  # seconds
-MAX_TEST_SAMPLE_LENGTH = 10.  # seconds
+# Range of allowable test sample lengths in seconds
+MAX_TEST_SAMPLE_LENGTH = promonet.convert.frames_to_seconds(
+    promonet.MAX_FRAME_LENGTH)
+MIN_TEST_SAMPLE_LENGTH = MAX_TEST_SAMPLE_LENGTH / 2.
 
 
 ###############################################################################
