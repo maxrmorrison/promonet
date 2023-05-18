@@ -263,7 +263,10 @@ BATCH_SIZE = 32
 # length to avoid excess padding
 BUCKETS = 8
 
-# Maximum length of text during training
+# Maximum length of frames during training
+MAX_FRAME_LENGTH = 1600
+
+# Maximum length of phonemes during training
 MAX_TEXT_LENGTH = 190
 
 # Number of samples generated during training
