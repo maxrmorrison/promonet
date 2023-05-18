@@ -257,7 +257,7 @@ VOCODER = False
 
 
 # Number of items in a batch
-BATCH_SIZE = 32
+BATCH_SIZE = 64
 
 # Number of buckets to partition training and validation data into based on
 # length to avoid excess padding
