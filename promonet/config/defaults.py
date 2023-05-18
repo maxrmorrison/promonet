@@ -216,6 +216,10 @@ N_HEADS = 2
 # Number of attention layers
 N_LAYERS = 6
 
+# Noise scales for inference
+NOISE_SCALE_INFERENCE = .667
+NOISE_SCALE_W_INFERENCE = .8
+
 # Dropout probability
 P_DROPOUT = .1
 

@@ -691,8 +691,8 @@ def evaluate(directory, step, generator, loader, gpu):
                 lengths,
                 speakers,
                 spectrograms=spectrogram,
-                noise_scale=.667,
-                noise_scale_w=.8)
+                max_length=1000
+            )
 
             # Log generated audio
             key = f'reconstruction/{i:02d}'
@@ -775,7 +775,9 @@ def evaluate(directory, step, generator, loader, gpu):
                         periodicity,
                         loudness,
                         lengths,
-                        speakers)
+                        speakers,
+                        max_length=1000
+                    )
 
                     # Get prosody features
                     (
@@ -873,7 +875,9 @@ def evaluate(directory, step, generator, loader, gpu):
                         stretched_periodicity,
                         stretched_loudness,
                         stretched_length,
-                        speakers)
+                        speakers,
+                        max_length=1000
+                    )
 
                     # Get prosody features
                     (
@@ -946,7 +950,9 @@ def evaluate(directory, step, generator, loader, gpu):
                         periodicity,
                         scaled_loudness,
                         lengths,
-                        speakers)
+                        speakers,
+                        max_length=1000
+                    )
 
                     # Get prosody features
                     (

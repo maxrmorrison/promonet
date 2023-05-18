@@ -202,9 +202,7 @@ def generate(
                 periodicity,
                 loudness,
                 lengths,
-                speakers,
-                noise_scale=.667,
-                noise_scale_w=.8)[0][0].cpu()
+                speakers)[0][0].cpu()
 
 
 def preprocess(

@@ -1,5 +1,3 @@
-import functools
-
 import torch
 
 import promonet
@@ -17,11 +15,10 @@ class DiscriminatorP(torch.nn.Module):
         super().__init__()
         self.period = period
         conv_fn = promonet.model.weight_norm_conv2d
-        padding = promonet.model.get_padding(kernel_size, 1)
+        padding = (promonet.model.get_padding(kernel_size, 1), 0)
         input_channels = promonet.NUM_FEATURES_DISCRIM
         self.convs = torch.nn.ModuleList([
-            conv_fn(input_channels, 32, (kernel_size, 1),
-                    (stride, 1), padding),
+            conv_fn(input_channels, 32, (kernel_size, 1), (stride, 1), padding),
             conv_fn(32, 128, (kernel_size, 1), (stride, 1), padding),
             conv_fn(128, 512, (kernel_size, 1), (stride, 1), padding),
             conv_fn(512, 1024, (kernel_size, 1), (stride, 1), padding),
@@ -31,10 +28,10 @@ class DiscriminatorP(torch.nn.Module):
     def forward(
         self,
         x,
-        pitch,
-        periodicity,
-        loudness,
-        phonemes,
+        pitch=None,
+        periodicity=None,
+        loudness=None,
+        phonemes=None,
         ratios=None):
         # Maybe add pitch conditioning
         if promonet.DISCRIM_PITCH_CONDITION:
@@ -119,10 +116,10 @@ class DiscriminatorR(torch.nn.Module):
     def forward(
         self,
         audio,
-        pitch,
-        periodicity,
-        loudness,
-        phonemes,
+        pitch=None,
+        periodicity=None,
+        loudness=None,
+        phonemes=None,
         ratios=None):
         # Compute spectral features
         features = self.spectrogram(audio)
@@ -220,10 +217,10 @@ class DiscriminatorS(torch.nn.Module):
     def forward(
         self,
         x,
-        pitch,
-        periodicity,
-        loudness,
-        phonemes,
+        pitch=None,
+        periodicity=None,
+        loudness=None,
+        phonemes=None,
         ratios=None):
         # Maybe add pitch conditioning
         if promonet.DISCRIM_PITCH_CONDITION:
@@ -289,38 +286,27 @@ class Discriminator(torch.nn.Module):
 
     def __init__(self):
         super().__init__()
-        self.discriminators = torch.nn.ModuleList(
-            [DiscriminatorP(i) for i in [2, 3, 5, 7, 11]])
+        discriminators = [DiscriminatorP(i) for i in [2, 3, 5, 7, 11]]
         if promonet.MULTI_SCALE_DISCRIMINATOR:
-            self.discriminators.append(DiscriminatorS())
+            discriminators.append(DiscriminatorS())
         if promonet.MULTI_RESOLUTION_DISCRIMINATOR:
             resolutions = [(1024, 120, 600), (2048, 240, 1200), (512, 50, 240)]
-            self.discriminators.extend(
+            discriminators.extend(
                 [DiscriminatorR(i) for i in resolutions])
+        self.discriminators = torch.nn.ModuleList(discriminators)
 
     def forward(
         self,
         y,
         y_hat,
-        pitch,
-        periodicity,
-        loudness,
-        phonemes,
-        ratios=None):
+        **kwargs):
         logits_real = []
         logits_fake = []
         feature_maps_real = []
         feature_maps_fake = []
         for discriminator in self.discriminators:
-            discriminator_fn = functools.partial(
-                discriminator,
-                pitch=pitch,
-                periodicity=periodicity,
-                loudness=loudness,
-                phonemes=phonemes,
-                ratios=ratios)
-            logit_real, feature_map_real = discriminator_fn(y)
-            logit_fake, feature_map_fake = discriminator_fn(y_hat)
+            logit_real, feature_map_real = discriminator(y, **kwargs)
+            logit_fake, feature_map_fake = discriminator(y_hat, **kwargs)
             logits_real.append(logit_real)
             logits_fake.append(logit_fake)
             feature_maps_real.append(feature_map_real)
