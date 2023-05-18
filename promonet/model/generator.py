@@ -305,7 +305,7 @@ class Generator(torch.nn.Module):
 
     def forward(
         self,
-        features,
+        phonemes,
         pitch,
         periodicity,
         loudness,
@@ -313,15 +313,14 @@ class Generator(torch.nn.Module):
         speakers,
         ratios=None,
         spectrograms=None,
-        spectrogram_lengths=None,
-        max_length=None):
+        spectrogram_lengths=None):
         """Generator entry point"""
         # Default augmentation ratio is 1
         if ratios is None and promonet.AUGMENT_PITCH:
             ratios = torch.ones(
-                len(features),
+                len(phonemes),
                 dtype=torch.float,
-                device=features.device)
+                device=phonemes.device)
 
         # Get latent representation
         (
@@ -332,7 +331,7 @@ class Generator(torch.nn.Module):
             spectrogram_slice,
             *args
          ) = self.latents(
-            features,
+            phonemes,
             pitch,
             periodicity,
             loudness,
@@ -365,9 +364,7 @@ class Generator(torch.nn.Module):
                 spectrogram_slice = latents
 
         # Decode latent representation to waveform
-        generated = self.vocoder(
-            latents[..., :max_length],
-            g=speaker_embeddings)
+        generated = self.vocoder(latents, g=speaker_embeddings)
 
         return (
             generated,
@@ -501,8 +498,8 @@ class Generator(torch.nn.Module):
         spectrograms=None,
         spectrogram_lengths=None):
         """Get latent representation"""
-        # Concatenate input features
-        features = self.prepare_features(
+        # Scale and concatenate input features
+        features, pitch, loudness = self.prepare_features(
             phonemes,
             pitch,
             periodicity,
@@ -636,26 +633,26 @@ class Generator(torch.nn.Module):
 
             # No slicing
             (
-                loudness_slice,
-                periodicity_slice,
-                pitch_slice,
                 phoneme_slice,
+                pitch_slice,
+                periodicity_slice,
+                loudness_slice,
                 spectrogram_slice
             ) = (
-                loudness,
-                periodicity,
-                pitch,
                 phonemes,
+                pitch,
+                periodicity,
+                loudness,
                 spectrograms
             )
 
         # Maybe concat or replace latent features with acoustic features
         latents = self.postprocess_latents(
             latents,
+            phoneme_slice,
             pitch_slice,
             periodicity_slice,
             loudness_slice,
-            phoneme_slice,
             ratios,
             spectrogram_slice)
 
@@ -675,10 +672,10 @@ class Generator(torch.nn.Module):
     def postprocess_latents(
         self,
         latents,
+        phonemes,
         pitch,
         periodicity,
         loudness,
-        phonemes,
         ratios,
         spectrogram):
         """Concatenate or replace latent features with acoustic features"""
@@ -738,7 +735,7 @@ class Generator(torch.nn.Module):
         periodicity,
         loudness,
         spectrograms):
-        """Concatenate or replace input features"""
+        """Scale, concatenate, or replace input features"""
         features = phonemes
 
         # Maybe add pitch features
@@ -763,15 +760,15 @@ class Generator(torch.nn.Module):
         if promonet.SPECTROGRAM_ONLY:
             features = spectrograms
 
-        return features
+        return features, pitch, loudness
 
     def slice(
         self,
         latents,
+        phonemes,
         pitch,
         periodicity,
         loudness,
-        phonemes,
         spectrograms,
         spectrogram_lengths):
         """Slice features during training for latent-to-waveform generator"""
@@ -834,9 +831,9 @@ class Generator(torch.nn.Module):
 
         return (
             latents,
+            phoneme_slice,
             pitch_slice,
             periodicity_slice,
             loudness_slice,
-            phoneme_slice,
             spectrogram_slice,
             slice_indices)

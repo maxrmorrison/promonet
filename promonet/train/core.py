@@ -349,11 +349,11 @@ def train(
                     real_logits, fake_logits, _, _ = discriminators(
                         audio,
                         generated.detach(),
-                        pitch_slices,
-                        periodicity_slices,
-                        loudness_slices,
-                        phoneme_slices,
-                        ratios)
+                        pitch=pitch_slices,
+                        periodicity=periodicity_slices,
+                        loudness=loudness_slices,
+                        phonemes=phoneme_slices,
+                        ratios=ratios)
 
                     with torch.cuda.amp.autocast(enabled=False):
 
@@ -389,11 +389,11 @@ def train(
                     ) = discriminators(
                         audio,
                         generated,
-                        pitch_slices,
-                        periodicity_slices,
-                        loudness_slices,
-                        phoneme_slices,
-                        ratios)
+                        pitch=pitch_slices,
+                        periodicity=periodicity_slices,
+                        loudness=loudness_slices,
+                        phonemes=phoneme_slices,
+                        ratios=ratios)
 
                 ####################
                 # Generator losses #
@@ -691,7 +691,6 @@ def evaluate(directory, step, generator, loader, gpu):
                 lengths,
                 speakers,
                 spectrograms=spectrogram,
-                max_length=1000
             )
 
             # Log generated audio
@@ -776,7 +775,6 @@ def evaluate(directory, step, generator, loader, gpu):
                         loudness,
                         lengths,
                         speakers,
-                        max_length=1000
                     )
 
                     # Get prosody features
@@ -876,7 +874,6 @@ def evaluate(directory, step, generator, loader, gpu):
                         stretched_loudness,
                         stretched_length,
                         speakers,
-                        max_length=1000
                     )
 
                     # Get prosody features
@@ -951,7 +948,6 @@ def evaluate(directory, step, generator, loader, gpu):
                         scaled_loudness,
                         lengths,
                         speakers,
-                        max_length=1000
                     )
 
                     # Get prosody features
