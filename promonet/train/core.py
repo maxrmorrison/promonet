@@ -698,25 +698,21 @@ def evaluate(directory, step, generator, loader, gpu):
             waveforms[f'{key}-audio'] = generated[0]
 
             # Get prosody features
-            try:
-                (
-                    predicted_pitch,
-                    predicted_periodicity,
-                    predicted_loudness,
-                    predicted_voicing,
-                    predicted_phones,
-                    predicted_alignment
-                ) = pysodic.from_audio_and_text(
-                    generated[0],
-                    promonet.SAMPLE_RATE,
-                    text,
-                    promonet.HOPSIZE / promonet.SAMPLE_RATE,
-                    promonet.WINDOW_SIZE / promonet.SAMPLE_RATE,
-                    gpu=gpu
-                )
-            except Exception as error:
-                print(error)
-                continue
+            (
+                predicted_pitch,
+                predicted_periodicity,
+                predicted_loudness,
+                predicted_voicing,
+                predicted_phones,
+                predicted_alignment
+            ) = pysodic.from_audio_and_text(
+                generated[0],
+                promonet.SAMPLE_RATE,
+                text,
+                promonet.HOPSIZE / promonet.SAMPLE_RATE,
+                promonet.WINDOW_SIZE / promonet.SAMPLE_RATE,
+                gpu=gpu
+            )
 
             # Get ppgs
             predicted_phonemes = ppgs(generated, phonemes.shape[-1], gpu)
