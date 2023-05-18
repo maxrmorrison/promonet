@@ -26,23 +26,24 @@ class Dataset(torch.utils.data.Dataset):
         stems = promonet.load.partition(dataset)[partition]
         self.stems = [f'{stem}-100' for stem in stems]
 
-        if 'train' in partition:
+        # For training, maybe add augmented data
+        # This also applies to adaptation partitions: train-adapt-xx
+        if 'train' in partition and promonet.AUGMENT_PITCH:
+            with open(promonet.AUGMENT_DIR / f'{dataset}.json') as file:
+                ratios = json.load(file)
+            self.stems.extend([f'{stem}-{ratios[stem]}' for stem in stems])
 
-            # For training, maybe add augmented data
-            # This also applies to adaptation partitions: train-adapt-xx
-            if promonet.AUGMENT_PITCH:
-                with open(promonet.AUGMENT_DIR / f'{dataset}.json') as file:
-                    ratios = json.load(file)
-                self.stems.extend([f'{stem}-{ratios[stem]}' for stem in stems])
-
-            # Maybe limit the maximum length of text during training to improve
-            # GPU utilization
-            if promonet.MAX_TEXT_LENGTH is not None:
-                self.stems = [
-                    stem for stem in self.stems if len(
-                        promonet.load.phonemes(
-                            self.cache / f'{stem}-phonemes.pt')
-                    ) < promonet.MAX_TEXT_LENGTH]
+        # Maybe limit the maximum length of text during training to improve
+        # GPU utilization
+        if (
+            ('train' in partition or 'valid' in partition) and
+            promonet.MAX_TEXT_LENGTH is not None
+        ):
+            self.stems = [
+                stem for stem in self.stems if len(
+                    promonet.load.phonemes(
+                        self.cache / f'{stem}-phonemes.pt')
+                ) < promonet.MAX_TEXT_LENGTH]
 
         # Store spectrogram lengths for bucketing
         self.lengths = [

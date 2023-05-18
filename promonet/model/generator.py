@@ -57,13 +57,13 @@ class StochasticDurationPredictor(torch.nn.Module):
                 1)
 
     def forward(
-            self,
-            x,
-            feature_mask,
-            w=None,
-            g=None,
-            reverse=False,
-            noise_scale=1.0):
+        self,
+        x,
+        feature_mask,
+        w=None,
+        g=None,
+        reverse=False,
+        noise_scale=1.):
         x = torch.detach(x)
         x = self.pre(x)
         if g is not None:
@@ -435,9 +435,7 @@ class Generator(torch.nn.Module):
         ratios=None,
         spectrograms=None,
         spectrogram_lengths=None,
-        noise_scale=1.,
-        length_scale=1.,
-        noise_scale_w=1.):
+        max_length=None):
         """Generator entry point"""
         # Default augmentation ratio is 1
         if ratios is None and promonet.AUGMENT_PITCH:
@@ -464,9 +462,6 @@ class Generator(torch.nn.Module):
             ratios,
             spectrograms,
             spectrogram_lengths,
-            noise_scale,
-            length_scale,
-            noise_scale_w
         )
 
         # Use different speaker embedding for two-stage models
@@ -491,7 +486,9 @@ class Generator(torch.nn.Module):
                 spectrogram_slice = latents
 
         # Decode latent representation to waveform
-        generated = self.generator(latents, g=speaker_embeddings)
+        generated = self.generator(
+            latents[..., :max_length],
+            g=speaker_embeddings)
 
         return (
             generated,
@@ -499,6 +496,119 @@ class Generator(torch.nn.Module):
             slice_indices,
             spectrogram_slice,
             *args)
+
+    def duration_prediction(
+        self,
+        predicted_mean,
+        predicted_logstd,
+        embeddings,
+        speaker_embeddings,
+        feature_mask,
+        mask=None,
+        prior=None):
+        """Perform duration prediction from text"""
+        if self.training:
+
+            if promonet.PPG_FEATURES or promonet.SPECTROGRAM_ONLY:
+                attention = None
+                durations = None
+
+            else:
+
+                # Compute attention mask
+                attention_mask = feature_mask * mask.permute(0, 2, 1)
+
+                # Compute monotonic alignment
+                with torch.no_grad():
+                    # [b, d, t]
+                    s_p_sq_r = torch.exp(-2 * predicted_logstd)
+                    neg_cent1 = torch.sum(
+                        -0.5 * math.log(2 * math.pi) - predicted_logstd,
+                        [1],
+                        keepdim=True)  # [b, 1, t_s]
+                    # [b, t_t, d] x [b, d, t_s] = [b, t_t, t_s]
+                    neg_cent2 = torch.matmul(
+                        -0.5 * (prior ** 2).transpose(1, 2),
+                        s_p_sq_r)
+                    # [b, t_t, d] x [b, d, t_s] = [b, t_t, t_s]
+                    neg_cent3 = torch.matmul(
+                        prior.transpose(1, 2),
+                        predicted_mean * s_p_sq_r)
+                    # [b, 1, t_s]
+                    neg_cent4 = torch.sum(
+                        -0.5 * (predicted_mean ** 2) * s_p_sq_r,
+                        [1],
+                        keepdim=True)
+                    neg_cent = neg_cent1 + neg_cent2 + neg_cent3 + neg_cent4
+                    attention = monotonic_align.maximum_path(
+                        neg_cent,
+                        attention_mask.squeeze(1)
+                    ).unsqueeze(1).detach()
+
+                # Calcuate duration of each feature
+                w = attention.sum(2)
+
+                # Predict durations from text
+                durations = self.dp(
+                    embeddings,
+                    feature_mask,
+                    w,
+                    g=speaker_embeddings)
+                durations = durations / torch.sum(feature_mask)
+
+                # Expand sequence using predicted durations
+                predicted_mean = torch.matmul(
+                    attention.squeeze(1),
+                    predicted_mean.transpose(1, 2)).transpose(1, 2)
+                predicted_logstd = torch.matmul(
+                    attention.squeeze(1),
+                    predicted_logstd.transpose(1, 2)).transpose(1, 2)
+
+        else:
+
+            durations = None
+
+            if (
+                promonet.PPG_FEATURES or
+                promonet.SPECTROGRAM_ONLY or
+                promonet.TWO_STAGE
+            ):
+                attention = None
+
+            else:
+
+                # Predict durations from text
+                logw = self.dp(
+                    embeddings,
+                    feature_mask,
+                    g=speaker_embeddings,
+                    reverse=True,
+                    noise_scale=promonet.NOISE_SCALE_W_INFERENCE)
+                w = torch.exp(logw) * feature_mask
+                w_ceil = torch.ceil(w)
+
+                # Get new frame resolution mask
+                y_lengths = torch.clamp_min(torch.sum(w_ceil, [1, 2]), 1).long()
+                mask = torch.unsqueeze(
+                    promonet.model.sequence_mask(y_lengths),
+                    1
+                ).to(feature_mask.dtype)
+
+                # Compute attention between variable length input and output sequences
+                attention_mask = torch.unsqueeze(
+                    feature_mask, 2) * torch.unsqueeze(mask, -1)
+                attention = promonet.model.generate_path(
+                    w_ceil, attention_mask)
+
+                # Expand sequence using predicted durations
+                predicted_mean = torch.matmul(
+                    attention.squeeze(1),
+                    predicted_mean.transpose(1, 2)).transpose(1, 2)
+                predicted_logstd = torch.matmul(
+                    attention.squeeze(1),
+                    predicted_logstd.transpose(1, 2)).transpose(1, 2)
+
+        return durations, attention, predicted_mean, predicted_logstd, mask
 
     def latents(
         self,
@@ -510,34 +620,23 @@ class Generator(torch.nn.Module):
         speakers,
         ratios=None,
         spectrograms=None,
-        spectrogram_lengths=None,
-        noise_scale=1.,
-        length_scale=1.,
-        noise_scale_w=1.):
+        spectrogram_lengths=None):
         """Get latent representation"""
-        features = phonemes
+        # Concatenate input features
+        features = self.prepare_features(
+            phonemes,
+            pitch,
+            periodicity,
+            loudness,
+            spectrograms)
 
-        # Maybe add pitch features
-        if promonet.PITCH_FEATURES:
-            if promonet.PITCH_EMBEDDING:
-                pitch = promonet.convert.hz_to_bins(pitch)
-                pitch_embeddings = self.pitch_embedding(pitch).permute(0, 2, 1)
-            else:
-                pitch_embeddings = pitch[:, None]
-            features = torch.cat((features, pitch_embeddings), dim=1)
-
-        # Maybe add loudness features
-        if promonet.LOUDNESS_FEATURES:
-            loudness = promonet.loudness.normalize(loudness)
-            features = torch.cat((features, loudness[:, None]), dim=1)
-
-        # Maybe add periodicity features
-        if promonet.PERIODICITY_FEATURES:
-            features = torch.cat((features, periodicity[:, None]), dim=1)
-
-        # Maybe just use the spectrogram
-        if promonet.SPECTROGRAM_ONLY:
-            features = spectrograms
+        # Encode text to text embedding and statistics for the flow model
+        (
+            embeddings,
+            predicted_mean,
+            predicted_logstd,
+            feature_mask
+        ) = self.feature_encoder(features, lengths)
 
         # Encode speaker ID
         speaker_embeddings = self.speaker_embedding(speakers).unsqueeze(-1)
@@ -547,14 +646,6 @@ class Generator(torch.nn.Module):
             speaker_embeddings = torch.cat(
                 (speaker_embeddings, ratios[:, None, None]),
                 dim=1)
-
-        # Encode text to text embedding and statistics for the flow model
-        (
-            embeddings,
-            predicted_mean,
-            predicted_logstd,
-            feature_mask
-        ) = self.feature_encoder(features, lengths)
 
         if self.training:
 
@@ -580,160 +671,72 @@ class Generator(torch.nn.Module):
                 # Compute corresponding prior to the latent variable
                 prior = self.flow(latents, mask, g=speaker_embeddings)
 
-                if promonet.PPG_FEATURES or promonet.SPECTROGRAM_ONLY:
-                    attention = None
-                    durations = None
+                # Maybe perform duration prediction from text features
+                (
+                    durations,
+                    attention,
+                    predicted_mean,
+                    predicted_logstd,
+                    mask
+                ) = self.duration_prediction(
+                    predicted_mean,
+                    predicted_logstd,
+                    embeddings,
+                    speaker_embeddings,
+                    feature_mask,
+                    mask,
+                    prior
+                )
 
-                else:
-
-                    # Compute attention mask
-                    attention_mask = feature_mask * mask.permute(0, 2, 1)
-
-                    # Compute monotonic alignment
-                    with torch.no_grad():
-                        s_p_sq_r = torch.exp(-2 * predicted_logstd)  # [b, d, t]
-                        neg_cent1 = torch.sum(
-                            -0.5 * math.log(2 * math.pi) - predicted_logstd,
-                            [1],
-                            keepdim=True)  # [b, 1, t_s]
-                        # [b, t_t, d] x [b, d, t_s] = [b, t_t, t_s]
-                        neg_cent2 = torch.matmul(
-                            -0.5 * (prior ** 2).transpose(1, 2),
-                            s_p_sq_r)
-                        # [b, t_t, d] x [b, d, t_s] = [b, t_t, t_s]
-                        neg_cent3 = torch.matmul(
-                            prior.transpose(1, 2),
-                            predicted_mean * s_p_sq_r)
-                        # [b, 1, t_s]
-                        neg_cent4 = torch.sum(
-                            -0.5 * (predicted_mean ** 2) * s_p_sq_r,
-                            [1],
-                            keepdim=True)
-                        neg_cent = neg_cent1 + neg_cent2 + neg_cent3 + neg_cent4
-                        attention = monotonic_align.maximum_path(
-                            neg_cent,
-                            attention_mask.squeeze(1)
-                        ).unsqueeze(1).detach()
-
-                    # Calcuate duration of each feature
-                    w = attention.sum(2)
-
-                    # Predict durations from text
-                    durations = self.dp(
-                        embeddings,
-                        feature_mask,
-                        w,
-                        g=speaker_embeddings)
-                    durations = durations / torch.sum(feature_mask)
-
-                    # Expand sequence using predicted durations
-                    predicted_mean = torch.matmul(
-                        attention.squeeze(1),
-                        predicted_mean.transpose(1, 2)).transpose(1, 2)
-                    predicted_logstd = torch.matmul(
-                        attention.squeeze(1),
-                        predicted_logstd.transpose(1, 2)).transpose(1, 2)
-
-            # Extract random segments of latent representation for training decoder
-            slice_size = promonet.convert.samples_to_frames(promonet.CHUNK_SIZE)
-            latents, slice_indices = promonet.model.random_slice_segments(
+            # Extract random segments for training decoder
+            (
                 latents,
-                spectrogram_lengths,
-                slice_size)
-
-            # Maybe slice loudness
-            if (
-                promonet.LOUDNESS_FEATURES and
-                promonet.LATENT_LOUDNESS_SHORTCUT
-            ):
-                loudness_slice = promonet.model.slice_segments(
-                    loudness,
-                    slice_indices,
-                    slice_size)
-            else:
-                loudness_slice = None
-
-            # Maybe slice periodicity
-            if (
-                promonet.PERIODICITY_FEATURES and
-                promonet.LATENT_PERIODICITY_SHORTCUT
-            ):
-                periodicity_slice = promonet.model.slice_segments(
-                    periodicity,
-                    slice_indices,
-                    slice_size)
-            else:
-                periodicity_slice = None
-
-            # Maybe slice pitch
-            if (
-                promonet.PITCH_FEATURES and
-                promonet.LATENT_PITCH_SHORTCUT
-            ):
-                pitch_slice = promonet.model.slice_segments(
-                    pitch,
-                    slice_indices,
-                    slice_size)
-            else:
-                pitch_slice = None
-
-            # Maybe slice PPGs
-            if promonet.LATENT_PHONEME_SHORTCUT:
-                phoneme_slice = promonet.model.slice_segments(
-                    phonemes,
-                    slice_indices,
-                    slice_size)
-            else:
-                phoneme_slice = None
-
-            # Slice spectral features
-            spectrogram_slice = promonet.model.slice_segments(
+                phoneme_slice,
+                pitch_slice,
+                periodicity_slice,
+                loudness_slice,
+                spectrogram_slice,
+                slice_indices
+            ) = self.slice(
+                latents,
+                phonemes,
+                pitch,
+                periodicity,
+                loudness,
                 spectrograms,
-                slice_indices,
-                slice_size)
+                spectrogram_lengths
+            )
 
         # Generation
         else:
 
             slice_indices = None
-            durations = None
             true_logstd = None
 
             # Mask denoting valid frames
             mask = promonet.model.sequence_mask(
-                lengths).unsqueeze(1).to(embeddings.dtype)
+                lengths,
+                lengths[0]).unsqueeze(1).to(embeddings.dtype)
 
-            if promonet.PPG_FEATURES or promonet.SPECTROGRAM_ONLY or promonet.TWO_STAGE:
-                attention = None
-
-            else:
-
-                # Predict durations from text
-                logw = self.dp(
-                    embeddings,
-                    feature_mask,
-                    g=speaker_embeddings,
-                    reverse=True,
-                    noise_scale=noise_scale_w)
-                w = torch.exp(logw) * feature_mask * length_scale
-                w_ceil = torch.ceil(w)
-
-                # Compute attention between variable length input and output sequences
-                attention_mask = torch.unsqueeze(
-                    feature_mask, 2) * torch.unsqueeze(mask, -1)
-                attention = promonet.model.generate_path(
-                    w_ceil, attention_mask)
-
-                # Expand sequence using predicted durations
-                predicted_mean = torch.matmul(
-                    attention.squeeze(1),
-                    predicted_mean.transpose(1, 2)).transpose(1, 2)
-                predicted_logstd = torch.matmul(
-                    attention.squeeze(1),
-                    predicted_logstd.transpose(1, 2)).transpose(1, 2)
+            (
+                durations,
+                attention,
+                predicted_mean,
+                predicted_logstd,
+                mask
+            ) = self.duration_prediction(
+                predicted_mean,
+                predicted_logstd,
+                embeddings,
+                speaker_embeddings,
+                feature_mask,
+                mask
+            )
 
             if promonet.TWO_STAGE:
 
+                # Two-stage does not use the flow, just the feature encoder
+                prior = None
                 latents = embeddings
 
             else:
@@ -743,7 +746,7 @@ class Generator(torch.nn.Module):
                     predicted_mean +
                     torch.randn_like(predicted_mean) *
                     torch.exp(predicted_logstd) *
-                    noise_scale)
+                    promonet.NOISE_SCALE_INFERENCE)
 
                 # Compute latent from the prior
                 latents = self.flow(
@@ -767,57 +770,15 @@ class Generator(torch.nn.Module):
                 spectrograms
             )
 
-        # Maybe add pitch
-        if (
-            promonet.PITCH_FEATURES and
-            promonet.LATENT_PITCH_SHORTCUT
-        ):
-            if promonet.PITCH_EMBEDDING:
-                pitch_embeddings = self.latent_pitch_embedding(
-                    pitch_slice).permute(0, 2, 1)
-            else:
-                pitch_embeddings = pitch_slice[:, None]
-            latents = torch.cat((latents, pitch_embeddings), dim=1)
-
-        # Maybe add loudness
-        if (
-            promonet.LOUDNESS_FEATURES and
-            promonet.LATENT_LOUDNESS_SHORTCUT
-        ):
-            latents = torch.cat((latents, loudness_slice[:, None]), dim=1)
-
-        # Maybe add periodicity
-        if (
-            promonet.PERIODICITY_FEATURES and
-            promonet.LATENT_PERIODICITY_SHORTCUT
-        ):
-            latents = torch.cat((latents, periodicity_slice[:, None]), dim=1)
-
-        # Maybe add phonemes
-        if promonet.LATENT_PHONEME_SHORTCUT:
-            latents = torch.cat((latents, phoneme_slice), dim=1)
-
-        # Maybe add augmentation ratio
-        if promonet.LATENT_RATIO_SHORTCUT:
-            latents = torch.cat(
-                (
-                    latents,
-                    ratios.repeat(latents.shape[2], 1, 1).permute(2, 1, 0)
-                ),
-                dim=1)
-
-        # Maybe add spectrogram
-        if promonet.SPECTROGRAM_ONLY:
-            latents = torch.cat(
-                (latents, spectrogram_slice), dim=1)
-
-        # Maybe remove latents and keep other features
-        if promonet.VOCODER:
-            latents = latents[:, promonet.HIDDEN_CHANNELS:]
-
-        # Two-stage models do not use the flow, just the feature encoder
-        if promonet.TWO_STAGE:
-            prior = None
+        # Maybe concat or replace latent features with acoustic features
+        latents = self.postprocess_latents(
+            latents,
+            pitch_slice,
+            periodicity_slice,
+            loudness_slice,
+            phoneme_slice,
+            ratios,
+            spectrogram_slice)
 
         return (
             latents,
@@ -831,3 +792,172 @@ class Generator(torch.nn.Module):
             predicted_mean,
             predicted_logstd,
             true_logstd)
+
+    def postprocess_latents(
+        self,
+        latents,
+        pitch,
+        periodicity,
+        loudness,
+        phonemes,
+        ratios,
+        spectrogram):
+        """Concatenate or replace latent features with acoustic features"""
+        # Maybe add pitch
+        if (
+            promonet.PITCH_FEATURES and
+            promonet.LATENT_PITCH_SHORTCUT
+        ):
+            if promonet.PITCH_EMBEDDING:
+                pitch_embeddings = self.latent_pitch_embedding(
+                    pitch).permute(0, 2, 1)
+            else:
+                pitch_embeddings = pitch[:, None]
+            latents = torch.cat((latents, pitch_embeddings), dim=1)
+
+        # Maybe add loudness
+        if (
+            promonet.LOUDNESS_FEATURES and
+            promonet.LATENT_LOUDNESS_SHORTCUT
+        ):
+            latents = torch.cat((latents, loudness[:, None]), dim=1)
+
+        # Maybe add periodicity
+        if (
+            promonet.PERIODICITY_FEATURES and
+            promonet.LATENT_PERIODICITY_SHORTCUT
+        ):
+            latents = torch.cat((latents, periodicity[:, None]), dim=1)
+
+        # Maybe add phonemes
+        if promonet.LATENT_PHONEME_SHORTCUT:
+            latents = torch.cat((latents, phonemes), dim=1)
+
+        # Maybe add augmentation ratio
+        if promonet.LATENT_RATIO_SHORTCUT:
+            latents = torch.cat(
+                (
+                    latents,
+                    ratios.repeat(latents.shape[2], 1, 1).permute(2, 1, 0)
+                ),
+                dim=1)
+
+        # Maybe add spectrogram
+        if promonet.SPECTROGRAM_ONLY:
+            latents = torch.cat((latents, spectrogram), dim=1)
+
+        # Maybe remove latents and keep other features
+        if promonet.VOCODER:
+            latents = latents[:, promonet.HIDDEN_CHANNELS:]
+
+        return latents
+
+    def prepare_features(
+        self,
+        phonemes,
+        pitch,
+        periodicity,
+        loudness,
+        spectrograms):
+        """Concatenate or replace input features"""
+        features = phonemes
+
+        # Maybe add pitch features
+        if promonet.PITCH_FEATURES:
+            if promonet.PITCH_EMBEDDING:
+                pitch = promonet.convert.hz_to_bins(pitch)
+                pitch_embeddings = self.pitch_embedding(pitch).permute(0, 2, 1)
+            else:
+                pitch_embeddings = pitch[:, None]
+            features = torch.cat((features, pitch_embeddings), dim=1)
+
+        # Maybe add loudness features
+        if promonet.LOUDNESS_FEATURES:
+            loudness = promonet.loudness.normalize(loudness)
+            features = torch.cat((features, loudness[:, None]), dim=1)
+
+        # Maybe add periodicity features
+        if promonet.PERIODICITY_FEATURES:
+            features = torch.cat((features, periodicity[:, None]), dim=1)
+
+        # Maybe just use the spectrogram
+        if promonet.SPECTROGRAM_ONLY:
+            features = spectrograms
+
+        return features
+
+    def slice(
+        self,
+        latents,
+        pitch,
+        periodicity,
+        loudness,
+        phonemes,
+        spectrograms,
+        spectrogram_lengths):
+        """Slice features during training for latent-to-waveform generator"""
+        slice_size = promonet.convert.samples_to_frames(promonet.CHUNK_SIZE)
+        latents, slice_indices = promonet.model.random_slice_segments(
+            latents,
+            spectrogram_lengths,
+            slice_size)
+
+        # Maybe slice loudness
+        if (
+            promonet.LOUDNESS_FEATURES and
+            promonet.LATENT_LOUDNESS_SHORTCUT
+        ):
+            loudness_slice = promonet.model.slice_segments(
+                loudness,
+                slice_indices,
+                slice_size)
+        else:
+            loudness_slice = None
+
+        # Maybe slice periodicity
+        if (
+            promonet.PERIODICITY_FEATURES and
+            promonet.LATENT_PERIODICITY_SHORTCUT
+        ):
+            periodicity_slice = promonet.model.slice_segments(
+                periodicity,
+                slice_indices,
+                slice_size)
+        else:
+            periodicity_slice = None
+
+        # Maybe slice pitch
+        if (
+            promonet.PITCH_FEATURES and
+            promonet.LATENT_PITCH_SHORTCUT
+        ):
+            pitch_slice = promonet.model.slice_segments(
+                pitch,
+                slice_indices,
+                slice_size)
+        else:
+            pitch_slice = None
+
+        # Maybe slice PPGs
+        if promonet.LATENT_PHONEME_SHORTCUT:
+            phoneme_slice = promonet.model.slice_segments(
+                phonemes,
+                slice_indices,
+                slice_size)
+        else:
+            phoneme_slice = None
+
+        # Slice spectral features
+        spectrogram_slice = promonet.model.slice_segments(
+            spectrograms,
+            slice_indices,
+            slice_size)
+
+        return (
+            latents,
+            pitch_slice,
+            periodicity_slice,
+            loudness_slice,
+            phoneme_slice,
+            spectrogram_slice,
+            slice_indices)
