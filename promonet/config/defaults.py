@@ -279,4 +279,4 @@ NUM_STEPS = 100000
 NUM_ADAPTATION_STEPS = 5000
 
 # Number of data loading worker threads
-NUM_WORKERS = 2
+NUM_WORKERS = 4
