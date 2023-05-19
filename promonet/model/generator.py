@@ -563,7 +563,8 @@ class Generator(torch.nn.Module):
                     prior
                 )
 
-                # TEMPORARY
+                # TEMPORARY - These stats get values of > 50 when VITS MAS is broken
+                #             and < 3 when it works
                 print(predicted_mean.max(), predicted_logstd.max())
 
             # Extract random segments for training decoder
