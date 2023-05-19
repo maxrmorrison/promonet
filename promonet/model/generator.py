@@ -1,6 +1,5 @@
 import math
 
-import monotonic_align
 import torch
 
 import promonet
@@ -416,7 +415,7 @@ class Generator(torch.nn.Module):
                         [1],
                         keepdim=True)
                     neg_cent = neg_cent1 + neg_cent2 + neg_cent3 + neg_cent4
-                    attention = monotonic_align.maximum_path(
+                    attention = promonet.model.monotonic_align.maximum_path(
                         neg_cent,
                         attention_mask.squeeze(1)
                     ).unsqueeze(1).detach()
@@ -562,10 +561,6 @@ class Generator(torch.nn.Module):
                     mask,
                     prior
                 )
-
-                # TEMPORARY - These stats get values of > 50 when VITS MAS is broken
-                #             and < 3 when it works
-                print(predicted_mean.max(), predicted_logstd.max())
 
             # Extract random segments for training decoder
             (

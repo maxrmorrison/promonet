@@ -5,5 +5,6 @@ from .modules import Snake
 from .vocoder import Vocoder
 from . import generator
 from . import modules
+from . import monotonic_align
 from . import spline
 from . import transformer
