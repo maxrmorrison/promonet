@@ -1,5 +1,5 @@
 from Cython.Build import cythonize
-from setuptools import find_packages, setup
+from setuptools import Extension, find_packages, setup
 
 import numpy as np
 
@@ -16,9 +16,13 @@ setup(
     author_email='maxrmorrison@gmail.com',
     url='https://github.com/maxrmorrison/promonet',
     ext_modules=cythonize(
-        ['promonet/model/monotonic_align/core.pyx'],
+        Extension(
+            'promonet.model.monotonic_align.monotonic_align',
+            sources=['promonet/model/monotonic_align/core.pyx'],
+            include_dirs=[np.get_include()]
+        ),
         compiler_directives={'language_level': '3'}),
-    include_dirs=[np.get_include(), 'monotonic_align'],
+    include_dirs=[np.get_include(), 'promonet/model/monotonic_align'],
     setup_requires=['numpy', 'cython'],
     install_requires=[
         'espnet',

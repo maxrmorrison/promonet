@@ -120,8 +120,8 @@ def train(
     # Create optimizers #
     #####################
 
-    discriminator_optimizer = torch.optim.AdamW(discriminators.parameters())
-    generator_optimizer = torch.optim.AdamW(generator.parameters())
+    discriminator_optimizer = promonet.OPTIMIZER(discriminators.parameters())
+    generator_optimizer = promonet.OPTIMIZER(generator.parameters())
 
     ##############################
     # Maybe load from checkpoint #

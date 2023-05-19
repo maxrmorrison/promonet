@@ -1,10 +1,11 @@
 import numpy as np
 import torch
-from .core import maximum_path_c
+
+from promonet.model.monotonic_align.monotonic_align import maximum_path_c
 
 
 def maximum_path(neg_cent, mask):
-  """Cython-optimized Monotonic Alignment Search (MAS)"""
+  """Cython optimized Monotonic Alignment Search (MAS)"""
   device = neg_cent.device
   dtype = neg_cent.dtype
   neg_cent = neg_cent.data.cpu().numpy().astype(np.float32)

@@ -145,7 +145,7 @@ class PhonemeEncoder(torch.nn.Module):
         channels,
         self.channels,
         1)
-    self.scale = math.sqrt(self.channels)
+    self.scale = math.sqrt(channels)
 
     # Speaker conditioning
     self.cond = torch.nn.Conv1d(
@@ -562,6 +562,9 @@ class Generator(torch.nn.Module):
                     mask,
                     prior
                 )
+
+                # TEMPORARY
+                print(predicted_mean.max(), predicted_logstd.max())
 
             # Extract random segments for training decoder
             (

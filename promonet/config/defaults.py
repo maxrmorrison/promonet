@@ -1,4 +1,7 @@
+import functools
 from pathlib import Path
+
+import torch
 
 
 ###############################################################################
@@ -283,3 +286,10 @@ NUM_ADAPTATION_STEPS = 5000
 
 # Number of data loading worker threads
 NUM_WORKERS = 4
+
+# Training optimizer
+OPTIMIZER = functools.partial(
+    torch.optim.AdamW,
+    lr=2e-4,
+    betas=(.8, .99),
+    eps=1e-9)
