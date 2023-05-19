@@ -18,3 +18,4 @@ runs/
 !runs/.gitkeep
 
 promonet/model/monotonic_align/core.c*
+promonet/model/monotonic_align/monotonic_align.c*
