@@ -278,11 +278,7 @@ def train(
                 spectrograms,
                 spectrogram_lengths)
 
-            # Convert to mels
-            mels = promonet.data.preprocess.spectrogram.linear_to_mel(
-                spectrograms)
-
-            with torch.cuda.amp.autocast():
+            with torch.autocast(device.type):
 
                 # Forward pass through generator
                 (
@@ -298,47 +294,48 @@ def train(
                     true_logstd
                 ) = generator(*generator_input)
 
-                with torch.cuda.amp.autocast(enabled=False):
+                # Convert to mels
+                mels = promonet.data.preprocess.spectrogram.linear_to_mel(
+                    spectrograms)
 
-                    # Slice segments for training discriminator
-                    segment_size = promonet.convert.samples_to_frames(
-                        promonet.CHUNK_SIZE)
+                # Slice segments for training discriminator
+                segment_size = promonet.convert.samples_to_frames(
+                    promonet.CHUNK_SIZE)
 
-                    # Slice spectral features
-                    mel_slices = promonet.model.slice_segments(
-                        mels,
-                        start_indices=slice_indices,
-                        segment_size=segment_size)
-                    spectrogram_slices = promonet.model.slice_segments(
-                        spectrograms,
-                        start_indices=slice_indices,
-                        segment_size=segment_size)
+                # Slice spectral features
+                mel_slices = promonet.model.slice_segments(
+                    mels,
+                    start_indices=slice_indices,
+                    segment_size=segment_size)
+                spectrogram_slices = promonet.model.slice_segments(
+                    spectrograms,
+                    start_indices=slice_indices,
+                    segment_size=segment_size)
 
-                    # Slice prosody
-                    indices, size = slice_indices, segment_size
-                    slice_fn = functools.partial(
-                        promonet.model.slice_segments,
-                        start_indices=indices,
-                        segment_size=size)
-                    pitch_slices = slice_fn(pitch, fill_value=pitch.mean())
-                    periodicity_slices = slice_fn(periodicity)
-                    loudness_slices = slice_fn(loudness, fill_value=loudness.min())
-                    if promonet.PPG_FEATURES:
-                        phoneme_slices = slice_fn(phonemes)
-                    else:
-                        phoneme_slices = None
+                # Slice prosody
+                indices, size = slice_indices, segment_size
+                slice_fn = functools.partial(
+                    promonet.model.slice_segments,
+                    start_indices=indices,
+                    segment_size=size)
+                pitch_slices = slice_fn(pitch, fill_value=pitch.mean())
+                periodicity_slices = slice_fn(periodicity)
+                loudness_slices = slice_fn(loudness, fill_value=loudness.min())
+                if promonet.PPG_FEATURES:
+                    phoneme_slices = slice_fn(phonemes)
+                else:
+                    phoneme_slices = None
 
-                    # Exit autocast context, as ComplexHalf type is not yet supported
-                    # See Github issue https://github.com/jaywalnut310/vits/issues/15
-                    # For progress, see https://github.com/pytorch/pytorch/issues/74537
-                    generated = generated.float()
-                    generated_mels = promonet.data.preprocess.spectrogram.from_audio(
-                        generated,
-                        True)
-                    audio = promonet.model.slice_segments(
-                        audio,
-                        slice_indices * promonet.HOPSIZE,
-                        promonet.CHUNK_SIZE)
+                # Compute mels of generated audio
+                generated_mels = promonet.data.preprocess.spectrogram.from_audio(
+                    generated,
+                    True)
+
+                # Slice ground truth audio
+                audio = promonet.model.slice_segments(
+                    audio,
+                    slice_indices * promonet.HOPSIZE,
+                    promonet.CHUNK_SIZE)
 
                 #######################
                 # Train discriminator #
@@ -355,7 +352,7 @@ def train(
                         phonemes=phoneme_slices,
                         ratios=ratios)
 
-                    with torch.cuda.amp.autocast(enabled=False):
+                    with torch.autocast(device.type, enabled=False):
 
                         # Get discriminator loss
                         (
@@ -378,7 +375,7 @@ def train(
             # Train generator #
             ###################
 
-            with torch.cuda.amp.autocast():
+            with torch.autocast(device.type):
 
                 if not promonet.TWO_STAGE_1:
                     (
@@ -399,7 +396,7 @@ def train(
                 # Generator losses #
                 ####################
 
-                with torch.cuda.amp.autocast(enabled=False):
+                with torch.autocast(device.type, enabled=False):
 
                     generator_losses = 0.
 

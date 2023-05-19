@@ -442,14 +442,13 @@ class Generator(torch.nn.Module):
 
         else:
 
-            durations = None
-
             if (
                 promonet.PPG_FEATURES or
                 promonet.SPECTROGRAM_ONLY or
                 promonet.TWO_STAGE
             ):
                 attention = None
+                durations = None
 
             else:
 
@@ -461,10 +460,10 @@ class Generator(torch.nn.Module):
                     reverse=True,
                     noise_scale=promonet.NOISE_SCALE_W_INFERENCE)
                 w = torch.exp(logw) * feature_mask
-                w_ceil = torch.ceil(w)
+                durations = torch.ceil(w)
 
                 # Get new frame resolution mask
-                y_lengths = torch.clamp_min(torch.sum(w_ceil, [1, 2]), 1).long()
+                y_lengths = torch.clamp_min(torch.sum(durations, [1, 2]), 1).long()
                 mask = torch.unsqueeze(
                     promonet.model.sequence_mask(y_lengths),
                     1
@@ -474,7 +473,7 @@ class Generator(torch.nn.Module):
                 attention_mask = torch.unsqueeze(
                     feature_mask, 2) * torch.unsqueeze(mask, -1)
                 attention = promonet.model.generate_path(
-                    w_ceil, attention_mask)
+                    durations, attention_mask)
 
                 # Expand sequence using predicted durations
                 predicted_mean = torch.matmul(

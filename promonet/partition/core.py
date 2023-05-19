@@ -5,7 +5,7 @@ VCTK
 ====
 * train - Primary training dataset
 * valid - Validation set of seen speakers for debugging and tensorboard
-    (10 examples)
+    (10 examples; 4-10 seconds)
 * train_adapt_{:02d} - Training dataset for speaker adaptation (10 speakers)
 * test_adapt_{:02d} - Test dataset for speaker adaptation
     (10 speakers; 10 examples per speaker; 4-10 seconds)
