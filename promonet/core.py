@@ -313,12 +313,8 @@ def generation_context(model):
     # Turn off gradient computation
     with torch.no_grad():
 
-        # Automatic mixed precision on GPU
-        if device_type == 'cuda':
-            with torch.autocast(device_type):
-                yield
-
-        else:
+        # Automatic mixed precision
+        with torch.autocast(device_type):
             yield
 
     # Prepare model for training
