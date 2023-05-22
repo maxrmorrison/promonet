@@ -256,10 +256,6 @@ def preprocess(
 
     with promonet.time.timer('features/phonemes'):
 
-        # Grapheme-to-phoneme
-        if not promonet.PPG_FEATURES and not promonet.SPECTROGRAM_ONLY:
-            _, features = pyfoal.g2p.from_text(text, to_indices=True)
-
         # Phonetic posteriorgrams
         if promonet.PPG_FEATURES or promonet.SPECTROGRAM_ONLY:
             features = promonet.data.preprocess.ppg.from_audio(
@@ -281,6 +277,11 @@ def preprocess(
             # Maybe stretch PPGs
             if grid is not None:
                 features = promonet.interpolate.ppgs(features, grid)
+
+        # Grapheme-to-phoneme
+        else:
+            _, features = pyfoal.g2p.from_text(text, to_indices=True)
+            target_pitch, periodicity, target_loudness = None, None, None
 
         features = features.to(device)[None]
 
