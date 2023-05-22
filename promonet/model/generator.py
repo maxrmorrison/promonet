@@ -123,23 +123,23 @@ class PhonemeEncoder(torch.nn.Module):
     super().__init__()
 
     channels = promonet.HIDDEN_CHANNELS
-    if promonet.PPG_FEATURES or promonet.SPECTROGRAM_ONLY:
+    if promonet.MODEL == 'vits':
+        self.input_layer = torch.nn.Embedding(
+            promonet.NUM_FEATURES,
+            channels)
+    else:
         self.input_layer = torch.nn.Conv1d(
             promonet.NUM_FEATURES,
             channels,
             promonet.KERNEL_SIZE,
             1,
             promonet.KERNEL_SIZE // 2)
-    else:
-        self.input_layer = torch.nn.Embedding(
-            promonet.NUM_FEATURES,
-            channels)
     self.encoder = promonet.model.transformer.Encoder(
         channels,
         promonet.FILTER_CHANNELS)
 
     self.channels = \
-        promonet.NUM_FFT // 2 + 1 if promonet.TWO_STAGE else 2 * channels
+        promonet.NUM_FFT // 2 + 1 if promonet.MODEL == 'two-stage' else 2 * channels
     self.projection = torch.nn.Conv1d(
         channels,
         self.channels,
@@ -155,7 +155,7 @@ class PhonemeEncoder(torch.nn.Module):
   def forward(self, features, feature_lengths):
     # Embed features
     embeddings = self.input_layer(features)
-    if not promonet.PPG_FEATURES and not promonet.SPECTROGRAM_ONLY:
+    if promonet.MODEL == 'vits':
         embeddings = embeddings.permute(0, 2, 1) * self.scale
 
     # Construct binary mask from lengths
@@ -168,7 +168,7 @@ class PhonemeEncoder(torch.nn.Module):
     # Compute mean and variance used for constructing the prior distribution
     stats = self.projection(embeddings) * mask
 
-    if promonet.TWO_STAGE:
+    if promonet.MODEL == 'two-stage':
         embeddings = stats
         mean, logstd = None, None
     else:
@@ -250,7 +250,7 @@ class Generator(torch.nn.Module):
         self.feature_encoder = PhonemeEncoder()
 
         # Text-to-duration predictor
-        if not promonet.PPG_FEATURES and not promonet.SPECTROGRAM_ONLY:
+        if promonet.MODEL == 'vits':
             self.dp = StochasticDurationPredictor(
                 promonet.HIDDEN_CHANNELS,
                 192,
@@ -259,9 +259,9 @@ class Generator(torch.nn.Module):
 
         # Vocoder
         latent_channels = promonet.ADDITIONAL_FEATURES_LATENT
-        if promonet.TWO_STAGE:
+        if promonet.MODEL == 'two-stage':
             latent_channels += promonet.NUM_FFT // 2 + 1
-        elif not promonet.VOCODER:
+        elif promonet.MODEL != 'vocoder':
             latent_channels += promonet.HIDDEN_CHANNELS
         self.vocoder = promonet.model.Vocoder(
             latent_channels,
@@ -287,7 +287,7 @@ class Generator(torch.nn.Module):
             promonet.SPEAKER_CHANNELS)
 
         # Separate speaker embeddings in two-stage models
-        if promonet.TWO_STAGE:
+        if promonet.MODEL == 'two-stage':
             self.speaker_embedding_vocoder = torch.nn.Embedding(
                 n_speakers,
                 promonet.SPEAKER_CHANNELS)
@@ -342,7 +342,7 @@ class Generator(torch.nn.Module):
         )
 
         # Use different speaker embedding for two-stage models
-        if promonet.TWO_STAGE:
+        if promonet.MODEL == 'two-stage':
             speaker_embeddings = self.speaker_embedding_vocoder(
                 speakers).unsqueeze(-1)
 
@@ -382,13 +382,9 @@ class Generator(torch.nn.Module):
         mask=None,
         prior=None):
         """Perform duration prediction from text"""
-        if self.training:
+        if promonet.MODEL == 'vits':
 
-            if promonet.PPG_FEATURES or promonet.SPECTROGRAM_ONLY:
-                attention = None
-                durations = None
-
-            else:
+            if self.training:
 
                 # Compute attention mask
                 attention_mask = feature_mask * mask.permute(0, 2, 1)
@@ -444,16 +440,6 @@ class Generator(torch.nn.Module):
                     attention.squeeze(1),
                     predicted_logstd.transpose(1, 2)).transpose(1, 2)
 
-        else:
-
-            if (
-                promonet.PPG_FEATURES or
-                promonet.SPECTROGRAM_ONLY or
-                promonet.TWO_STAGE
-            ):
-                attention = None
-                durations = None
-
             else:
 
                 # Predict durations from text
@@ -486,6 +472,11 @@ class Generator(torch.nn.Module):
                 predicted_logstd = torch.matmul(
                     attention.squeeze(1),
                     predicted_logstd.transpose(1, 2)).transpose(1, 2)
+
+        else:
+
+            attention = None
+            durations = None
 
         return durations, attention, predicted_mean, predicted_logstd, mask
 
@@ -533,7 +524,7 @@ class Generator(torch.nn.Module):
                 spectrogram_lengths,
                 spectrograms.size(2)).unsqueeze(1).to(spectrograms.dtype)
 
-            if promonet.TWO_STAGE:
+            if promonet.MODEL == 'two-stage':
                 latents = embeddings
                 prior = None
                 attention = None
@@ -612,7 +603,7 @@ class Generator(torch.nn.Module):
                 mask
             )
 
-            if promonet.TWO_STAGE:
+            if promonet.MODEL == 'two-stage':
 
                 # Two-stage does not use the flow, just the feature encoder
                 prior = None
@@ -721,13 +712,9 @@ class Generator(torch.nn.Module):
                 ),
                 dim=1)
 
-        # Maybe add spectrogram
-        if promonet.SPECTROGRAM_ONLY:
-            latents = torch.cat((latents, spectrogram), dim=1)
-
         # Maybe remove latents and keep other features
-        if promonet.VOCODER:
-            latents = latents[:, promonet.HIDDEN_CHANNELS:]
+        if promonet.MODEL == 'vocoder':
+            latents = spectrogram
 
         return latents
 
@@ -758,10 +745,6 @@ class Generator(torch.nn.Module):
         # Maybe add periodicity features
         if promonet.PERIODICITY_FEATURES:
             features = torch.cat((features, periodicity[:, None]), dim=1)
-
-        # Maybe just use the spectrogram
-        if promonet.SPECTROGRAM_ONLY:
-            features = spectrograms
 
         return features, pitch, loudness
 

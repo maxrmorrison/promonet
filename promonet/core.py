@@ -221,7 +221,7 @@ def preprocess(
 
     # Extract prosody features
     with promonet.time.timer('features/prosody'):
-        if promonet.PPG_FEATURES or promonet.SPECTROGRAM_ONLY:
+        if promonet.PPG_FEATURES:
             pitch, periodicity, loudness, _ = \
                 pysodic.from_audio(
                     audio,
@@ -257,7 +257,7 @@ def preprocess(
     with promonet.time.timer('features/phonemes'):
 
         # Phonetic posteriorgrams
-        if promonet.PPG_FEATURES or promonet.SPECTROGRAM_ONLY:
+        if promonet.PPG_FEATURES:
             features = promonet.data.preprocess.ppg.from_audio(
                 audio,
                 sample_rate,

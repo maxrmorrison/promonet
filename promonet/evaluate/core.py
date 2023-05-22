@@ -151,7 +151,7 @@ def speaker(
         files['reconstructed'],
         text_files=text_files,
         checkpoint=checkpoint,
-        gpu=gpu)
+        gpu=None if promonet.MODEL in ['psola', 'world'] else gpu)
 
 
     # Copy unchanged prosody features
@@ -177,7 +177,13 @@ def speaker(
             output_file.parent.mkdir(exist_ok=True, parents=True)
             shutil.copyfile(input_file, output_file)
 
-    if promonet.PPG_FEATURES:
+    # We only perform prosody evaluation on models that accurately reconstruct
+    # and edit prosody
+    if promonet.MODEL == 'vits':
+
+        results = {}
+
+    else:
 
         ##################
         # Pitch shifting #
@@ -239,7 +245,7 @@ def speaker(
                 files[key],
                 target_pitch_files=pitch_files,
                 checkpoint=checkpoint,
-                gpu=gpu)
+                gpu=None if promonet.MODEL in ['psola', 'world'] else gpu)
 
         ###################
         # Time stretching #
@@ -345,7 +351,7 @@ def speaker(
                 files[key],
                 grid_files=grid_files,
                 checkpoint=checkpoint,
-                gpu=gpu)
+                gpu=None if promonet.MODEL in ['psola', 'world'] else gpu)
 
         ####################
         # Loudness scaling #
@@ -404,7 +410,7 @@ def speaker(
                 files[key],
                 target_loudness_files=loudness_files,
                 checkpoint=checkpoint,
-                gpu=gpu)
+                gpu=None if promonet.MODEL in ['psola', 'world'] else gpu)
 
     ############################
     # Speech -> representation #
@@ -437,10 +443,7 @@ def speaker(
             promonet.WINDOW_SIZE / promonet.SAMPLE_RATE,
             gpu=gpu)
 
-    # We only compute prosody metrics on models that use PPG features, as
-    # text-to-speech models using phoneme features have no ground truth
-    # pitch, duration, or loudness
-    if promonet.PPG_FEATURES:
+    if promonet.MODEL != 'vits':
 
         ############
         # Evaluate #
@@ -509,21 +512,21 @@ def speaker(
                 # Reset prosody metrics
                 file_metrics.reset()
 
-        # Get the total number of samples we have generated
-        files = subjective_directory.rglob('*.wav')
-        results['num_samples'] = sum(
-            [file.stat().st_size for file in files]) // 4
-        results['num_frames'] = promonet.convert.samples_to_frames(
-            results['num_samples'])
-
         # Get results for this speaker
         results['objective']['average'] = {
             key: value() for key, value in speaker_metrics.items()}
 
-        # Print results and save to disk
-        print(results)
-        with open(objective_directory / 'results.json', 'w') as file:
-            json.dump(results, file, indent=4, sort_keys=True)
+    # Get the total number of samples we have generated
+    files = subjective_directory.rglob('*.wav')
+    results['num_samples'] = sum(
+        [file.stat().st_size for file in files]) // 4
+    results['num_frames'] = promonet.convert.samples_to_frames(
+        results['num_samples'])
+
+    # Print results and save to disk
+    print(results)
+    with open(objective_directory / 'results.json', 'w') as file:
+        json.dump(results, file, indent=4, sort_keys=True)
 
 
 def datasets(datasets, checkpoint=None, gpus=None):
@@ -601,7 +604,7 @@ def datasets(datasets, checkpoint=None, gpus=None):
             dataset /
             promonet.CONFIG)
         results = {'num_samples': 0, 'num_frames': 0}
-        if promonet.PPG_FEATURES:
+        if promonet.MODEL != 'vits':
             results['prosody'] = {key: value() for key, value in metrics.items()}
         for file in results_directory.rglob('results.json'):
             with open(file) as file:

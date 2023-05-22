@@ -40,14 +40,14 @@ def collate(batch):
     spectrogram_lengths = torch.empty((len(batch),), dtype=torch.long)
 
     # Initialize padded tensors
-    if promonet.PPG_FEATURES or promonet.SPECTROGRAM_ONLY:
-        padded_phonemes = torch.zeros(
-            (len(batch), promonet.PPG_CHANNELS, max_length_phonemes),
-            dtype=torch.float)
-    else:
+    if promonet.MODEL == 'vits':
         padded_phonemes = torch.zeros(
             (len(batch), max_length_phonemes),
             dtype=torch.long)
+    else:
+        padded_phonemes = torch.zeros(
+            (len(batch), promonet.PPG_CHANNELS, max_length_phonemes),
+            dtype=torch.float)
     padded_pitch = torch.zeros(
         (len(batch), max_length_frames),
         dtype=torch.float)
@@ -71,10 +71,10 @@ def collate(batch):
             lengths[index].item())
 
         # Prepare phoneme features
-        if promonet.PPG_FEATURES or promonet.SPECTROGRAM_ONLY:
-            padded_phonemes[i, :, :feature_lengths[i]] = phonemes[index]
-        else:
+        if promonet.MODEl == 'vits':
             padded_phonemes[i, :feature_lengths[i]] = phonemes[index]
+        else:
+            padded_phonemes[i, :, :feature_lengths[i]] = phonemes[index]
 
         # Prepare prosody features
         padded_pitch[i, :spectrogram_lengths[i]] = pitch[index]

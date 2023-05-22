@@ -46,7 +46,7 @@ def generator(discriminator_outputs):
 
 def kl(prior, true_logstd, predicted_mean, predicted_logstd, latent_mask):
     """KL-divergence loss"""
-    if promonet.VOCODER:
+    if promonet.MODEL == 'vocoder':
         return 0.
     divergence = predicted_logstd - true_logstd - 0.5 + \
         0.5 * ((prior - predicted_mean) ** 2) * \

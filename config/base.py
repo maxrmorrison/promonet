@@ -6,6 +6,10 @@ CONFIG = 'base'
 # Loudness features
 LOUDNESS_FEATURES = True
 
+# The model to use
+# One of ['promonet', 'psola', 'vits', 'world'].
+MODEL = 'promonet'
+
 # Periodicity conditioning
 PERIODICITY_FEATURES = True
 
