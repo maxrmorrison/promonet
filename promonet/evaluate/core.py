@@ -141,11 +141,18 @@ def speaker(
     files['reconstructed'] = sorted([
         subjective_directory / f'{stem}-original-100.wav'
         for stem in test_stems])
+    text_files = [
+        original_objective_directory /
+        file.parent.name /
+        f'{file.stem}-text.txt'
+        for file in files['original']]
     promonet.from_files_to_files(
         files['original'],
         files['reconstructed'],
+        text_files=text_files,
         checkpoint=checkpoint,
         gpu=gpu)
+
 
     # Copy unchanged prosody features
     for file in files['reconstructed']:
@@ -170,230 +177,234 @@ def speaker(
             output_file.parent.mkdir(exist_ok=True, parents=True)
             shutil.copyfile(input_file, output_file)
 
-    ##################
-    # Pitch shifting #
-    ##################
+    if promonet.PPG_FEATURES:
 
-    original_pitch_files = list(
-        original_objective_directory.rglob('*-original-100-pitch.pt'))
-    for ratio in RATIOS:
+        ##################
+        # Pitch shifting #
+        ##################
 
-        # Shift original pitch and save to disk
-        for original_pitch_file in original_pitch_files:
-            stem = original_pitch_file.stem[:6]
-            key = f'shifted-{int(ratio * 100):03d}'
-            pitch = ratio * torch.load(original_pitch_file)
-            pitch[pitch < promonet.FMIN] = promonet.FMIN
-            pitch[pitch > promonet.FMAX] = promonet.FMAX
-            shifted_pitch_file = (
-                original_objective_directory /
-                original_pitch_file.parent.name /
-                f'{stem}-{key}-pitch.pt')
-            shifted_pitch_file.parent.mkdir(exist_ok=True, parents=True)
-            torch.save(pitch, shifted_pitch_file)
+        original_pitch_files = list(
+            original_objective_directory.rglob('*-original-100-pitch.pt'))
+        for ratio in RATIOS:
 
-            # Copy unchanged prosody features
-            features = [
-                'loudness',
-                'periodicity',
-                'phonemes',
-                'ppg',
-                'text',
-                'voicing']
-            for feature in features:
-                suffix = '.txt' if feature == 'text' else '.pt'
-                input_file = (
-                    original_pitch_file.parent /
-                    original_pitch_file.name.replace(
-                        key, 'original-100').replace(
-                        'pitch', feature)).with_suffix(suffix)
-                output_file = (
-                    shifted_pitch_file.parent /
-                    shifted_pitch_file.name.replace(
-                        'pitch', feature)).with_suffix(suffix)
-                output_file.parent.mkdir(exist_ok=True, parents=True)
-                shutil.copyfile(input_file, output_file)
+            # Shift original pitch and save to disk
+            for original_pitch_file in original_pitch_files:
+                stem = original_pitch_file.stem[:6]
+                key = f'shifted-{int(ratio * 100):03d}'
+                pitch = ratio * torch.load(original_pitch_file)
+                pitch[pitch < promonet.FMIN] = promonet.FMIN
+                pitch[pitch > promonet.FMAX] = promonet.FMAX
+                shifted_pitch_file = (
+                    original_objective_directory /
+                    original_pitch_file.parent.name /
+                    f'{stem}-{key}-pitch.pt')
+                shifted_pitch_file.parent.mkdir(exist_ok=True, parents=True)
+                torch.save(pitch, shifted_pitch_file)
 
-        # Get filenames
-        files[key] = [
-            file.parent / f'{file.stem[:6]}-{key}.wav'
-            for file in files['reconstructed']]
-        pitch_files = [
-            original_objective_directory/
-            file.parent.name /
-            f'{file.stem[:6]}-{key}-pitch.pt'
-            for file in files['reconstructed']]
+                # Copy unchanged prosody features
+                features = [
+                    'loudness',
+                    'periodicity',
+                    'phonemes',
+                    'ppg',
+                    'text',
+                    'voicing']
+                for feature in features:
+                    suffix = '.txt' if feature == 'text' else '.pt'
+                    input_file = (
+                        original_pitch_file.parent /
+                        original_pitch_file.name.replace(
+                            key, 'original-100').replace(
+                            'pitch', feature)).with_suffix(suffix)
+                    output_file = (
+                        shifted_pitch_file.parent /
+                        shifted_pitch_file.name.replace(
+                            'pitch', feature)).with_suffix(suffix)
+                    output_file.parent.mkdir(exist_ok=True, parents=True)
+                    shutil.copyfile(input_file, output_file)
 
-        # Generate
-        promonet.from_files_to_files(
-            files['original'],
-            files[key],
-            target_pitch_files=pitch_files,
-            checkpoint=checkpoint,
-            gpu=gpu)
+            # Get filenames
+            files[key] = [
+                file.parent / f'{file.stem[:6]}-{key}.wav'
+                for file in files['reconstructed']]
+            pitch_files = [
+                original_objective_directory/
+                file.parent.name /
+                f'{file.stem[:6]}-{key}-pitch.pt'
+                for file in files['reconstructed']]
 
-    ###################
-    # Time stretching #
-    ###################
+            # Generate
+            promonet.from_files_to_files(
+                files['original'],
+                files[key],
+                target_pitch_files=pitch_files,
+                checkpoint=checkpoint,
+                gpu=gpu)
 
-    original_alignment_files = sorted(
-        file for file in
-        original_objective_directory.rglob('*-original-100-alignment.TextGrid'))
-    for ratio in RATIOS:
-        key = f'stretched-{int(ratio * 100):03d}'
+        ###################
+        # Time stretching #
+        ###################
 
-        # Stretch original alignment and save to disk
-        for original_alignment_file in original_alignment_files:
+        original_alignment_files = sorted(
+            file for file in original_objective_directory.rglob(
+                '*-original-100-alignment.TextGrid'))
+        for ratio in RATIOS:
+            key = f'stretched-{int(ratio * 100):03d}'
 
-            # Load alignment
-            alignment = pypar.Alignment(original_alignment_file)
+            # Stretch original alignment and save to disk
+            for original_alignment_file in original_alignment_files:
 
-            # Interpolate voiced regions
-            interpolated = pyfoal.interpolate.voiced(alignment, ratio)
-            grid = promonet.interpolate.grid.from_alignments(
-                alignment,
-                interpolated)
+                # Load alignment
+                alignment = pypar.Alignment(original_alignment_file)
 
-            # Save alignment to disk
-            grid_file = (
-                original_objective_directory /
-                original_alignment_file.parent.name /
-                f'{original_alignment_file.stem[:6]}-{key}-grid.pt')
-            grid_file.parent.mkdir(exist_ok=True, parents=True)
-            torch.save(grid, grid_file)
+                # Interpolate voiced regions
+                interpolated = pyfoal.interpolate.voiced(alignment, ratio)
+                grid = promonet.interpolate.grid.from_alignments(
+                    alignment,
+                    interpolated)
 
-            # Stretch and save other prosody features
-            features = [
-                'loudness',
-                'periodicity',
-                'phonemes',
-                'pitch',
-                'ppg',
-                'voicing']
-            size = None
-            for feature in features:
+                # Save alignment to disk
+                grid_file = (
+                    original_objective_directory /
+                    original_alignment_file.parent.name /
+                    f'{original_alignment_file.stem[:6]}-{key}-grid.pt')
+                grid_file.parent.mkdir(exist_ok=True, parents=True)
+                torch.save(grid, grid_file)
+
+                # Stretch and save other prosody features
+                features = [
+                    'loudness',
+                    'periodicity',
+                    'phonemes',
+                    'pitch',
+                    'ppg',
+                    'voicing']
+                size = None
+                for feature in features:
+                    input_file = (
+                        grid_file.parent /
+                        grid_file.name.replace(
+                            key, 'original-100').replace('grid', feature))
+                    output_file = (
+                        grid_file.parent /
+                        grid_file.name.replace('grid', feature))
+                    original_feature = torch.load(input_file)
+                    if size is None:
+                        size = original_feature.shape[-1]
+                    if feature in ['loudness', 'periodicity']:
+                        stretched_feature = promonet.interpolate.grid_sample(
+                            original_feature.squeeze(),
+                            grid.squeeze(),
+                            'linear')[None]
+                    elif feature in ['phonemes', 'voicing']:
+                        stretched_feature = promonet.interpolate.grid_sample(
+                            original_feature.squeeze(),
+                            grid.squeeze(),
+                            'nearest')[None]
+                    elif feature == 'ppg':
+                        mode = promonet.PPG_INTERP_METHOD
+                        original_feature = torch.nn.functional.interpolate(
+                            original_feature[None],
+                            size=size,
+                            mode=mode,
+                            align_corners=None if mode == 'nearest' else False
+                        )[0]
+                        stretched_feature = promonet.interpolate.ppgs(
+                            original_feature.squeeze(),
+                            grid.squeeze())
+                    elif feature == 'pitch':
+                        stretched_feature = promonet.interpolate.pitch(
+                            original_feature.squeeze(),
+                            grid.squeeze())[None]
+                    torch.save(stretched_feature, output_file)
+
+                # Copy text
                 input_file = (
                     grid_file.parent /
                     grid_file.name.replace(
-                        key, 'original-100').replace('grid', feature))
-                output_file = \
-                    grid_file.parent / grid_file.name.replace('grid', feature)
-                original_feature = torch.load(input_file)
-                if size is None:
-                    size = original_feature.shape[-1]
-                if feature in ['loudness', 'periodicity']:
-                    stretched_feature = promonet.interpolate.grid_sample(
-                        original_feature.squeeze(),
-                        grid.squeeze(),
-                        'linear')[None]
-                elif feature in ['phonemes', 'voicing']:
-                    stretched_feature = promonet.interpolate.grid_sample(
-                        original_feature.squeeze(),
-                        grid.squeeze(),
-                        'nearest')[None]
-                elif feature == 'ppg':
-                    mode = promonet.PPG_INTERP_METHOD
-                    original_feature = torch.nn.functional.interpolate(
-                        original_feature[None],
-                        size=size,
-                        mode=mode,
-                        align_corners=None if mode == 'nearest' else False)[0]
-                    stretched_feature = promonet.interpolate.ppgs(
-                        original_feature.squeeze(),
-                        grid.squeeze())
-                elif feature == 'pitch':
-                    stretched_feature = promonet.interpolate.pitch(
-                        original_feature.squeeze(),
-                        grid.squeeze())[None]
-                torch.save(stretched_feature, output_file)
-
-            # Copy text
-            input_file = (
-                grid_file.parent /
-                grid_file.name.replace(
-                    key, 'original-100').replace(
-                    'grid', 'text')).with_suffix('.txt')
-            output_file = (
-                grid_file.parent /
-                grid_file.name.replace('grid', 'text')).with_suffix('.txt')
-            shutil.copyfile(input_file, output_file)
-
-        # Get filenames
-        files[key] = [
-            file.parent / f'{file.stem[:6]}-{key}.wav'
-            for file in files['reconstructed']]
-        grid_files = [
-            original_objective_directory /
-            file.parent.name /
-            f'{file.stem[:6]}-{key}-grid.pt'
-            for file in files['reconstructed']]
-
-        # Generate
-        promonet.from_files_to_files(
-            files['original'],
-            files[key],
-            grid_files=grid_files,
-            checkpoint=checkpoint,
-            gpu=gpu)
-
-    ####################
-    # Loudness scaling #
-    ####################
-
-    original_loudness_files = sorted(list(
-        original_objective_directory.rglob('*-original-100-loudness.pt')))
-    for ratio in RATIOS:
-        key = f'scaled-{int(ratio * 100):03d}'
-
-        # Scale original loudness and save to disk
-        for original_loudness_file in original_loudness_files:
-            loudness = (
-                10 * torch.log2(torch.tensor(ratio)) +
-                torch.load(original_loudness_file))
-            scaled_loudness_file = (
-                original_objective_directory /
-                original_loudness_file.parent.name /
-                f'{original_loudness_file.stem[:6]}-{key}-loudness.pt')
-            torch.save(loudness, scaled_loudness_file)
-
-            # Copy unchanged prosody features
-            features = [
-                'periodicity',
-                'phonemes',
-                'pitch',
-                'ppg',
-                'text',
-                'voicing']
-            for feature in features:
-                suffix = '.txt' if feature == 'text' else '.pt'
-                input_file = (
-                    original_loudness_file.parent /
-                    original_loudness_file.name.replace(
                         key, 'original-100').replace(
-                        'loudness', feature)).with_suffix(suffix)
+                        'grid', 'text')).with_suffix('.txt')
                 output_file = (
-                    scaled_loudness_file.parent /
-                    scaled_loudness_file.name.replace(
-                        'loudness', feature)).with_suffix(suffix)
+                    grid_file.parent /
+                    grid_file.name.replace('grid', 'text')).with_suffix('.txt')
                 shutil.copyfile(input_file, output_file)
 
-        # Get filenames
-        files[key] = [
-            file.parent / f'{file.stem[:6]}-{key}.wav'
-            for file in files['reconstructed']]
-        loudness_files = [
-            original_objective_directory /
-            file.parent.name /
-            f'{file.stem[:6]}-{key}-loudness.pt'
-            for file in files['reconstructed']]
+            # Get filenames
+            files[key] = [
+                file.parent / f'{file.stem[:6]}-{key}.wav'
+                for file in files['reconstructed']]
+            grid_files = [
+                original_objective_directory /
+                file.parent.name /
+                f'{file.stem[:6]}-{key}-grid.pt'
+                for file in files['reconstructed']]
 
-        # Generate
-        promonet.from_files_to_files(
-            files['original'],
-            files[key],
-            target_loudness_files=loudness_files,
-            checkpoint=checkpoint,
-            gpu=gpu)
+            # Generate
+            promonet.from_files_to_files(
+                files['original'],
+                files[key],
+                grid_files=grid_files,
+                checkpoint=checkpoint,
+                gpu=gpu)
+
+        ####################
+        # Loudness scaling #
+        ####################
+
+        original_loudness_files = sorted(list(
+            original_objective_directory.rglob('*-original-100-loudness.pt')))
+        for ratio in RATIOS:
+            key = f'scaled-{int(ratio * 100):03d}'
+
+            # Scale original loudness and save to disk
+            for original_loudness_file in original_loudness_files:
+                loudness = (
+                    10 * torch.log2(torch.tensor(ratio)) +
+                    torch.load(original_loudness_file))
+                scaled_loudness_file = (
+                    original_objective_directory /
+                    original_loudness_file.parent.name /
+                    f'{original_loudness_file.stem[:6]}-{key}-loudness.pt')
+                torch.save(loudness, scaled_loudness_file)
+
+                # Copy unchanged prosody features
+                features = [
+                    'periodicity',
+                    'phonemes',
+                    'pitch',
+                    'ppg',
+                    'text',
+                    'voicing']
+                for feature in features:
+                    suffix = '.txt' if feature == 'text' else '.pt'
+                    input_file = (
+                        original_loudness_file.parent /
+                        original_loudness_file.name.replace(
+                            key, 'original-100').replace(
+                            'loudness', feature)).with_suffix(suffix)
+                    output_file = (
+                        scaled_loudness_file.parent /
+                        scaled_loudness_file.name.replace(
+                            'loudness', feature)).with_suffix(suffix)
+                    shutil.copyfile(input_file, output_file)
+
+            # Get filenames
+            files[key] = [
+                file.parent / f'{file.stem[:6]}-{key}.wav'
+                for file in files['reconstructed']]
+            loudness_files = [
+                original_objective_directory /
+                file.parent.name /
+                f'{file.stem[:6]}-{key}-loudness.pt'
+                for file in files['reconstructed']]
+
+            # Generate
+            promonet.from_files_to_files(
+                files['original'],
+                files[key],
+                target_loudness_files=loudness_files,
+                checkpoint=checkpoint,
+                gpu=gpu)
 
     ############################
     # Speech -> representation #
@@ -426,87 +437,93 @@ def speaker(
             promonet.WINDOW_SIZE / promonet.SAMPLE_RATE,
             gpu=gpu)
 
-    ############
-    # Evaluate #
-    ############
+    # We only compute prosody metrics on models that use PPG features, as
+    # text-to-speech models using phoneme features have no ground truth
+    # pitch, duration, or loudness
+    if promonet.PPG_FEATURES:
 
-    speaker_metrics = default_metrics(gpus)
-    results = {'objective': {'raw': {}}}
-    for key, value in files.items():
-        results['objective']['raw'][key] = []
+        ############
+        # Evaluate #
+        ############
 
-        for file in value:
+        speaker_metrics = default_metrics(gpus)
+        results = {'objective': {'raw': {}}}
+        for key, value in files.items():
+            results['objective']['raw'][key] = []
 
-            # Get prosody metrics
-            file_metrics = promonet.evaluate.Metrics(gpu)
+            for file in value:
 
-            # Get target filepath
-            target_prefix = \
-                original_objective_directory / file.parent.name / file.stem
+                # Get prosody metrics
+                file_metrics = promonet.evaluate.Metrics(gpu)
 
-            # Get predicted filepath
-            predicted_prefix = \
-                objective_directory / file.parent.name / file.stem
+                # Get target filepath
+                target_prefix = \
+                    original_objective_directory / file.parent.name / file.stem
 
-            # Update metrics
-            prosody_args = (
-                torch.load(f'{predicted_prefix}-pitch.pt'),
-                torch.load(f'{predicted_prefix}-periodicity.pt'),
-                torch.load(f'{predicted_prefix}-loudness.pt'),
-                torch.load(f'{predicted_prefix}-voicing.pt'),
-                torch.load(f'{target_prefix}-pitch.pt'),
-                torch.load(f'{target_prefix}-periodicity.pt'),
-                torch.load(f'{target_prefix}-loudness.pt'),
-                torch.load(f'{target_prefix}-voicing.pt'),
-                torch.load(f'{predicted_prefix}-phonemes.pt'),
-                torch.load(f'{target_prefix}-phonemes.pt'))
+                # Get predicted filepath
+                predicted_prefix = \
+                    objective_directory / file.parent.name / file.stem
 
-            # Get predicted PPGs
-            size = prosody_args[0].shape[-1]
-            mode = promonet.PPG_INTERP_METHOD
-            ppg_model = (
-                '' if promonet.PPG_MODEL is None else
-                f'-{promonet.PPG_MODEL}')
-            predicted_ppgs = torch.nn.functional.interpolate(
-                torch.load(f'{predicted_prefix}-ppg{ppg_model}.pt')[None],
-                size=size,
-                mode=mode,
-                align_corners=None if mode == 'nearest' else False)[0]
+                # Update metrics
+                prosody_args = (
+                    torch.load(f'{predicted_prefix}-pitch.pt'),
+                    torch.load(f'{predicted_prefix}-periodicity.pt'),
+                    torch.load(f'{predicted_prefix}-loudness.pt'),
+                    torch.load(f'{predicted_prefix}-voicing.pt'),
+                    torch.load(f'{target_prefix}-pitch.pt'),
+                    torch.load(f'{target_prefix}-periodicity.pt'),
+                    torch.load(f'{target_prefix}-loudness.pt'),
+                    torch.load(f'{target_prefix}-voicing.pt'),
+                    torch.load(f'{predicted_prefix}-phonemes.pt'),
+                    torch.load(f'{target_prefix}-phonemes.pt'))
 
-            # Get target PPGs
-            target_ppgs = torch.nn.functional.interpolate(
-                torch.load(f'{target_prefix}-ppg{ppg_model}.pt')[None],
-                size=size,
-                mode=mode,
-                align_corners=None if mode == 'nearest' else False)[0]
+                # Get predicted PPGs
+                size = prosody_args[0].shape[-1]
+                mode = promonet.PPG_INTERP_METHOD
+                ppg_model = (
+                    '' if promonet.PPG_MODEL is None else
+                    f'-{promonet.PPG_MODEL}')
+                predicted_ppgs = torch.nn.functional.interpolate(
+                    torch.load(f'{predicted_prefix}-ppg{ppg_model}.pt')[None],
+                    size=size,
+                    mode=mode,
+                    align_corners=None if mode == 'nearest' else False)[0]
 
-            ppg_args = (predicted_ppgs, target_ppgs)
-            condition = '-'.join(target_prefix.stem.split('-')[1:3])
-            metrics[condition].update(prosody_args, ppg_args)
-            speaker_metrics[condition].update(prosody_args, ppg_args)
-            file_metrics.update(prosody_args, ppg_args)
+                # Get target PPGs
+                target_ppgs = torch.nn.functional.interpolate(
+                    torch.load(f'{target_prefix}-ppg{ppg_model}.pt')[None],
+                    size=size,
+                    mode=mode,
+                    align_corners=None if mode == 'nearest' else False)[0]
 
-            # Get results for this file
-            results['objective']['raw'][key].append(
-                (file.stem, file_metrics()))
+                ppg_args = (predicted_ppgs, target_ppgs)
+                condition = '-'.join(target_prefix.stem.split('-')[1:3])
+                metrics[condition].update(prosody_args, ppg_args)
+                speaker_metrics[condition].update(prosody_args, ppg_args)
+                file_metrics.update(prosody_args, ppg_args)
 
-            # Reset prosody metrics
-            file_metrics.reset()
+                # Get results for this file
+                results['objective']['raw'][key].append(
+                    (file.stem, file_metrics()))
 
-    # Get the total number of samples we have generated
-    files = subjective_directory.rglob('*.wav')
-    results['num_samples'] = sum([file.stat().st_size for file in files]) // 4
-    results['num_frames'] = promonet.convert.samples_to_frames(
-        results['num_samples'])
+                # Reset prosody metrics
+                file_metrics.reset()
 
-    # Get results for this speaker
-    results['objective']['average'] = {
-        key: value() for key, value in speaker_metrics.items()}
+        # Get the total number of samples we have generated
+        files = subjective_directory.rglob('*.wav')
+        results['num_samples'] = sum(
+            [file.stat().st_size for file in files]) // 4
+        results['num_frames'] = promonet.convert.samples_to_frames(
+            results['num_samples'])
 
-    # Print results and save to disk
-    print(results)
-    with open(objective_directory / 'results.json', 'w') as file:
-        json.dump(results, file, indent=4, sort_keys=True)
+        # Get results for this speaker
+        results['objective']['average'] = {
+            key: value() for key, value in speaker_metrics.items()}
+
+        # Print results and save to disk
+        print(results)
+        with open(objective_directory / 'results.json', 'w') as file:
+            json.dump(results, file, indent=4, sort_keys=True)
 
 
 def datasets(datasets, checkpoint=None, gpus=None):
@@ -583,10 +600,9 @@ def datasets(datasets, checkpoint=None, gpus=None):
             'objective' /
             dataset /
             promonet.CONFIG)
-        results = {
-            'num_samples': 0,
-            'num_frames': 0,
-            'prosody': {key: value() for key, value in metrics.items()}}
+        results = {'num_samples': 0, 'num_frames': 0}
+        if promonet.PPG_FEATURES:
+            results['prosody'] = {key: value() for key, value in metrics.items()}
         for file in results_directory.rglob('results.json'):
             with open(file) as file:
                 result = json.load(file)

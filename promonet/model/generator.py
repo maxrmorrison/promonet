@@ -424,12 +424,17 @@ class Generator(torch.nn.Module):
                 w = attention.sum(2)
 
                 # Predict durations from text
-                durations = self.dp(
-                    embeddings,
-                    feature_mask,
-                    w,
-                    g=speaker_embeddings)
-                durations = durations / torch.sum(feature_mask)
+                try:
+                    durations = self.dp(
+                        embeddings,
+                        feature_mask,
+                        w,
+                        g=speaker_embeddings)
+                    durations = durations / torch.sum(feature_mask)
+                except Exception as error:
+                    print(error)
+                    import pdb; pdb.set_trace()
+                    pass
 
                 # Expand sequence using predicted durations
                 predicted_mean = torch.matmul(

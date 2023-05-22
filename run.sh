@@ -27,5 +27,5 @@ python -m promonet.train --config config/conddisc-condgen-augment.py --gpus $1
 # python -m promonet.train --config config/vits.py --gpus $1
 
 # DSP-based baseline evaluations
-python -m promonet.evaluate --config config/psola.py
-python -m promonet.evaluate --config config/world.py
+python -m promonet.evaluate --config config/psola.py --gpus $1
+python -m promonet.evaluate --config config/world.py --gpus $1
