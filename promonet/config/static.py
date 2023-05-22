@@ -44,16 +44,12 @@ TWO_STAGE_2 = False
 # Number of input features to the generator
 NUM_FEATURES = (
     len(pyfoal.load.phonemes())
-    if not promonet.PPG_FEATURES
-    and not promonet.SPECTROGRAM_ONLY else (
+    if not promonet.PPG_FEATURES else (
         promonet.LOUDNESS_FEATURES +
         promonet.PERIODICITY_FEATURES +
         promonet.PITCH_FEATURES * (
             promonet.PITCH_EMBEDDING_SIZE if promonet.PITCH_EMBEDDING else 1) +
-        (
-            (promonet.NUM_FFT // 2 + 1) if promonet.SPECTROGRAM_ONLY else
-            promonet.PPG_FEATURES * promonet.PPG_CHANNELS
-        )
+        promonet.PPG_FEATURES * promonet.PPG_CHANNELS
     )
 )
 
@@ -74,7 +70,7 @@ ADDITIONAL_FEATURES_LATENT = (
     promonet.LATENT_PERIODICITY_SHORTCUT +
     promonet.LATENT_PHONEME_SHORTCUT * promonet.PPG_CHANNELS +
     promonet.LATENT_RATIO_SHORTCUT +
-    promonet.SPECTROGRAM_ONLY * (promonet.NUM_FFT // 2 + 1))
+    (promonet.MODEL == 'vocoder') * (promonet.NUM_FFT // 2 + 1))
 
 
 ###############################################################################
@@ -83,5 +79,4 @@ ADDITIONAL_FEATURES_LATENT = (
 
 
 # Global input channels
-GLOBAL_CHANNELS = promonet.SPEAKER_CHANNELS + (
-    promonet.AUGMENT_PITCH and not promonet.SPECTROGRAM_ONLY)
+GLOBAL_CHANNELS = promonet.SPEAKER_CHANNELS + promonet.AUGMENT_PITCH

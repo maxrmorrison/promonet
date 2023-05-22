@@ -39,6 +39,10 @@ LATENT_RATIO_SHORTCUT = True
 # Loudness features
 LOUDNESS_FEATURES = True
 
+# The model to use
+# One of ['promonet', 'psola', 'vits', 'world'].
+MODEL = 'vocoder'
+
 # Periodicity conditioning
 PERIODICITY_FEATURES = True
 
@@ -47,6 +51,3 @@ PITCH_FEATURES = True
 
 # Phonemic posteriorgram conditioning
 PPG_FEATURES = True
-
-# Whether to omit latent generation
-VOCODER = True

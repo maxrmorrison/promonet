@@ -10,7 +10,7 @@ import torch
 
 
 # Configuration name
-CONFIG = 'promonet'
+CONFIG = 'vits'
 
 
 ###############################################################################
@@ -203,9 +203,9 @@ KERNEL_SIZE = 3
 # (Negative) slope of leaky ReLU activations
 LRELU_SLOPE = .1
 
-# The model to use for evaluation.
-# One of ['promonet', 'psola', 'world].
-MODEL = 'promonet'
+# The model to use
+# One of ['promonet', 'psola', 'vits', 'world'].
+MODEL = 'vits'
 
 # Whether to use the multi-resolution spectrogram discriminator from UnivNet
 MULTI_RESOLUTION_DISCRIMINATOR = False

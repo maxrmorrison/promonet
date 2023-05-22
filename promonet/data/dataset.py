@@ -80,12 +80,12 @@ class Dataset(torch.utils.data.Dataset):
             speaker = 0
 
         # Load supervised or unsupervised phoneme features
-        if promonet.PPG_FEATURES or promonet.SPECTROGRAM_ONLY:
-            phonemes = self.get_ppg(stem, spectrogram.shape[1])
-        else:
+        if promonet.MODEL == 'vits':
             phonemes = promonet.load.phonemes(
                 self.cache / f'{stem}-phonemes.pt',
                 interleave=True)
+        else:
+            phonemes = self.get_ppg(stem, spectrogram.shape[1])
 
         return (
             text,
