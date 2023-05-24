@@ -1,7 +1,7 @@
 MODULE = 'promonet'
 
 # Configuration name
-CONFIG = 'promovoco'
+CONFIG = 'vocoder'
 
 # Whether to use pitch augmentation
 AUGMENT_PITCH = True

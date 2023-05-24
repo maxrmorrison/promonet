@@ -32,7 +32,7 @@ def from_audio(
     elif promonet.MODEL == 'world':
         with promonet.time.timer('generate'):
             return promonet.baseline.world.from_audio(**locals())
-    elif promonet.MODEL != 'promonet':
+    elif promonet.MODEL not in ['promonet', 'vits']:
         raise ValueError(f'Model {promonet.MODEL} is not recognized')
 
     # Preprocess

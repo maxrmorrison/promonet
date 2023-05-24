@@ -62,15 +62,19 @@ NUM_FEATURES_DISCRIM = (
     promonet.DISCRIM_RATIO_CONDITION +
     promonet.DISCRIM_PHONEME_CONDITION * promonet.PPG_CHANNELS)
 
-# Number of additional input features to the latent-to-audio model
-ADDITIONAL_FEATURES_LATENT = (
-    promonet.LATENT_PITCH_SHORTCUT * (
-        promonet.PITCH_EMBEDDING_SIZE if promonet.PITCH_EMBEDDING else 1) +
-    promonet.LATENT_LOUDNESS_SHORTCUT +
-    promonet.LATENT_PERIODICITY_SHORTCUT +
-    promonet.LATENT_PHONEME_SHORTCUT * promonet.PPG_CHANNELS +
-    promonet.LATENT_RATIO_SHORTCUT +
-    (promonet.MODEL == 'vocoder') * (promonet.NUM_FFT // 2 + 1))
+# Number of input features to the latent-to-audio model
+if (promonet.MODEL == 'vocoder' and promonet.SPECTROGRAM_ONLY) or promonet.MODEL == 'two-stage':
+    LATENT_FEATURES = promonet.NUM_FFT // 2 + 1
+else:
+    LATENT_FEATURES = (
+        promonet.LATENT_PITCH_SHORTCUT * (
+            promonet.PITCH_EMBEDDING_SIZE if promonet.PITCH_EMBEDDING else 1) +
+        promonet.LATENT_LOUDNESS_SHORTCUT +
+        promonet.LATENT_PERIODICITY_SHORTCUT +
+        promonet.LATENT_PHONEME_SHORTCUT * promonet.PPG_CHANNELS +
+        promonet.LATENT_RATIO_SHORTCUT +
+        (promonet.MODEL != 'vocoder') * promonet.HIDDEN_CHANNELS
+    )
 
 
 ###############################################################################

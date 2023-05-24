@@ -311,15 +311,6 @@ class ResBlock(torch.nn.Module):
             torch.nn.utils.remove_weight_norm(layer)
 
 
-class Log(torch.nn.Module):
-
-    def forward(self, x, x_mask, reverse=False):
-        if not reverse:
-            y = torch.log(torch.clamp_min(x, 1e-5)) * x_mask
-            logdet = torch.sum(-y, [1, 2])
-            return y, logdet
-        return torch.exp(x) * x_mask
-
 
 class Flip(torch.nn.Module):
 
@@ -328,6 +319,16 @@ class Flip(torch.nn.Module):
         if not reverse:
             return x, torch.zeros(x.size(0)).to(dtype=x.dtype, device=x.device)
         return x
+
+
+class Log(torch.nn.Module):
+
+    def forward(self, x, x_mask, reverse=False):
+        if not reverse:
+            y = torch.log(torch.clamp_min(x, 1e-5)) * x_mask
+            logdet = torch.sum(-y, [1, 2])
+            return y, logdet
+        return torch.exp(x) * x_mask
 
 
 class ElementwiseAffine(torch.nn.Module):
@@ -344,61 +345,6 @@ class ElementwiseAffine(torch.nn.Module):
             logdet = torch.sum(self.logs * x_mask, [1,2])
             return y, logdet
         return (x - self.m) * torch.exp(-self.logs) * x_mask
-
-
-class ResidualCouplingLayer(torch.nn.Module):
-
-    def __init__(self,
-        channels,
-        hidden_channels,
-        kernel_size,
-        dilation_rate,
-        n_layers,
-        p_dropout=0,
-        gin_channels=0,
-        mean_only=False):
-        assert channels % 2 == 0, "channels should be divisible by 2"
-        super().__init__()
-        self.half_channels = channels // 2
-        self.mean_only = mean_only
-
-        self.pre = torch.nn.Conv1d(
-            self.half_channels,
-            hidden_channels,
-            1)
-        self.enc = WaveNet(
-            hidden_channels,
-            kernel_size,
-            dilation_rate,
-            n_layers,
-            p_dropout=p_dropout,
-            gin_channels=gin_channels)
-        self.post = torch.nn.Conv1d(
-            hidden_channels,
-            self.half_channels * (2 - mean_only),
-            1)
-        self.post.weight.data.zero_()
-        self.post.bias.data.zero_()
-
-    def forward(self, x, x_mask, g=None, reverse=False):
-        x0, x1 = torch.split(x, [self.half_channels]*2, 1)
-        h = self.pre(x0) * x_mask
-        h = self.enc(h, x_mask, g=g)
-        stats = self.post(h) * x_mask
-        if not self.mean_only:
-            m, logs = torch.split(stats, [self.half_channels]*2, 1)
-        else:
-            m = stats
-            logs = torch.zeros_like(m)
-
-        if not reverse:
-            x1 = m + x1 * torch.exp(logs) * x_mask
-            x = torch.cat([x0, x1], 1)
-            logdet = torch.sum(logs, [1,2])
-            return x, logdet
-
-        x1 = (x1 - m) * torch.exp(-logs) * x_mask
-        return torch.cat([x0, x1], 1)
 
 
 class ConvFlow(torch.nn.Module):
