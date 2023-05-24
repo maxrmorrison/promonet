@@ -177,7 +177,7 @@ def train(
         steps = promonet.NUM_STEPS
 
     # Determine which stage of two-stage model we are on
-    if promonet.TWO_STAGE:
+    if promonet.MODEL == 'two-stage':
 
         # Freeze weights
         for param in generator.parameters():
@@ -349,8 +349,7 @@ def train(
                         pitch=pitch_slices,
                         periodicity=periodicity_slices,
                         loudness=loudness_slices,
-                        phonemes=phoneme_slices,
-                        ratios=ratios)
+                        phonemes=phoneme_slices)
 
                     with torch.autocast(device.type, enabled=False):
 
@@ -389,8 +388,7 @@ def train(
                         pitch=pitch_slices,
                         periodicity=periodicity_slices,
                         loudness=loudness_slices,
-                        phonemes=phoneme_slices,
-                        ratios=ratios)
+                        phonemes=phoneme_slices)
 
                 ####################
                 # Generator losses #
@@ -421,8 +419,8 @@ def train(
                         mel_loss = torch.nn.functional.l1_loss(mel_slices, generated_mels)
                         generator_losses +=  promonet.MEL_LOSS_WEIGHT * mel_loss
 
-                        if not promonet.TWO_STAGE:
-                            # Get KL divergence loss between features and spectrogram
+                        # Get KL divergence loss between features and prior
+                        if promonet.MODEL in ['end-to-end', 'vits']:
                             kl_divergence_loss = promonet.loss.kl(
                                 prior.float(),
                                 true_logstd.float(),
@@ -500,7 +498,7 @@ def train(
                         scalars.update(
                             {f'loss/discriminator/fake-{i:02d}': value
                             for i, value in enumerate(fake_discriminator_losses)})
-                        if not promonet.TWO_STAGE:
+                        if promonet.MODEL not in ['hifigan', 'two-stage', 'vocoder']:
                             scalars['loss/generator/kl-divergence'] = kl_divergence_loss
                     promonet.write.scalars(log_directory, step, scalars)
 
@@ -533,7 +531,7 @@ def train(
                 break
 
             # Two-stage model transition from training synthesizer to vocoder
-            if promonet.TWO_STAGE and step == steps // 2:
+            if promonet.MODEL == 'two-stage' and step == steps // 2:
                 promonet.TWO_STAGE_1 = False
                 promonet.TWO_STAGE_2 = True
 

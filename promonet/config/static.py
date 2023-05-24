@@ -31,20 +31,16 @@ TIMER = promonet.time.Context()
 
 
 ###############################################################################
-# Features
+# Model parameters
 ###############################################################################
 
 
-# First stage of a two-stage model
-TWO_STAGE_1 = promonet.TWO_STAGE
-
-# Second stage of a two-stage model
-TWO_STAGE_2 = False
+# Global input channels
+GLOBAL_CHANNELS = promonet.SPEAKER_CHANNELS + promonet.AUGMENT_PITCH
 
 # Number of input features to the generator
 NUM_FEATURES = (
-    len(pyfoal.load.phonemes())
-    if not promonet.PPG_FEATURES else (
+    len(pyfoal.load.phonemes()) if not promonet.PPG_FEATURES else (
         promonet.LOUDNESS_FEATURES +
         promonet.PERIODICITY_FEATURES +
         promonet.PITCH_FEATURES * (
@@ -59,28 +55,24 @@ NUM_FEATURES_DISCRIM = (
     promonet.DISCRIM_LOUDNESS_CONDITION +
     promonet.DISCRIM_PERIODICITY_CONDITION +
     promonet.DISCRIM_PITCH_CONDITION +
-    promonet.DISCRIM_RATIO_CONDITION +
     promonet.DISCRIM_PHONEME_CONDITION * promonet.PPG_CHANNELS)
 
 # Number of input features to the latent-to-audio model
-if (promonet.MODEL == 'vocoder' and promonet.SPECTROGRAM_ONLY) or promonet.MODEL == 'two-stage':
+if promonet.MODEL == 'hifigan' or promonet.MODEL == 'two-stage':
     LATENT_FEATURES = promonet.NUM_FFT // 2 + 1
+elif promonet.MODEL == 'vocoder':
+    LATENT_FEATURES = NUM_FEATURES
 else:
-    LATENT_FEATURES = (
+    LATENT_FEATURES = promonet.HIDDEN_CHANNELS + (
         promonet.LATENT_PITCH_SHORTCUT * (
             promonet.PITCH_EMBEDDING_SIZE if promonet.PITCH_EMBEDDING else 1) +
         promonet.LATENT_LOUDNESS_SHORTCUT +
         promonet.LATENT_PERIODICITY_SHORTCUT +
-        promonet.LATENT_PHONEME_SHORTCUT * promonet.PPG_CHANNELS +
-        promonet.LATENT_RATIO_SHORTCUT +
-        (promonet.MODEL != 'vocoder') * promonet.HIDDEN_CHANNELS
+        promonet.LATENT_PHONEME_SHORTCUT * promonet.PPG_CHANNELS
     )
 
+# First stage of a two-stage model
+TWO_STAGE = TWO_STAGE_1 = promonet.MODEL == 'two-stage'
 
-###############################################################################
-# Model parameters
-###############################################################################
-
-
-# Global input channels
-GLOBAL_CHANNELS = promonet.SPEAKER_CHANNELS + promonet.AUGMENT_PITCH
+# Second stage of a two-stage model
+TWO_STAGE_2 = False

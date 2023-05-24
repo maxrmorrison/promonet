@@ -1,5 +1,7 @@
 import functools
 import math
+
+import alias_free_torch
 import torch
 
 import promonet
@@ -406,91 +408,116 @@ class ConvFlow(torch.nn.Module):
             return x
 
 
-class Snake(torch.nn.Module):
+# class Snake(torch.nn.Module):
 
-    def __init__(self, channels, scale_factor=2):
+#     def __init__(self, channels, scale_factor=2):
+#         super().__init__()
+#         self.scale_factor = scale_factor
+
+#         # Initialize alpha
+#         self.alpha = torch.nn.Parameter(
+#             torch.ones(1, channels, 1),
+#             requires_grad=True)
+
+#         # Initialize Kaiser window
+#         self.kernel = torch.nn.Parameter(
+#             self.filter(),
+#             requires_grad=False)
+
+#     def filter(self):
+#         """Compute anti-aliasing low-pass filter"""
+#         # Create kaiser window
+#         length = 12
+#         window = torch.kaiser_window(
+#             length,
+#             periodic=False,
+#             beta=4.6638)
+
+#         # Compute sinc filter
+#         cutoff_frequency = 1 / (2. * self.scale_factor)
+#         aliasing_filter = 2. * cutoff_frequency * window * torch.sinc(
+#             2. * cutoff_frequency * math.pi *
+#             (torch.arange(length) - (length - 1) / 2.))
+
+#         # Normalize
+#         aliasing_filter /= aliasing_filter.sum()
+
+#         return aliasing_filter[None, None]
+
+#     def forward(self, x):
+#         # Zero-insertion interpolation
+#         y = torch.zeros(
+#             (x.shape[0], x.shape[1], self.scale_factor * x.shape[2]),
+#             dtype=x.dtype,
+#             device=x.device)
+#         y[..., ::2] = x * self.scale_factor
+
+#         # Treat each channel as a new batch
+#         shape = y.shape
+#         y = y.view(shape[0] * shape[1], 1, shape[2])
+
+#         # Replication padding
+#         padding = promonet.model.get_padding(self.kernel.shape[2])
+#         x = torch.nn.functional.pad(
+#             y,
+#             (padding, padding + 1),
+#             mode='replicate')
+
+#         # Lowpass filter
+#         x = torch.nn.functional.conv1d(x, self.kernel)
+
+#         # Recover channel dimension
+#         x = x.reshape(shape)
+
+#         # Apply snake activation
+#         x = x + (1. / (self.alpha + 1e-9)) * torch.sin(self.alpha * x) ** 2
+
+#         # Treat each channel as a new batch
+#         shape = x.shape
+#         x = x.view(shape[0] * shape[1], 1, shape[2])
+
+#         # Replication padding
+#         padding = promonet.model.get_padding(
+#             self.kernel.shape[2],
+#             1,
+#             self.scale_factor)
+#         x = torch.nn.functional.pad(
+#             x,
+#             (padding, padding),
+#             mode='replicate')
+
+#         # Filter and downsample
+#         x = torch.nn.functional.conv1d(
+#             x,
+#             self.kernel,
+#             stride=self.scale_factor)
+
+#         # Recover channel dimension
+#         x = x.reshape(shape[0], shape[1], shape[2] // self.scale_factor)
+
+#         return x
+
+
+class Snake(torch.nn.Sequential):
+
+    def __init__(self, features, alpha=1.0):
+        super().__init__(
+            alias_free_torch.Activation1d(SnakeUnfiltered(features, alpha)))
+
+
+class SnakeUnfiltered(torch.nn.Module):
+
+    def __init__(self, features, alpha=1.0):
         super().__init__()
-        self.scale_factor = scale_factor
-
-        # Initialize alpha
-        self.alpha = torch.nn.Parameter(
-            torch.ones(1, channels, 1),
-            requires_grad=True)
-
-        # Initialize Kaiser window
-        self.kernel = torch.nn.Parameter(
-            self.filter(),
-            requires_grad=False)
-
-    def filter(self):
-        """Compute anti-aliasing low-pass filter"""
-        # Create kaiser window
-        length = 12
-        window = torch.kaiser_window(
-            length,
-            periodic=False,
-            beta=4.6638)
-
-        # Compute sinc filter
-        cutoff_frequency = 1 / (2. * self.scale_factor)
-        aliasing_filter = 2. * cutoff_frequency * window * torch.sinc(
-            2. * cutoff_frequency * math.pi *
-            (torch.arange(length) - (length - 1) / 2.))
-
-        # Normalize
-        aliasing_filter /= aliasing_filter.sum()
-
-        return aliasing_filter[None, None]
+        self.alpha = torch.nn.Parameter(torch.zeros(features) * alpha)
+        self.beta = torch.nn.Parameter(torch.zeros(features) * alpha)
+        self.alpha.requires_grad = True
+        self.beta.requires_grad = True
+        self.no_div_by_zero = 0.000000001
 
     def forward(self, x):
-        # Zero-insertion interpolation
-        y = torch.zeros(
-            (x.shape[0], x.shape[1], self.scale_factor * x.shape[2]),
-            dtype=x.dtype,
-            device=x.device)
-        y[..., ::2] = x * self.scale_factor
-
-        # Treat each channel as a new batch
-        shape = y.shape
-        y = y.view(shape[0] * shape[1], 1, shape[2])
-
-        # Replication padding
-        padding = promonet.model.get_padding(self.kernel.shape[2])
-        x = torch.nn.functional.pad(
-            y,
-            (padding, padding + 1),
-            mode='replicate')
-
-        # Lowpass filter
-        x = torch.nn.functional.conv1d(x, self.kernel)
-
-        # Recover channel dimension
-        x = x.reshape(shape)
-
-        # Apply snake activation
-        x = x + (1. / (self.alpha + 1e-9)) * torch.sin(self.alpha * x) ** 2
-
-        # Treat each channel as a new batch
-        shape = x.shape
-        x = x.view(shape[0] * shape[1], 1, shape[2])
-
-        # Replication padding
-        padding = promonet.model.get_padding(
-            self.kernel.shape[2],
-            1,
-            self.scale_factor)
-        x = torch.nn.functional.pad(
-            x,
-            (padding, padding),
-            mode='replicate')
-
-        # Filter and downsample
-        x = torch.nn.functional.conv1d(
-            x,
-            self.kernel,
-            stride=self.scale_factor)
-
-        # Recover channel dimension
-        x = x.reshape(shape[0], shape[1], shape[2] // self.scale_factor)
-
-        return x
+        alpha = torch.exp(self.alpha.unsqueeze(0).unsqueeze(-1))
+        beta = torch.exp(self.beta.unsqueeze(0).unsqueeze(-1))
+        return x + (
+            (1.0 / (beta + self.no_div_by_zero)) *
+            pow(torch.sin(x * alpha), 2))
