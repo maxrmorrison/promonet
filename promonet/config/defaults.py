@@ -94,9 +94,6 @@ DISCRIM_PITCH_CONDITION = False
 # Discriminator phoneme conditioning
 DISCRIM_PHONEME_CONDITION = False
 
-# Discriminator augmentation ratio conditioning
-DISCRIM_RATIO_CONDITION = False
-
 # Pass loudness through the latent
 LATENT_LOUDNESS_SHORTCUT = False
 
@@ -108,9 +105,6 @@ LATENT_PITCH_SHORTCUT = False
 
 # Pass the phonemes through the latent
 LATENT_PHONEME_SHORTCUT = False
-
-# Pass the augmentation ratio through the latent
-LATENT_RATIO_SHORTCUT = False
 
 # A-weighted loudness conditioning
 LOUDNESS_FEATURES = False
@@ -203,8 +197,15 @@ KERNEL_SIZE = 3
 # (Negative) slope of leaky ReLU activations
 LRELU_SLOPE = .1
 
-# The model to use
-# One of ['promonet', 'psola', 'vits', 'world'].
+# The model to use. One of [
+#     'end-to-end',
+#     'hifigan',
+#     'psola',
+#     'two-stage',
+#     'vits',
+#     'vocoder',
+#     'world'
+# ]
 MODEL = 'vits'
 
 # Whether to use the multi-resolution spectrogram discriminator from UnivNet
@@ -237,9 +238,6 @@ SNAKE = False
 
 # Speaker embedding size
 SPEAKER_CHANNELS = 256
-
-# Whether to use a two-stage model
-TWO_STAGE = False
 
 # Initial channel size for upsampling layers
 UPSAMPLE_INITIAL_SIZE = 512

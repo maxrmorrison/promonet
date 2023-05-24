@@ -55,7 +55,7 @@ def speaker(
     subjective_directory,
     gpus=None):
     """Evaluate one adaptation speaker in a dataset"""
-    if promonet.MODEL == 'promonet':
+    if promonet.MODEL not in ['psola', 'world']:
 
         # Maybe resume adaptation
         generator_path = promonet.checkpoint.latest_path(

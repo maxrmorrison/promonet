@@ -18,9 +18,6 @@ DISCRIM_PHONEME_CONDITION = True
 # Discriminator pitch conditioning
 DISCRIM_PITCH_CONDITION = True
 
-# Discriminator augmentation ratio conditioning
-DISCRIM_RATIO_CONDITION = True
-
 # Pass loudness through the latent
 LATENT_LOUDNESS_SHORTCUT = True
 
@@ -33,11 +30,19 @@ LATENT_PHONEME_SHORTCUT = True
 # Pass pitch through the latent
 LATENT_PITCH_SHORTCUT = True
 
-# Pass the augmentation ratio through the latent
-LATENT_RATIO_SHORTCUT = True
-
 # Loudness features
 LOUDNESS_FEATURES = True
+
+# The model to use. One of [
+#     'end-to-end',
+#     'hifigan',
+#     'psola',
+#     'two-stage',
+#     'vits',
+#     'vocoder',
+#     'world'
+# ]
+MODEL = 'two-stage'
 
 # Periodicity conditioning
 PERIODICITY_FEATURES = True
@@ -47,6 +52,3 @@ PITCH_FEATURES = True
 
 # Phonemic posteriorgram conditioning
 PPG_FEATURES = True
-
-# Whether to use a two-stage model (text -> mels; mels -> waveform)
-TWO_STAGE = True

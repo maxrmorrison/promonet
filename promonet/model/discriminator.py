@@ -31,8 +31,7 @@ class DiscriminatorP(torch.nn.Module):
         pitch=None,
         periodicity=None,
         loudness=None,
-        phonemes=None,
-        ratios=None):
+        phonemes=None):
         # Maybe add pitch conditioning
         if promonet.DISCRIM_PITCH_CONDITION:
             pitch = torch.nn.functional.interpolate(
@@ -69,12 +68,6 @@ class DiscriminatorP(torch.nn.Module):
                 mode='linear',
                 align_corners=False)
             x = torch.cat((x, phonemes), dim=1)
-
-        # Maybe add augmentation ratio
-        if promonet.DISCRIM_RATIO_CONDITION:
-            x = torch.cat(
-                (x, ratios.repeat(x.shape[2], 1, 1).permute(2, 1, 0)),
-                dim=1)
 
         feature_maps = []
 
@@ -119,8 +112,7 @@ class DiscriminatorR(torch.nn.Module):
         pitch=None,
         periodicity=None,
         loudness=None,
-        phonemes=None,
-        ratios=None):
+        phonemes=None):
         # Compute spectral features
         features = self.spectrogram(audio)
 
@@ -160,13 +152,6 @@ class DiscriminatorR(torch.nn.Module):
                 mode='linear',
                 align_corners=False)
             features = torch.cat((features, phonemes[:, None]), dim=2)
-
-        # Maybe add augmentation ratio
-        if promonet.DISCRIM_RATIO_CONDITION:
-            shape = features.shape[-1], 1, 1, 1
-            features = torch.cat(
-                (features, ratios.repeat(*shape).permute(3, 2, 1, 0)),
-                dim=2)
 
         # Forward pass and save activations
         fmap = []
@@ -220,8 +205,7 @@ class DiscriminatorS(torch.nn.Module):
         pitch=None,
         periodicity=None,
         loudness=None,
-        phonemes=None,
-        ratios=None):
+        phonemes=None):
         # Maybe add pitch conditioning
         if promonet.DISCRIM_PITCH_CONDITION:
             pitch = torch.nn.functional.interpolate(
@@ -258,15 +242,6 @@ class DiscriminatorS(torch.nn.Module):
                 mode='linear',
                 align_corners=False)
             x = torch.cat((x, phonemes), dim=1)
-
-        # Maybe add augmentation ratio
-        if promonet.DISCRIM_RATIO_CONDITION:
-            x = torch.cat(
-                (
-                    x,
-                    ratios.repeat(x.shape[2], 1, 1).permute(2, 1, 0)
-                ),
-                dim=1)
 
         # Forward pass and save activations
         feature_maps = []
