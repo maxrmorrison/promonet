@@ -177,40 +177,6 @@ class PhonemeEncoder(torch.nn.Module):
     return embeddings, mean, logstd, mask
 
 
-class ResidualCouplingBlock(torch.nn.Module):
-
-    def __init__(
-            self,
-            channels,
-            hidden_channels,
-            kernel_size,
-            dilation_rate,
-            n_layers,
-            n_flows=4,
-            gin_channels=0):
-        super().__init__()
-        self.flows = torch.nn.ModuleList()
-        for _ in range(n_flows):
-            self.flows.append(promonet.model.modules.ResidualCouplingLayer(
-                channels,
-                hidden_channels,
-                kernel_size,
-                dilation_rate,
-                n_layers,
-                gin_channels=gin_channels,
-                mean_only=True))
-            self.flows.append(promonet.model.modules.Flip())
-
-    def forward(self, x, feature_mask, g=None, reverse=False):
-        if not reverse:
-            for flow in self.flows:
-                x, _ = flow(x, feature_mask, g=g, reverse=reverse)
-        else:
-            for flow in reversed(self.flows):
-                x = flow(x, feature_mask, g=g, reverse=reverse)
-        return x
-
-
 class SpectrogramEncoder(torch.nn.Module):
 
     def __init__(self, kernel_size=5, dilation_rate=1, n_layers=16):
@@ -258,13 +224,8 @@ class Generator(torch.nn.Module):
                 4)
 
         # Vocoder
-        latent_channels = promonet.ADDITIONAL_FEATURES_LATENT
-        if promonet.MODEL == 'two-stage':
-            latent_channels += promonet.NUM_FFT // 2 + 1
-        elif promonet.MODEL != 'vocoder':
-            latent_channels += promonet.HIDDEN_CHANNELS
         self.vocoder = promonet.model.Vocoder(
-            latent_channels,
+            promonet.LATENT_FEATURES,
             promonet.GLOBAL_CHANNELS)
 
         if not promonet.TWO_STAGE:
@@ -273,7 +234,7 @@ class Generator(torch.nn.Module):
             self.spectrogram_encoder = SpectrogramEncoder()
 
             # Normalizing flow
-            self.flow = ResidualCouplingBlock(
+            self.flow = promonet.model.flow.Block(
                 promonet.HIDDEN_CHANNELS,
                 promonet.HIDDEN_CHANNELS,
                 5,
@@ -497,8 +458,14 @@ class Generator(torch.nn.Module):
             phonemes,
             pitch,
             periodicity,
-            loudness,
-            spectrograms)
+            loudness)
+
+        # Skip phoneme-to-latent for vocoder models
+        if promonet.MODEL == 'vocoder':
+            if promonet.SPECTROGRAM_ONLY:
+                return spectrograms
+            else:
+                return features
 
         # Encode text to text embedding and statistics for the flow model
         (
@@ -712,10 +679,6 @@ class Generator(torch.nn.Module):
                 ),
                 dim=1)
 
-        # Maybe remove latents and keep other features
-        if promonet.MODEL == 'vocoder':
-            latents = spectrogram
-
         return latents
 
     def prepare_features(
@@ -723,8 +686,7 @@ class Generator(torch.nn.Module):
         phonemes,
         pitch,
         periodicity,
-        loudness,
-        spectrograms):
+        loudness):
         """Scale, concatenate, or replace input features"""
         features = phonemes
 

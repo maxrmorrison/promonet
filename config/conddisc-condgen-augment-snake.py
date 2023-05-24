@@ -6,6 +6,9 @@ CONFIG = 'conddisc-condgen-augment-snake'
 # Whether to use pitch augmentation
 AUGMENT_PITCH = True
 
+# Number of items in a batch
+BATCH_SIZE = 24
+
 # Discriminator loudness conditioning
 DISCRIM_LOUDNESS_CONDITION = True
 
