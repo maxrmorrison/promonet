@@ -1,3 +1,5 @@
+import functools
+
 import torch
 
 import promonet
@@ -60,10 +62,7 @@ class Vocoder(torch.nn.Module):
                 promonet.RESBLOCK_DILATION_SIZES)
             for kernel_size, dilation_rate in res_iterator:
                 self.resblocks.append(
-                    promonet.model.modules.ResBlock(
-                        output_channels,
-                        kernel_size,
-                        dilation_rate))
+                    Block(output_channels, kernel_size, dilation_rate))
 
         # Final activation
         self.activations.append(
@@ -122,8 +121,74 @@ class Vocoder(torch.nn.Module):
         # Bound to [-1, 1]
         return torch.tanh(x)
 
-    def remove_weight_norm(self):
-        for layer in self.ups:
-            torch.nn.utils.remove_weight_norm(layer)
-        for layer in self.resblocks:
-            layer.remove_weight_norm()
+
+###############################################################################
+# HiFi-GAN residual block
+###############################################################################
+
+
+class Block(torch.nn.Module):
+
+    def __init__(
+        self,
+        channels,
+        kernel_size=3,
+        dilation=(1, 3, 5)):
+        super().__init__()
+
+        # Convolutions
+        conv_fn = functools.partial(
+            promonet.model.weight_norm_conv1d,
+            channels,
+            channels,
+            kernel_size,
+            1)
+        pad_fn = functools.partial(promonet.model.get_padding, kernel_size)
+        self.convs1 = torch.nn.ModuleList([
+            conv_fn(pad_fn(dilation[0]), dilation[0]),
+            conv_fn(pad_fn(dilation[1]), dilation[1]),
+            conv_fn(pad_fn(dilation[2]), dilation[2])])
+        self.convs1.apply(promonet.model.init_weights)
+        self.convs2 = torch.nn.ModuleList([
+            conv_fn(pad_fn()),
+            conv_fn(pad_fn()),
+            conv_fn(pad_fn())])
+        self.convs2.apply(promonet.model.init_weights)
+
+        # Activations
+        if promonet.SNAKE:
+            activation_fn = functools.partial(
+                promonet.model.Snake,
+                channels)
+        else:
+            activation_fn = functools.partial(
+                torch.nn.LeakyReLU,
+                negative_slope=promonet.LRELU_SLOPE)
+        self.activations1 = torch.nn.ModuleList([
+            activation_fn(),
+            activation_fn(),
+            activation_fn()])
+        self.activations2 = torch.nn.ModuleList([
+            activation_fn(),
+            activation_fn(),
+            activation_fn()])
+
+    def forward(self, x, x_mask=None):
+        iterator = zip(
+            self.convs1,
+            self.convs2,
+            self.activations1,
+            self.activations2)
+        for c1, c2, a1, a2 in iterator:
+            xt = a1(x)
+            if x_mask is not None:
+                xt = xt * x_mask
+            xt = c1(xt)
+            xt = a2(xt)
+            if x_mask is not None:
+                xt = xt * x_mask
+            xt = c2(xt)
+            x = xt + x
+        if x_mask is not None:
+            x = x * x_mask
+        return x

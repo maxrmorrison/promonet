@@ -1,37 +1,20 @@
 import torch
 
-import promonet
-
 
 ###############################################################################
 # Shared model utilities
 ###############################################################################
 
 
-def convert_pad_shape(pad_shape):
-    return [item for sublist in pad_shape[::-1] for item in sublist]
-
-
-@torch.jit.script
-def fused_add_tanh_sigmoid_multiply(input_a, input_b, n_channels):
-    n_channels_int = n_channels[0]
-    in_act = input_a + input_b
-    t_act = torch.tanh(in_act[:, :n_channels_int, :])
-    s_act = torch.sigmoid(in_act[:, n_channels_int:, :])
-    return t_act * s_act
-
-
 def generate_path(duration, mask):
-    """
-    duration: [b, 1, t_x]
-    mask: [b, 1, t_y, t_x]
-    """
+    """Compute attention matrix from phoneme durations"""
     b, _, t_y, t_x = mask.shape
     cum_duration = torch.cumsum(duration, -1)
     cum_duration_flat = cum_duration.view(b * t_x)
     path = sequence_mask(cum_duration_flat, t_y).to(mask.dtype)
     path = path.view(b, t_x, t_y)
-    pad_shape = convert_pad_shape([[0, 0], [1, 0], [0, 0]])
+    pad_shape = [[0, 0], [1, 0], [0, 0]]
+    pad_shape = [item for sublist in pad_shape[::-1] for item in sublist]
     path = path - torch.nn.functional.pad(path, pad_shape)[:, :-1]
     return path.unsqueeze(1).transpose(2, 3) * mask
 
@@ -82,12 +65,6 @@ def slice_segments(segments, start_indices, segment_size, fill_value=0.):
             segment[..., start_index:end_index]
 
     return slices
-
-
-def causal_weight_norm_conv1d(*args, **kwargs):
-    """Construct Conv1d layer with weight normalization"""
-    return torch.nn.utils.weight_norm(
-        promonet.model.modules.CausalConv1d(*args, **kwargs))
 
 
 def weight_norm_conv1d(*args, **kwargs):
