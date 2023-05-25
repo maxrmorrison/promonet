@@ -17,12 +17,12 @@ setup(
     url='https://github.com/maxrmorrison/promonet',
     ext_modules=cythonize(
         Extension(
-            'promonet.model.monotonic_align.monotonic_align',
-            sources=['promonet/model/monotonic_align/core.pyx'],
+            'promonet.model.align.mas',
+            sources=['promonet/model/align/align.pyx'],
             include_dirs=[np.get_include()]
         ),
         compiler_directives={'language_level': '3'}),
-    include_dirs=[np.get_include(), 'promonet/model/monotonic_align'],
+    include_dirs=[np.get_include(), 'promonet/model/align'],
     setup_requires=['numpy', 'cython'],
     install_requires=[
         'espnet',

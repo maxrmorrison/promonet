@@ -17,9 +17,10 @@ class Generator(torch.nn.Module):
         self.n_speakers = n_speakers
 
         # Text feature encoding
-        self.prior_encoder = PriorEncoder()
+        if promonet.MODEL in ['end-to-end', 'two-stage', 'vits']:
+            self.prior_encoder = PriorEncoder()
 
-        # Text-to-duration predictor
+        # Phoneme duration predictor
         if promonet.MODEL == 'vits':
             self.dp = promonet.model.DurationPredictor(
                 promonet.HIDDEN_CHANNELS,
@@ -32,9 +33,10 @@ class Generator(torch.nn.Module):
             promonet.LATENT_FEATURES,
             promonet.GLOBAL_CHANNELS)
 
-        if promonet.MODEL != 'two-stage':
+        # Latent flow
+        if promonet.MODEL in ['end-to-end', 'vits']:
 
-            # Spectrogram encoder
+            # Acoustic encoder
             self.posterior_encoder = PosteriorEncoder()
 
             # Normalizing flow
@@ -62,10 +64,6 @@ class Generator(torch.nn.Module):
             self.pitch_embedding = torch.nn.Embedding(
                 promonet.PITCH_BINS,
                 promonet.PITCH_EMBEDDING_SIZE)
-            if promonet.LATENT_PITCH_SHORTCUT:
-                self.latent_pitch_embedding = torch.nn.Embedding(
-                    promonet.PITCH_BINS,
-                    promonet.PITCH_EMBEDDING_SIZE)
 
     def forward(
         self,
@@ -78,7 +76,6 @@ class Generator(torch.nn.Module):
         ratios=None,
         spectrograms=None,
         spectrogram_lengths=None):
-        """Generator entry point"""
         # Default augmentation ratio is 1
         if ratios is None and promonet.AUGMENT_PITCH:
             ratios = torch.ones(
@@ -141,7 +138,7 @@ class Generator(torch.nn.Module):
         feature_mask,
         mask=None,
         prior=None):
-        """Perform duration prediction from text"""
+        """Predict phoneme durations"""
         if promonet.MODEL == 'vits':
 
             if self.training:
@@ -167,7 +164,7 @@ class Generator(torch.nn.Module):
                         [1],
                         keepdim=True)
                     neg_cent = neg_cent1 + neg_cent2 + neg_cent3 + neg_cent4
-                    attention = promonet.model.monotonic_align.maximum_path(
+                    attention = promonet.model.align.maximum_path(
                         neg_cent,
                         attention_mask.squeeze(1)
                     ).unsqueeze(1).detach()
@@ -206,15 +203,14 @@ class Generator(torch.nn.Module):
                 # Get new frame resolution mask
                 y_lengths = torch.clamp_min(torch.sum(durations, [1, 2]), 1).long()
                 mask = torch.unsqueeze(
-                    promonet.model.sequence_mask(y_lengths),
+                    sequence_mask(y_lengths),
                     1
                 ).to(feature_mask.dtype)
 
                 # Compute attention between variable length input and output sequences
                 attention_mask = torch.unsqueeze(
                     feature_mask, 2) * torch.unsqueeze(mask, -1)
-                attention = promonet.model.generate_path(
-                    durations, attention_mask)
+                attention = generate_path(durations, attention_mask)
 
                 # Expand sequence using predicted durations
                 predicted_mean = torch.matmul(
@@ -270,9 +266,10 @@ class Generator(torch.nn.Module):
         if self.training:
 
             # Mask denoting valid frames
-            mask = promonet.model.sequence_mask(
+            mask = sequence_mask(
                 spectrogram_lengths,
-                spectrograms.size(2)).unsqueeze(1).to(spectrograms.dtype)
+                spectrograms.size(2)
+            ).unsqueeze(1).to(spectrograms.dtype)
 
             if promonet.MODEL in ['hifigan', 'two-stage', 'vocoder']:
 
@@ -344,9 +341,10 @@ class Generator(torch.nn.Module):
             true_logstd = None
 
             # Mask denoting valid frames
-            mask = promonet.model.sequence_mask(
+            mask = sequence_mask(
                 lengths,
-                lengths[0]).unsqueeze(1).to(embeddings.dtype)
+                lengths[0]
+            ).unsqueeze(1).to(embeddings.dtype)
 
             if promonet.MODEL in ['hifigan', 'two-stage', 'vocoder']:
 
@@ -445,8 +443,7 @@ class Generator(torch.nn.Module):
             promonet.LATENT_PITCH_SHORTCUT
         ):
             if promonet.PITCH_EMBEDDING:
-                pitch_embeddings = self.latent_pitch_embedding(
-                    pitch).permute(0, 2, 1)
+                pitch_embeddings = self.pitch_embedding(pitch).permute(0, 2, 1)
             else:
                 pitch_embeddings = pitch[:, None]
             latents = torch.cat((latents, pitch_embeddings), dim=1)
@@ -578,7 +575,7 @@ class Generator(torch.nn.Module):
 
 
 ###############################################################################
-# Prior encoder (e.g., phonemes)
+# Prior encoder (e.g., phonemes -> latent)
 ###############################################################################
 
 
@@ -624,8 +621,10 @@ class PriorEncoder(torch.nn.Module):
         embeddings = embeddings.permute(0, 2, 1) * self.scale
 
     # Construct binary mask from lengths
-    mask = promonet.model.sequence_mask(feature_lengths, embeddings.size(2))
-    mask = torch.unsqueeze(mask, 1).to(embeddings.dtype)
+    mask = torch.unsqueeze(
+        sequence_mask(feature_lengths, embeddings.size(2)),
+        1
+    ).to(embeddings.dtype)
 
     # Encode masked features
     embeddings = self.encoder(embeddings * mask, mask)
@@ -643,7 +642,7 @@ class PriorEncoder(torch.nn.Module):
 
 
 ###############################################################################
-# Posterior encoder (e.g., spectrograms)
+# Posterior encoder (e.g., spectrograms -> latent)
 ###############################################################################
 
 
@@ -656,7 +655,7 @@ class PosteriorEncoder(torch.nn.Module):
             promonet.NUM_FFT // 2 + 1,
             self.channels,
             1)
-        self.enc = promonet.model.modules.WaveNet(
+        self.enc = promonet.model.WaveNet(
             self.channels,
             kernel_size,
             dilation_rate,
@@ -674,3 +673,41 @@ class PosteriorEncoder(torch.nn.Module):
         m, logs = torch.split(stats, self.channels, dim=1)
         z = (m + torch.randn_like(m) * torch.exp(logs)) * mask
         return z, m, logs
+
+
+###############################################################################
+# Utilities
+###############################################################################
+
+
+def generate_path(duration, mask):
+    """Compute attention matrix from phoneme durations"""
+    b, _, t_y, t_x = mask.shape
+    cum_duration = torch.cumsum(duration, -1)
+    cum_duration_flat = cum_duration.view(b * t_x)
+    path = sequence_mask(cum_duration_flat, t_y).to(mask.dtype)
+    path = path.view(b, t_x, t_y)
+    pad_shape = [[0, 0], [1, 0], [0, 0]]
+    pad_shape = [item for sublist in pad_shape[::-1] for item in sublist]
+    path = path - torch.nn.functional.pad(path, pad_shape)[:, :-1]
+    return path.unsqueeze(1).transpose(2, 3) * mask
+
+
+def random_slice_segments(segments, lengths, segment_size):
+    """Randomly slice segments along last dimension"""
+    max_start_indices = lengths - segment_size + 1
+    start_indices = torch.rand((len(segments),), device=segments.device)
+    start_indices = (start_indices * max_start_indices).to(dtype=torch.long)
+    segments = promonet.model.slice_segments(
+        segments,
+        start_indices,
+        segment_size)
+    return segments, start_indices
+
+
+def sequence_mask(length, max_length=None):
+    """Compute a binary mask from sequence lengths"""
+    if max_length is None:
+        max_length = length.max()
+    x = torch.arange(max_length, dtype=length.dtype, device=length.device)
+    return x.unsqueeze(0) < length.unsqueeze(1)

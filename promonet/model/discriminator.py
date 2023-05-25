@@ -14,7 +14,7 @@ class DiscriminatorP(torch.nn.Module):
     def __init__(self, period, kernel_size=5, stride=3):
         super().__init__()
         self.period = period
-        conv_fn = promonet.model.weight_norm_conv2d
+        conv_fn = weight_norm_conv2d
         padding = (promonet.model.get_padding(kernel_size, 1), 0)
         input_channels = promonet.NUM_FEATURES_DISCRIM
         self.convs = torch.nn.ModuleList([
@@ -96,7 +96,7 @@ class DiscriminatorR(torch.nn.Module):
     def __init__(self, resolution):
         super().__init__()
         self.resolution = resolution
-        conv_fn = promonet.model.weight_norm_conv2d
+        conv_fn = weight_norm_conv2d
         self.convs = torch.nn.ModuleList([
             conv_fn(1, 32, (3, 9), padding=(1, 4)),
             conv_fn(32, 32, (3, 9), stride=(1, 2), padding=(1, 4)),
@@ -184,11 +184,11 @@ class DiscriminatorR(torch.nn.Module):
 
 
 class DiscriminatorS(torch.nn.Module):
-    """Multi-scale discriminator"""
+    """Multi-scale waveform discriminator"""
 
     def __init__(self):
         super().__init__()
-        conv_fn = promonet.model.weight_norm_conv1d
+        conv_fn = weight_norm_conv1d
         input_channels = promonet.NUM_FEATURES_DISCRIM
         self.convs = torch.nn.ModuleList([
             conv_fn(input_channels, 16, 15, 1, padding=7),
@@ -288,3 +288,18 @@ class Discriminator(torch.nn.Module):
             feature_maps_fake.append(feature_map_fake)
 
         return logits_real, logits_fake, feature_maps_real, feature_maps_fake
+
+
+###############################################################################
+# Utilities
+###############################################################################
+
+
+def weight_norm_conv1d(*args, **kwargs):
+    """Construct Conv1d layer with weight normalization"""
+    return torch.nn.utils.weight_norm(torch.nn.Conv1d(*args, **kwargs))
+
+
+def weight_norm_conv2d(*args, **kwargs):
+    """Construct Conv2d layer with weight normalization"""
+    return torch.nn.utils.weight_norm(torch.nn.Conv2d(*args, **kwargs))
