@@ -6,8 +6,6 @@ from .snake import Snake
 from .vocoder import Vocoder
 from .wavenet import WaveNet
 from . import flow
-from . import generator
-from . import modules
 from . import align
 from . import spline
 from . import transformer

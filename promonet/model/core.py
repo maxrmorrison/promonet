@@ -61,3 +61,8 @@ def slice_segments(segments, start_indices, segment_size, fill_value=0.):
             segment[..., start_index:end_index]
 
     return slices
+
+
+def weight_norm_conv1d(*args, **kwargs):
+    """Construct Conv1d layer with weight normalization"""
+    return torch.nn.utils.weight_norm(torch.nn.Conv1d(*args, **kwargs))

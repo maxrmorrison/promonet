@@ -508,7 +508,7 @@ class Generator(torch.nn.Module):
         spectrogram_lengths):
         """Slice features during training for latent-to-waveform generator"""
         slice_size = promonet.convert.samples_to_frames(promonet.CHUNK_SIZE)
-        latents, slice_indices = promonet.model.random_slice_segments(
+        latents, slice_indices = random_slice_segments(
             latents,
             spectrogram_lengths,
             slice_size)
@@ -600,8 +600,9 @@ class PriorEncoder(torch.nn.Module):
         channels,
         promonet.FILTER_CHANNELS)
 
-    self.channels = \
-        promonet.NUM_FFT // 2 + 1 if promonet.MODEL == 'two-stage' else 2 * channels
+    self.channels = (
+        promonet.NUM_FFT // 2 + 1 if promonet.MODEL == 'two-stage'
+        else 2 * channels)
     self.projection = torch.nn.Conv1d(
         channels,
         self.channels,
