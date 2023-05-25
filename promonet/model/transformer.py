@@ -30,7 +30,7 @@ class Encoder(torch.nn.Module):
                     p_dropout=p_dropout,
                     window_size=window_size))
             self.norm_layers_1.append(
-                promonet.model.modules.LayerNorm(hidden_channels))
+                promonet.model.LayerNorm(hidden_channels))
             self.ffn_layers.append(
                 FFN(
                     hidden_channels,
@@ -39,7 +39,7 @@ class Encoder(torch.nn.Module):
                     kernel_size,
                     p_dropout=p_dropout))
             self.norm_layers_2.append(
-                promonet.model.modules.LayerNorm(hidden_channels))
+                promonet.model.LayerNorm(hidden_channels))
 
     def forward(self, x, mask):
         x = x * mask

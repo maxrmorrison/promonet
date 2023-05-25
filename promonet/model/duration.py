@@ -14,37 +14,31 @@ class DurationPredictor(torch.nn.Module):
 
     def __init__(self, in_channels, filter_channels, p_dropout=.5, n_flows=4):
         super().__init__()
-        self.log_flow = promonet.model.modules.Log()
+        self.log_flow = LogFlow()
         self.flows = torch.nn.ModuleList()
-        self.flows.append(promonet.model.modules.ElementwiseAffine(2))
+        self.flows.append(ElementwiseAffine(2))
         for _ in range(n_flows):
-            self.flows.append(promonet.model.modules.ConvFlow(
-                2,
-                filter_channels,
-                promonet.KERNEL_SIZE,
-                n_layers=3))
-            self.flows.append(promonet.model.modules.Flip())
+            self.flows.append(
+                ConvFlow(2, filter_channels, promonet.KERNEL_SIZE, n_layers=3))
+            self.flows.append(promonet.model.Flip())
 
         self.post_pre = torch.nn.Conv1d(1, filter_channels, 1)
         self.post_proj = torch.nn.Conv1d(filter_channels, filter_channels, 1)
-        self.post_convs = promonet.model.modules.DDSConv(
+        self.post_convs = DDSConv(
             filter_channels,
             promonet.KERNEL_SIZE,
             n_layers=3,
             p_dropout=p_dropout)
         self.post_flows = torch.nn.ModuleList()
-        self.post_flows.append(promonet.model.modules.ElementwiseAffine(2))
+        self.post_flows.append(ElementwiseAffine(2))
         for _ in range(4):
-            self.post_flows.append(promonet.model.modules.ConvFlow(
-                2,
-                filter_channels,
-                promonet.KERNEL_SIZE,
-                n_layers=3))
-            self.post_flows.append(promonet.model.modules.Flip())
+            self.post_flows.append(
+                ConvFlow(2, filter_channels, promonet.KERNEL_SIZE, n_layers=3))
+            self.post_flows.append(promonet.model.Flip())
 
         self.pre = torch.nn.Conv1d(in_channels, filter_channels, 1)
         self.proj = torch.nn.Conv1d(filter_channels, filter_channels, 1)
-        self.convs = promonet.model.modules.DDSConv(
+        self.convs = DDSConv(
             filter_channels,
             promonet.KERNEL_SIZE,
             n_layers=3,
@@ -139,7 +133,7 @@ class ConvFlow(torch.nn.Module):
         self.half_channels = in_channels // 2
 
         self.pre = torch.nn.Conv1d(self.half_channels, filter_channels, 1)
-        self.convs = promonet.model.modules.DDSConv(
+        self.convs = DDSConv(
             filter_channels,
             kernel_size,
             n_layers,
@@ -181,3 +175,74 @@ class ConvFlow(torch.nn.Module):
             return x, logdet
         else:
             return x
+
+
+###############################################################################
+# Utilities
+###############################################################################
+
+
+class DDSConv(torch.nn.Module):
+    """Dialted and depthwise-separable convolution"""
+
+    def __init__(self, channels, kernel_size, n_layers, p_dropout=0.):
+        super().__init__()
+        self.n_layers = n_layers
+        self.drop = torch.nn.Dropout(p_dropout)
+        self.convs_sep = torch.nn.ModuleList()
+        self.convs_1x1 = torch.nn.ModuleList()
+        self.norms_1 = torch.nn.ModuleList()
+        self.norms_2 = torch.nn.ModuleList()
+        for i in range(n_layers):
+            dilation = kernel_size ** i
+            padding = (kernel_size * dilation - dilation) // 2
+            self.convs_sep.append(torch.nn.Conv1d(
+                channels,
+                channels,
+                kernel_size,
+                groups=channels,
+                dilation=dilation,
+                padding=padding))
+            self.convs_1x1.append(torch.nn.Conv1d(channels, channels, 1))
+            self.norms_1.append(promonet.model.LayerNorm(channels))
+            self.norms_2.append(promonet.model.LayerNorm(channels))
+
+    def forward(self, x, x_mask, g=None):
+        if g is not None:
+            x = x + g
+        for i in range(self.n_layers):
+            y = self.convs_sep[i](x * x_mask)
+            y = self.norms_1[i](y)
+            y = torch.nn.functional.gelu(y)
+            y = self.convs_1x1[i](y)
+            y = self.norms_2[i](y)
+            y = torch.nn.functional.gelu(y)
+            y = self.drop(y)
+            x = x + y
+        return x * x_mask
+
+
+class ElementwiseAffine(torch.nn.Module):
+
+    def __init__(self, channels):
+        super().__init__()
+        self.m = torch.nn.Parameter(torch.zeros(channels, 1))
+        self.logs = torch.nn.Parameter(torch.zeros(channels, 1))
+
+    def forward(self, x, x_mask, reverse=False, g=None):
+        if not reverse:
+            y = self.m + torch.exp(self.logs) * x
+            y = y * x_mask
+            logdet = torch.sum(self.logs * x_mask, [1, 2])
+            return y, logdet
+        return (x - self.m) * torch.exp(-self.logs) * x_mask
+
+
+class LogFlow(torch.nn.Module):
+
+    def forward(self, x, x_mask, reverse=False):
+        if not reverse:
+            y = torch.log(torch.clamp_min(x, 1e-5)) * x_mask
+            logdet = torch.sum(-y, [1, 2])
+            return y, logdet
+        return torch.exp(x) * x_mask

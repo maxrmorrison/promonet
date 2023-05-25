@@ -80,7 +80,7 @@ class Vocoder(torch.nn.Module):
             bias=False)
 
         # Weight initialization
-        self.ups.apply(promonet.model.init_weights)
+        self.ups.apply(init_weights)
 
         # Speaker conditioning
         self.cond = torch.nn.Conv1d(
@@ -148,12 +148,12 @@ class Block(torch.nn.Module):
             conv_fn(pad_fn(dilation[0]), dilation[0]),
             conv_fn(pad_fn(dilation[1]), dilation[1]),
             conv_fn(pad_fn(dilation[2]), dilation[2])])
-        self.convs1.apply(promonet.model.init_weights)
+        self.convs1.apply(init_weights)
         self.convs2 = torch.nn.ModuleList([
             conv_fn(pad_fn()),
             conv_fn(pad_fn()),
             conv_fn(pad_fn())])
-        self.convs2.apply(promonet.model.init_weights)
+        self.convs2.apply(init_weights)
 
         # Activations
         if promonet.SNAKE:
@@ -192,3 +192,14 @@ class Block(torch.nn.Module):
         if x_mask is not None:
             x = x * x_mask
         return x
+
+
+###############################################################################
+# Utilities
+###############################################################################
+
+
+def init_weights(m, mean=0.0, std=0.01):
+    classname = m.__class__.__name__
+    if classname.find("Conv") != -1:
+        m.weight.data.normal_(mean, std)

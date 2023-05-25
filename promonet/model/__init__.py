@@ -8,6 +8,6 @@ from .wavenet import WaveNet
 from . import flow
 from . import generator
 from . import modules
-from . import monotonic_align
+from . import align
 from . import spline
 from . import transformer

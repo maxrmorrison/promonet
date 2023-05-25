@@ -31,7 +31,7 @@ class Block(torch.nn.Module):
                     n_layers,
                     gin_channels=gin_channels,
                     mean_only=True))
-            self.flows.append(promonet.model.modules.Flip())
+            self.flows.append(promonet.model.Flip())
 
     def forward(self, x, feature_mask, g=None, reverse=False):
         if not reverse:
