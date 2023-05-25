@@ -63,7 +63,7 @@ class Layer(torch.nn.Module):
             self.half_channels,
             hidden_channels,
             1)
-        self.enc = promonet.model.modules.WaveNet(
+        self.enc = promonet.model.WaveNet(
             hidden_channels,
             kernel_size,
             dilation_rate,
@@ -96,4 +96,3 @@ class Layer(torch.nn.Module):
 
         x1 = (x1 - m) * torch.exp(-logs) * x_mask
         return torch.cat([x0, x1], 1)
-
