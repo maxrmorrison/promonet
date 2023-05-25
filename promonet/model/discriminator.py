@@ -188,7 +188,7 @@ class DiscriminatorS(torch.nn.Module):
 
     def __init__(self):
         super().__init__()
-        conv_fn = weight_norm_conv1d
+        conv_fn = promonet.model.weight_norm_conv1d
         input_channels = promonet.NUM_FEATURES_DISCRIM
         self.convs = torch.nn.ModuleList([
             conv_fn(input_channels, 16, 15, 1, padding=7),
@@ -293,11 +293,6 @@ class Discriminator(torch.nn.Module):
 ###############################################################################
 # Utilities
 ###############################################################################
-
-
-def weight_norm_conv1d(*args, **kwargs):
-    """Construct Conv1d layer with weight normalization"""
-    return torch.nn.utils.weight_norm(torch.nn.Conv1d(*args, **kwargs))
 
 
 def weight_norm_conv2d(*args, **kwargs):
