@@ -204,47 +204,156 @@ def speaker(
 
 #### Command-line interface (CLI)
 
-**TODO**
+```
+python -m promonet.adapt \
+    [-h] \
+    [--config CONFIG] \
+    --name NAME \
+    --files FILES \
+    [--checkpoint CHECKPOINT] \
+    [--gpus GPUS [GPUS ...]]
+
+Perform speaker adaptation
+
+  -h, --help               show this help message and exit
+  --config CONFIG          The configuration file
+  --name NAME              The name of the speaker
+  --files FILES            The audio files to use for adaptation
+  --checkpoint CHECKPOINT  The model checkpoint
+  --gpus GPUS [GPUS ...]   The gpus to run adaptation on
+```
 
 
 ### Generation
 
 #### Application programming interface (API)
 
-##### `promonet.from_`
+##### `promonet.from_audio`
 
-**TODO**
+```
+def from_audio(
+    audio: torch.Tensor,
+    sample_rate: int = promonet.SAMPLE_RATE,
+    text: Optional[str] = None,
+    grid: Optional[torch.Tensor] = None,
+    target_loudness: Optional[torch.Tensor] = None,
+    target_pitch: Optional[torch.Tensor] = None,
+    checkpoint: Union[str, os.PathLike]=promonet.DEFAULT_CHECKPOINT,
+    gpu: Optional[int] = None) -> torch.Tensor:
+    """Perform speech editing
+
+    Args:
+        audio: The audio to edit
+        sample_rate: The audio sample rate
+        text: The speech transcript for editing phoneme durations
+        grid: The interpolation grid for editing phoneme durations
+        target_loudness: The loudness contour for editing loudness
+        target_pitch: The pitch contour for shifting pitch
+        checkpoint: The model checkpoint
+        gpu: The GPU index
+
+    Returns
+        edited: The edited audio
+    """
+```
 
 
 ##### `promonet.from_file`
 
-**TODO**
+```
+def from_file(
+    audio_file: Union[str, os.PathLike],
+    text_file: Optional[Union[str, os.PathLike]] = None,
+    grid_file: Optional[Union[str, os.PathLike]] = None,
+    target_loudness_file: Optional[Union[str, os.PathLike]] = None,
+    target_pitch_file: Optional[Union[str, os.PathLike]] = None,
+    checkpoint: Union[str, os.PathLike] = promonet.DEFAULT_CHECKPOINT,
+    gpu: Optional[int] = None) -> torch.Tensor:
+    """Edit speech on disk
+
+    Args:
+        audio_file: The audio to edit
+        text_file: The speech transcript for editing phoneme durations
+        grid_file: The interpolation grid for editing phoneme durations
+        target_loudness_file: The loudness contour for editing loudness
+        target_pitch_file: The pitch contour for shifting pitch
+        checkpoint: The model checkpoint
+        gpu: The GPU index
+
+    Returns
+        edited: The edited audio
+    """
+```
 
 
 ##### `promonet.from_file_to_file`
 
-**TODO**
+```
+def from_file_to_file(
+    audio_file: Union[str, os.PathLike],
+    output_file: Union[str, os.PathLike],
+    text_file: Optional[Union[str, os.PathLike]] = None,
+    grid_file: Optional[Union[str, os.PathLike]] = None,
+    target_loudness_file: Optional[Union[str, os.PathLike]] = None,
+    target_pitch_file: Optional[Union[str, os.PathLike]] = None,
+    checkpoint: Union[str, os.PathLike] = promonet.DEFAULT_CHECKPOINT,
+    gpu: Optional[int] = None):
+    """Edit speech on disk and save to disk
+
+    Args:
+        audio_file: The audio to edit
+        output_file: The file to save the edited audio
+        text_file: The speech transcript for editing phoneme durations
+        grid_file: The interpolation grid for editing phoneme durations
+        target_loudness_file: The loudness contour for editing loudness
+        target_pitch_file: The pitch contour for shifting pitch
+        checkpoint: The model checkpoint
+        gpu: The GPU index
+    """
+```
 
 
 ##### `promonet.from_files_to_files`
 
-**TODO**
+```
+def from_files_to_files(
+    audio_files: List[Union[str, os.PathLike]],
+    output_files: List[Union[str, os.PathLike]],
+    text_files: Optional[List[Union[str, os.PathLike]]] = None,
+    grid_files: Optional[List[Union[str, os.PathLike]]] = None,
+    target_loudness_files: Optional[List[Union[str, os.PathLike]]] = None,
+    target_pitch_files: Optional[List[Union[str, os.PathLike]]] = None,
+    checkpoint: Union[str, os.PathLike] = promonet.DEFAULT_CHECKPOINT,
+    gpu: Optional[int] = None):
+    """Edit speech on disk and save to disk
+
+    Args:
+        audio_files: The audio to edit
+        output_files: The files to save the edited audio
+        text_files: The speech transcripts for editing phoneme durations
+        grid_files: The interpolation grids for editing phoneme durations
+        target_loudness_files: The loudness contours for editing loudness
+        target_pitch_files: The pitch contours for shifting pitch
+        checkpoint: The model checkpoint
+        gpu: The GPU index
+    """
+```
 
 
 #### Command-line interface (CLI)
 
 ```
-python -m promonet
-    [-h]
-    [--config CONFIG]
-    --audio_files AUDIO_FILES [AUDIO_FILES ...]
-    --output_files OUTPUT_FILES [OUTPUT_FILES ...]
-    [--target_alignment_files TARGET_ALIGNMENT_FILES [TARGET_ALIGNMENT_FILES ...]]
-    [--target_loudness_files TARGET_LOUDNESS_FILES [TARGET_LOUDNESS_FILES ...]]
-    [--target_periodicity_files TARGET_PERIODICITY_FILES [TARGET_PERIODICITY_FILES ...]]
-    [--target_pitch_files TARGET_PITCH_FILES [TARGET_PITCH_FILES ...]]
-    [--checkpoint CHECKPOINT]
-    [--gpu GPU]
+python -m promonet \
+    [-h] \
+    [--config CONFIG] \
+    --audio_files AUDIO_FILES [AUDIO_FILES ...] \
+    --output_files OUTPUT_FILES [OUTPUT_FILES ...] \
+    [--target_alignment_files TARGET_ALIGNMENT_FILES [TARGET_ALIGNMENT_FILES ...]] \
+    [--target_loudness_files TARGET_LOUDNESS_FILES [TARGET_LOUDNESS_FILES ...]] \
+    [--target_periodicity_files TARGET_PERIODICITY_FILES [TARGET_PERIODICITY_FILES ...]] \
+    [--target_pitch_files TARGET_PITCH_FILES [TARGET_PITCH_FILES ...]] \
+    [--checkpoint CHECKPOINT] \
+    [--gpu GPU] \
 
 Perform prosody editing
 
