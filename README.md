@@ -7,7 +7,7 @@
 
 </div>
 
-Official code for the paper _Adaptive Neural Speech Prosody Editing_
+Official code for the paper _Adaptive Neural Speech Editing_
 [[paper]](https://www.maxrmorrison.com/pdfs/morrison2023adaptive.pdf)
 [[companion website]](https://www.maxrmorrison.com/sites/promonet/)
 
@@ -38,9 +38,9 @@ Official code for the paper _Adaptive Neural Speech Prosody Editing_
 
 ### Example
 
-To use `promonet` for speech prosody editing, you must first perform speaker
+To use `promonet` for speech editing, you must first perform speaker
 adaptation on a dataset of recordings of the target speaker. You can then use
-the resulting model checkpoint to perform prosody modification in the target
+the resulting model checkpoint to perform speech editing in the target
 speaker's voice. All of this can be done using either the API or CLI.
 
 
@@ -90,27 +90,23 @@ pitch, loudness, alignment = promonet.preprocess(
 ratio = 2.0
 
 # Perform pitch-shifting
-target_pitch = ratio * pitch
 shifted = promonet.from_audio(
     audio,
-    target_pitch=target_pitch,
+    target_pitch=ratio * pitch,
     checkpoint=checkpoint,
     gpu=gpus[0])
 
 # Perform time-stretching
-alignment.update(
-    durations=[ratio * p.duration() for p in target_alignment.phonemes()])
 stretched = promonet.from_audio(
     audio,
-    target_alignment=alignment,
+    grid=promonet.interpolate.grid.constant(pitch, ratio),
     checkpoint=checkpoint,
     gpu=gpus[0])
 
 # Perform loudness-scaling
-target_loudness = 10 * math.log2(ratio) + loudness
 scaled = promonet.from_audio(
     audio,
-    target_loudness=target_loudness,
+    target_loudness=10 * math.log2(ratio) + loudness,
     checkpoint=checkpoint,
     gpu=gpus[0])
 ```
@@ -135,7 +131,7 @@ python -m promonet.adapt \
 
 
 ###############################################################################
-# Prosody editing
+# Speech editing
 ###############################################################################
 
 
@@ -161,7 +157,7 @@ python -m promonet \
     --config <config> \
     --audio_files <audio_files> \
     --output_files <output_files> \
-    --target_alignment_files <target_alignment_files> \
+    --grid_files <grid_files> \
     --checkpoint <checkpoint> \
     --gpu <gpu>
 
@@ -348,35 +344,32 @@ python -m promonet \
     [--config CONFIG] \
     --audio_files AUDIO_FILES [AUDIO_FILES ...] \
     --output_files OUTPUT_FILES [OUTPUT_FILES ...] \
-    [--target_alignment_files TARGET_ALIGNMENT_FILES [TARGET_ALIGNMENT_FILES ...]] \
+    [--grid_files GRID_FILES [GRID_FILES ...]] \
     [--target_loudness_files TARGET_LOUDNESS_FILES [TARGET_LOUDNESS_FILES ...]] \
-    [--target_periodicity_files TARGET_PERIODICITY_FILES [TARGET_PERIODICITY_FILES ...]] \
     [--target_pitch_files TARGET_PITCH_FILES [TARGET_PITCH_FILES ...]] \
     [--checkpoint CHECKPOINT] \
-    [--gpu GPU] \
+    [--gpu GPU]
 
-Perform prosody editing
+Perform speech editing
 
-required arguments:
-  --audio_files AUDIO_FILES [AUDIO_FILES ...]
-                        The audio files to process
-  --output_files OUTPUT_FILES [OUTPUT_FILES ...]
-                        The files to save the output audio
-
-optional arguments:
-  -h, --help            show this help message and exit
-  --config CONFIG       The configuration file
-  --target_alignment_files TARGET_ALIGNMENT_FILES [TARGET_ALIGNMENT_FILES ...]
-                        The files with the target phoneme alignment
-  --target_loudness_files TARGET_LOUDNESS_FILES [TARGET_LOUDNESS_FILES ...]
-                        The files with the per-frame target loudness
-  --target_periodicity_files TARGET_PERIODICITY_FILES [TARGET_PERIODICITY_FILES ...]
-                        The files with the per-frame target periodicity
-  --target_pitch_files TARGET_PITCH_FILES [TARGET_PITCH_FILES ...]
-                        The files with the per-frame target pitch
-  --checkpoint CHECKPOINT
-                        The model checkpoint
-  --gpu GPU             The GPU index
+    -h, --help
+        show this help message and exit
+    --config CONFIG
+        The configuration file
+    --audio_files AUDIO_FILES [AUDIO_FILES ...]
+        The audio to edit
+    --output_files OUTPUT_FILES [OUTPUT_FILES ...]
+        The files to save the edited audio
+    --grid_files GRID_FILES [GRID_FILES ...]
+        The interpolation grids for editing phoneme durations
+    --target_loudness_files TARGET_LOUDNESS_FILES [TARGET_LOUDNESS_FILES ...]
+        The loudness contours for editing loudness
+    --target_pitch_files TARGET_PITCH_FILES [TARGET_PITCH_FILES ...]
+        The pitch contours for shifting pitch
+    --checkpoint CHECKPOINT
+        The generator checkpoint
+    --gpu GPU
+        The GPU index
 ```
 
 
@@ -432,7 +425,7 @@ automatically be loaded and training will resume from that checkpoint.
 You can monitor training via `tensorboard` as follows.
 
 ```
-tensorboard --logdir runs/train/ --port <port>
+tensorboard --logdir runs/ --port <port>
 ```
 
 

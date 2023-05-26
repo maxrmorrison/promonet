@@ -11,7 +11,7 @@ import promonet
 
 def parse_args():
     """Parse command-line arguments"""
-    parser = argparse.ArgumentParser(description='Perform prosody editing')
+    parser = argparse.ArgumentParser(description='Perform speech editing')
     parser.add_argument(
         '--config',
         type=Path,
@@ -22,33 +22,28 @@ def parse_args():
         type=Path,
         nargs='+',
         required=True,
-        help='The audio files to process')
+        help='The audio to edit')
     parser.add_argument(
         '--output_files',
         type=Path,
         nargs='+',
         required=True,
-        help='The files to save the output audio')
+        help='The files to save the edited audio')
     parser.add_argument(
-        '--target_alignment_files',
+        '--grid_files',
         type=Path,
         nargs='+',
-        help='The files with the target phoneme alignment')
+        help='The interpolation grids for editing phoneme durations')
     parser.add_argument(
         '--target_loudness_files',
         type=Path,
         nargs='+',
-        help='The files with the per-frame target loudness')
-    parser.add_argument(
-        '--target_periodicity_files',
-        type=Path,
-        nargs='+',
-        help='The files with the per-frame target periodicity')
+        help='The loudness contours for editing loudness')
     parser.add_argument(
         '--target_pitch_files',
         type=Path,
         nargs='+',
-        help='The files with the per-frame target pitch')
+        help='The pitch contours for shifting pitch')
     parser.add_argument(
         '--checkpoint',
         type=Path,
@@ -57,7 +52,7 @@ def parse_args():
     parser.add_argument(
         '--gpu',
         type=int,
-        help='The index of the gpu to use for generation')
+        help='The GPU index')
     return parser.parse_args()
 
 

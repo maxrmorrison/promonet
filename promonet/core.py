@@ -34,7 +34,7 @@ def from_audio(
         grid: The interpolation grid for editing phoneme durations
         target_loudness: The loudness contour for editing loudness
         target_pitch: The pitch contour for shifting pitch
-        checkpoint: The model checkpoint
+        checkpoint: The generator checkpoint
         gpu: The GPU index
 
     Returns
@@ -83,7 +83,7 @@ def from_file(
         grid_file: The interpolation grid for editing phoneme durations
         target_loudness_file: The loudness contour for editing loudness
         target_pitch_file: The pitch contour for shifting pitch
-        checkpoint: The model checkpoint
+        checkpoint: The generator checkpoint
         gpu: The GPU index
 
     Returns
@@ -148,7 +148,7 @@ def from_file_to_file(
         grid_file: The interpolation grid for editing phoneme durations
         target_loudness_file: The loudness contour for editing loudness
         target_pitch_file: The pitch contour for shifting pitch
-        checkpoint: The model checkpoint
+        checkpoint: The generator checkpoint
         gpu: The GPU index
     """
     generated = from_file(
@@ -181,7 +181,7 @@ def from_files_to_files(
         grid_files: The interpolation grids for editing phoneme durations
         target_loudness_files: The loudness contours for editing loudness
         target_pitch_files: The pitch contours for shifting pitch
-        checkpoint: The model checkpoint
+        checkpoint: The generator checkpoint
         gpu: The GPU index
     """
     # Handle None arguments
