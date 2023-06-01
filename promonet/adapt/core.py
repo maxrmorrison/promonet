@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 from typing import List, Optional
 
@@ -44,9 +45,19 @@ def speaker(
             audio *= .35 / maximum
 
         # Save to cache
-        torchaudio.save(cache / f'{i:06d}-100.wav', audio, promonet.SAMPLE_RATE)
+        torchaudio.save(
+            cache / f'{i:06d}-100.wav',
+            audio,
+            promonet.SAMPLE_RATE)
 
-    # TODO - augment
+    if promonet.AUGMENT_PITCH:
+
+        # Augment and get augmentation ratios
+        ratios = promonet.data.augment.from_files_to_files(files)
+
+        # Save augmentation ratios
+        with open(promonet.AUGMENT_DIR / 'adapt' / f'{name}.json', 'w') as file:
+            json.dump(ratios, file, indent=4)
 
     # Preprocess features
     promonet.data.preprocess.from_files_to_files(

@@ -246,22 +246,31 @@ class Generator(torch.nn.Module):
             periodicity,
             loudness)
 
-        # Encode text to text embedding and statistics for the flow model
-        (
-            embeddings,
-            predicted_mean,
-            predicted_logstd,
-            feature_mask
-        ) = self.prior_encoder(features, lengths)
+        if promonet.MODEL in ['end-to-end', 'two-stage', 'vits']:
 
-        # Encode speaker ID
-        speaker_embeddings = self.speaker_embedding(speakers).unsqueeze(-1)
+            # Encode text to text embedding and statistics for the flow model
+            (
+                embeddings,
+                predicted_mean,
+                predicted_logstd,
+                feature_mask
+            ) = self.prior_encoder(features, lengths)
 
-        # Maybe add augmentation ratios
-        if promonet.PITCH_FEATURES and promonet.AUGMENT_PITCH:
-            speaker_embeddings = torch.cat(
-                (speaker_embeddings, ratios[:, None, None]),
-                dim=1)
+            # Encode speaker ID
+            speaker_embeddings = self.speaker_embedding(speakers).unsqueeze(-1)
+
+            # Maybe add augmentation ratios
+            if promonet.PITCH_FEATURES and promonet.AUGMENT_PITCH:
+                speaker_embeddings = torch.cat(
+                    (speaker_embeddings, ratios[:, None, None]),
+                    dim=1)
+
+        else:
+            embeddings = None
+            predicted_mean = None
+            predicted_logstd = None
+            feature_mask = sequence_mask(lengths)
+            speaker_embeddings = None
 
         if self.training:
 
@@ -344,7 +353,7 @@ class Generator(torch.nn.Module):
             mask = sequence_mask(
                 lengths,
                 lengths[0]
-            ).unsqueeze(1).to(embeddings.dtype)
+            ).unsqueeze(1).to(pitch.dtype)
 
             if promonet.MODEL in ['hifigan', 'two-stage', 'vocoder']:
 

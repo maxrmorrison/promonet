@@ -1,7 +1,7 @@
 import numpy as np
 import torch
 
-import promonet
+from promonet.model.align.mas import maximum_path_c
 
 
 def maximum_path(neg_cent, mask):
@@ -12,5 +12,5 @@ def maximum_path(neg_cent, mask):
   path = np.zeros(neg_cent.shape, dtype=np.int32)
   t_t_max = mask.sum(1)[:, 0].data.cpu().numpy().astype(np.int32)
   t_s_max = mask.sum(2)[:, 0].data.cpu().numpy().astype(np.int32)
-  promonet.model.align.mas.maximum_path_c(path, neg_cent, t_t_max, t_s_max)
+  maximum_path_c(path, neg_cent, t_t_max, t_s_max)
   return torch.from_numpy(path).to(device=device, dtype=dtype)
