@@ -49,14 +49,21 @@ def from_audio(
             return promonet.baseline.world.from_audio(**locals())
 
     # Preprocess
-    features, target_pitch, periodicity, target_loudness = preprocess(
-        audio,
-        sample_rate,
-        text,
-        grid,
-        target_loudness,
-        target_pitch,
-        gpu)
+    with promonet.time.timer('preprocess'):
+        (
+            features,
+            target_pitch,
+            periodicity,
+            target_loudness,
+            spectrograms
+        ) = preprocess(
+            audio,
+            sample_rate,
+            text,
+            grid,
+            target_loudness,
+            target_pitch,
+            gpu)
 
     # Generate
     return generate(
@@ -64,6 +71,7 @@ def from_audio(
         target_pitch,
         periodicity,
         target_loudness,
+        spectrograms,
         checkpoint)
 
 
@@ -216,6 +224,7 @@ def generate(
     pitch,
     periodicity,
     loudness,
+    spectrograms,
     checkpoint=promonet.DEFAULT_CHECKPOINT):
     """Generate speech from phoneme and prosody features"""
     device = features.device
@@ -250,7 +259,8 @@ def generate(
                 periodicity,
                 loudness,
                 lengths,
-                speakers)[0][0].cpu()
+                speakers,
+                spectrograms=spectrograms)[0][0].cpu()
 
 
 def preprocess(
@@ -267,73 +277,75 @@ def preprocess(
     with promonet.time.timer('resample'):
         audio = resample(audio, sample_rate)
 
-    # Extract prosody features
-    with promonet.time.timer('features/prosody'):
-        if promonet.PPG_FEATURES:
-            pitch, periodicity, loudness, _ = \
-                pysodic.from_audio(
-                    audio,
-                    promonet.SAMPLE_RATE,
-                    promonet.HOPSIZE / promonet.SAMPLE_RATE,
-                    promonet.WINDOW_SIZE / promonet.SAMPLE_RATE,
-                    gpu=gpu)
-
-            # Maybe interpolate pitch
-            if target_pitch is None:
-                if grid is not None:
-                    pitch = promonet.interpolate.pitch(pitch, grid)
-                target_pitch = pitch
-
-            # Maybe interpolate periodicity
-            if grid is not None:
-                periodicity = promonet.interpolate.grid_sample(
-                    periodicity,
-                    grid)
-
-            # Maybe interpolate loudness
-            if target_loudness is None:
-                if grid is not None:
-                    loudness = promonet.interpolate.grid_sample(
-                        loudness,
-                        grid)
-                target_loudness = loudness
-
-        # Convert pitch to indices
-        if target_pitch is not None:
-            target_pitch = promonet.convert.hz_to_bins(target_pitch)
-
-    with promonet.time.timer('features/phonemes'):
-
-        # Phonetic posteriorgrams
-        if promonet.PPG_FEATURES:
-            features = promonet.data.preprocess.ppg.from_audio(
-                audio,
-                sample_rate,
-                gpu=gpu)
-
-            # Maybe resample length
-            frames = promonet.convert.samples_to_frames(audio.shape[1])
-            if features.shape[1] != frames:
-                align_corners = \
-                    None if promonet.PPG_INTERP_METHOD == 'nearest' else False
-                features = torch.nn.functional.interpolate(
-                    features[None],
-                    size=frames,
-                    mode=promonet.PPG_INTERP_METHOD,
-                    align_corners=align_corners)[0]
-
-            # Maybe stretch PPGs
-            if grid is not None:
-                features = promonet.interpolate.ppgs(features, grid)
+    if promonet.MODEL == 'vits':
 
         # Grapheme-to-phoneme
-        else:
-            _, features = pyfoal.g2p.from_text(text, to_indices=True)
-            target_pitch, periodicity, target_loudness = None, None, None
+        _, features = pyfoal.g2p.from_text(text, to_indices=True)
+        target_pitch, periodicity, target_loudness = None, None, None
 
-        features = features.to(device)[None]
+    else:
 
-    return features, target_pitch, periodicity, target_loudness
+        # Extract prosody features
+        pitch, periodicity, loudness, _ = \
+            pysodic.from_audio(
+                audio,
+                promonet.SAMPLE_RATE,
+                promonet.HOPSIZE / promonet.SAMPLE_RATE,
+                promonet.WINDOW_SIZE / promonet.SAMPLE_RATE,
+                gpu=gpu)
+
+        # Maybe interpolate pitch
+        if target_pitch is None:
+            if grid is not None:
+                pitch = promonet.interpolate.pitch(pitch, grid)
+            target_pitch = pitch
+
+        # Maybe interpolate periodicity
+        if grid is not None:
+            periodicity = promonet.interpolate.grid_sample(
+                periodicity,
+                grid)
+
+        # Maybe interpolate loudness
+        if target_loudness is None:
+            if grid is not None:
+                loudness = promonet.interpolate.grid_sample(
+                    loudness,
+                    grid)
+            target_loudness = loudness
+
+        # Phonetic posteriorgrams
+        features = promonet.data.preprocess.ppg.from_audio(
+            audio,
+            sample_rate,
+            gpu=gpu)
+
+        # Maybe resample length
+        frames = promonet.convert.samples_to_frames(audio.shape[1])
+        if features.shape[1] != frames:
+            align_corners = \
+                None if promonet.PPG_INTERP_METHOD == 'nearest' else False
+            features = torch.nn.functional.interpolate(
+                features[None],
+                size=frames,
+                mode=promonet.PPG_INTERP_METHOD,
+                align_corners=align_corners)[0]
+
+        # Maybe stretch PPGs
+        if grid is not None:
+            features = promonet.interpolate.ppgs(features, grid)
+
+    features = features.to(device)[None]
+
+    # Use spectrograms for hifigan
+    if promonet.MODEL == 'hifigan':
+        spectrograms = promonet.data.preprocess.spectrogram.from_audio(
+            audio
+        )[None].to(device)
+    else:
+        spectrograms = None
+
+    return features, target_pitch, periodicity, target_loudness, spectrograms
 
 
 ###############################################################################

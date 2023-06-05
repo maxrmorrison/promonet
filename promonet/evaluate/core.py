@@ -177,9 +177,8 @@ def speaker(
             output_file.parent.mkdir(exist_ok=True, parents=True)
             shutil.copyfile(input_file, output_file)
 
-    # We only perform prosody evaluation on models that accurately reconstruct
-    # and edit prosody
-    if promonet.MODEL == 'vits':
+    # Perform speech editing only on speech editors
+    if promonet.MODEL == ['hifigan', 'vits']:
 
         results = {}
 
@@ -278,6 +277,7 @@ def speaker(
                 torch.save(grid, grid_file)
 
                 # Stretch and save other prosody features
+                # TODO - spectrogram for hifigan
                 features = [
                     'loudness',
                     'periodicity',
