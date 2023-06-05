@@ -349,12 +349,6 @@ class Generator(torch.nn.Module):
             slice_indices = None
             true_logstd = None
 
-            # Mask denoting valid frames
-            mask = sequence_mask(
-                lengths,
-                lengths[0]
-            ).unsqueeze(1).to(pitch.dtype)
-
             if promonet.MODEL in ['hifigan', 'two-stage', 'vocoder']:
 
                 # No duration prediction
@@ -371,8 +365,21 @@ class Generator(torch.nn.Module):
                 else:
                     latents = features
 
+                # Mask denoting valid frames
+                mask = sequence_mask(
+                    lengths,
+                    lengths[0]
+                ).unsqueeze(1).to(latents.dtype)
+
             else:
 
+                # Mask denoting valid frames
+                mask = sequence_mask(
+                    lengths,
+                    lengths[0]
+                ).unsqueeze(1).to(embeddings.dtype)
+
+                # Generate durations
                 (
                     durations,
                     attention,
