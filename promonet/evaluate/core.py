@@ -7,15 +7,13 @@ eval
 ├── objective
 │   └── <dataset>
 │       └── <condition>
-│           └── <partition>
-│               └── <speaker>
-│                   └── <stem>-<modification>-<ratio>-<feature>.<extension>
+│           └── <speaker>
+│               └── <stem>-<modification>-<ratio>-<feature>.<extension>
 └── subjective
     └── <dataset>
         └── <condition>
-            └── <partition>
-                └── <speaker>
-                    └── <stem>-<modification>-<ratio>.wav
+            └── <speaker>
+                └── <stem>-<modification>-<ratio>.wav
 """
 import functools
 import json
@@ -153,7 +151,6 @@ def speaker(
         checkpoint=checkpoint,
         gpu=None if promonet.MODEL in ['psola', 'world'] else gpu)
 
-
     # Copy unchanged prosody features
     for file in files['reconstructed']:
         features = [
@@ -178,7 +175,7 @@ def speaker(
             shutil.copyfile(input_file, output_file)
 
     # Perform speech editing only on speech editors
-    if promonet.MODEL == ['hifigan', 'vits']:
+    if promonet.MODEL in ['hifigan', 'vits']:
 
         results = {}
 
@@ -277,7 +274,6 @@ def speaker(
                 torch.save(grid, grid_file)
 
                 # Stretch and save other prosody features
-                # TODO - spectrogram for hifigan
                 features = [
                     'loudness',
                     'periodicity',
@@ -501,7 +497,10 @@ def speaker(
 
                 ppg_args = (predicted_ppgs, target_ppgs)
                 condition = '-'.join(target_prefix.stem.split('-')[1:3])
+
+                # Update metrics
                 metrics[condition].update(prosody_args, ppg_args)
+
                 speaker_metrics[condition].update(prosody_args, ppg_args)
                 file_metrics.update(prosody_args, ppg_args)
 
@@ -640,10 +639,14 @@ def default_metrics(gpus):
     gpu = None if gpus is None else gpus[0]
     metric_fn = functools.partial(promonet.evaluate.Metrics, gpu)
 
-    # Create metric object for each condition
+    # Reconstruction metrics
     metrics = {'original-100': metric_fn()}
-    for condition in ['scaled', 'shifted', 'stretched']:
-        for ratio in RATIOS:
-            metrics[f'{condition}-{int(ratio * 100):03d}'] = metric_fn()
+
+    if promonet.MODEL not in ['hifigan', 'vits']:
+
+        # Prosody editing metrics
+        for condition in ['scaled', 'shifted', 'stretched']:
+            for ratio in RATIOS:
+                metrics[f'{condition}-{int(ratio * 100):03d}'] = metric_fn()
 
     return metrics

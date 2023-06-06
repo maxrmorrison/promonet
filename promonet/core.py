@@ -274,8 +274,7 @@ def preprocess(
     device = torch.device('cpu' if gpu is None else f'cuda:{gpu}')
 
     # Maybe resample
-    with promonet.time.timer('resample'):
-        audio = resample(audio, sample_rate)
+    audio = resample(audio, sample_rate)
 
     if promonet.MODEL == 'vits':
 
@@ -337,11 +336,17 @@ def preprocess(
 
     features = features.to(device)[None]
 
-    # Use spectrograms for hifigan
     if promonet.MODEL == 'hifigan':
+
+        # Compute spectrogram
         spectrograms = promonet.data.preprocess.spectrogram.from_audio(
             audio
         )[None].to(device)
+
+        # Maybe stretch spectrogram
+        if grid is not None:
+            spectrograms = promonet.interpolate.grid_sample(spectrograms, grid)
+
     else:
         spectrograms = None
 
