@@ -340,8 +340,7 @@ def preprocess(
 
         # Compute spectrogram
         spectrograms = promonet.data.preprocess.spectrogram.from_audio(
-            audio,
-            True
+            audio
         )[None].to(device)
 
         # Maybe stretch spectrogram
