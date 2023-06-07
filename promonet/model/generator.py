@@ -16,7 +16,7 @@ class Generator(torch.nn.Module):
         super().__init__()
         self.n_speakers = n_speakers
 
-        # Text feature encoding
+        # Input feature encoding
         if promonet.MODEL in ['end-to-end', 'two-stage', 'vits']:
             self.prior_encoder = PriorEncoder()
 
@@ -103,8 +103,9 @@ class Generator(torch.nn.Module):
             spectrogram_lengths
         )
 
-        # Use different speaker embedding for two-stage models
         if promonet.MODEL == 'two-stage':
+
+            # Use different speaker embedding for two-stage models
             speaker_embeddings = self.speaker_embedding_vocoder(
                 speakers).unsqueeze(-1)
 
@@ -114,15 +115,21 @@ class Generator(torch.nn.Module):
                     (speaker_embeddings, ratios[:, None, None]),
                     dim=1)
 
-        # During first stage of two-stage generation, train the vocoder on
-        # ground-truth spectrograms
-        if self.training:
-            if promonet.TWO_STAGE_1:
-                tmp = latents.clone()
-                latents = spectrogram_slice
-                spectrogram_slice = tmp
-            else:
-                spectrogram_slice = latents
+            # During first stage of two-stage generation, train the vocoder on
+            # ground-truth spectrograms
+            if self.training:
+                if promonet.TWO_STAGE_1:
+                    spectrogram_slice, latents = (
+                        latents,
+                        promonet.data.preprocess.spectrogram.linear_to_mel(
+                            spectrogram_slice)
+                    )
+                else:
+                    spectrogram_slice = latents
+
+        else:
+
+            spectrogram_slice = None
 
         # Decode latent representation to waveform
         generated = self.vocoder(latents, g=speaker_embeddings)
@@ -290,7 +297,8 @@ class Generator(torch.nn.Module):
 
                 # Replace latents
                 if promonet.MODEL == 'hifigan':
-                    latents = spectrograms
+                    latents = promonet.data.preprocess.spectrogram.linear_to_mel(
+                        spectrograms)
                 elif promonet.MODEL == 'two-stage':
                     latents = embeddings
                 else:
@@ -359,7 +367,8 @@ class Generator(torch.nn.Module):
 
                 # Replace latents
                 if promonet.MODEL == 'hifigan':
-                    latents = spectrograms
+                    latents = promonet.data.preprocess.spectrogram.linear_to_mel(
+                        spectrograms)
                 elif promonet.MODEL == 'two-stage':
                     latents = embeddings
                 else:
@@ -425,12 +434,13 @@ class Generator(torch.nn.Module):
             )
 
         # Maybe concat or replace latent features with acoustic features
-        latents = self.postprocess_latents(
-            latents,
-            phoneme_slice,
-            pitch_slice,
-            periodicity_slice,
-            loudness_slice)
+        if promonet.MODEL != 'two-stage':
+            latents = self.postprocess_latents(
+                latents,
+                phoneme_slice,
+                pitch_slice,
+                periodicity_slice,
+                loudness_slice)
 
         return (
             latents,
@@ -617,7 +627,7 @@ class PriorEncoder(torch.nn.Module):
         promonet.FILTER_CHANNELS)
 
     self.channels = (
-        promonet.NUM_FFT // 2 + 1 if promonet.MODEL == 'two-stage'
+        promonet.NUM_MELS if promonet.MODEL == 'two-stage'
         else 2 * channels)
     self.projection = torch.nn.Conv1d(
         channels,

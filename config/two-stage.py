@@ -44,6 +44,12 @@ LOUDNESS_FEATURES = True
 # ]
 MODEL = 'two-stage'
 
+# Number of training steps
+NUM_STEPS = 200000
+
+# Number of adaptation steps
+NUM_ADAPTATION_STEPS = 10000
+
 # Periodicity conditioning
 PERIODICITY_FEATURES = True
 
