@@ -194,7 +194,7 @@ def train(
             # Unfreeze synthesizer
             for param in generator.speaker_embedding.parameters():
                 param.requires_grad = True
-            for param in generator.feature_encoder.parameters():
+            for param in generator.prior_encoder.parameters():
                 param.requires_grad = True
         else:
             promonet.TWO_STAGE_1 = False
@@ -203,7 +203,7 @@ def train(
             # Unfreeze vocoder
             for param in generator.speaker_embedding_vocoder.parameters():
                 param.requires_grad = True
-            for param in generator.generator.parameters():
+            for param in generator.vocoder.parameters():
                 param.requires_grad = True
 
     # Setup progress bar
@@ -285,7 +285,7 @@ def train(
                     generated,
                     latent_mask,
                     slice_indices,
-                    predicted_spectrogram,
+                    predicted_mels,
                     durations,
                     attention,
                     prior,
@@ -305,10 +305,6 @@ def train(
                 # Slice spectral features
                 mel_slices = promonet.model.slice_segments(
                     mels,
-                    start_indices=slice_indices,
-                    segment_size=segment_size)
-                spectrogram_slices = promonet.model.slice_segments(
-                    spectrograms,
                     start_indices=slice_indices,
                     segment_size=segment_size)
 
@@ -402,8 +398,8 @@ def train(
 
                         # Get synthesizer loss
                         synthesizer_loss = torch.nn.functional.l1_loss(
-                            spectrogram_slices,
-                            predicted_spectrogram)
+                            mel_slices,
+                            predicted_mels)
                         generator_losses += synthesizer_loss
 
                     else:
@@ -542,7 +538,7 @@ def train(
                 # Unfreeze vocoder
                 for param in generator.speaker_embedding_vocoder.parameters():
                     param.requires_grad = True
-                for param in generator.generator.parameters():
+                for param in generator.vocoder.parameters():
                     param.requires_grad = True
 
             if not rank:
@@ -580,12 +576,17 @@ def evaluate(directory, step, generator, loader, gpu):
     """Perform model evaluation"""
     device = 'cpu' if gpu is None else f'cuda:{gpu}'
 
-    # Setup prosody evaluation
-    if promonet.PPG_FEATURES:
+    if promonet.MODEL != 'vits':
+
+        # Setup metrics
         metric_fn = functools.partial(
             promonet.evaluate.Metrics,
             gpu)
+
+        # Reconstruction
         metrics = {'reconstruction': metric_fn()}
+
+        # Editing
         if promonet.PITCH_FEATURES:
             metrics.update({
                 'shifted-050': metric_fn(),
@@ -712,8 +713,9 @@ def evaluate(directory, step, generator, loader, gpu):
             # Get ppgs
             predicted_phonemes = ppgs(generated, phonemes.shape[-1], gpu)
 
-            # Log prosody figure
-            if promonet.PPG_FEATURES:
+            if promonet.MODEL != 'vits':
+
+                # Plot target and generated prosody
                 figures[key] = promonet.plot.from_features(
                     generated,
                     predicted_pitch,
@@ -723,16 +725,8 @@ def evaluate(directory, step, generator, loader, gpu):
                     pitch,
                     periodicity,
                     loudness)
-            else:
-                figures[key] = promonet.plot.from_features(
-                    generated,
-                    predicted_pitch,
-                    predicted_periodicity,
-                    predicted_loudness,
-                    predicted_alignment)
 
-            # Update metrics
-            if promonet.PPG_FEATURES:
+                # Update metrics
                 metrics[key.split('/')[0]].update(
                     (
                         pitch,
@@ -747,6 +741,15 @@ def evaluate(directory, step, generator, loader, gpu):
                         predicted_phones
                     ),
                     (phonemes, predicted_phonemes))
+            else:
+
+                # Plot generated prosody
+                figures[key] = promonet.plot.from_features(
+                    generated,
+                    predicted_pitch,
+                    predicted_periodicity,
+                    predicted_loudness,
+                    predicted_alignment)
 
             ##################
             # Pitch shifting #
@@ -993,7 +996,7 @@ def evaluate(directory, step, generator, loader, gpu):
                         (phonemes, predicted_phonemes))
 
     # Format prosody metrics
-    if promonet.PPG_FEATURES:
+    if promonet.MODEL != 'vits':
         for condition in metrics:
             for key, value in metrics[condition]().items():
                 scalars[f'{condition}/{key}'] = value

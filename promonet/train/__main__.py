@@ -36,6 +36,8 @@ def main(
         gpus)
 
     # Evaluate
+    # TEMPORARY - only evaluate on training dataset for now
+    # promonet.evaluate.datasets(promonet.DATASETS, directory, gpus)
     promonet.evaluate.datasets([dataset], directory, gpus)
 
 

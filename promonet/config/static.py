@@ -59,7 +59,7 @@ NUM_FEATURES_DISCRIM = (
 
 # Number of input features to the latent-to-audio model
 if promonet.MODEL == 'hifigan' or promonet.MODEL == 'two-stage':
-    LATENT_FEATURES = promonet.NUM_FFT // 2 + 1
+    LATENT_FEATURES = promonet.NUM_MELS
 elif promonet.MODEL == 'vocoder':
     LATENT_FEATURES = NUM_FEATURES
 else:
