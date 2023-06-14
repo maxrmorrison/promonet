@@ -23,7 +23,7 @@ def from_audio(
     grid: Optional[torch.Tensor] = None,
     target_loudness: Optional[torch.Tensor] = None,
     target_pitch: Optional[torch.Tensor] = None,
-    checkpoint: Union[str, os.PathLike]=promonet.DEFAULT_CHECKPOINT,
+    checkpoint: Union[str, os.PathLike] = promonet.DEFAULT_CHECKPOINT,
     gpu: Optional[int] = None) -> torch.Tensor:
     """Perform speech editing
 

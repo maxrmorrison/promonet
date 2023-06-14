@@ -4,16 +4,15 @@ Files generated during evaluation are saved in eval/. The directory structure
 is as follows.
 
 eval
-├── objective
-│   └── <dataset>
-│       └── <condition>
-│           └── <speaker>
-│               └── <stem>-<modification>-<ratio>-<feature>.<extension>
-└── subjective
-    └── <dataset>
-        └── <condition>
+└── <condition>
+    ├── objective
+    |    └── <dataset>
+    |        └── <speaker>
+    |            └── <utterance>-<modification>-<ratio>-<feature>.<extension>
+    └── subjective
+        └── <dataset>
             └── <speaker>
-                └── <stem>-<modification>-<ratio>.wav
+                └── <utterance>-<modification>-<ratio>.wav
 """
 import functools
 import json
@@ -23,6 +22,7 @@ import pyfoal
 import pypar
 import pysodic
 import torch
+import torchaudio
 
 import promonet
 
@@ -39,6 +39,108 @@ RATIOS = [.717, 1.414]
 ###############################################################################
 # Perform evaluation
 ###############################################################################
+
+
+def datasets(datasets, checkpoint=None, gpus=None):
+    """Evaluate the performance of the model on datasets"""
+    # Turn on benchmarking
+    current_benchmark = promonet.BENCHMARK
+    promonet.BENCHMARK = True
+
+    # Evaluate on each dataset
+    for dataset in datasets:
+
+        # Reset benchmarking
+        promonet.TIMER.reset()
+
+        # Get adaptation partitions for this dataset
+        partitions = promonet.load.partition(dataset)
+        train_partitions = sorted(list(
+            partition for partition in partitions.keys()
+            if 'train-adapt' in partition))
+        test_partitions = sorted(list(
+            partition for partition in partitions.keys()
+            if 'test-adapt' in partition))
+
+        # Prosody metrics
+        metrics = default_metrics(gpus)
+
+        # Evaluate on each partition
+        iterator = zip(train_partitions, test_partitions)
+        for train_partition, test_partition in iterator:
+
+            # Get speaker index
+            index = partitions[test_partition][0].split('/')[0]
+
+            # Output directory for checkpoints and logs
+            adapt_directory = (
+                promonet.RUNS_DIR /
+                promonet.CONFIG /
+                'adapt' /
+                dataset /
+                index)
+            adapt_directory.mkdir(exist_ok=True, parents=True)
+
+            # Output directory for objective evaluation
+            objective_directory = (
+                promonet.EVAL_DIR /
+                promonet.CONFIG /
+                'objective' /
+                dataset)
+            (objective_directory / index).mkdir(exist_ok=True, parents=True)
+
+            # Output directory for subjective evaluation
+            subjective_directory = (
+                promonet.EVAL_DIR /
+                promonet.CONFIG /
+                'subjective' /
+                dataset)
+            (subjective_directory / index).mkdir(exist_ok=True, parents=True)
+
+            # Evaluate a speaker
+            speaker(
+                dataset,
+                train_partition,
+                test_partition,
+                checkpoint,
+                metrics,
+                adapt_directory,
+                adapt_directory,
+                objective_directory,
+                subjective_directory,
+                gpus)
+
+        # Aggregate results
+        results_directory = (
+            promonet.EVAL_DIR /
+            promonet.CONFIG /
+            'objective' /
+            dataset)
+        results = {'num_samples': 0, 'num_frames': 0}
+        if promonet.MODEL != 'vits':
+            results['prosody'] = {key: value()
+                                  for key, value in metrics.items()}
+        for file in results_directory.rglob('results.json'):
+            with open(file) as file:
+                result = json.load(file)
+            results['num_samples'] += result['num_samples']
+            results['num_frames'] += result['num_frames']
+
+        # Parse benchmarking results
+        results['benchmark'] = {'raw': promonet.TIMER()}
+
+        # Average benchmarking over samples
+        results['benchmark']['average'] = {
+            key: value / results['num_samples']
+            for key, value in results['benchmark']['raw'].items()}
+
+        # Print results and save to disk
+        print(results)
+        with open(results_directory / 'results.json', 'w') as file:
+            json.dump(results, file, indent=4, sort_keys=True)
+
+    # Maybe turn off benchmarking
+    promonet.BENCHMARK = current_benchmark
 
 
 def speaker(
@@ -76,22 +178,21 @@ def speaker(
             True,
             gpus)
 
-    # Directory to save original audio files
-    original_subjective_directory = (
-        subjective_directory.parent.parent /
-        'original' /
-        subjective_directory.stem)
-    original_subjective_directory.mkdir(exist_ok=True, parents=True)
-
-    # Directory to save original prosody files
-    original_objective_directory = (
-        objective_directory.parent.parent /
-        'original' /
-        objective_directory.stem)
-    original_objective_directory.mkdir(exist_ok=True, parents=True)
-
     # Stems to use for evaluation
     test_stems = sorted(promonet.load.partition(dataset)[test_partition])
+
+    # Get speaker index
+    index = test_stems[0].spit('/')[0]
+
+    # Directory to save original audio files
+    original_subjective_directory = \
+        promonet.EVAL_DIR / 'original' / 'subjective' / dataset
+    (original_subjective_directory / index).mkdir(exist_ok=True, parents=True)
+
+    # Directory to save original prosody files
+    original_objective_directory = \
+        promonet.EVAL_DIR / 'original' / 'objective' / dataset
+    (original_objective_directory / index).mkdir(exist_ok=True, parents=True)
 
     # Evaluation device
     gpu = None if gpus is None else gpus[0]
@@ -99,20 +200,17 @@ def speaker(
     # Copy original files
     for stem in test_stems:
 
-        # Copy audio files
+        # Copy audio file
         input_file = promonet.CACHE_DIR / dataset / f'{stem}-100.wav'
         output_file = \
             original_subjective_directory / f'{stem}-original-100.wav'
-        output_file.parent.mkdir(exist_ok=True, parents=True)
         shutil.copyfile(input_file, output_file)
 
-        # Copy text files
-        text_files = (promonet.CACHE_DIR / dataset).rglob('*.txt')
-        for input_file in text_files:
-            output_file = \
-                original_objective_directory / f'{stem}-original-100-text.txt'
-            output_file.parent.mkdir(exist_ok=True, parents=True)
-            shutil.copyfile(input_file, output_file)
+        # Copy text file
+        input_file = promonet.CACHE_DIR / dataset / f'{stem}'
+        output_file = \
+            original_objective_directory / f'{stem}-original-100-text.txt'
+        shutil.copyfile(input_file, output_file)
 
         # Copy prosody files
         input_files = [
@@ -126,7 +224,6 @@ def speaker(
             output_file = (
                 original_objective_directory /
                 f'{stem}-original-100-{feature}{input_file.suffix}')
-            output_file.parent.mkdir(exist_ok=True, parents=True)
             shutil.copyfile(input_file, output_file)
 
     ##################
@@ -518,7 +615,7 @@ def speaker(
     # Get the total number of samples we have generated
     files = subjective_directory.rglob('*.wav')
     results['num_samples'] = sum(
-        [file.stat().st_size for file in files]) // 4
+        [torchaudio.info(file).num_frames for file in files])
     results['num_frames'] = promonet.convert.samples_to_frames(
         results['num_samples'])
 
@@ -526,106 +623,6 @@ def speaker(
     print(results)
     with open(objective_directory / 'results.json', 'w') as file:
         json.dump(results, file, indent=4, sort_keys=True)
-
-
-def datasets(datasets, checkpoint=None, gpus=None):
-    """Evaluate the performance of the model on datasets"""
-    # Turn on benchmarking
-    current_benchmark = promonet.BENCHMARK
-    promonet.BENCHMARK = True
-
-    # Evaluate on each dataset
-    for dataset in datasets:
-
-        # Reset benchmarking
-        promonet.TIMER.reset()
-
-        # Get adaptation partitions for this dataset
-        partitions = promonet.load.partition(dataset)
-        train_partitions = sorted(list(
-            partition for partition in partitions.keys()
-            if 'train-adapt' in partition))
-        test_partitions = sorted(list(
-            partition for partition in partitions.keys()
-            if 'test-adapt' in partition))
-
-        # Prosody metrics
-        metrics = default_metrics(gpus)
-
-        # Evaluate on each partition
-        iterator = zip(train_partitions, test_partitions)
-        for train_partition, test_partition in iterator:
-
-            # Index of this adaptation partition
-            index = train_partition.split('-')[-1]
-
-            # Output directory for checkpoints and logs
-            adapt_directory = (
-                promonet.RUNS_DIR /
-                promonet.CONFIG /
-                'adapt' /
-                dataset /
-                index)
-
-            # Output directory for objective evaluation
-            objective_directory = (
-                promonet.EVAL_DIR /
-                'objective' /
-                dataset /
-                promonet.CONFIG /
-                index)
-
-            # Output directory for subjective evaluation
-            subjective_directory = (
-                promonet.EVAL_DIR /
-                'subjective' /
-                dataset /
-                promonet.CONFIG /
-                index)
-
-            # Evaluate a speaker
-            speaker(
-                dataset,
-                train_partition,
-                test_partition,
-                checkpoint,
-                metrics,
-                adapt_directory,
-                adapt_directory,
-                objective_directory,
-                subjective_directory,
-                gpus)
-
-        # Aggregate results
-        results_directory = (
-            promonet.EVAL_DIR /
-            'objective' /
-            dataset /
-            promonet.CONFIG)
-        results = {'num_samples': 0, 'num_frames': 0}
-        if promonet.MODEL != 'vits':
-            results['prosody'] = {key: value() for key, value in metrics.items()}
-        for file in results_directory.rglob('results.json'):
-            with open(file) as file:
-                result = json.load(file)
-            results['num_samples'] += result['num_samples']
-            results['num_frames'] += result['num_frames']
-
-        # Parse benchmarking results
-        results['benchmark'] = {'raw': promonet.TIMER()}
-
-        # Average benchmarking over samples
-        results['benchmark']['average'] = {
-            key: value / results['num_samples']
-            for key, value in results['benchmark']['raw'].items()}
-
-        # Print results and save to disk
-        print(results)
-        with open(results_directory / 'results.json', 'w') as file:
-            json.dump(results, file, indent=4, sort_keys=True)
-
-    # Maybe turn off benchmarking
-    promonet.BENCHMARK = current_benchmark
 
 
 ###############################################################################
