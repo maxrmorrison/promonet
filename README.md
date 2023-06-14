@@ -58,14 +58,14 @@ import promonet
 # Speaker's name
 name = 'max'
 
-# Directory containing wav files for adaptation
-directory = promonet.DATA_DIR / name
+# Audio files for adaptation
+files = [...]
 
 # GPU indices to use for training
 gpus = [0]
 
 # Perform speaker adaptation
-checkpoint = promonet.adapt.speaker(name, directory, gpus=gpus)
+checkpoint = promonet.adapt.speaker(name, files, gpus=gpus)
 
 
 ###############################################################################
