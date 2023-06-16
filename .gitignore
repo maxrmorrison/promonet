@@ -10,10 +10,8 @@ data/datasets/*
 !data/datasets/.gitkeep
 data/sources/*
 !data/sources/.gitkeep
-eval/objective/*
+eval/*
 !eval/objective/.gitkeep
-eval/subjective/*
-!eval/subjective/config
 runs/
 !runs/.gitkeep
 

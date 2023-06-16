@@ -182,7 +182,7 @@ def speaker(
     test_stems = sorted(promonet.load.partition(dataset)[test_partition])
 
     # Get speaker index
-    index = test_stems[0].spit('/')[0]
+    index = test_stems[0].split('/')[0]
 
     # Directory to save original audio files
     original_subjective_directory = \
@@ -207,7 +207,7 @@ def speaker(
         shutil.copyfile(input_file, output_file)
 
         # Copy text file
-        input_file = promonet.CACHE_DIR / dataset / f'{stem}'
+        input_file = promonet.CACHE_DIR / dataset / f'{stem}.txt'
         output_file = \
             original_objective_directory / f'{stem}-original-100-text.txt'
         shutil.copyfile(input_file, output_file)
