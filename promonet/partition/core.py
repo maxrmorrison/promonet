@@ -1,17 +1,26 @@
 """
 Data partitions
 
-VCTK
-====
-* train - Primary training dataset
-* valid - Validation set of seen speakers for debugging and tensorboard
-    (10 examples; 4-10 seconds)
+DAPS
+===
 * train_adapt_{:02d} - Training dataset for speaker adaptation (10 speakers)
 * test_adapt_{:02d} - Test dataset for speaker adaptation
     (10 speakers; 10 examples per speaker; 4-10 seconds)
 
-DAPS
-===
+LibriTTS
+====
+* train - Training data
+* valid - Validation set of seen speakers for debugging and tensorboard
+    (10 examples)
+* train_adapt_{:02d} - Training dataset for speaker adaptation (10 speakers)
+* test_adapt_{:02d} - Test dataset for speaker adaptation
+    (10 speakers; 10 examples per speaker; 4-10 seconds)
+
+VCTK
+====
+* train - Training data
+* valid - Validation set of seen speakers for debugging and tensorboard
+    (10 examples; 4-10 seconds)
 * train_adapt_{:02d} - Training dataset for speaker adaptation (10 speakers)
 * test_adapt_{:02d} - Test dataset for speaker adaptation
     (10 speakers; 10 examples per speaker; 4-10 seconds)
@@ -57,6 +66,25 @@ DAPS_ADAPTATION_SPEAKERS = [
     '0015',
     '0017']
 
+# Speakers selected by sorting the train-clean-100 speakers by longest total
+# recording duration and manually selecting speakers with more natural,
+# conversational (as opposed to read) prosody
+LIBRITTS_ADAPTATION_SPEAKERS = [
+    # Female
+    '0040',
+    '0669',
+    '4362',
+    '5022',
+    '8123',
+
+    # Male
+    '0196',
+    '0460',
+    '1355',
+    '3664',
+    '7067']
+
+# Gender-balanced VCTK speakers
 VCTK_ADAPTATION_SPEAKERS = [
     # Female
     '0013',
@@ -76,6 +104,15 @@ VCTK_ADAPTATION_SPEAKERS = [
 ###############################################################################
 # Partition
 ###############################################################################
+
+
+def adaptation(name):
+    """Partition dataset for speaker adaptation"""
+    directory = promonet.CACHE_DIR / name
+    train = [
+        f'{file.parent.name}/{file.stem}'
+        for file in directory.rglob('*.wav')]
+    return {'train': train, 'valid': []}
 
 
 def datasets(datasets):
@@ -102,15 +139,6 @@ def datasets(datasets):
             json.dump(partition, file, indent=4)
 
 
-def adaptation(name):
-    """Partition dataset for speaker adaptation"""
-    directory = promonet.CACHE_DIR / name
-    train = [
-        f'{file.parent.name}/{file.stem}'
-        for file in directory.rglob('*.wav')]
-    return {'train': train, 'valid': []}
-
-
 def daps():
     """Partition the DAPS dataset"""
     # Get stems
@@ -124,6 +152,49 @@ def daps():
         directory,
         stems,
         DAPS_ADAPTATION_SPEAKERS)
+
+
+def libritts():
+    """Partition libritts dataset"""
+    # Get list of speakers
+    directory = promonet.CACHE_DIR / 'libritts'
+    stems = {
+        f'{file.parent.name}/{file.stem}'
+        for file in directory.rglob('*.TextGrid')}
+
+    # Get speaker map
+    with open(directory / 'speakers.json') as file:
+        speaker_map = json.load(file)
+
+    # Get adaptation speakers
+    speakers = [
+        f'{speaker_map[speaker][0]:04d}'
+        for speaker in LIBRITTS_ADAPTATION_SPEAKERS]
+
+    # Create speaker adaptation partitions
+    adapt_partitions = adaptation_partitions(
+        directory,
+        stems,
+        speakers)
+
+    # Get test partition indices
+    test_stems = list(
+        itertools.chain.from_iterable(adapt_partitions.values()))
+
+    # Get residual indices
+    residual = [stem for stem in stems if stem not in test_stems]
+    random.shuffle(residual)
+
+    # Get validation stems
+    filter_fn = functools.partial(meets_length_criteria, directory)
+    valid_stems = list(filter(filter_fn, residual))[:10]
+
+    # Get training stems
+    train_stems = [stem for stem in residual if stem not in valid_stems]
+
+    # Merge training and adaptation partitions
+    partition = {'train': sorted(train_stems), 'valid': sorted(valid_stems)}
+    return {**partition, **adapt_partitions}
 
 
 def vctk():
