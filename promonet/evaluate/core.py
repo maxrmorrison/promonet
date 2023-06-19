@@ -231,8 +231,9 @@ def speaker(
     ##################
 
     files = {
-        'original': sorted(list(
-            original_subjective_directory.rglob('*-original-100.wav')))}
+        'original': sorted([
+            original_subjective_directory / f'{stem}-original-100.wav'
+            for stem in test_stems])}
     files['reconstructed'] = sorted([
         subjective_directory / f'{stem}-original-100.wav'
         for stem in test_stems])
@@ -282,8 +283,9 @@ def speaker(
         # Pitch shifting #
         ##################
 
-        original_pitch_files = list(
-            original_objective_directory.rglob('*-original-100-pitch.pt'))
+        original_pitch_files = sorted([
+            original_objective_directory / f'{stem}-original-100-pitch.pt'
+            for stem in test_stems])
         for ratio in RATIOS:
 
             # Shift original pitch and save to disk
@@ -323,14 +325,12 @@ def speaker(
                     shutil.copyfile(input_file, output_file)
 
             # Get filenames
-            files[key] = [
-                file.parent / f'{file.stem[:6]}-{key}.wav'
-                for file in files['reconstructed']]
-            pitch_files = [
-                original_objective_directory/
-                file.parent.name /
-                f'{file.stem[:6]}-{key}-pitch.pt'
-                for file in files['reconstructed']]
+            files[key] = sorted([
+                subjective_directory / f'{stem}-{key}.wav'
+                for stem in test_stems])
+            pitch_files = sorted([
+                original_objective_directory / f'{stem}-{key}-pitch.pt'
+                for stem in test_stems])
 
             # Generate
             promonet.from_files_to_files(
@@ -344,9 +344,10 @@ def speaker(
         # Time stretching #
         ###################
 
-        original_alignment_files = sorted(
-            file for file in original_objective_directory.rglob(
-                '*-original-100-alignment.TextGrid'))
+        original_alignment_files = sorted([
+            original_objective_directory /
+            f'{stem}-original-100-alignment.TextGrid'
+            for stem in test_stems])
         for ratio in RATIOS:
             key = f'stretched-{int(ratio * 100):03d}'
 
@@ -429,14 +430,12 @@ def speaker(
                 shutil.copyfile(input_file, output_file)
 
             # Get filenames
-            files[key] = [
-                file.parent / f'{file.stem[:6]}-{key}.wav'
-                for file in files['reconstructed']]
-            grid_files = [
-                original_objective_directory /
-                file.parent.name /
-                f'{file.stem[:6]}-{key}-grid.pt'
-                for file in files['reconstructed']]
+            files[key] = sorted([
+                subjective_directory / f'{stem}-{key}.wav'
+                for stem in test_stems])
+            grid_files = sorted([
+                original_objective_directory / f'{stem}-{key}-grid.pt'
+                for stem in test_stems])
 
             # Generate
             promonet.from_files_to_files(
@@ -450,8 +449,9 @@ def speaker(
         # Loudness scaling #
         ####################
 
-        original_loudness_files = sorted(list(
-            original_objective_directory.rglob('*-original-100-loudness.pt')))
+        original_loudness_files = sorted([
+            original_objective_directory / f'{stem}-original-100-loudness.pt'
+            for stem in test_stems])
         for ratio in RATIOS:
             key = f'scaled-{int(ratio * 100):03d}'
 
@@ -488,14 +488,12 @@ def speaker(
                     shutil.copyfile(input_file, output_file)
 
             # Get filenames
-            files[key] = [
-                file.parent / f'{file.stem[:6]}-{key}.wav'
-                for file in files['reconstructed']]
-            loudness_files = [
-                original_objective_directory /
-                file.parent.name /
-                f'{file.stem[:6]}-{key}-loudness.pt'
-                for file in files['reconstructed']]
+            files[key] = sorted([
+                subjective_directory / f'{stem}-{key}.wav'
+                for stem in test_stems])
+            loudness_files = sorted([
+                original_objective_directory / f'{stem}-{key}-loudness.pt'
+                for stem in test_stems])
 
             # Generate
             promonet.from_files_to_files(
