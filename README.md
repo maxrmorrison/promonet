@@ -8,7 +8,7 @@
 </div>
 
 Official code for the paper _Adaptive Neural Speech Editing_
-[[paper]](https://www.maxrmorrison.com/pdfs/morrison2023adaptive.pdf)
+[[paper]](https://www.maxrmorrison.com/pdfs/morrison2024adaptive.pdf)
 [[companion website]](https://www.maxrmorrison.com/sites/promonet/)
 
 
