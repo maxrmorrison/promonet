@@ -25,6 +25,7 @@ setup(
     include_dirs=[np.get_include(), 'promonet/model/align'],
     setup_requires=['numpy', 'cython'],
     install_requires=[
+        'alias-free-torch',
         'espnet',
         'librosa',
         'matplotlib',
