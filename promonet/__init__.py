@@ -27,7 +27,6 @@ from . import baseline
 from . import checkpoint
 from . import convert
 from . import data
-from . import edit
 from . import evaluate
 from . import interpolate
 from . import load
