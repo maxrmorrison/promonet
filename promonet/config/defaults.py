@@ -80,7 +80,7 @@ AUGMENTATION_RATIO_MAX = 2.
 AUGMENTATION_RATIO_MIN = .5
 
 # Names of all datasets
-DATASETS = ['daps', 'vctk']
+DATASETS = ['daps', 'libritts', 'vctk']
 
 # Discriminator loudness conditioning
 DISCRIM_LOUDNESS_CONDITION = False
