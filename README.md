@@ -446,7 +446,7 @@ python -m promonet.evaluate \
 
 ### IEEE
 M. Morrison, C. Churchwell, N. Pruyne, and B. Pardo, "Adaptive Neural Speech Prosody Editing," Submitted
-to ICLR 2024, July 2024.
+to ICLR 2024, May 2024.
 
 
 ### BibTex
@@ -456,7 +456,7 @@ to ICLR 2024, July 2024.
     title={Adaptive Neural Speech Prosody Editing},
     author={Morrison, Max and Churchwell, Cameron and Pruyne, Nathan and Pardo, Bryan},
     booktitle={Submitted to ICLR 2024},
-    month={July},
+    month={May},
     year={2024}
 }
 ```
