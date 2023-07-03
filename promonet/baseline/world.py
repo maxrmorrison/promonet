@@ -62,7 +62,7 @@ def from_audio(
 
     # Maybe scale loudness
     if target_loudness is not None:
-        vocoded = promonet.baseline.loudness.scale(vocoded, target_loudness)
+        vocoded = promonet.loudness.scale(vocoded, target_loudness)
 
     # Ensure correct length
     length = promonet.convert.frames_to_samples(len(pitch))

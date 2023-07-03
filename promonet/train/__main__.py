@@ -11,12 +11,12 @@ import promonet
 
 @promonet.notify.notify_on_finish('train')
 def main(
-        config,
-        dataset,
-        train_partition='train',
-        valid_partition='valid',
-        adapt=False,
-        gpus=None):
+    config,
+    dataset,
+    train_partition='train',
+    valid_partition='valid',
+    adapt=False,
+    gpus=None):
     # Create output directory
     directory = promonet.RUNS_DIR / config.stem
     directory.mkdir(parents=True, exist_ok=True)
@@ -25,7 +25,8 @@ def main(
     shutil.copyfile(config, directory / config.name)
 
     # Train
-    promonet.train.run(dataset,
+    promonet.train.run(
+        dataset,
         directory,
         directory,
         directory,
@@ -35,6 +36,8 @@ def main(
         gpus)
 
     # Evaluate
+    # TEMPORARY - only evaluate on training dataset for now
+    # promonet.evaluate.datasets(promonet.DATASETS, directory, gpus)
     promonet.evaluate.datasets([dataset], directory, gpus)
 
 

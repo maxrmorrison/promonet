@@ -1,7 +1,7 @@
 MODULE = 'promonet'
 
 # Configuration name
-CONFIG = 'conddisc-condgen-augment-snake-small'
+CONFIG = 'two-stage'
 
 # Whether to use pitch augmentation
 AUGMENT_PITCH = True
@@ -18,12 +18,6 @@ DISCRIM_PHONEME_CONDITION = True
 # Discriminator pitch conditioning
 DISCRIM_PITCH_CONDITION = True
 
-# Discriminator augmentation ratio conditioning
-DISCRIM_RATIO_CONDITION = True
-
-# Whether to perform gradient clipping on the generator
-GRADIENT_CLIP_GENERATOR = 1000.
-
 # Pass loudness through the latent
 LATENT_LOUDNESS_SHORTCUT = True
 
@@ -36,11 +30,25 @@ LATENT_PHONEME_SHORTCUT = True
 # Pass pitch through the latent
 LATENT_PITCH_SHORTCUT = True
 
-# Pass the augmentation ratio through the latent
-LATENT_RATIO_SHORTCUT = True
-
 # Loudness features
 LOUDNESS_FEATURES = True
+
+# The model to use. One of [
+#     'end-to-end',
+#     'hifigan',
+#     'psola',
+#     'two-stage',
+#     'vits',
+#     'vocoder',
+#     'world'
+# ]
+MODEL = 'two-stage'
+
+# Number of training steps
+NUM_STEPS = 200000
+
+# Number of adaptation steps
+NUM_ADAPTATION_STEPS = 10000
 
 # Periodicity conditioning
 PERIODICITY_FEATURES = True
@@ -50,10 +58,3 @@ PITCH_FEATURES = True
 
 # Phonemic posteriorgram conditioning
 PPG_FEATURES = True
-
-# Type of interpolation method to use to scale PPG features
-# Available method are ['nearest', 'linear']
-PPG_INTERP_METHOD = 'nearest'
-
-# Whether to use snake activation in the audio generator
-SNAKE = True

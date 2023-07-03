@@ -1,8 +1,8 @@
 # A name to give to this evaluation configuration
-name: representation-quality-mushra
+name: similarity-abx
 
 # The type of test to run. One of [ab, abx, mos, mushra].
-test: mushra
+test: abx
 
 # The type of data to use. One of [audio, image, text, video].
 datatype: audio
@@ -10,10 +10,10 @@ datatype: audio
 # The location to store files used for evaluation. One of [aws].
 storage: aws
 
-# The third-party platform hosting the MySQL database. One of [heroku].
+# The third-party platform hosting the MySQL database. One of [aws, heroku].
 database: heroku
 
-# The third-party platform hosting the server. One of [heroku].
+# The third-party platform hosting the server. One of [aws, heroku].
 server: heroku
 
 # Crowdsourcing configuration
@@ -23,7 +23,7 @@ crowdsource:
   platform: mturk
 
   # The survey title shown to potential participants
-  title: Speech quality listening test
+  title: Speaker similarity listening test
 
   # The survey description shown to potential participants
   description: "Audio listening test. Headphones required. Participants that complete the survey and correctly answer the attention-check questions will receive $3.00 through Amazon Mechanical Turk.
@@ -162,10 +162,10 @@ listening_test:
 
 # Instructions presented to the participant during evaluation
 survey_instructions: "
-  ## **Instructions** \nListen to all audio files. Then, move the sliders
-  to rate the quality of each audio file from 0 (worst) to 100 (best). The
-  higher-quality audio files are the ones that are more natural sounding, or
-  have fewer audio artifacts (e.g., clicks, pops, or background noise)."
+  ## **Instructions** \nListen to the reference audio (top) and the two choices
+  below. Then, select which of the two choices sounds like its being spoken by
+  the same speaker. If both choices sound similar to the reference speaker or
+  neither sounds similar, select the choice that is most similar."
 
 # Questions presented to the participant after evaluation
 followup_questions:

@@ -2,6 +2,8 @@ import functools
 import json
 
 import numpy as np
+import penn
+import pysodic
 import torch
 import torchaudio
 
@@ -31,6 +33,24 @@ class Dataset(torch.utils.data.Dataset):
                 ratios = json.load(file)
             self.stems.extend([f'{stem}-{ratios[stem]}' for stem in stems])
 
+        # Maybe limit the maximum length during training to improve
+        # GPU utilization
+        if (
+            ('train' in partition or 'valid' in partition) and
+            promonet.MAX_TEXT_LENGTH is not None
+        ):
+            self.stems = [
+                stem for stem in self.stems if (
+                    len(
+                        promonet.load.phonemes(
+                            self.cache / f'{stem}-phonemes.pt')
+                    ) < promonet.MAX_TEXT_LENGTH and
+                    promonet.convert.samples_to_frames(
+                        torchaudio.info(self.cache / f'{stem}.wav').num_frames
+                    ) < promonet.MAX_FRAME_LENGTH
+                )
+            ]
+
         # Store spectrogram lengths for bucketing
         self.lengths = [
             promonet.convert.samples_to_frames(
@@ -46,22 +66,26 @@ class Dataset(torch.utils.data.Dataset):
         loudness = torch.load(self.cache / f'{stem}-loudness.pt')
         spectrogram = torch.load(self.cache / f'{stem}-spectrogram.pt')
 
+        # Apply linear interpolation to unvoiced pitch regions
+        pitch = penn.voicing.interpolate(
+            pitch,
+            periodicity,
+            pysodic.DEFAULT_VOICING_THRESHOLD)
+
         # Get speaker index. Non-integer speaker names are assumed to be
         # for speaker adaptation and therefore default to index zero.
         if 'adapt' not in self.partition:
-            try:
-                speaker = int(stem.split('/')[0])
-            except ValueError:
-                speaker = 0
+            speaker = int(stem.split('/')[0])
         else:
             speaker = 0
 
         # Load supervised or unsupervised phoneme features
-        if promonet.PPG_FEATURES or promonet.SPECTROGRAM_ONLY:
-            phonemes = self.get_ppg(stem, spectrogram.shape[1])
-        else:
+        if promonet.MODEL == 'vits':
             phonemes = promonet.load.phonemes(
-                self.cache / f'{stem[:-4]}-text.pt')
+                self.cache / f'{stem}-phonemes.pt',
+                interleave=True)
+        else:
+            phonemes = self.get_ppg(stem, spectrogram.shape[1])
 
         return (
             text,
@@ -103,7 +127,6 @@ class Dataset(torch.utils.data.Dataset):
         ppg = torch.load(self.cache / f'{stem}-{feature}.pt')
 
         # Maybe resample length
-        # TODO - deprecate in favor of aligned features
         if ppg.shape[1] != length:
             mode = promonet.PPG_INTERP_METHOD
             #TODO shperical linear

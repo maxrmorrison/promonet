@@ -1,4 +1,7 @@
-from setuptools import find_packages, setup
+from Cython.Build import cythonize
+from setuptools import Extension, find_packages, setup
+
+import numpy as np
 
 
 with open('README.md', encoding='utf8') as file:
@@ -12,26 +15,30 @@ setup(
     author='Max Morrison',
     author_email='maxrmorrison@gmail.com',
     url='https://github.com/maxrmorrison/promonet',
+    ext_modules=cythonize(
+        Extension(
+            'promonet.model.align.mas',
+            sources=['promonet/model/align/align.pyx'],
+            include_dirs=[np.get_include()]
+        ),
+        compiler_directives={'language_level': '3'}),
+    include_dirs=[np.get_include(), 'promonet/model/align'],
+    setup_requires=['numpy', 'cython'],
     install_requires=[
-        'Cython',
+        'alias-free-torch',
         'espnet',
         'librosa',
         'matplotlib',
-        'numpy',
-        'phonemizer',
-        # TEMPORARY - exclude until release
-        # 'pysodic',
-        # TEMPORARY - GPL dependency
-        'psola',
+        'numpy<1.24',
+        # 'pysodic',  # TEMPORARY - install manually until release of pysodic
+        'psola',  # TEMPORARY - GPL dependency
         'pyworld',
         'pyyaml',
         'scipy',
         'tensorboard',
-        'torch',
-        'torchaudio',
-        'torchvision',
+        'torch<2.0.0',
+        'torchaudio<2.0.0',
         'tqdm',
-        'Unidecode',
         'yapecs'],
     packages=find_packages(),
     package_data={'promonet': ['assets/*', 'assets/*/*']},
