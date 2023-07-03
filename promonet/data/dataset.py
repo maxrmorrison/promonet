@@ -98,7 +98,7 @@ class Dataset(torch.utils.data.Dataset):
 
         # Maybe use a different type of PPGs
         if promonet.PPG_MODEL is not None:
-            feature += '-' + promonet.PPG_MODEL
+            feature = promonet.PPG_MODEL + '-' + feature
 
         ppg = torch.load(self.cache / f'{stem}-{feature}.pt')
 
@@ -106,8 +106,9 @@ class Dataset(torch.utils.data.Dataset):
         # TODO - deprecate in favor of aligned features
         if ppg.shape[1] != length:
             mode = promonet.PPG_INTERP_METHOD
+            #TODO shperical linear
             ppg = torch.nn.functional.interpolate(
-                ppg[None],
+                ppg[None].to(torch.float32),
                 size=length,
                 mode=mode,
                 align_corners=None if mode == 'nearest' else False)[0]
