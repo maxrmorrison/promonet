@@ -19,3 +19,6 @@ runs/
 
 *.c
 monotonic_align/monotonic_align
+
+ppgs/config/secrets.py
+tmp/*

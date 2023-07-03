@@ -15,7 +15,7 @@ ALL_FEATURES = ['ppg', 'prosody', 'phonemes', 'spectrogram']
 # Data preprocessing
 ###############################################################################
 
-
+@promonet.notify.notify_on_finish('preprocess')
 def datasets(datasets, features=ALL_FEATURES, gpu=None):
     """Preprocess a dataset"""
     for dataset in datasets:

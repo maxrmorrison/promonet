@@ -64,27 +64,26 @@ def from_audio(
         with torch.no_grad():
             return from_audio.model(audio, length)[0].T
 
-    elif promonet.PPG_MODEL == 'senone-base':
-        name = 'basemodel'
-        preprocess_only = True
-    elif promonet.PPG_MODEL == 'senone-phoneme':
-        name = 'basemodel'
-        preprocess_only = False
-    elif promonet.PPG_MODEL == 'w2v2-base':
-        name = 'basemodelW2V2'
-        preprocess_only = True
-    elif promonet.PPG_MODEL == 'w2v2-phoneme':
-        name = 'basemodelW2V2'
-        preprocess_only = False
-    else:
-        raise ValueError(f'Model {promonet.PPG_MODEL} is not defined')
+    # elif promonet.PPG_MODEL == 'senone-base':
+    #     name = 'basemodel'
+    #     preprocess_only = True
+    # elif promonet.PPG_MODEL == 'senone-phoneme':
+    #     name = 'basemodel'
+    #     preprocess_only = False
+    # elif promonet.PPG_MODEL == 'w2v2-base':
+    #     name = 'basemodelW2V2'
+    #     preprocess_only = True
+    # elif promonet.PPG_MODEL == 'w2v2-phoneme':
+    #     name = 'basemodelW2V2'
+    #     preprocess_only = False
+    # else:
+    #     raise ValueError(f'Model {promonet.PPG_MODEL} is not defined')
 
     # Infer ppgs
     return ppgs.from_audio(
         audio,
         sample_rate,
-        preprocess_only=preprocess_only,
-        checkpoint=PPG_DIR / 'checkpoints' / f'{name}.pt',
+        checkpoint=PPG_DIR / 'checkpoints' / f'{promonet.PPG_MODEL}.pt',
         gpu=gpu)
 
 
