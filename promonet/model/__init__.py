@@ -1,9 +1,11 @@
 from .core import *
 from .discriminator import Discriminator
+from .duration import DurationPredictor
 from .generator import Generator
-from .modules import Snake
-from . import attention
-from . import generator
-from . import modules
-from . import transform
-# from . import monotonic_align
+from .snake import Snake
+from .vocoder import Vocoder
+from .wavenet import WaveNet
+from . import flow
+from . import align
+from . import spline
+from . import transformer

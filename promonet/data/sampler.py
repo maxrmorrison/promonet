@@ -13,18 +13,18 @@ import promonet
 def sampler(dataset, partition):
     """Create batch sampler"""
     # Maybe use distributed sampler for training
-    if partition == 'train':
+    if partition.startswith('train'):
         if torch.distributed.is_initialized():
             return DistributedSampler(dataset)
         else:
             return Sampler(dataset)
 
     # Deterministic random sampler for validation
-    elif partition == 'valid':
+    elif partition.startswith('valid'):
         return Sampler(dataset)
 
     # Sample test data sequentially
-    elif partition == 'test':
+    elif partition.startswith('test'):
         return torch.utils.data.BatchSampler(
             torch.utils.data.SequentialSampler(dataset),
             1,
@@ -58,18 +58,16 @@ class Sampler:
         generator = torch.Generator()
         generator.manual_seed(promonet.RANDOM_SEED + self.epoch)
 
-        # Make variable-length batches with roughly equal number of frames
+        # Make batches with roughly equal number of frames
         batches = []
-        for max_length, bucket in self.buckets:
+        for _, bucket in self.buckets:
 
             # Shuffle bucket
             bucket = bucket[
                 torch.randperm(len(bucket), generator=generator).tolist()]
 
             # Get current batch size
-            size = min(
-                promonet.MAX_FRAMES // max_length,
-                promonet.MAX_BATCH_SIZE)
+            size = promonet.BATCH_SIZE
 
             # Make batches
             batches.extend(

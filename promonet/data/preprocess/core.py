@@ -8,7 +8,7 @@ import promonet
 ###############################################################################
 
 
-ALL_FEATURES = ['ppg', 'prosody', 'phonemes', 'spectrogram']
+ALL_FEATURES = ['ppg', 'prosody', 'spectrogram']
 
 
 ###############################################################################
@@ -39,14 +39,6 @@ def from_files_to_files(
     features=ALL_FEATURES,
     gpu=None):
     """Preprocess from files"""
-    # Preprocess phonemes from text
-    if 'phonemes' in features:
-        phoneme_files = [
-            file.parent / f'{file.stem}-text.pt' for file in text_files]
-        promonet.data.preprocess.text.from_files_to_files(
-            text_files,
-            phoneme_files)
-
     # Preprocess spectrograms
     if 'spectrogram' in features:
         spectrogram_files = [
@@ -74,34 +66,5 @@ def from_files_to_files(
             text_files,
             promonet.HOPSIZE / promonet.SAMPLE_RATE,
             promonet.WINDOW_SIZE / promonet.SAMPLE_RATE,
+            voicing_threshold=0.,
             gpu=gpu)
-
-
-def prosody(audio, sample_rate=promonet.SAMPLE_RATE, text=None, gpu=None):
-    """Preprocess prosody from audio to retrieve features for editing"""
-    hopsize = promonet.HOPSIZE / promonet.SAMPLE_RATE
-    window_size = promonet.WINDOW_SIZE / promonet.SAMPLE_RATE
-
-    # Get prosody features including alignment
-    if text:
-        output = pysodic.from_audio_and_text(
-            audio,
-            sample_rate,
-            text,
-            hopsize,
-            window_size,
-            gpu=gpu)
-
-        # Pitch, loudness and alignment
-        return output[0], output[2], output[5]
-
-    # Get prosody features without alignment
-    output = pysodic.from_audio(
-        audio,
-        sample_rate,
-        hopsize,
-        window_size,
-        gpu=gpu)
-
-    # Pitch and loudness
-    return output[0], output[2]

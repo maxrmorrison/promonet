@@ -40,14 +40,14 @@ def collate(batch):
     spectrogram_lengths = torch.empty((len(batch),), dtype=torch.long)
 
     # Initialize padded tensors
-    if promonet.PPG_FEATURES or promonet.SPECTROGRAM_ONLY:
-        padded_phonemes = torch.zeros(
-            (len(batch), promonet.PPG_CHANNELS, max_length_phonemes),
-            dtype=torch.float)
-    else:
+    if promonet.MODEL == 'vits':
         padded_phonemes = torch.zeros(
             (len(batch), max_length_phonemes),
             dtype=torch.long)
+    else:
+        padded_phonemes = torch.zeros(
+            (len(batch), promonet.PPG_CHANNELS, max_length_phonemes),
+            dtype=torch.float)
     padded_pitch = torch.zeros(
         (len(batch), max_length_frames),
         dtype=torch.float)
@@ -85,6 +85,12 @@ def collate(batch):
         # Prepare audio
         padded_audio[i, :, :lengths[index]] = audio[index]
 
+    # Sort stuff
+    text = [text[i] for i in sorted_indices]
+    stems = [stems[i] for i in sorted_indices]
+    speakers = torch.tensor(speakers, dtype=torch.long)[sorted_indices]
+    ratios = torch.tensor(ratios, dtype=torch.float)[sorted_indices]
+
     return (
         text,
         padded_phonemes,
@@ -92,8 +98,8 @@ def collate(batch):
         padded_periodicity,
         padded_loudness,
         feature_lengths,
-        torch.tensor(speakers, dtype=torch.long),
-        torch.tensor(ratios, dtype=torch.float),
+        speakers,
+        ratios,
         padded_spectrograms,
         spectrogram_lengths,
         padded_audio,

@@ -1,10 +1,21 @@
 MODULE = 'promonet'
 
 # Configuration name
-CONFIG = 'promonet-base-small'
+CONFIG = 'base'
 
 # Loudness features
 LOUDNESS_FEATURES = True
+
+# The model to use. One of [
+#     'end-to-end',
+#     'hifigan',
+#     'psola',
+#     'two-stage',
+#     'vits',
+#     'vocoder',
+#     'world'
+# ]
+MODEL = 'end-to-end'
 
 # Periodicity conditioning
 PERIODICITY_FEATURES = True

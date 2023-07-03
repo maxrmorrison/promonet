@@ -1,5 +1,3 @@
-import functools
-
 import torch
 
 import promonet
@@ -16,12 +14,11 @@ class DiscriminatorP(torch.nn.Module):
     def __init__(self, period, kernel_size=5, stride=3):
         super().__init__()
         self.period = period
-        conv_fn = promonet.model.weight_norm_conv2d
-        padding = promonet.model.get_padding(kernel_size, 1)
+        conv_fn = weight_norm_conv2d
+        padding = (promonet.model.get_padding(kernel_size, 1), 0)
         input_channels = promonet.NUM_FEATURES_DISCRIM
         self.convs = torch.nn.ModuleList([
-            conv_fn(input_channels, 32, (kernel_size, 1),
-                    (stride, 1), padding),
+            conv_fn(input_channels, 32, (kernel_size, 1), (stride, 1), padding),
             conv_fn(32, 128, (kernel_size, 1), (stride, 1), padding),
             conv_fn(128, 512, (kernel_size, 1), (stride, 1), padding),
             conv_fn(512, 1024, (kernel_size, 1), (stride, 1), padding),
@@ -31,11 +28,10 @@ class DiscriminatorP(torch.nn.Module):
     def forward(
         self,
         x,
-        pitch,
-        periodicity,
-        loudness,
-        phonemes,
-        ratios=None):
+        pitch=None,
+        periodicity=None,
+        loudness=None,
+        phonemes=None):
         # Maybe add pitch conditioning
         if promonet.DISCRIM_PITCH_CONDITION:
             pitch = torch.nn.functional.interpolate(
@@ -73,12 +69,6 @@ class DiscriminatorP(torch.nn.Module):
                 align_corners=False)
             x = torch.cat((x, phonemes), dim=1)
 
-        # Maybe add augmentation ratio
-        if promonet.DISCRIM_RATIO_CONDITION:
-            x = torch.cat(
-                (x, ratios.repeat(x.shape[2], 1, 1).permute(2, 1, 0)),
-                dim=1)
-
         feature_maps = []
 
         # 1d to 2d
@@ -106,7 +96,7 @@ class DiscriminatorR(torch.nn.Module):
     def __init__(self, resolution):
         super().__init__()
         self.resolution = resolution
-        conv_fn = promonet.model.weight_norm_conv2d
+        conv_fn = weight_norm_conv2d
         self.convs = torch.nn.ModuleList([
             conv_fn(1, 32, (3, 9), padding=(1, 4)),
             conv_fn(32, 32, (3, 9), stride=(1, 2), padding=(1, 4)),
@@ -119,11 +109,10 @@ class DiscriminatorR(torch.nn.Module):
     def forward(
         self,
         audio,
-        pitch,
-        periodicity,
-        loudness,
-        phonemes,
-        ratios=None):
+        pitch=None,
+        periodicity=None,
+        loudness=None,
+        phonemes=None):
         # Compute spectral features
         features = self.spectrogram(audio)
 
@@ -164,13 +153,6 @@ class DiscriminatorR(torch.nn.Module):
                 align_corners=False)
             features = torch.cat((features, phonemes[:, None]), dim=2)
 
-        # Maybe add augmentation ratio
-        if promonet.DISCRIM_RATIO_CONDITION:
-            shape = features.shape[-1], 1, 1, 1
-            features = torch.cat(
-                (features, ratios.repeat(*shape).permute(3, 2, 1, 0)),
-                dim=2)
-
         # Forward pass and save activations
         fmap = []
         x = features
@@ -202,7 +184,7 @@ class DiscriminatorR(torch.nn.Module):
 
 
 class DiscriminatorS(torch.nn.Module):
-    """Multi-scale discriminator"""
+    """Multi-scale waveform discriminator"""
 
     def __init__(self):
         super().__init__()
@@ -220,11 +202,10 @@ class DiscriminatorS(torch.nn.Module):
     def forward(
         self,
         x,
-        pitch,
-        periodicity,
-        loudness,
-        phonemes,
-        ratios=None):
+        pitch=None,
+        periodicity=None,
+        loudness=None,
+        phonemes=None):
         # Maybe add pitch conditioning
         if promonet.DISCRIM_PITCH_CONDITION:
             pitch = torch.nn.functional.interpolate(
@@ -262,15 +243,6 @@ class DiscriminatorS(torch.nn.Module):
                 align_corners=False)
             x = torch.cat((x, phonemes), dim=1)
 
-        # Maybe add augmentation ratio
-        if promonet.DISCRIM_RATIO_CONDITION:
-            x = torch.cat(
-                (
-                    x,
-                    ratios.repeat(x.shape[2], 1, 1).permute(2, 1, 0)
-                ),
-                dim=1)
-
         # Forward pass and save activations
         feature_maps = []
         for layer in self.convs:
@@ -289,41 +261,40 @@ class Discriminator(torch.nn.Module):
 
     def __init__(self):
         super().__init__()
-        self.discriminators = torch.nn.ModuleList(
-            [DiscriminatorP(i) for i in [2, 3, 5, 7, 11]])
+        discriminators = [DiscriminatorP(i) for i in [2, 3, 5, 7, 11]]
         if promonet.MULTI_SCALE_DISCRIMINATOR:
-            self.discriminators.append(DiscriminatorS())
+            discriminators.append(DiscriminatorS())
         if promonet.MULTI_RESOLUTION_DISCRIMINATOR:
             resolutions = [(1024, 120, 600), (2048, 240, 1200), (512, 50, 240)]
-            self.discriminators.extend(
+            discriminators.extend(
                 [DiscriminatorR(i) for i in resolutions])
+        self.discriminators = torch.nn.ModuleList(discriminators)
 
     def forward(
         self,
         y,
         y_hat,
-        pitch,
-        periodicity,
-        loudness,
-        phonemes,
-        ratios=None):
+        **kwargs):
         logits_real = []
         logits_fake = []
         feature_maps_real = []
         feature_maps_fake = []
         for discriminator in self.discriminators:
-            discriminator_fn = functools.partial(
-                discriminator,
-                pitch=pitch,
-                periodicity=periodicity,
-                loudness=loudness,
-                phonemes=phonemes,
-                ratios=ratios)
-            logit_real, feature_map_real = discriminator_fn(y)
-            logit_fake, feature_map_fake = discriminator_fn(y_hat)
+            logit_real, feature_map_real = discriminator(y, **kwargs)
+            logit_fake, feature_map_fake = discriminator(y_hat, **kwargs)
             logits_real.append(logit_real)
             logits_fake.append(logit_fake)
             feature_maps_real.append(feature_map_real)
             feature_maps_fake.append(feature_map_fake)
 
         return logits_real, logits_fake, feature_maps_real, feature_maps_fake
+
+
+###############################################################################
+# Utilities
+###############################################################################
+
+
+def weight_norm_conv2d(*args, **kwargs):
+    """Construct Conv2d layer with weight normalization"""
+    return torch.nn.utils.weight_norm(torch.nn.Conv2d(*args, **kwargs))

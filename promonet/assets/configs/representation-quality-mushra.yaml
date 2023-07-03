@@ -1,5 +1,5 @@
 # A name to give to this evaluation configuration
-name: naturalness-mushra
+name: representation-quality-mushra
 
 # The type of test to run. One of [ab, abx, mos, mushra].
 test: mushra
@@ -10,10 +10,10 @@ datatype: audio
 # The location to store files used for evaluation. One of [aws].
 storage: aws
 
-# The third-party platform hosting the MySQL database. One of [heroku].
+# The third-party platform hosting the MySQL database. One of [aws, heroku].
 database: heroku
 
-# The third-party platform hosting the server. One of [heroku].
+# The third-party platform hosting the server. One of [aws, heroku].
 server: heroku
 
 # Crowdsourcing configuration
@@ -23,7 +23,7 @@ crowdsource:
   platform: mturk
 
   # The survey title shown to potential participants
-  title: Speech naturalness listening test
+  title: Speech quality listening test
 
   # The survey description shown to potential participants
   description: "Audio listening test. Headphones required. Participants that complete the survey and correctly answer the attention-check questions will receive $3.00 through Amazon Mechanical Turk.
@@ -162,10 +162,10 @@ listening_test:
 
 # Instructions presented to the participant during evaluation
 survey_instructions: "
-  ## **Instructions** \nListen to all audio files. Then, move the sliders to
-  rate the naturalness of each audio file from 0 (worst) to 100 (best).
-  The more natural audio files are the ones that sound more like they are
-  produced by a human rather than a computer."
+  ## **Instructions** \nListen to all audio files. Then, move the sliders
+  to rate the quality of each audio file from 0 (worst) to 100 (best). The
+  higher-quality audio files are the ones that are more natural sounding, or
+  have fewer audio artifacts (e.g., clicks, pops, or background noise)."
 
 # Questions presented to the participant after evaluation
 followup_questions:

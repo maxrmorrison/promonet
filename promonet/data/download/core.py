@@ -23,6 +23,10 @@ def datasets(datasets):
     if 'daps' in datasets:
         daps()
 
+    # Download and format libritts dataset
+    if 'libritts' in datasets:
+        libritts()
+
     # Download and format vctk dataset
     if 'vctk' in datasets:
         vctk()
@@ -102,6 +106,107 @@ def daps():
                 speaker_directory / f'{output_file.stem}-100.wav',
                 audio,
                 promonet.SAMPLE_RATE)
+
+
+def libritts():
+    """Download libritts dataset"""
+    # Create directory for downloads
+    source_directory = promonet.SOURCE_DIR / 'libritts'
+    source_directory.mkdir(exist_ok=True, parents=True)
+
+    # Create directory for unpacking
+    data_directory = promonet.DATA_DIR / 'libritts'
+    data_directory.mkdir(exist_ok=True, parents=True)
+
+    # Download and unpack
+    for partition in [
+        'train-clean-100',
+        'train-clean-360',
+        'dev-clean',
+        'test-clean']:
+
+        # Download
+        url = f'https://us.openslr.org/resources/60/{partition}.tar.gz'
+        file = source_directory / f'libritts-{partition}.tar.gz'
+        download_file(url, file)
+
+        # Unpack
+        with tarfile.open(file, 'r:gz') as tfile:
+            tfile.extractall(promonet.DATA_DIR)
+
+    # Uncapitalize directory name
+    shutil.rmtree(str(data_directory), ignore_errors=True)
+    shutil.move(
+        str(promonet.DATA_DIR / 'LibriTTS'),
+        str(data_directory),
+        copy_function=shutil.copytree)
+
+    # File locations
+    audio_files = sorted(data_directory.rglob('*.wav'))
+    text_files = [
+        file.with_suffix('.normalized.txt') for file in audio_files]
+
+    # Track previous and next utterances
+    context = {}
+    prev_parts = None
+
+    # Write audio to cache
+    speaker_count = {}
+    cache_directory = promonet.CACHE_DIR / 'libritts'
+    cache_directory.mkdir(exist_ok=True, parents=True)
+    with promonet.chdir(cache_directory):
+
+        # Iterate over files
+        iterator = tqdm.tqdm(
+            zip(audio_files, text_files),
+            desc='Formatting libritts',
+            dynamic_ncols=True,
+            total=len(audio_files))
+        for audio_file, text_file in iterator:
+
+            # Get file metadata
+            speaker, book, chapter, utterance = [
+                int(part) for part in audio_file.stem.split('_')]
+
+            # Update speaker and get current entry
+            if speaker not in speaker_count:
+
+                # Each entry is (index, count)
+                speaker_count[speaker] = [len(speaker_count), 0]
+
+            speaker_count[speaker][1] += 1
+            index, count = speaker_count[speaker]
+
+            # Load audio
+            audio, sample_rate = torchaudio.load(audio_file)
+
+            # If audio is too quiet, increase the volume
+            maximum = torch.abs(audio).max()
+            if maximum < .35:
+                audio *= .35 / maximum
+
+            # Save at system sample rate
+            stem = f'{index:04d}/{count:06d}'
+            output_file = Path(f'{stem}.wav')
+            output_file.parent.mkdir(exist_ok=True, parents=True)
+            audio = promonet.resample(audio, sample_rate)
+            torchaudio.save(
+                output_file.parent / f'{output_file.stem}.wav',
+                audio,
+                promonet.SAMPLE_RATE)
+            shutil.copyfile(text_file, output_file.with_suffix('.txt'))
+
+            # Update context
+            if (
+                prev_parts is not None and
+                prev_parts == (speaker, book, chapter, utterance - 1)
+            ):
+                prev_stem = f'{index:04d}/{count - 1:06d}'
+                context[stem] = { 'prev': prev_stem, 'next': None }
+                context[prev_stem]['next'] = stem
+            else:
+                context[stem] = { 'prev': None, 'next': None }
+            prev_parts = (speaker, book, chapter, utterance)
 
 
 def vctk():
