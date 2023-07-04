@@ -364,12 +364,12 @@ def speaker(
                     interpolated)
 
                 # Save alignment to disk
-                grid_file = (
+                alignment_file = (
                     original_objective_directory /
                     original_alignment_file.parent.name /
-                    f'{original_alignment_file.stem[:6]}-{key}-grid.pt')
-                grid_file.parent.mkdir(exist_ok=True, parents=True)
-                torch.save(grid, grid_file)
+                    f'{original_alignment_file.stem[:6]}-{key}-alignment.TextGrid')
+                alignment_file.parent.mkdir(exist_ok=True, parents=True)
+                interpolated.save(alignment_file)
 
                 # Stretch and save other prosody features
                 features = [
@@ -382,12 +382,12 @@ def speaker(
                 size = None
                 for feature in features:
                     input_file = (
-                        grid_file.parent /
-                        grid_file.name.replace(
-                            key, 'original-100').replace('grid', feature))
+                        alignment_file.parent /
+                        alignment_file.name.replace(
+                            key, 'original-100').replace('alignment', feature)).with_suffix('.pt')
                     output_file = (
-                        grid_file.parent /
-                        grid_file.name.replace('grid', feature))
+                        alignment_file.parent /
+                        alignment_file.name.replace('alignment', feature)).with_suffix('.pt')
                     original_feature = torch.load(input_file)
                     if size is None:
                         size = original_feature.shape[-1]
@@ -420,28 +420,31 @@ def speaker(
 
                 # Copy text
                 input_file = (
-                    grid_file.parent /
-                    grid_file.name.replace(
+                    alignment_file.parent /
+                    alignment_file.name.replace(
                         key, 'original-100').replace(
-                        'grid', 'text')).with_suffix('.txt')
+                        'alignment', 'text')).with_suffix('.txt')
                 output_file = (
-                    grid_file.parent /
-                    grid_file.name.replace('grid', 'text')).with_suffix('.txt')
+                    alignment_file.parent /
+                    alignment_file.name.replace('alignment', 'text')).with_suffix('.txt')
                 shutil.copyfile(input_file, output_file)
 
             # Get filenames
             files[key] = sorted([
                 subjective_directory / f'{stem}-{key}.wav'
                 for stem in test_stems])
-            grid_files = sorted([
-                original_objective_directory / f'{stem}-{key}-grid.pt'
+            alignment_files = sorted([
+                original_objective_directory / f'{stem}-{key}-alignment.TextGrid'
                 for stem in test_stems])
-
+            text_files = sorted([
+                original_objective_directory / f'{stem}-{key}-text.txt'
+                for stem in test_stems])
             # Generate
             promonet.from_files_to_files(
                 files['original'],
                 files[key],
-                grid_files=grid_files,
+                text_files=text_files,
+                alignment_files=alignment_files,
                 checkpoint=checkpoint,
                 gpu=None if promonet.MODEL in ['psola', 'world'] else gpu)
 

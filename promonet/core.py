@@ -41,6 +41,12 @@ def from_audio(
     Returns
         edited: The edited audio
     """
+
+    grid = None
+    if alignment is not None:
+        grid = grid_from_alignment(alignment, text, audio, sample_rate, gpu)
+    del alignment #Need to have this to get **locals to work
+    
     # Maybe use a baseline method instead
     if promonet.MODEL == 'psola':
         with promonet.time.timer('generate'):
@@ -61,7 +67,7 @@ def from_audio(
             audio,
             sample_rate,
             text,
-            alignment,
+            grid,
             target_loudness,
             target_pitch,
             gpu)
@@ -263,12 +269,22 @@ def generate(
                 speakers,
                 spectrograms=spectrograms)[0][0].cpu()
 
+def grid_from_alignment(
+    alignment,
+    text,
+    audio,
+    sample_rate,
+    gpu):
+
+    source_align = pyfoal.from_text_and_audio(text, audio, sample_rate, 'p2fa', gpu=gpu)
+    grid = promonet.interpolate.grid.from_alignments(source_align, alignment).to(device=gpu)
+    return grid
 
 def preprocess(
     audio,
     sample_rate=promonet.SAMPLE_RATE,
     text=None,
-    alignment=None,
+    grid=None,
     target_loudness=None,
     target_pitch=None,
     gpu=None):
@@ -294,14 +310,10 @@ def preprocess(
                 promonet.WINDOW_SIZE / promonet.SAMPLE_RATE,
                 gpu=gpu)
 
-        grid = None
-        if alignment is not None:
-            source_align = pyfoal.from_text_and_audio(text, audio, sample_rate, 'p2fa', gpu=gpu)
-            grid = promonet.interpolate.grid.from_alignments(source_align, alignment)
-
         # Maybe interpolate pitch
         if target_pitch is None:
             if grid is not None:
+                print(pitch.get_device())
                 pitch = promonet.interpolate.pitch(pitch, grid)
             target_pitch = pitch
 
