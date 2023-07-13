@@ -316,7 +316,6 @@ def preprocess(
         # Maybe interpolate pitch
         if target_pitch is None:
             if grid is not None:
-                print(pitch.get_device())
                 pitch = promonet.interpolate.pitch(pitch, grid)
             target_pitch = pitch
 
