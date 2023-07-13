@@ -1,12 +1,14 @@
 import contextlib
 import os
 from typing import List, Optional, Union
+from pathlib import Path
 
 import pyfoal
 import pysodic
 import torch
 import torchaudio
 import tqdm
+import pypar
 
 import promonet
 
@@ -20,7 +22,7 @@ def from_audio(
     audio: torch.Tensor,
     sample_rate: int = promonet.SAMPLE_RATE,
     text: Optional[str] = None,
-    grid: Optional[torch.Tensor] = None,
+    alignment: Optional[pypar.Alignment] = None,
     target_loudness: Optional[torch.Tensor] = None,
     target_pitch: Optional[torch.Tensor] = None,
     checkpoint: Union[str, os.PathLike] = promonet.DEFAULT_CHECKPOINT,
@@ -31,7 +33,7 @@ def from_audio(
         audio: The audio to edit
         sample_rate: The audio sample rate
         text: The speech transcript for editing phoneme durations
-        grid: The interpolation grid for editing phoneme durations
+        alignment: The pypar alignment for editing phoneme durations
         target_loudness: The loudness contour for editing loudness
         target_pitch: The pitch contour for shifting pitch
         checkpoint: The generator checkpoint
@@ -40,6 +42,12 @@ def from_audio(
     Returns
         edited: The edited audio
     """
+
+    grid = None
+    if alignment is not None:
+        grid = grid_from_alignment(alignment, text, audio, sample_rate, gpu)
+    del alignment #Need to have this to get **locals to work
+    
     # Maybe use a baseline method instead
     if promonet.MODEL == 'psola':
         with promonet.time.timer('generate'):
@@ -78,7 +86,7 @@ def from_audio(
 def from_file(
     audio_file: Union[str, os.PathLike],
     text_file: Optional[Union[str, os.PathLike]] = None,
-    grid_file: Optional[Union[str, os.PathLike]] = None,
+    alignment_file: Optional[Union[str, os.PathLike]] = None,
     target_loudness_file: Optional[Union[str, os.PathLike]] = None,
     target_pitch_file: Optional[Union[str, os.PathLike]] = None,
     checkpoint: Union[str, os.PathLike] = promonet.DEFAULT_CHECKPOINT,
@@ -88,7 +96,7 @@ def from_file(
     Args:
         audio_file: The audio to edit
         text_file: The speech transcript for editing phoneme durations
-        grid_file: The interpolation grid for editing phoneme durations
+        alignment_file: The pypar alignment file for editing phoneme durations
         target_loudness_file: The loudness contour for editing loudness
         target_pitch_file: The pitch contour for shifting pitch
         checkpoint: The generator checkpoint
@@ -109,10 +117,10 @@ def from_file(
         text = promonet.load.text(text_file)
 
     # Load alignment
-    if grid_file is None:
-        grid = None
+    if alignment_file is None:
+        alignment = None
     else:
-        grid = torch.load(grid_file).to(device)
+        alignment = pypar.Alignment(alignment_file)
 
     # Load loudness
     if target_loudness_file is None:
@@ -131,7 +139,7 @@ def from_file(
         audio,
         promonet.SAMPLE_RATE,
         text,
-        grid,
+        alignment,
         loudness,
         pitch,
         checkpoint,
@@ -142,7 +150,7 @@ def from_file_to_file(
     audio_file: Union[str, os.PathLike],
     output_file: Union[str, os.PathLike],
     text_file: Optional[Union[str, os.PathLike]] = None,
-    grid_file: Optional[Union[str, os.PathLike]] = None,
+    alignment_file: Optional[Union[str, os.PathLike]] = None,
     target_loudness_file: Optional[Union[str, os.PathLike]] = None,
     target_pitch_file: Optional[Union[str, os.PathLike]] = None,
     checkpoint: Union[str, os.PathLike] = promonet.DEFAULT_CHECKPOINT,
@@ -153,7 +161,7 @@ def from_file_to_file(
         audio_file: The audio to edit
         output_file: The file to save the edited audio
         text_file: The speech transcript for editing phoneme durations
-        grid_file: The interpolation grid for editing phoneme durations
+        alignment_file: The pypar alignment file for editing phoneme durations
         target_loudness_file: The loudness contour for editing loudness
         target_pitch_file: The pitch contour for shifting pitch
         checkpoint: The generator checkpoint
@@ -162,7 +170,7 @@ def from_file_to_file(
     generated = from_file(
         audio_file,
         text_file,
-        grid_file,
+        alignment_file,
         target_loudness_file,
         target_pitch_file,
         checkpoint,
@@ -175,7 +183,7 @@ def from_files_to_files(
     audio_files: List[Union[str, os.PathLike]],
     output_files: List[Union[str, os.PathLike]],
     text_files: Optional[List[Union[str, os.PathLike]]] = None,
-    grid_files: Optional[List[Union[str, os.PathLike]]] = None,
+    alignment_files: Optional[List[Union[str, os.PathLike]]] = None,
     target_loudness_files: Optional[List[Union[str, os.PathLike]]] = None,
     target_pitch_files: Optional[List[Union[str, os.PathLike]]] = None,
     checkpoint: Union[str, os.PathLike] = promonet.DEFAULT_CHECKPOINT,
@@ -186,15 +194,15 @@ def from_files_to_files(
         audio_files: The audio to edit
         output_files: The files to save the edited audio
         text_files: The speech transcripts for editing phoneme durations
-        grid_files: The interpolation grids for editing phoneme durations
+        alignment_files: The alignment files for editing phoneme durations
         target_loudness_files: The loudness contours for editing loudness
         target_pitch_files: The pitch contours for shifting pitch
         checkpoint: The generator checkpoint
         gpu: The GPU index
     """
     # Handle None arguments
-    if grid_files is None:
-        grid_files = [None] * len(audio_files)
+    if alignment_files is None:
+        alignment_files = [None] * len(audio_files)
     if text_files is None:
         text_files = [None] * len(audio_files)
     if target_loudness_files is None:
@@ -207,7 +215,7 @@ def from_files_to_files(
         audio_files,
         output_files,
         text_files,
-        grid_files,
+        alignment_files,
         target_loudness_files,
         target_pitch_files)
     for item in iterator:
@@ -234,6 +242,8 @@ def generate(
         # Cache model
         if not hasattr(generate, 'model') or generate.device != device:
             model = promonet.model.Generator().to(device)
+            if type(checkpoint) is str:
+                checkpoint = Path(checkpoint)
             if checkpoint.is_dir():
                 checkpoint = promonet.checkpoint.latest_path(checkpoint)
             model = promonet.checkpoint.load(checkpoint, model)[0]
@@ -262,6 +272,16 @@ def generate(
                 speakers,
                 spectrograms=spectrograms)[0][0].cpu()
 
+def grid_from_alignment(
+    alignment,
+    text,
+    audio,
+    sample_rate,
+    gpu):
+
+    source_align = pyfoal.from_text_and_audio(text, audio, sample_rate, 'p2fa', gpu=gpu)
+    grid = promonet.interpolate.grid.from_alignments(source_align, alignment).to(device=gpu)
+    return grid
 
 def preprocess(
     audio,
