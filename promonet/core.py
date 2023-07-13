@@ -1,6 +1,7 @@
 import contextlib
 import os
 from typing import List, Optional, Union
+from pathlib import Path
 
 import pyfoal
 import pysodic
@@ -241,6 +242,8 @@ def generate(
         # Cache model
         if not hasattr(generate, 'model') or generate.device != device:
             model = promonet.model.Generator().to(device)
+            if type(checkpoint) is str:
+                checkpoint = Path(checkpoint)
             if checkpoint.is_dir():
                 checkpoint = promonet.checkpoint.latest_path(checkpoint)
             model = promonet.checkpoint.load(checkpoint, model)[0]
