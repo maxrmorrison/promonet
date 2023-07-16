@@ -6,24 +6,24 @@ import penn
 import pysodic
 import torch
 import torchaudio
+import os
 
 import promonet
 
 
 ###############################################################################
-# Dataset
+# Metadata
 ###############################################################################
 
+class Metadata:
 
-class Dataset(torch.utils.data.Dataset):
-
-    def __init__(self, dataset, partition):
-        super().__init__()
-        self.partition = partition
-        self.cache = promonet.CACHE_DIR / dataset
+    def __init__(self, dataset, partition, overwrite_cache=False):
+        self.name = dataset
+        self.cache = promonet.CACHE_DIR / self.name
+        stems = [stem for stem in promonet.load.partition(self.name)[partition]]
+        metadata_file = self.cache / f'{partition}-metadata.json'
 
         # Get data stems assuming no augmentation
-        stems = promonet.load.partition(dataset)[partition]
         self.stems = [f'{stem}-100' for stem in stems]
 
         # For training, maybe add augmented data
@@ -51,11 +51,47 @@ class Dataset(torch.utils.data.Dataset):
                 )
             ]
 
-        # Store spectrogram lengths for bucketing
-        self.lengths = [
-            promonet.convert.samples_to_frames(
-                torchaudio.info(self.cache / f'{stem}.wav').num_frames)
-            for stem in self.stems]
+        if overwrite_cache and metadata_file.exists():
+            print('overwriting metadata cache')
+            os.remove(metadata_file)
+        if metadata_file.exists():
+            print('using cached metadata')
+            with open(metadata_file, 'r') as f:
+                metadata = json.load(f)
+        else:
+            print('generating metadata from scratch')
+            metadata = {}
+        print('preparing dataset metadata (operation may be slow)')
+        self.lengths = []
+        for stem in self.stems:
+            try:
+                self.lengths.append(metadata[stem])
+            except KeyError:
+                length = promonet.convert.samples_to_frames(
+                    torchaudio.info(self.cache / f'{stem}.wav').num_frames)
+                metadata[stem] = length
+                self.lengths.append(length)
+        with open(metadata_file, 'w+') as f:
+            json.dump(metadata, f)
+
+    def __len__(self):
+        return len(self.stems)
+
+###############################################################################
+# Dataset
+###############################################################################
+
+
+class Dataset(torch.utils.data.Dataset):
+
+    def __init__(self, dataset, partition):
+        super().__init__()
+        self.metadata = Metadata(dataset, partition)
+        self.cache = self.metadata.cache
+        self.stems = self.metadata.stems
+        self.lengths = self.metadata.lengths
+        self.partition = partition
+        self.dataset = dataset
 
     def __getitem__(self, index):
         stem = self.stems[index]
