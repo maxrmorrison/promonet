@@ -58,5 +58,5 @@ def pitch(file):
 
 def text(file):
     """Load text file"""
-    with open(file) as file:
+    with open(file, encoding='utf-8') as file:
         return file.read()
