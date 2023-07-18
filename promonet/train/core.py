@@ -740,7 +740,8 @@ def evaluate(directory, step, generator, loader, gpu):
                         phones,
                         predicted_phones
                     ),
-                    (phonemes, predicted_phonemes))
+                    (phonemes, predicted_phonemes),
+                    (text, generated.squeeze()))
             else:
 
                 # Plot generated prosody
@@ -820,7 +821,8 @@ def evaluate(directory, step, generator, loader, gpu):
                             phones,
                             predicted_phones
                         ),
-                        (phonemes, predicted_phonemes))
+                        (phonemes, predicted_phonemes),
+                        (text, shifted.squeeze()))
 
             ###################
             # Time stretching #
@@ -922,7 +924,8 @@ def evaluate(directory, step, generator, loader, gpu):
                             stretched_phones,
                             predicted_phones
                         ),
-                        (stretched_phonemes, predicted_phonemes))
+                        (stretched_phonemes, predicted_phonemes),
+                        (text, stretched.squeeze()))
 
             ####################
             # Loudness scaling #
@@ -993,7 +996,8 @@ def evaluate(directory, step, generator, loader, gpu):
                             phones,
                             predicted_phones
                         ),
-                        (phonemes, predicted_phonemes))
+                        (phonemes, predicted_phonemes),
+                        (text, scaled.squeeze()))
 
     # Format prosody metrics
     if promonet.MODEL != 'vits':
