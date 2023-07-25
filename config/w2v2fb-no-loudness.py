@@ -1,10 +1,7 @@
 MODULE = 'promonet'
 
 # Configuration name
-CONFIG = 'w2v2fb'
-
-# Loudness features
-LOUDNESS_FEATURES = True
+CONFIG = 'w2v2fb-no-loudness'
 
 # The model to use. One of [
 #     'end-to-end',
