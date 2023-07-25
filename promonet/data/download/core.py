@@ -111,7 +111,7 @@ def daps():
 def libritts():
     """Download libritts dataset"""
     # Create directory for downloads
-    source_directory = promonet.SOURCE_DIR / 'libritts'
+    source_directory = promonet.SOURCES_DIR / 'libritts'
     source_directory.mkdir(exist_ok=True, parents=True)
 
     # Create directory for unpacking
