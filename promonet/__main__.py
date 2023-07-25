@@ -30,10 +30,10 @@ def parse_args():
         required=True,
         help='The files to save the edited audio')
     parser.add_argument(
-        '--grid_files',
+        '--alignment_files',
         type=Path,
         nargs='+',
-        help='The interpolation grids for editing phoneme durations')
+        help='The alignment files for editing phoneme durations')
     parser.add_argument(
         '--target_loudness_files',
         type=Path,

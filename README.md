@@ -157,7 +157,7 @@ python -m promonet \
     --config <config> \
     --audio_files <audio_files> \
     --output_files <output_files> \
-    --grid_files <grid_files> \
+    --alignment_files <alignment_files> \
     --checkpoint <checkpoint> \
     --gpu <gpu>
 
@@ -231,10 +231,10 @@ def from_audio(
     audio: torch.Tensor,
     sample_rate: int = promonet.SAMPLE_RATE,
     text: Optional[str] = None,
-    grid: Optional[torch.Tensor] = None,
+    alignment: Optional[pypar.Alignment] = None,
     target_loudness: Optional[torch.Tensor] = None,
     target_pitch: Optional[torch.Tensor] = None,
-    checkpoint: Union[str, os.PathLike]=promonet.DEFAULT_CHECKPOINT,
+    checkpoint: Union[str, os.PathLike] = promonet.DEFAULT_CHECKPOINT,
     gpu: Optional[int] = None) -> torch.Tensor:
     """Perform speech editing
 
@@ -242,10 +242,10 @@ def from_audio(
         audio: The audio to edit
         sample_rate: The audio sample rate
         text: The speech transcript for editing phoneme durations
-        grid: The interpolation grid for editing phoneme durations
+        alignment: The pypar alignment for editing phoneme durations
         target_loudness: The loudness contour for editing loudness
         target_pitch: The pitch contour for shifting pitch
-        checkpoint: The model checkpoint
+        checkpoint: The generator checkpoint
         gpu: The GPU index
 
     Returns
@@ -260,7 +260,7 @@ def from_audio(
 def from_file(
     audio_file: Union[str, os.PathLike],
     text_file: Optional[Union[str, os.PathLike]] = None,
-    grid_file: Optional[Union[str, os.PathLike]] = None,
+    alignment_file: Optional[Union[str, os.PathLike]] = None,
     target_loudness_file: Optional[Union[str, os.PathLike]] = None,
     target_pitch_file: Optional[Union[str, os.PathLike]] = None,
     checkpoint: Union[str, os.PathLike] = promonet.DEFAULT_CHECKPOINT,
@@ -270,10 +270,10 @@ def from_file(
     Args:
         audio_file: The audio to edit
         text_file: The speech transcript for editing phoneme durations
-        grid_file: The interpolation grid for editing phoneme durations
+        alignment_file: The pypar alignment file for editing phoneme durations
         target_loudness_file: The loudness contour for editing loudness
         target_pitch_file: The pitch contour for shifting pitch
-        checkpoint: The model checkpoint
+        checkpoint: The generator checkpoint
         gpu: The GPU index
 
     Returns
@@ -289,7 +289,7 @@ def from_file_to_file(
     audio_file: Union[str, os.PathLike],
     output_file: Union[str, os.PathLike],
     text_file: Optional[Union[str, os.PathLike]] = None,
-    grid_file: Optional[Union[str, os.PathLike]] = None,
+    alignment_file: Optional[Union[str, os.PathLike]] = None,
     target_loudness_file: Optional[Union[str, os.PathLike]] = None,
     target_pitch_file: Optional[Union[str, os.PathLike]] = None,
     checkpoint: Union[str, os.PathLike] = promonet.DEFAULT_CHECKPOINT,
@@ -300,10 +300,10 @@ def from_file_to_file(
         audio_file: The audio to edit
         output_file: The file to save the edited audio
         text_file: The speech transcript for editing phoneme durations
-        grid_file: The interpolation grid for editing phoneme durations
+        alignment_file: The pypar alignment file for editing phoneme durations
         target_loudness_file: The loudness contour for editing loudness
         target_pitch_file: The pitch contour for shifting pitch
-        checkpoint: The model checkpoint
+        checkpoint: The generator checkpoint
         gpu: The GPU index
     """
 ```
@@ -316,7 +316,7 @@ def from_files_to_files(
     audio_files: List[Union[str, os.PathLike]],
     output_files: List[Union[str, os.PathLike]],
     text_files: Optional[List[Union[str, os.PathLike]]] = None,
-    grid_files: Optional[List[Union[str, os.PathLike]]] = None,
+    alignment_files: Optional[List[Union[str, os.PathLike]]] = None,
     target_loudness_files: Optional[List[Union[str, os.PathLike]]] = None,
     target_pitch_files: Optional[List[Union[str, os.PathLike]]] = None,
     checkpoint: Union[str, os.PathLike] = promonet.DEFAULT_CHECKPOINT,
@@ -327,10 +327,10 @@ def from_files_to_files(
         audio_files: The audio to edit
         output_files: The files to save the edited audio
         text_files: The speech transcripts for editing phoneme durations
-        grid_files: The interpolation grids for editing phoneme durations
+        alignment_files: The alignment files for editing phoneme durations
         target_loudness_files: The loudness contours for editing loudness
         target_pitch_files: The pitch contours for shifting pitch
-        checkpoint: The model checkpoint
+        checkpoint: The generator checkpoint
         gpu: The GPU index
     """
 ```
@@ -344,7 +344,7 @@ python -m promonet \
     [--config CONFIG] \
     --audio_files AUDIO_FILES [AUDIO_FILES ...] \
     --output_files OUTPUT_FILES [OUTPUT_FILES ...] \
-    [--grid_files GRID_FILES [GRID_FILES ...]] \
+    [--alignment_files ALIGNMENT_FILES [ALIGNMENT_FILES ...]] \
     [--target_loudness_files TARGET_LOUDNESS_FILES [TARGET_LOUDNESS_FILES ...]] \
     [--target_pitch_files TARGET_PITCH_FILES [TARGET_PITCH_FILES ...]] \
     [--checkpoint CHECKPOINT] \
@@ -360,8 +360,8 @@ Perform speech editing
         The audio to edit
     --output_files OUTPUT_FILES [OUTPUT_FILES ...]
         The files to save the edited audio
-    --grid_files GRID_FILES [GRID_FILES ...]
-        The interpolation grids for editing phoneme durations
+    --alignment_files ALIGNMENT_FILES [ALIGNMENT_FILES ...]
+        The alignment files for editing phoneme durations
     --target_loudness_files TARGET_LOUDNESS_FILES [TARGET_LOUDNESS_FILES ...]
         The loudness contours for editing loudness
     --target_pitch_files TARGET_PITCH_FILES [TARGET_PITCH_FILES ...]
