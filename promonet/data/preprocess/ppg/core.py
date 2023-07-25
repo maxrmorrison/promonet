@@ -82,7 +82,7 @@ def from_audio(
     return ppgs.from_audio(
         audio,
         sample_rate,
-        checkpoint=PPG_DIR / 'checkpoints' / f'{promonet.PPG_MODEL}.pt',
+        # checkpoint=PPG_DIR / 'checkpoints' / f'{promonet.PPG_MODEL}.pt',
         gpu=gpu)
 
 

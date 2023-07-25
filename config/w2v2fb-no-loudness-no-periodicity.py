@@ -1,10 +1,7 @@
 MODULE = 'promonet'
 
 # Configuration name
-CONFIG = 'w2v2fb'
-
-# Loudness features
-LOUDNESS_FEATURES = True
+CONFIG = 'w2v2fb-no-loudness-no-periodicity'
 
 # The model to use. One of [
 #     'end-to-end',
@@ -16,9 +13,6 @@ LOUDNESS_FEATURES = True
 #     'world'
 # ]
 MODEL = 'end-to-end'
-
-# Periodicity conditioning
-PERIODICITY_FEATURES = True
 
 # Pitch conditioning
 PITCH_FEATURES = True
