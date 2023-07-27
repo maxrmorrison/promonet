@@ -101,7 +101,7 @@ def train(
     # Create models #
     #################
 
-    num_speakers = len(train_loader.dataset.speakers)
+    num_speakers = 109 #TODO: Handle magic number as config variable
     generator = promonet.model.Generator(num_speakers).to(device)
     discriminators = promonet.model.Discriminator().to(device)
 

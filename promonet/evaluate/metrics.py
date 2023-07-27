@@ -59,6 +59,10 @@ class PPG:
         self.total = 0.
         self.count = 0
 
+###############################################################################
+# Word error rate metric
+###############################################################################
+
 class WER:
 
     def __init__(self, gpu):
@@ -83,7 +87,6 @@ def predict_text(audio, gpu):
         model = whisper.load_model("base.en", device=device)
         predict_text.model = model
         predict_text.gpu = gpu
-    print(type(audio))
     if type(audio) is str: #Provided via file name, let whisper load it itself
         transcribe_input = audio
     else: #Must be tensor
