@@ -8,8 +8,6 @@ import pysodic
 import torch
 import tqdm
 
-import ppgs
-
 import promonet
 
 
