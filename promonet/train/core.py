@@ -8,6 +8,8 @@ import pysodic
 import torch
 import tqdm
 
+import ppgs
+
 import promonet
 
 
@@ -711,7 +713,7 @@ def evaluate(directory, step, generator, loader, gpu):
             )
 
             # Get ppgs
-            predicted_phonemes = ppgs(generated, phonemes.shape[-1], gpu)
+            predicted_phonemes = infer_ppgs(generated, phonemes.shape[-1], gpu)
 
             if promonet.MODEL != 'vits':
 
@@ -789,7 +791,7 @@ def evaluate(directory, step, generator, loader, gpu):
                     )
 
                     # Get ppgs
-                    predicted_phonemes = ppgs(shifted, phonemes.shape[2], gpu)
+                    predicted_phonemes = infer_ppgs(shifted, phonemes.shape[2], gpu)
 
                     # Log pitch-shifted audio
                     key = f'shifted-{int(ratio * 100):03d}/{i:02d}'
@@ -888,7 +890,7 @@ def evaluate(directory, step, generator, loader, gpu):
                     )
 
                     # Get ppgs
-                    predicted_phonemes = ppgs(
+                    predicted_phonemes = infer_ppgs(
                         stretched,
                         stretched_phonemes.shape[2],
                         gpu)
@@ -962,7 +964,7 @@ def evaluate(directory, step, generator, loader, gpu):
                     )
 
                     # Get ppgs
-                    predicted_phonemes = ppgs(scaled, phonemes.shape[2], gpu)
+                    predicted_phonemes = infer_ppgs(scaled, phonemes.shape[2], gpu)
 
                     # Log loudness-scaled audio
                     key = f'scaled-{int(ratio * 100):03d}/{i:02d}'
@@ -1007,18 +1009,19 @@ def evaluate(directory, step, generator, loader, gpu):
     promonet.write.scalars(directory, step, scalars)
 
 
-def ppgs(audio, size, gpu=None):
+def infer_ppgs(audio, size, gpu=None):
     """Extract aligned PPGs"""
     predicted_phonemes = promonet.data.preprocess.ppg.from_audio(
         audio[0],
+        sample_rate=promonet.SAMPLE_RATE,
         gpu=gpu)
     # Maybe resample length
     mode = promonet.PPG_INTERP_METHOD
     return torch.nn.functional.interpolate(
-        predicted_phonemes[None],
+        predicted_phonemes, #TODO check [none] ?
         size=size,
         mode=mode,
-        align_corners=None if mode == 'nearest' else False)[0]
+        align_corners=None if mode == 'nearest' else False)
 
 
 ###############################################################################
