@@ -160,7 +160,7 @@ class Dataset(torch.utils.data.Dataset):
 
         # Maybe use a different type of PPGs
         if promonet.PPG_MODEL is not None:
-            feature = promonet.PPG_MODEL + '-' + feature
+            feature = promonet.PPG_MODEL
 
         ppg = torch.load(self.cache / f'{stem}-{feature}.pt')
 
@@ -237,7 +237,7 @@ class Metadata:
             try:
                 self.lengths.append(metadata[stem])
             except KeyError:
-                length = torchaudio.info(self.cache / (stem + '.wav')).num_frames // ppgs.HOPSIZE
+                length = torchaudio.info(self.cache / (stem + '.wav')).num_frames // promonet.HOPSIZE
                 metadata[stem] = length
                 self.lengths.append(length)
         with open(metadata_file, 'w+') as f:
