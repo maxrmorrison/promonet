@@ -545,6 +545,7 @@ def speaker(
 
         speaker_metrics = default_metrics(gpus)
         results = {'objective': {'raw': {}}}
+
         for key, value in files.items():
             results['objective']['raw'][key] = []
 
@@ -560,6 +561,10 @@ def speaker(
                 # Get predicted filepath
                 predicted_prefix = \
                     objective_directory / file.parent.name / file.stem
+
+                # Get waveform filepath
+                waveform_prefix = \
+                    subjective_directory / file.parent.name / file.stem
 
                 # Update metrics
                 prosody_args = (
@@ -596,11 +601,17 @@ def speaker(
                 ppg_args = (predicted_ppgs, target_ppgs)
                 condition = '-'.join(target_prefix.stem.split('-')[1:3])
 
-                # Update metrics
-                metrics[condition].update(prosody_args, ppg_args)
+                #Get target text and audio file for WER
+                gt_text = promonet.load.text(f'{target_prefix}-text.txt')
+                audio_file = f'{waveform_prefix}.wav'
 
-                speaker_metrics[condition].update(prosody_args, ppg_args)
-                file_metrics.update(prosody_args, ppg_args)
+                wer_args = (gt_text, audio_file)
+
+                # Update metrics
+                metrics[condition].update(prosody_args, ppg_args, wer_args)
+
+                speaker_metrics[condition].update(prosody_args, ppg_args, wer_args)
+                file_metrics.update(prosody_args, ppg_args, wer_args)
 
                 # Get results for this file
                 results['objective']['raw'][key].append(
@@ -629,7 +640,6 @@ def speaker(
 ###############################################################################
 # Utilities
 ###############################################################################
-
 
 def default_metrics(gpus):
     """Construct the default metrics dictionary for each condition"""
