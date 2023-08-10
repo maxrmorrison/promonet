@@ -63,27 +63,18 @@ def from_audio(
         with torch.no_grad():
             return from_audio.model(audio, length)[0].T
 
-    elif promonet.PPG_MODEL == 'senone-base':
-        name = 'basemodel'
-        preprocess_only = True
-    elif promonet.PPG_MODEL == 'senone-phoneme':
-        name = 'basemodel'
-        preprocess_only = False
-    elif promonet.PPG_MODEL == 'w2v2-base':
-        name = 'basemodelW2V2'
-        preprocess_only = True
-    elif promonet.PPG_MODEL == 'w2v2-phoneme':
-        name = 'basemodelW2V2'
-        preprocess_only = False
-    else:
-        raise ValueError(f'Model {promonet.PPG_MODEL} is not defined')
-
     # Infer ppgs
+    if '-latents' in promonet.PPG_MODEL:
+        return ppgs.preprocess.from_audio(
+            audio=audio,
+            sample_rate=sample_rate,
+            representation=promonet.PPG_MODEL.split('-')[0],
+            gpu=gpu
+        )
     return ppgs.from_audio(
-        audio,
-        sample_rate,
-        preprocess_only=preprocess_only,
-        checkpoint=PPG_DIR / 'checkpoints' / f'{name}.pt',
+        audio=audio,
+        sample_rate=sample_rate,
+        representation=promonet.PPG_MODEL.split('-')[0],
         gpu=gpu)
 
 
@@ -100,10 +91,28 @@ def from_file_to_file(audio_file, output_file, gpu=None):
 
 def from_files_to_files(audio_files, output_files, gpu=None):
     """Compute PPGs from audio files and save to disk"""
-    iterator = tqdm.tqdm(
-        zip(audio_files, output_files),
-        desc='Extracting PPGs',
-        total=len(audio_files),
-        dynamic_ncols=True)
-    for audio_file, output_file in iterator:
-        from_file_to_file(audio_file, output_file, gpu)
+    if promonet.PPG_MODEL is None:
+        iterator = tqdm.tqdm(
+            zip(audio_files, output_files),
+            desc='Extracting PPGs',
+            total=len(audio_files),
+            dynamic_ncols=True)
+        for audio_file, output_file in iterator:
+            from_file_to_file(audio_file, output_file, gpu)
+    else:
+        if '-latents' in promonet.PPG_MODEL:
+            ppgs.preprocess.from_files_to_files(
+                audio_files=audio_files,
+                output_files=output_files,
+                representation=promonet.PPG_MODEL.split('-')[0],
+                num_workers=promonet.NUM_WORKERS,
+                gpu=gpu
+            )
+        elif '-ppg' in promonet.PPG_MODEL:
+            ppgs.from_files_to_files(
+                audio_files=audio_files,
+                output=output_files,
+                representation=promonet.PPG_MODEL.split('-')[0],
+                num_workers=promonet.NUM_WORKERS,
+                gpu=gpu
+            )

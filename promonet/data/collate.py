@@ -71,10 +71,7 @@ def collate(batch):
             lengths[index].item())
 
         # Prepare phoneme features
-        if promonet.MODEL == 'vits':
-            padded_phonemes[i, :feature_lengths[i]] = phonemes[index]
-        else:
-            padded_phonemes[i, :, :feature_lengths[i]] = phonemes[index]
+        padded_phonemes[i, ..., :feature_lengths[i]] = phonemes[index]
 
         # Prepare prosody features
         padded_pitch[i, :spectrogram_lengths[i]] = pitch[index]
