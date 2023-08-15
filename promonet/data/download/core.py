@@ -4,6 +4,7 @@ import tarfile
 import urllib
 import zipfile
 from pathlib import Path
+import json
 
 import torch
 import torchaudio
@@ -191,7 +192,7 @@ def libritts():
             output_file.parent.mkdir(exist_ok=True, parents=True)
             audio = promonet.resample(audio, sample_rate)
             torchaudio.save(
-                output_file.parent / f'{output_file.stem}.wav',
+                output_file.parent / f'{output_file.stem}-100.wav',
                 audio,
                 promonet.SAMPLE_RATE)
             shutil.copyfile(text_file, output_file.with_suffix('.txt'))
@@ -207,6 +208,14 @@ def libritts():
             else:
                 context[stem] = { 'prev': None, 'next': None }
             prev_parts = (speaker, book, chapter, utterance)
+        
+        # Save context information
+        with open('context.json', 'w') as file:
+            json.dump(context, file, indent=4, sort_keys=True)
+
+        # Save speaker map
+        with open('speakers.json', 'w') as file:
+            json.dump(speaker_count, file, indent=4, sort_keys=True)
 
 
 def vctk():
