@@ -71,15 +71,15 @@ DAPS_ADAPTATION_SPEAKERS = [
 # conversational (as opposed to read) prosody
 LIBRITTS_ADAPTATION_SPEAKERS = [
     # Female
-    '0040',
-    '0669',
+    '40',
+    '669',
     '4362',
     '5022',
     '8123',
 
     # Male
-    '0196',
-    '0460',
+    '196',
+    '460',
     '1355',
     '3664',
     '7067']
@@ -124,6 +124,8 @@ def datasets(datasets):
             partition = vctk()
         elif name == 'daps':
             partition = daps()
+        elif name == 'libritts':
+            partition = libritts()
 
         # All other datasets are assumed to be for speaker adaptation
         else:
@@ -160,7 +162,7 @@ def libritts():
     directory = promonet.CACHE_DIR / 'libritts'
     stems = {
         f'{file.parent.name}/{file.stem}'
-        for file in directory.rglob('*.TextGrid')}
+        for file in directory.rglob('*.txt')}
 
     # Get speaker map
     with open(directory / 'speakers.json') as file:
