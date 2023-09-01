@@ -1,10 +1,11 @@
-import string
 
 import pysodic
 import torch
 from jiwer import wer
 import whisper
 from whisper.normalizers import EnglishTextNormalizer
+import resemblyzer
+import numpy as np
 
 import promonet
 
@@ -24,18 +25,22 @@ class Metrics:
             gpu)
         self.ppg = PPG()
         self.wer = WER(gpu)
+        self.speaker_sim = SpeakerSimilarity(gpu)
 
     def __call__(self):
-        return {**self.prosody(), **self.ppg(), **self.wer()}
+        return {**self.prosody(), **self.ppg(), **self.wer(), **self.speaker_sim()}
 
-    def update(self, prosody_args, ppg_args, wer_args):
+    def update(self, prosody_args, ppg_args, wer_args, speaker_sim_args=None):
         self.prosody.update(*prosody_args)
         self.ppg.update(*ppg_args)
         self.wer.update(*wer_args)
+        if speaker_sim_args: self.speaker_sim.update(*speaker_sim_args)
 
     def reset(self):
         self.prosody.reset()
         self.ppg.reset()
+        self.wer.reset()
+        self.speaker_sim.reset()
 
 
 ###############################################################################
@@ -101,3 +106,53 @@ def format_text(text):
         format_text.normalizer = normalizer
     
     return format_text.normalizer(text)
+
+###############################################################################
+# Speaker similarity metric
+###############################################################################
+
+class SpeakerSimilarity:
+
+    def __init__(self, gpu):
+        self.reset()
+        self.gpu = gpu
+        self.model = get_resemblyzer(gpu)
+
+    def __call__(self):
+        if self.count == 0:
+            return {}
+        return {'speaker_sim': self.total / self.count}
+
+    def update(self, utterance, dataset, speaker):
+        speaker_embed = get_speaker_embed(dataset, speaker, self.model)
+        if type(utterance) is torch.Tensor:
+            utterance_preprocess = resemblyzer.preprocess_wav(utterance.numpy(force=True))
+        else: #Should be fpath
+            utterance_preprocess = resemblyzer.preprocess_wav(utterance)
+        utterance_embed = self.model.embed_utterance(utterance_preprocess)
+        diff = np.sum(np.abs(speaker_embed - utterance_embed))
+        self.total += diff
+        self.count += 1
+
+    def reset(self):
+        self.total = 0.
+        self.count = 0
+
+def get_resemblyzer(gpu):
+    if not hasattr(get_resemblyzer, 'encoder') or gpu != get_resemblyzer.gpu:
+        device = 'cpu' if gpu is None else f'cuda:{gpu}'
+        encoder = resemblyzer.VoiceEncoder(device=device)
+        get_resemblyzer.encoder = encoder
+        get_resemblyzer.gpu = gpu
+    return get_resemblyzer.encoder
+
+def get_speaker_embed(dataset, speaker, model):
+    if not hasattr(get_speaker_embed, 'dictionary'):
+        get_speaker_embed.dictionary = {}
+    speaker_code = f'{dataset}-{speaker}'
+    if speaker_code not in get_speaker_embed.dictionary.keys(): #Don't already have this embedding
+        all_gts = (promonet.CACHE_DIR / dataset / speaker).glob('*-100.wav')
+        gt_wavs = [resemblyzer.preprocess_wav(file) for file in all_gts]
+        get_speaker_embed.dictionary[speaker_code] = model.embed_speaker(gt_wavs)
+        
+    return get_speaker_embed.dictionary[speaker_code]
