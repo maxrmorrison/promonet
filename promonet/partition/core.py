@@ -211,29 +211,58 @@ def vctk():
         for file in directory.rglob('*.txt')}
 
     # Create speaker adaptation partitions
-    adapt_partitions = adaptation_partitions(
-        directory,
-        stems,
-        VCTK_ADAPTATION_SPEAKERS)
+    if promonet.ADAPTATION:
+        adapt_partitions = adaptation_partitions(
+            directory,
+            stems,
+            VCTK_ADAPTATION_SPEAKERS)
 
-    # Get test partition indices
-    test_stems = list(
-        itertools.chain.from_iterable(adapt_partitions.values()))
+        # Get test partition indices
+        test_stems = list(
+            itertools.chain.from_iterable(adapt_partitions.values()))
 
-    # Get residual indices
-    residual = [stem for stem in stems if stem not in test_stems]
-    random.shuffle(residual)
+        # Get residual indices
+        residual = [stem for stem in stems if stem not in test_stems]
+        random.shuffle(residual)
 
-    # Get validation stems
-    filter_fn = functools.partial(meets_length_criteria, directory)
-    valid_stems = list(filter(filter_fn, residual))[:10]
+        # Get validation stems
+        filter_fn = functools.partial(meets_length_criteria, directory)
+        valid_stems = list(filter(filter_fn, residual))[:10]
 
-    # Get training stems
-    train_stems = [stem for stem in residual if stem not in valid_stems]
+        # Get training stems
+        train_stems = [stem for stem in residual if stem not in valid_stems]
 
-    # Merge training and adaptation partitions
-    partition = {'train': train_stems, 'valid': valid_stems}
-    return {**partition, **adapt_partitions}
+        # Merge training and adaptation partitions
+        partition = {'train': train_stems, 'valid': valid_stems}
+        return {**partition, **adapt_partitions}
+    else:
+        test_speaker_stems = {
+            speaker: [stem for stem in stems if stem.split('/')[0] == speaker]
+            for speaker in VCTK_ADAPTATION_SPEAKERS}
+        filter_fn = functools.partial(meets_length_criteria, directory)
+        test_stems = []
+        for speaker, speaker_stems in test_speaker_stems.items():
+            random.shuffle(speaker_stems)
+            test_stems += list(filter(filter_fn, speaker_stems))[:10]
+        
+        residual = [stem for stem in stems if stem not in test_stems]
+        random.shuffle(residual)
+
+        # Get validation stems
+        filter_fn = functools.partial(meets_length_criteria, directory)
+        valid_stems = list(filter(filter_fn, residual))[:10]
+
+        # Get training stems
+        train_stems = [stem for stem in residual if stem not in valid_stems]
+
+        return {
+            'train': train_stems,
+            'valid': valid_stems,
+            'test': test_stems
+        }
+
+
+
 
 
 ###############################################################################
