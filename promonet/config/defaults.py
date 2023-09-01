@@ -122,6 +122,15 @@ PITCH_EMBEDDING = True
 # Pitch conditioning
 PITCH_FEATURES = False
 
+# Ratio or Cents
+PITCH_EVAL_METHOD = 'ratio'
+
+# Ratios used as targets in pitch shifting
+PITCH_RATIOS = [0.5, 2.]
+
+# Cents which then get converted to ratios
+PITCH_CENTS = [-200, 200]
+
 # Number of pitch bins
 PITCH_BINS = 256
 
@@ -146,6 +155,9 @@ RANDOM_SEED = 1234
 
 # Only use spectral features
 SPECTROGRAM_ONLY = False
+
+# Whether to perform speaker adaptation (or multi-speaker)
+ADAPTATION = True
 
 
 ###############################################################################
