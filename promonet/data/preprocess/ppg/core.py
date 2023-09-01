@@ -65,12 +65,17 @@ def from_audio(
 
     # Infer ppgs
     if '-latents' in promonet.PPG_MODEL:
-        return ppgs.preprocess.from_audio(
+        latents = ppgs.preprocess.from_audio(
             audio=audio,
             sample_rate=sample_rate,
             representation=promonet.PPG_MODEL.split('-')[0],
             gpu=gpu
         )
+        if ppgs.FRONTEND is not None:
+            if not hasattr(from_audio, 'frontend'):
+                from_audio.frontend = ppgs.FRONTEND(latents.device)
+            latents = from_audio.frontend(latents)
+        return latents
     return ppgs.from_audio(
         audio=audio,
         sample_rate=sample_rate,

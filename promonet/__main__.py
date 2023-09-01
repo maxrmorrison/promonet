@@ -1,4 +1,4 @@
-import argparse
+import yapecs
 from pathlib import Path
 
 import promonet
@@ -11,12 +11,13 @@ import promonet
 
 def parse_args():
     """Parse command-line arguments"""
-    parser = argparse.ArgumentParser(description='Perform speech editing')
-    parser.add_argument(
-        '--config',
-        type=Path,
-        default=promonet.DEFAULT_CONFIGURATION,
-        help='The configuration file')
+    parser = yapecs.ArgumentParser(description='Perform speech editing')
+    # parser.add_argument(
+    #     '--config',
+    #     type=Path,
+    #     default=promonet.DEFAULT_CONFIGURATION,
+    #     nargs='+,'
+    #     help='The configuration file')
     parser.add_argument(
         '--audio_files',
         type=Path,
@@ -45,6 +46,16 @@ def parse_args():
         nargs='+',
         help='The pitch contours for shifting pitch')
     parser.add_argument(
+        '--target_ppg_files',
+        type=Path,
+        nargs='+',
+        help='The ppgs for pronunciation editing')
+    parser.add_argument(
+        '--speaker_ids',
+        type=int,
+        nargs='+',
+        help='The IDs of the speakers for voice conversion')
+    parser.add_argument(
         '--checkpoint',
         type=Path,
         default=promonet.DEFAULT_CHECKPOINT,
@@ -53,8 +64,9 @@ def parse_args():
         '--gpu',
         type=int,
         help='The GPU index')
-    return parser.parse_args()
+    return parser.parse_known_args()[0]
 
 
 if __name__ == '__main__':
+    args = parse_args()
     promonet.from_files_to_files(**vars(parse_args()))
