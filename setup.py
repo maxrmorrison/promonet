@@ -32,6 +32,7 @@ setup(
         'numpy<1.24',
         # 'pysodic',  # TEMPORARY - install manually until release of pysodic
         'psola',  # TEMPORARY - GPL dependency
+        'pypar',
         'pyworld',
         'pyyaml',
         'scipy',
