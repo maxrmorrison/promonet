@@ -25,6 +25,7 @@ VCTK
 * test_adapt_{:02d} - Test dataset for speaker adaptation
     (10 speakers; 10 examples per speaker; 4-10 seconds)
 """
+import os
 import functools
 import itertools
 import json
@@ -118,6 +119,10 @@ def adaptation(name):
 def datasets(datasets):
     """Partition datasets and save to disk"""
     for name in datasets:
+
+        metadata_files = (promonet.CACHE_DIR / name).glob('-metadata.json')
+        for metadata_file in metadata_files:
+            os.remove(metadata_file)
 
         # Partition
         if name == 'vctk':

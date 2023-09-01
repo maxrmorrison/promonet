@@ -3,6 +3,7 @@ from pathlib import Path
 import os
 import multiprocessing as mp
 
+import ppgs
 import pysodic
 import tqdm
 import pyfoal
@@ -10,6 +11,7 @@ import pypar
 import torchaudio
 
 import promonet
+
 
 
 ###############################################################################
@@ -24,7 +26,7 @@ ALL_FEATURES = ['ppg', 'prosody', 'spectrogram']
 # Data preprocessing
 ###############################################################################
 
-
+@promonet.notify.notify_on_finish('preprocess')
 def datasets(datasets, features=ALL_FEATURES, gpu=None):
     """Preprocess a dataset"""
     for dataset in datasets:
@@ -59,12 +61,36 @@ def from_files_to_files(
 
     # Preprocess phonetic posteriorgrams
     if 'ppg' in features:
-        ppg_files = [
-            file.parent / f'{file.stem}-ppg.pt' for file in audio_files]
-        promonet.data.preprocess.ppg.from_files_to_files(
-            audio_files,
-            ppg_files,
-            gpu)
+        if promonet.PPG_MODEL is None:
+            ppg_files = [
+                file.parent / f'{file.stem}-ppg.pt' for file in audio_files]
+            promonet.data.preprocess.ppg.from_files_to_files(
+                audio_files,
+                ppg_files,
+                gpu)
+        else:
+            if '-latents' in promonet.PPG_MODEL:
+                latent_files = [
+                file.parent / f'{file.stem}-{promonet.PPG_MODEL}.pt' for file in audio_files]
+                ppgs.preprocess.from_files_to_files(
+                    audio_files,
+                    latent_files,
+                    features=[promonet.PPG_MODEL.split('-')[0]],
+                    gpu=gpu,
+                    num_workers=promonet.NUM_WORKERS
+                )
+            elif '-ppg' in promonet.PPG_MODEL:
+                ppg_files = [
+                    file.parent / f'{file.stem}-{promonet.PPG_MODEL}.pt' for file in audio_files]
+                ppgs.from_files_to_files(
+                    audio_files,
+                    ppg_files,
+                    representation=promonet.PPG_MODEL.split('-')[0],
+                    gpu=gpu,
+                    num_workers=promonet.NUM_WORKERS
+                )
+            else:
+                raise ValueError(f'unknown PPG_MODEL: {promonet.PPG_MODEL}')
 
     # Preprocess prosody features
     if 'prosody' in features:

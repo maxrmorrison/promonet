@@ -17,7 +17,7 @@ import promonet
 # Download datasets
 ###############################################################################
 
-
+@promonet.notify.notify_on_finish('download')
 def datasets(datasets):
     """Download datasets"""
     # Download and format daps dataset
