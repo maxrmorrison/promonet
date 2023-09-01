@@ -9,7 +9,7 @@ import promonet
 # Entry point
 ###############################################################################
 
-
+@promonet.notify.notify_on_finish('train')
 def main(
     config,
     dataset,

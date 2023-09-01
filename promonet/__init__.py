@@ -13,6 +13,10 @@ yapecs.configure('promonet', defaults)
 # Import configuration parameters
 from .config.defaults import *
 from . import time
+try:
+    from .config.secrets import *
+except ImportError as e:
+    pass
 from .config.static import *
 
 
@@ -21,6 +25,7 @@ from .config.static import *
 ###############################################################################
 
 
+from . import notify
 from .core import *
 from . import adapt
 from . import baseline
