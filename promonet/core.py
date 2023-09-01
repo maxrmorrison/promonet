@@ -9,6 +9,7 @@ import torch
 import torchaudio
 import tqdm
 import pypar
+import ppgs
 
 import promonet
 
@@ -25,6 +26,8 @@ def from_audio(
     alignment: Optional[pypar.Alignment] = None,
     target_loudness: Optional[torch.Tensor] = None,
     target_pitch: Optional[torch.Tensor] = None,
+    target_ppg: Optional[torch.Tensor] = None,
+    speaker_id: Optional[Union[int, torch.Tensor]] = 0,
     checkpoint: Union[str, os.PathLike] = promonet.DEFAULT_CHECKPOINT,
     gpu: Optional[int] = None) -> torch.Tensor:
     """Perform speech editing
@@ -36,6 +39,7 @@ def from_audio(
         alignment: The pypar alignment for editing phoneme durations
         target_loudness: The loudness contour for editing loudness
         target_pitch: The pitch contour for shifting pitch
+        target_ppg: The ppg for editing pronunciation
         checkpoint: The generator checkpoint
         gpu: The GPU index
 
@@ -71,6 +75,7 @@ def from_audio(
             grid,
             target_loudness,
             target_pitch,
+            target_ppg,
             gpu)
 
     # Generate
@@ -80,6 +85,7 @@ def from_audio(
         periodicity,
         target_loudness,
         spectrograms,
+        speaker_id,
         checkpoint)
 
 
@@ -89,6 +95,8 @@ def from_file(
     alignment_file: Optional[Union[str, os.PathLike]] = None,
     target_loudness_file: Optional[Union[str, os.PathLike]] = None,
     target_pitch_file: Optional[Union[str, os.PathLike]] = None,
+    target_ppg_file: Optional[Union[str, os.PathLike]] = None,
+    speaker_id: Optional[Union[int, torch.Tensor]] = 0,
     checkpoint: Union[str, os.PathLike] = promonet.DEFAULT_CHECKPOINT,
     gpu: Optional[int] = None) -> torch.Tensor:
     """Edit speech on disk
@@ -99,6 +107,7 @@ def from_file(
         alignment_file: The pypar alignment file for editing phoneme durations
         target_loudness_file: The loudness contour for editing loudness
         target_pitch_file: The pitch contour for shifting pitch
+        target_ppg_file: The ppg for editing pronunciation
         checkpoint: The generator checkpoint
         gpu: The GPU index
 
@@ -134,6 +143,11 @@ def from_file(
     else:
         pitch = torch.load(target_pitch_file, map_location=device)
 
+    if target_ppg_file is None:
+        ppg = None
+    else:
+        ppg = torch.load(target_ppg_file, map_location=device)
+
     # Generate
     return from_audio(
         audio,
@@ -142,6 +156,8 @@ def from_file(
         alignment,
         loudness,
         pitch,
+        ppg,
+        speaker_id,
         checkpoint,
         gpu)
 
@@ -153,6 +169,8 @@ def from_file_to_file(
     alignment_file: Optional[Union[str, os.PathLike]] = None,
     target_loudness_file: Optional[Union[str, os.PathLike]] = None,
     target_pitch_file: Optional[Union[str, os.PathLike]] = None,
+    target_ppg_file: Optional[Union[str, os.PathLike]] = None,
+    speaker_id: Optional[Union[int, torch.Tensor]] = 0,
     checkpoint: Union[str, os.PathLike] = promonet.DEFAULT_CHECKPOINT,
     gpu: Optional[int] = None):
     """Edit speech on disk and save to disk
@@ -173,6 +191,8 @@ def from_file_to_file(
         alignment_file,
         target_loudness_file,
         target_pitch_file,
+        target_ppg_file,
+        speaker_id,
         checkpoint,
         gpu).to(device='cpu', dtype=torch.float32)
     output_file.parent.mkdir(exist_ok=True, parents=True)
@@ -186,6 +206,8 @@ def from_files_to_files(
     alignment_files: Optional[List[Union[str, os.PathLike]]] = None,
     target_loudness_files: Optional[List[Union[str, os.PathLike]]] = None,
     target_pitch_files: Optional[List[Union[str, os.PathLike]]] = None,
+    target_ppg_files: Optional[List[Union[str, os.PathLike]]] = None,
+    speaker_ids: Optional[List[Union[int, torch.Tensor]]] = None,
     checkpoint: Union[str, os.PathLike] = promonet.DEFAULT_CHECKPOINT,
     gpu: Optional[int] = None):
     """Edit speech on disk and save to disk
@@ -209,6 +231,10 @@ def from_files_to_files(
         target_loudness_files = [None] * len(audio_files)
     if target_pitch_files is None:
         target_pitch_files = [None] * len(audio_files)
+    if target_ppg_files is None:
+        target_ppg_files = [None] * len(audio_files)
+    if speaker_ids is None:
+        speaker_ids = [0] * len(audio_files)
 
     # Perform prosody editing
     iterator = zip(
@@ -217,7 +243,9 @@ def from_files_to_files(
         text_files,
         alignment_files,
         target_loudness_files,
-        target_pitch_files)
+        target_pitch_files,
+        target_ppg_files,
+        speaker_ids)
     for item in iterator:
         from_file_to_file(*item, checkpoint=checkpoint, gpu=gpu)
 
@@ -233,6 +261,7 @@ def generate(
     periodicity,
     loudness,
     spectrograms,
+    speaker_id = 0,
     checkpoint=promonet.DEFAULT_CHECKPOINT):
     """Generate speech from phoneme and prosody features"""
     device = features.device
@@ -258,8 +287,7 @@ def generate(
             dtype=torch.long,
             device=device)
 
-        # Default speaker is speaker 0
-        speakers = torch.zeros(1, dtype=torch.long, device=device)
+        speakers = torch.full((1,), speaker_id, dtype=torch.long, device=device)
 
         # Generate
         with generation_context(generate.model):
@@ -290,6 +318,7 @@ def preprocess(
     grid=None,
     target_loudness=None,
     target_pitch=None,
+    target_ppg=None,
     gpu=None):
     device = torch.device('cpu' if gpu is None else f'cuda:{gpu}')
 
@@ -334,10 +363,19 @@ def preprocess(
             target_loudness = loudness
 
         # Phonetic posteriorgrams
-        features = promonet.data.preprocess.ppg.from_audio(
-            audio,
-            sample_rate,
-            gpu=gpu)
+        if target_ppg is None:
+            features = promonet.data.preprocess.ppg.from_audio(
+                audio,
+                sample_rate,
+                gpu=gpu)
+        else:
+            features = target_ppg
+            if promonet.PPG_MODEL is not None and 'ppg' not in promonet.PPG_MODEL \
+                  and ppgs.FRONTEND is not None:
+                if not hasattr(preprocess, 'frontend'):
+                    preprocess.frontend = ppgs.FRONTEND(features.device)
+                with torch.no_grad():
+                    features = preprocess.frontend(features[None]).squeeze(dim=0)
 
         # Maybe resample length
         frames = promonet.convert.samples_to_frames(audio.shape[1])

@@ -206,6 +206,10 @@ def train(
             for param in generator.vocoder.parameters():
                 param.requires_grad = True
 
+
+    #setup epoch TODO load from checkpoint
+    epoch = 0
+
     # Setup progress bar
     if not rank:
         progress = tqdm.tqdm(
@@ -216,7 +220,7 @@ def train(
     while step < steps:
 
         # Seed sampler
-        train_loader.batch_sampler.set_epoch(step // len(train_loader.dataset))
+        train_loader.batch_sampler.set_epoch(epoch)
 
         generator.train()
         discriminators.train()
@@ -548,6 +552,7 @@ def train(
 
                 # Update progress bar
                 progress.update()
+        epoch += 1
 
     if not rank:
 
@@ -588,9 +593,14 @@ def evaluate(directory, step, generator, loader, gpu):
 
         # Editing
         if promonet.PITCH_FEATURES:
-            metrics.update({
-                'shifted-050': metric_fn(),
-                'shifted-200': metric_fn()})
+            if promonet.PITCH_EVAL_METHOD == 'ratio':
+                metrics.update({
+                    'shifted-050': metric_fn(),
+                    'shifted-200': metric_fn()})
+            else:
+                metrics.update({
+                    'shifted-p-200-cents': metric_fn(),
+                    'shifted-n-200-cents': metric_fn()})
         if promonet.PPG_FEATURES:
             metrics.update({
                 'stretched-050': metric_fn(),
@@ -757,7 +767,14 @@ def evaluate(directory, step, generator, loader, gpu):
             ##################
 
             if promonet.PITCH_FEATURES:
-                for ratio in [.5, 2.]:
+                if promonet.PITCH_EVAL_METHOD == 'ratio':
+                    ratios = promonet.PITCH_RATIOS
+                elif promonet.PITCH_EVAL_METHOD == 'cents':
+                    cents = promonet.PITCH_CENTS
+                    ratios = [2 ** (cents_value / 1200) for cents_value in cents]
+                else:
+                    raise ValueError(f'invalid pitch eval method: {promonet.PITCH_EVAL_METHOD}')
+                for j, ratio in enumerate(ratios):
 
                     # Shift pitch
                     shifted_pitch = ratio * pitch
@@ -793,7 +810,11 @@ def evaluate(directory, step, generator, loader, gpu):
                     predicted_phonemes = infer_ppgs(shifted, phonemes.shape[2], gpu)
 
                     # Log pitch-shifted audio
-                    key = f'shifted-{int(ratio * 100):03d}/{i:02d}'
+                    if promonet.PITCH_EVAL_METHOD == 'ratio':
+                        key = f'shifted-{int(ratio * 100):03d}/{i:02d}'
+                    else:
+                        cents = promonet.PITCH_CENTS[j]
+                        key = f'shifted-{"p" if cents >= 0 else "n"}-{abs(cents):03d}-cents/{i:02d}'
                     waveforms[f'{key}-audio'] = shifted[0]
 
                     # Log prosody figure
@@ -1017,6 +1038,8 @@ def infer_ppgs(audio, size, gpu=None):
         audio[0],
         sample_rate=promonet.SAMPLE_RATE,
         gpu=gpu)
+    if predicted_phonemes.dim() == 2:
+        predicted_phonemes = predicted_phonemes[None]
     # Maybe resample length
     mode = promonet.PPG_INTERP_METHOD
     return torch.nn.functional.interpolate(

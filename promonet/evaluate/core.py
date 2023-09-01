@@ -55,12 +55,16 @@ def datasets(datasets, checkpoint=None, gpus=None):
 
         # Get adaptation partitions for this dataset
         partitions = promonet.load.partition(dataset)
-        train_partitions = sorted(list(
-            partition for partition in partitions.keys()
-            if 'train-adapt' in partition))
-        test_partitions = sorted(list(
-            partition for partition in partitions.keys()
-            if 'test-adapt' in partition))
+        if promonet.ADAPTATION:
+            train_partitions = sorted(list(
+                partition for partition in partitions.keys()
+                if 'train-adapt' in partition))
+            test_partitions = sorted(list(
+                partition for partition in partitions.keys()
+                if 'test-adapt' in partition))
+        else:
+            train_partitions = [None]
+            test_partitions = ['test']
 
         # Prosody metrics
         metrics = default_metrics(gpus)
@@ -155,7 +159,7 @@ def speaker(
     subjective_directory,
     gpus=None):
     """Evaluate one adaptation speaker in a dataset"""
-    if promonet.MODEL not in ['psola', 'world']:
+    if promonet.MODEL not in ['psola', 'world'] and promonet.ADAPTATION:
 
         # Maybe resume adaptation
         generator_path = promonet.checkpoint.latest_path(

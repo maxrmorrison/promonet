@@ -9,6 +9,7 @@ import torchaudio
 import os
 
 import promonet
+import ppgs
 
 
 
@@ -163,6 +164,11 @@ class Dataset(torch.utils.data.Dataset):
             feature = promonet.PPG_MODEL
 
         ppg = torch.load(self.cache / f'{stem}-{feature}.pt')
+        if promonet.PPG_MODEL is not None and 'ppg' not in promonet.PPG_MODEL and ppgs.FRONTEND is not None:
+            if not hasattr(self.get_ppg, 'frontend'):
+                self.get_ppg.__func__.frontend = ppgs.FRONTEND()
+            with torch.no_grad():
+                ppg = self.get_ppg.__func__.frontend(ppg[None]).squeeze(dim=0)
 
         # Maybe resample length
         if ppg.shape[1] != length:
