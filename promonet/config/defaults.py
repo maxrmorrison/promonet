@@ -82,6 +82,9 @@ AUGMENTATION_RATIO_MIN = .5
 # Names of all datasets
 DATASETS = ['daps', 'libritts', 'vctk']
 
+#Number of speakers (TODO: move to statics based on datasets?)
+NUM_SPEAKERS = 109
+
 # Discriminator loudness conditioning
 DISCRIM_LOUDNESS_CONDITION = False
 

@@ -607,11 +607,13 @@ def speaker(
 
                 wer_args = (gt_text, audio_file)
 
-                # Update metrics
-                metrics[condition].update(prosody_args, ppg_args, wer_args)
+                speaker_sim_args = (audio_file, dataset, file.parent.name)
 
-                speaker_metrics[condition].update(prosody_args, ppg_args, wer_args)
-                file_metrics.update(prosody_args, ppg_args, wer_args)
+                # Update metrics
+                metrics[condition].update(prosody_args, ppg_args, wer_args, speaker_sim_args)
+
+                speaker_metrics[condition].update(prosody_args, ppg_args, wer_args, speaker_sim_args)
+                file_metrics.update(prosody_args, ppg_args, wer_args, speaker_sim_args)
 
                 # Get results for this file
                 results['objective']['raw'][key].append(
