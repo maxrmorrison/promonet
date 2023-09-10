@@ -23,6 +23,7 @@ import pypar
 import pysodic
 import torch
 import torchaudio
+import ppgs
 
 import promonet
 
@@ -33,7 +34,11 @@ import promonet
 
 
 # Constant ratios at which we evaluate prosody
-RATIOS = [.717, 1.414]
+if promonet.PITCH_EVAL_METHOD == 'ratio':
+    RATIOS = [.717, 1.414]
+else:
+    RATIOS = [2 ** (cents / 1200) for cents in promonet.PITCH_CENTS]
+
 
 
 ###############################################################################
@@ -46,6 +51,8 @@ def datasets(datasets, checkpoint=None, gpus=None):
     # Turn on benchmarking
     current_benchmark = promonet.BENCHMARK
     promonet.BENCHMARK = True
+
+    print("ratios:", RATIOS, flush=True)
 
     # Evaluate on each dataset
     for dataset in datasets:
@@ -74,45 +81,49 @@ def datasets(datasets, checkpoint=None, gpus=None):
         for train_partition, test_partition in iterator:
 
             # Get speaker index
-            index = partitions[test_partition][0].split('/')[0]
+            # index = partitions[test_partition][0].split('/')[0]
 
-            # Output directory for checkpoints and logs
-            adapt_directory = (
-                promonet.RUNS_DIR /
-                promonet.CONFIG /
-                'adapt' /
-                dataset /
-                index)
-            adapt_directory.mkdir(exist_ok=True, parents=True)
+            indices = set([stem.split('/')[0] for stem in partitions[test_partition]])
+            for index in indices:
 
-            # Output directory for objective evaluation
-            objective_directory = (
-                promonet.EVAL_DIR /
-                promonet.CONFIG /
-                'objective' /
-                dataset)
-            (objective_directory / index).mkdir(exist_ok=True, parents=True)
+                # Output directory for checkpoints and logs
+                adapt_directory = (
+                    promonet.RUNS_DIR /
+                    promonet.CONFIG /
+                    'adapt' /
+                    dataset /
+                    index)
+                adapt_directory.mkdir(exist_ok=True, parents=True)
 
-            # Output directory for subjective evaluation
-            subjective_directory = (
-                promonet.EVAL_DIR /
-                promonet.CONFIG /
-                'subjective' /
-                dataset)
-            (subjective_directory / index).mkdir(exist_ok=True, parents=True)
+                # Output directory for objective evaluation
+                objective_directory = (
+                    promonet.EVAL_DIR /
+                    promonet.CONFIG /
+                    'objective' /
+                    dataset)
+                (objective_directory / index).mkdir(exist_ok=True, parents=True)
 
-            # Evaluate a speaker
-            speaker(
-                dataset,
-                train_partition,
-                test_partition,
-                checkpoint,
-                metrics,
-                adapt_directory,
-                adapt_directory,
-                objective_directory,
-                subjective_directory,
-                gpus)
+                # Output directory for subjective evaluation
+                subjective_directory = (
+                    promonet.EVAL_DIR /
+                    promonet.CONFIG /
+                    'subjective' /
+                    dataset)
+                (subjective_directory / index).mkdir(exist_ok=True, parents=True)
+
+                # Evaluate a speaker
+                speaker(
+                    dataset,
+                    train_partition,
+                    test_partition,
+                    checkpoint,
+                    metrics,
+                    adapt_directory,
+                    adapt_directory,
+                    objective_directory,
+                    subjective_directory,
+                    index,
+                    gpus)
 
         # Aggregate results
         results_directory = (
@@ -124,7 +135,9 @@ def datasets(datasets, checkpoint=None, gpus=None):
         if promonet.MODEL != 'vits':
             results['prosody'] = {key: value()
                                   for key, value in metrics.items()}
-        for file in results_directory.rglob('results.json'):
+
+        print(list(results_directory.rglob('*/results.json')))
+        for file in results_directory.rglob('*/results.json'):
             with open(file) as file:
                 result = json.load(file)
             results['num_samples'] += result['num_samples']
@@ -157,8 +170,12 @@ def speaker(
     log_directory,
     objective_directory,
     subjective_directory,
+    index,
     gpus=None):
     """Evaluate one adaptation speaker in a dataset"""
+
+    device = torch.device(f'cuda:{gpus[0]}' if gpus is not None else 'cpu')
+
     if promonet.MODEL not in ['psola', 'world'] and promonet.ADAPTATION:
 
         # Maybe resume adaptation
@@ -184,9 +201,7 @@ def speaker(
 
     # Stems to use for evaluation
     test_stems = sorted(promonet.load.partition(dataset)[test_partition])
-
-    # Get speaker index
-    index = test_stems[0].split('/')[0]
+    test_stems = [stem for stem in test_stems if stem.split('/')[0] == index]
 
     # Directory to save original audio files
     original_subjective_directory = \
@@ -223,6 +238,8 @@ def speaker(
         for input_file in input_files:
             if input_file.suffix == '.TextGrid':
                 feature = 'alignment'
+            elif promonet.PPG_MODEL is not None and str(input_file).endswith(f'{promonet.PPG_MODEL}.pt'):
+                feature = promonet.PPG_MODEL
             else:
                 feature = input_file.stem.split('-')[-1]
             output_file = (
@@ -260,7 +277,7 @@ def speaker(
             'periodicity',
             'phonemes',
             'pitch',
-            'ppg',
+            'ppg' if promonet.PPG_MODEL is None else promonet.PPG_MODEL,
             'text',
             'voicing']
         for feature in features:
@@ -311,7 +328,7 @@ def speaker(
                     'loudness',
                     'periodicity',
                     'phonemes',
-                    'ppg',
+                    'ppg' if promonet.PPG_MODEL is None else promonet.PPG_MODEL,
                     'text',
                     'voicing']
                 for feature in features:
@@ -381,7 +398,7 @@ def speaker(
                     'periodicity',
                     'phonemes',
                     'pitch',
-                    'ppg',
+                    'ppg' if promonet.PPG_MODEL is None else promonet.PPG_MODEL,
                     'voicing']
                 size = None
                 for feature in features:
@@ -405,10 +422,15 @@ def speaker(
                             original_feature.squeeze(),
                             grid.squeeze(),
                             'nearest')[None]
-                    elif feature == 'ppg':
+                    elif feature == 'ppg' or feature == promonet.PPG_MODEL:
+                        if ppgs.FRONTEND is not None and promonet.PPG_MODEL is not None:
+                            if not hasattr(speaker, 'frontend'):
+                                speaker.frontend = ppgs.FRONTEND(original_feature.device)
+                            original_feature = speaker.frontend(original_feature.unsqueeze(dim=0)).squeeze(dim=0)
+                        original_feature = original_feature.to(torch.float32)
                         mode = promonet.PPG_INTERP_METHOD
                         original_feature = torch.nn.functional.interpolate(
-                            original_feature[None],
+                            original_feature[None].to(torch.float32),
                             size=size,
                             mode=mode,
                             align_corners=None if mode == 'nearest' else False
@@ -478,7 +500,7 @@ def speaker(
                     'periodicity',
                     'phonemes',
                     'pitch',
-                    'ppg',
+                    'ppg' if promonet.PPG_MODEL is None else promonet.PPG_MODEL,
                     'text',
                     'voicing']
                 for feature in features:
@@ -517,7 +539,7 @@ def speaker(
     for audio_files in files.values():
         # Preprocess phonetic posteriorgrams
         ppg_files = [
-            objective_directory / file.parent.name / f'{file.stem}-ppg.pt'
+            objective_directory / file.parent.name / f'{file.stem}-{promonet.PPG_MODEL if promonet.PPG_MODEL is not None else "ppg"}.pt'
             for file in audio_files]
         promonet.data.preprocess.ppg.from_files_to_files(
             audio_files,
@@ -583,21 +605,23 @@ def speaker(
                     torch.load(f'{predicted_prefix}-phonemes.pt'),
                     torch.load(f'{target_prefix}-phonemes.pt'))
 
+                # import pdb; pdb.set_trace()
+
                 # Get predicted PPGs
                 size = prosody_args[0].shape[-1]
                 mode = promonet.PPG_INTERP_METHOD
                 ppg_model = (
-                    '' if promonet.PPG_MODEL is None else
-                    f'-{promonet.PPG_MODEL}')
+                    'ppg' if promonet.PPG_MODEL is None else
+                    f'{promonet.PPG_MODEL}')
                 predicted_ppgs = torch.nn.functional.interpolate(
-                    torch.load(f'{predicted_prefix}-ppg{ppg_model}.pt')[None],
+                    load_ppg_file(f'{predicted_prefix}-{ppg_model}.pt', device)[None],
                     size=size,
                     mode=mode,
                     align_corners=None if mode == 'nearest' else False)[0]
 
                 # Get target PPGs
                 target_ppgs = torch.nn.functional.interpolate(
-                    torch.load(f'{target_prefix}-ppg{ppg_model}.pt')[None],
+                    load_ppg_file(f'{target_prefix}-{ppg_model}.pt', device)[None],
                     size=size,
                     mode=mode,
                     align_corners=None if mode == 'nearest' else False)[0]
@@ -637,7 +661,7 @@ def speaker(
 
     # Print results and save to disk
     print(results)
-    with open(objective_directory / 'results.json', 'w') as file:
+    with open(objective_directory / index / 'results.json', 'w') as file:
         json.dump(results, file, indent=4, sort_keys=True)
 
 
@@ -662,3 +686,16 @@ def default_metrics(gpus):
                 metrics[f'{condition}-{int(ratio * 100):03d}'] = metric_fn()
 
     return metrics
+
+def load_ppg_file(ppg_file, device):
+    if promonet.PPG_MODEL is not None:
+        ppg = torch.load(ppg_file).to(device)
+        if ppgs.FRONTEND is not None:
+            if not hasattr(load_ppg_file, 'frontend'):
+                load_ppg_file.frontend = ppgs.FRONTEND(device)
+            assert ppg.shape[0] == 32, ppg.shape
+            ppg = load_ppg_file.frontend(ppg.unsqueeze(dim=0)).squeeze(dim=0)
+        return ppg.to(torch.float32)
+    else:
+        return torch.load(ppg_file).to(device)
+            

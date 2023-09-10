@@ -4,6 +4,8 @@ MODULE = 'ppgs'
 
 CONFIG = 'encodec-latents'
 
+REPRESENTATION = 'encodec'
+
 MAX_FRAMES = 10000
 
 def _frontend(device='cpu'):

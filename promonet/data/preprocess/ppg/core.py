@@ -68,19 +68,20 @@ def from_audio(
         latents = ppgs.preprocess.from_audio(
             audio=audio,
             sample_rate=sample_rate,
-            representation=promonet.PPG_MODEL.split('-')[0],
+            representation=ppgs.REPRESENTATION,
             gpu=gpu
         )
         if ppgs.FRONTEND is not None:
             if not hasattr(from_audio, 'frontend'):
                 from_audio.frontend = ppgs.FRONTEND(latents.device)
-            latents = from_audio.frontend(latents)
+            latents = from_audio.frontend(latents.squeeze(dim=0)).unsqueeze(dim=0)
         return latents
-    return ppgs.from_audio(
+    ppg = ppgs.from_audio(
         audio=audio,
         sample_rate=sample_rate,
-        representation=promonet.PPG_MODEL.split('-')[0],
+        representation=ppgs.REPRESENTATION,
         gpu=gpu)
+    return ppg
 
 
 def from_file(audio_file, gpu=None):
@@ -109,7 +110,7 @@ def from_files_to_files(audio_files, output_files, gpu=None):
             ppgs.preprocess.from_files_to_files(
                 audio_files=audio_files,
                 output_files=output_files,
-                representation=promonet.PPG_MODEL.split('-')[0],
+                features=[promonet.PPG_MODEL.split('-')[0]],
                 num_workers=promonet.NUM_WORKERS,
                 gpu=gpu
             )
@@ -117,7 +118,7 @@ def from_files_to_files(audio_files, output_files, gpu=None):
             ppgs.from_files_to_files(
                 audio_files=audio_files,
                 output=output_files,
-                representation=promonet.PPG_MODEL.split('-')[0],
+                representation=ppgs.REPRESENTATION,
                 num_workers=promonet.NUM_WORKERS,
                 gpu=gpu
             )
