@@ -141,7 +141,10 @@ def from_file(
     if target_pitch_file is None:
         pitch = None
     else:
-        pitch = torch.load(target_pitch_file, map_location=device)
+        try:
+            pitch = torch.load(target_pitch_file, map_location=device)
+        except:
+            raise ValueError(target_pitch_file)
 
     if target_ppg_file is None:
         ppg = None
@@ -347,6 +350,7 @@ def preprocess(
             if grid is not None:
                 pitch = promonet.interpolate.pitch(pitch, grid)
             target_pitch = pitch
+        # assert (target_pitch==pitch).all(), str(target_pitch-pitch) + '\n' + str(target_pitch) + '\n' + str(pitch)
 
         # Maybe interpolate periodicity
         if grid is not None:
@@ -367,7 +371,7 @@ def preprocess(
             features = promonet.data.preprocess.ppg.from_audio(
                 audio,
                 sample_rate,
-                gpu=gpu)
+                gpu=gpu).squeeze(dim=0)
         else:
             features = target_ppg
             if promonet.PPG_MODEL is not None and 'ppg' not in promonet.PPG_MODEL \
