@@ -1,7 +1,7 @@
 MODULE = 'promonet'
 
 # Configuration name
-CONFIG = 'bottleneck-latents'
+CONFIG = 'bottleneck-ppg'
 
 # The model to use. One of [
 #     'end-to-end',
