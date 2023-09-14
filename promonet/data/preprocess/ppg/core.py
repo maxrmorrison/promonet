@@ -74,7 +74,7 @@ def from_audio(
         if ppgs.FRONTEND is not None:
             if not hasattr(from_audio, 'frontend'):
                 from_audio.frontend = ppgs.FRONTEND(latents.device)
-            latents = from_audio.frontend(latents.squeeze(dim=0)).unsqueeze(dim=0)
+            latents = from_audio.frontend(latents.T).T
         return latents
     ppg = ppgs.from_audio(
         audio=audio,

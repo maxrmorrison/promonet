@@ -83,7 +83,8 @@ def datasets(datasets, checkpoint=None, gpus=None):
             # Get speaker index
             # index = partitions[test_partition][0].split('/')[0]
 
-            indices = set([stem.split('/')[0] for stem in partitions[test_partition]])
+            indices = list(set([stem.split('/')[0] for stem in partitions[test_partition]]))
+            print('speakers:', indices)
             for index in indices:
 
                 # Output directory for checkpoints and logs
@@ -202,6 +203,8 @@ def speaker(
     # Stems to use for evaluation
     test_stems = sorted(promonet.load.partition(dataset)[test_partition])
     test_stems = [stem for stem in test_stems if stem.split('/')[0] == index]
+    speaker_ids = [int(stem.split('/')[0]) for stem in test_stems]
+    print(test_stems, speaker_ids)
 
     # Directory to save original audio files
     original_subjective_directory = \
@@ -268,6 +271,7 @@ def speaker(
         files['reconstructed'],
         text_files=text_files,
         checkpoint=checkpoint,
+        speaker_ids=speaker_ids,
         gpu=None if promonet.MODEL in ['psola', 'world'] else gpu)
 
     # Copy unchanged prosody features
@@ -359,6 +363,7 @@ def speaker(
                 files[key],
                 target_pitch_files=pitch_files,
                 checkpoint=checkpoint,
+                speaker_ids=speaker_ids,
                 gpu=None if promonet.MODEL in ['psola', 'world'] else gpu)
 
         ###################
@@ -423,10 +428,10 @@ def speaker(
                             grid.squeeze(),
                             'nearest')[None]
                     elif feature == 'ppg' or feature == promonet.PPG_MODEL:
-                        if ppgs.FRONTEND is not None and promonet.PPG_MODEL is not None:
-                            if not hasattr(speaker, 'frontend'):
-                                speaker.frontend = ppgs.FRONTEND(original_feature.device)
-                            original_feature = speaker.frontend(original_feature.unsqueeze(dim=0)).squeeze(dim=0)
+                        # if ppgs.FRONTEND is not None and promonet.PPG_MODEL is not None:
+                            # if not hasattr(speaker, 'frontend'):
+                            #     speaker.frontend = ppgs.FRONTEND(original_feature.device)
+                            # original_feature = speaker.frontend(original_feature.unsqueeze(dim=0)).squeeze(dim=0)
                         original_feature = original_feature.to(torch.float32)
                         mode = promonet.PPG_INTERP_METHOD
                         original_feature = torch.nn.functional.interpolate(
@@ -472,6 +477,7 @@ def speaker(
                 text_files=text_files,
                 alignment_files=alignment_files,
                 checkpoint=checkpoint,
+                speaker_ids=speaker_ids,
                 gpu=None if promonet.MODEL in ['psola', 'world'] else gpu)
 
         ####################
@@ -530,6 +536,7 @@ def speaker(
                 files[key],
                 target_loudness_files=loudness_files,
                 checkpoint=checkpoint,
+                speaker_ids=speaker_ids,
                 gpu=None if promonet.MODEL in ['psola', 'world'] else gpu)
 
     ############################
@@ -630,6 +637,7 @@ def speaker(
                 condition = '-'.join(target_prefix.stem.split('-')[1:3])
 
                 #Get target text and audio file for WER
+                #TODO do these files exist?
                 gt_text = promonet.load.text(f'{target_prefix}-text.txt')
                 audio_file = f'{waveform_prefix}.wav'
 
@@ -690,10 +698,9 @@ def default_metrics(gpus):
 def load_ppg_file(ppg_file, device):
     if promonet.PPG_MODEL is not None:
         ppg = torch.load(ppg_file).to(device)
-        if ppgs.FRONTEND is not None:
+        if ppgs.FRONTEND is not None and '-ppg' not in promonet.PPG_MODEL:
             if not hasattr(load_ppg_file, 'frontend'):
                 load_ppg_file.frontend = ppgs.FRONTEND(device)
-            assert ppg.shape[0] == 32, ppg.shape
             ppg = load_ppg_file.frontend(ppg.unsqueeze(dim=0)).squeeze(dim=0)
         return ppg.to(torch.float32)
     else:
