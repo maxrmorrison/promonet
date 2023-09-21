@@ -24,3 +24,5 @@ PPG_MODEL = 'bottleneck-ppg'
 PPG_CHANNELS = 40
 
 ADAPTATION=False
+
+NUM_STEPS = 800000
