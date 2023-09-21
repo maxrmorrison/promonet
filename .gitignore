@@ -17,5 +17,8 @@ runs/
 
 promonet/model/align/*.c*
 promonet/config/secrets.py
-promonet/notebooks/*
-!promonet/notebooks/*.ipynb
+
+notebooks/*
+!notebooks/*.ipynb
+
+.vscode/

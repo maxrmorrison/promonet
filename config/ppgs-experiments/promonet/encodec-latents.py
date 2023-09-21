@@ -24,3 +24,5 @@ PPG_MODEL = 'encodec-latents'
 PPG_CHANNELS = 128
 
 ADAPTATION=False
+
+NUM_STEPS = 800000

@@ -8,16 +8,18 @@ from pathlib import Path
 
 all_representations = [
     'w2v2fb',
-    # 'w2v2fc',
-    # 'bottleneck',
-    # 'mel',
-    # 'encodec'
+    'w2v2fc',
+    'bottleneck',
+    'mel',
+    'encodec'
 ]
 
 SHIFT_CENTS = [-200, 200]
 # SHIFT_CENTS = []
 
-all_models = [f'{rep}-ppg' for rep in all_representations] #+ [f'{rep}-latents' for rep in all_representations]
+all_models = []
+all_models += [f'{rep}-ppg' for rep in all_representations]
+all_models += [f'{rep}-latents' for rep in all_representations]
 
 with open(promonet.PARTITION_DIR / 'vctk.json', 'r') as f:
     partitions = load(f)
@@ -38,9 +40,13 @@ originals_dir = output_dir / 'original'
 originals_dir.mkdir(exist_ok=True, parents=True)
 for idx, audio_file in enumerate(audio_files):
     shcp(audio_file, originals_dir / (audio_file.parent.name + '-' + audio_file.name))
+
+command = f'python -m ppgs --sources {originals_dir} --gpu 0'
+
+os.system(command)
+
 audio_files = [str(f) for f in audio_files]
 print('original', flush=True)
-
 
 pitch_files = [cache_dir / f'{stem}-pitch.pt' for stem in stems]
 for pitch_file in pitch_files:
@@ -119,15 +125,21 @@ for model in all_models:
     command += f"--target_ppg_files {' '.join(ppg_files)} "
     command += f"--speaker_ids {' '.join(speaker_ids)} "
     command += f"--target_pitch_files {' '.join(target_pitch_files)} "
-    command += f'--checkpoint /repos/promonet/runs/{model}/generator-00400000.pt '
+    command += f'--checkpoint /repos/promonet/runs/{model}/generator-00250000.pt '
     command += f'--config "/repos/promonet/config/ppgs-experiments/ppgs/{model}.py" "/repos/promonet/config/ppgs-experiments/promonet/{model}.py" '
     command += f'--gpu 0'
 
     print(command)
 
     os.system(command)
+
+    print('creating ppg files')
+
+    command = f'python -m ppgs --sources {output_dir / model} --gpu 0'
+    os.system(command)
     
     print(model, flush=True)
+
 
 
 # for model in all_models:

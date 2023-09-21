@@ -24,3 +24,5 @@ PPG_MODEL = 'w2v2fc-pretrained-ppg'
 PPG_CHANNELS = 40
 
 ADAPTATION=False
+
+NUM_STEPS = 800000
