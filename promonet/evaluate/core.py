@@ -24,6 +24,9 @@ import pysodic
 import torch
 import torchaudio
 import ppgs
+import resemblyzer
+import numpy as np
+import matplotlib.pyplot as plt
 
 import promonet
 
@@ -176,6 +179,9 @@ def speaker(
     """Evaluate one adaptation speaker in a dataset"""
 
     device = torch.device(f'cuda:{gpus[0]}' if gpus is not None else 'cpu')
+
+    plot_dir = promonet.PLOT_DIR / promonet.CONFIG
+    plot_dir.mkdir(exist_ok=True, parents=True)
 
     if promonet.MODEL not in ['psola', 'world'] and promonet.ADAPTATION:
 
@@ -582,6 +588,8 @@ def speaker(
         for key, value in files.items():
             results['objective']['raw'][key] = []
 
+            utterance_embeds = []
+
             for file in value:
 
                 # Get prosody metrics
@@ -643,7 +651,11 @@ def speaker(
 
                 wer_args = (gt_text, audio_file)
 
-                speaker_sim_args = (audio_file, dataset, file.parent.name)
+                speaker_embed = get_speaker_embed(dataset, file.parent.name, gpu)
+                utterance_embed = get_utterance_embed(audio_file, gpu)
+                utterance_embeds.append(utterance_embed)
+
+                speaker_sim_args = (speaker_embed, utterance_embed)
 
                 # Update metrics
                 metrics[condition].update(prosody_args, ppg_args, wer_args, speaker_sim_args)
@@ -657,10 +669,17 @@ def speaker(
 
                 # Reset prosody metrics
                 file_metrics.reset()
+            
+            if key == 'original':
+                speaker = value[0].parent.name
+                gt_embed = get_speaker_embed(dataset, speaker, gpu, return_all=True)
+                filename = f'{dataset}-{speaker}.pdf'
+                promonet.plot.speaker_cluster.plot_speaker_clusters(np.array(gt_embed), np.array(utterance_embeds), [speaker for i in range(len(gt_embed))], [speaker for i in range(len(utterance_embeds))], file = plot_dir / filename)
 
         # Get results for this speaker
         results['objective']['average'] = {
             key: value() for key, value in speaker_metrics.items()}
+        
 
     # Get the total number of samples we have generated
     files = subjective_directory.rglob('*.wav')
@@ -707,4 +726,35 @@ def load_ppg_file(ppg_file, device):
         return ppg.to(torch.float32)
     else:
         return torch.load(ppg_file).to(device)
-            
+
+def get_resemblyzer(gpu):
+    if not hasattr(get_resemblyzer, 'encoder') or gpu != get_resemblyzer.gpu:
+        device = 'cpu' if gpu is None else f'cuda:{gpu}'
+        encoder = resemblyzer.VoiceEncoder(device=device)
+        get_resemblyzer.encoder = encoder
+        get_resemblyzer.gpu = gpu
+    return get_resemblyzer.encoder
+
+def get_speaker_embed(dataset, speaker, gpu, return_all=False): #return_all true -> return list of all embeddings, not speaker embedding
+    model = get_resemblyzer(gpu)
+    if not hasattr(get_speaker_embed, 'dictionary'):
+        get_speaker_embed.dictionary = {}
+    if not hasattr(get_speaker_embed, 'all_dictionary'):
+        get_speaker_embed.all_dictionary = {}
+    speaker_code = f'{dataset}-{speaker}'
+    if speaker_code not in get_speaker_embed.dictionary.keys(): #Don't already have this embedding
+        all_gts = (promonet.CACHE_DIR / dataset / speaker).glob('*-100.wav')
+        gt_wavs = [resemblyzer.preprocess_wav(file) for file in all_gts]
+        get_speaker_embed.dictionary[speaker_code] = model.embed_speaker(gt_wavs)
+        get_speaker_embed.all_dictionary[speaker_code] = [model.embed_utterance(wav) for wav in gt_wavs]
+        
+    return get_speaker_embed.dictionary[speaker_code] if not return_all else get_speaker_embed.all_dictionary[speaker_code]
+
+def get_utterance_embed(utterance, gpu):
+    model = get_resemblyzer(gpu)
+    if type(utterance) is torch.Tensor:
+        utterance_preprocess = resemblyzer.preprocess_wav(utterance.numpy(force=True))
+    else: #Should be fpath
+        utterance_preprocess = resemblyzer.preprocess_wav(utterance)
+    utterance_embed = model.embed_utterance(utterance_preprocess)
+    return utterance_embed

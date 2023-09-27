@@ -40,6 +40,7 @@ setup(
         'torch<2.0.0',
         'torchaudio<2.0.0',
         'tqdm',
+        'umap-learn',
         'yapecs',
         'jiwer',
         'openai-whisper'],
