@@ -302,7 +302,7 @@ NUM_STEPS = 100000
 NUM_ADAPTATION_STEPS = 5000
 
 # Number of data loading worker threads
-NUM_WORKERS = 4
+NUM_WORKERS = 6
 
 # Training optimizer
 OPTIMIZER = functools.partial(

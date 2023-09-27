@@ -1,7 +1,7 @@
 MODULE = 'promonet'
 
 # Configuration name
-CONFIG = 'bottleneck-latents'
+CONFIG = 'bottleneck-ppg'
 
 # The model to use. One of [
 #     'end-to-end',
@@ -24,3 +24,5 @@ PPG_MODEL = 'bottleneck-ppg'
 PPG_CHANNELS = 40
 
 ADAPTATION=False
+
+NUM_STEPS = 800000
