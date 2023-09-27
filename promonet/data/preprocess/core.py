@@ -5,6 +5,7 @@ import multiprocessing as mp
 
 import ppgs
 import pysodic
+import penn
 import tqdm
 import pyfoal
 import pypar
@@ -85,7 +86,7 @@ def from_files_to_files(
                 ppgs.from_files_to_files(
                     audio_files,
                     ppg_files,
-                    representation=promonet.PPG_MODEL.split('-')[0],
+                    representation=ppgs.REPRESENTATION,
                     gpu=gpu,
                     num_workers=promonet.NUM_WORKERS
                 )
@@ -94,6 +95,7 @@ def from_files_to_files(
 
     # Preprocess prosody features
     if 'prosody' in features:
+        print(f"starting prosody preprocessing {len(audio_files)} audio files")
         prefixes = [file.parent / file.stem for file in audio_files]
 
         hopsize=promonet.HOPSIZE / promonet.SAMPLE_RATE
@@ -102,7 +104,7 @@ def from_files_to_files(
             pysodic.from_file_to_file,
             hopsize=hopsize,
             window_size=promonet.WINDOW_SIZE / promonet.SAMPLE_RATE,
-            voicing_threshold=0.,
+            voicing_threshold=0.1625,
             gpu=gpu)
         iterator = tqdm.tqdm(
             zip(audio_files, prefixes),
@@ -164,6 +166,20 @@ def from_files_to_files(
         #     promonet.WINDOW_SIZE / promonet.SAMPLE_RATE,
         #     voicing_threshold=0.,
         #     gpu=gpu)
+    
+    if 'pitch' in features:
+        print(f"starting pitch preprocessing {len(audio_files)} audio files")
+        prefixes = [file.parent / file.stem for file in audio_files]
+        penn.from_files_to_files(
+            audio_files,
+            prefixes,
+            hopsize=promonet.HOPSIZE / promonet.SAMPLE_RATE,
+            fmin=pysodic.FMIN,
+            fmax=pysodic.FMAX,
+            batch_size=1024,
+            interp_unvoiced_at=0.1625,
+            gpu=gpu
+        )
 
 def pyfoal_one_file(text_file, audio_file, output_file):
     try:

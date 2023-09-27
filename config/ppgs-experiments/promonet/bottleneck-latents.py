@@ -24,3 +24,5 @@ PPG_MODEL = 'bottleneck-latents'
 PPG_CHANNELS = 144
 
 ADAPTATION=False
+
+NUM_STEPS = 800000

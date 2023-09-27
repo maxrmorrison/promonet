@@ -24,3 +24,5 @@ PPG_MODEL = 'mel-latents'
 PPG_CHANNELS = 80
 
 ADAPTATION=False
+
+NUM_STEPS = 800000
