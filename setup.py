@@ -32,6 +32,7 @@ setup(
         'numpy<1.24',
         # 'pysodic',  # TEMPORARY - install manually until release of pysodic
         'psola',  # TEMPORARY - GPL dependency
+        'pypar',
         'pyworld',
         'pyyaml',
         'scipy',
@@ -39,6 +40,7 @@ setup(
         'torch<2.0.0',
         'torchaudio<2.0.0',
         'tqdm',
+        'umap-learn',
         'yapecs',
         'jiwer',
         'openai-whisper'],
