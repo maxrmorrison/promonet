@@ -1,10 +1,11 @@
-import string
 
 import pysodic
 import torch
 from jiwer import wer
 import whisper
 from whisper.normalizers import EnglishTextNormalizer
+import resemblyzer
+import numpy as np
 
 import promonet
 
@@ -24,18 +25,22 @@ class Metrics:
             gpu)
         self.ppg = PPG()
         self.wer = WER(gpu)
+        self.speaker_sim = SpeakerSimilarity(gpu)
 
     def __call__(self):
-        return {**self.prosody(), **self.ppg(), **self.wer()}
+        return {**self.prosody(), **self.ppg(), **self.wer(), **self.speaker_sim()}
 
-    def update(self, prosody_args, ppg_args, wer_args):
+    def update(self, prosody_args, ppg_args, wer_args, speaker_sim_args=None):
         self.prosody.update(*prosody_args)
         self.ppg.update(*ppg_args)
         self.wer.update(*wer_args)
+        if speaker_sim_args: self.speaker_sim.update(*speaker_sim_args)
 
     def reset(self):
         self.prosody.reset()
         self.ppg.reset()
+        self.wer.reset()
+        self.speaker_sim.reset()
 
 
 ###############################################################################
@@ -101,3 +106,27 @@ def format_text(text):
         format_text.normalizer = normalizer
     
     return format_text.normalizer(text)
+
+###############################################################################
+# Speaker similarity metric
+###############################################################################
+
+class SpeakerSimilarity:
+
+    def __init__(self, gpu):
+        self.reset()
+
+    def __call__(self):
+        if self.count == 0:
+            return {}
+        return {'speaker_sim': self.total / self.count}
+
+    def update(self, speaker_embed, utterance_embed):
+        diff = np.sum(np.abs(speaker_embed - utterance_embed))
+        self.total += diff
+        self.count += 1
+
+    def reset(self):
+        self.total = 0.
+        self.count = 0
+

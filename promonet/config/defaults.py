@@ -68,6 +68,8 @@ RUNS_DIR = ROOT_DIR / 'runs'
 # Location of compressed datasets on disk
 SOURCES_DIR = ROOT_DIR / 'data' / 'sources'
 
+#Location to save plots
+PLOT_DIR = ROOT_DIR / 'plots'
 
 ###############################################################################
 # Data parameters
@@ -85,6 +87,9 @@ AUGMENTATION_RATIO_MIN = .5
 
 # Names of all datasets
 DATASETS = ['daps', 'libritts', 'vctk']
+
+#Number of speakers (TODO: move to statics based on datasets?)
+NUM_SPEAKERS = 109
 
 # Discriminator loudness conditioning
 DISCRIM_LOUDNESS_CONDITION = False
