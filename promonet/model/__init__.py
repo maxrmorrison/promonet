@@ -3,7 +3,7 @@ from .discriminator import Discriminator
 from .duration import DurationPredictor
 from .generator import Generator
 from .snake import Snake
-from .vocoder import Vocoder
+from .vocoder import get_vocoder
 from .wavenet import WaveNet
 from . import flow
 from . import align

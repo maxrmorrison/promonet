@@ -41,6 +41,7 @@ setup(
         'torchaudio<2.0.0',
         'tqdm',
         'umap-learn',
+        'vocos[train]',
         'yapecs',
         'jiwer',
         'openai-whisper'],
