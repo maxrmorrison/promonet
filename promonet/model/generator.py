@@ -29,7 +29,7 @@ class Generator(torch.nn.Module):
                 4)
 
         # Vocoder
-        self.vocoder = promonet.model.Vocoder(
+        self.vocoder = promonet.model.get_vocoder(
             promonet.LATENT_FEATURES,
             promonet.GLOBAL_CHANNELS)
 
