@@ -15,6 +15,7 @@ CONFIG = 'vits'
 ###############################################################################
 # Notification settings (apprise)
 ###############################################################################
+
 NOTIFICATION_SERVICES = []
 
 ###############################################################################
@@ -76,6 +77,9 @@ PLOT_DIR = ROOT_DIR / 'plots'
 ###############################################################################
 
 
+# All features considered during preprocessing
+ALL_FEATURES = ['ppg', 'prosody', 'spectrogram']
+
 # Whether to use pitch augmentation
 AUGMENT_PITCH = False
 
@@ -87,9 +91,6 @@ AUGMENTATION_RATIO_MIN = .5
 
 # Names of all datasets
 DATASETS = ['daps', 'libritts', 'vctk']
-
-#Number of speakers (TODO: move to statics based on datasets?)
-NUM_SPEAKERS = 109
 
 # Discriminator loudness conditioning
 DISCRIM_LOUDNESS_CONDITION = False
@@ -118,6 +119,9 @@ LATENT_PHONEME_SHORTCUT = False
 # A-weighted loudness conditioning
 LOUDNESS_FEATURES = False
 
+#Number of speakers (TODO: move to statics based on datasets?)
+NUM_SPEAKERS = 109
+
 # Periodicity conditioning
 PERIODICITY_FEATURES = False
 
@@ -143,7 +147,7 @@ PITCH_BINS = 256
 PITCH_EMBEDDING_SIZE = 64
 
 # Number of channels in the phonetic posteriorgram features
-PPG_CHANNELS = 144
+PPG_CHANNELS = 40
 
 # Phonemic posteriorgram conditioning
 PPG_FEATURES = False
@@ -153,7 +157,7 @@ PPG_FEATURES = False
 PPG_INTERP_METHOD = 'nearest'
 
 # Type of PPGs to use
-PPG_MODEL = None
+PPG_MODEL = 'w2v2fb-ppg'
 
 # Seed for all random number generators
 RANDOM_SEED = 1234

@@ -1,7 +1,0 @@
-CONFIG = 'w2v2fc-pretrained-ppg'
-MODULE = 'ppgs'
-
-REPRESENTATION='wav'
-MODEL='W2V2FC'
-MAX_FRAMES = 2000
-BATCH_SIZE = 64

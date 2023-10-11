@@ -13,15 +13,17 @@ def parse_args():
     parser.add_argument(
         '--config',
         nargs='+',
-        help='The name of the datasets to use')
+        help='Configuration file')
     parser.add_argument(
         '--datasets',
         nargs='+',
-        default=['daps', 'vctk', 'libritts'],
-        help='The name of the datasets to use')
+        default=promonet.DATASETS,
+        choices=promonet.DATASETS,
+        help='The datasets to preprocess')
     parser.add_argument(
         '--features',
-        default=promonet.data.preprocess.ALL_FEATURES,
+        default=promonet.ALL_FEATURES,
+        choices=promonet.ALL_FEATURES,
         nargs='+',
         help='The features to preprocess')
     parser.add_argument(

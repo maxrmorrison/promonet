@@ -18,6 +18,7 @@ import functools
 import json
 import shutil
 
+import ppgs
 import pyfoal
 import pypar
 import pysodic
@@ -476,6 +477,7 @@ def speaker(
             text_files = sorted([
                 original_objective_directory / f'{stem}-{key}-text.txt'
                 for stem in test_stems])
+
             # Generate
             promonet.from_files_to_files(
                 files['original'],
@@ -550,11 +552,15 @@ def speaker(
     ############################
 
     for audio_files in files.values():
+
         # Preprocess phonetic posteriorgrams
+        tag = promonet.PPG_MODEL if promonet.PPG_MODEL is not None else 'ppg'
         ppg_files = [
-            objective_directory / file.parent.name / f'{file.stem}-{promonet.PPG_MODEL if promonet.PPG_MODEL is not None else "ppg"}.pt'
+            objective_directory /
+            file.parent.name /
+            f'{file.stem}-{tag}.pt'
             for file in audio_files]
-        promonet.data.preprocess.ppg.from_files_to_files(
+        ppgs.from_files_to_files(
             audio_files,
             ppg_files,
             gpu)
@@ -620,8 +626,6 @@ def speaker(
                     torch.load(f'{predicted_prefix}-phonemes.pt'),
                     torch.load(f'{target_prefix}-phonemes.pt'))
 
-                # import pdb; pdb.set_trace()
-
                 # Get predicted PPGs
                 size = prosody_args[0].shape[-1]
                 mode = promonet.PPG_INTERP_METHOD
@@ -669,17 +673,21 @@ def speaker(
 
                 # Reset prosody metrics
                 file_metrics.reset()
-            
+
             if key == 'original':
                 speaker = value[0].parent.name
                 gt_embed = get_speaker_embed(dataset, speaker, gpu, return_all=True)
                 filename = f'{dataset}-{speaker}.pdf'
-                promonet.plot.speaker_cluster.plot_speaker_clusters(np.array(gt_embed), np.array(utterance_embeds), [speaker for i in range(len(gt_embed))], [speaker for i in range(len(utterance_embeds))], file = plot_dir / filename)
+                promonet.plot.speaker_cluster.plot_speaker_clusters(
+                    np.array(gt_embed),
+                    np.array(utterance_embeds),
+                    [speaker] * len(gt_embed),
+                    [speaker] * len(utterance_embeds),
+                    file=plot_dir / filename)
 
         # Get results for this speaker
         results['objective']['average'] = {
             key: value() for key, value in speaker_metrics.items()}
-        
 
     # Get the total number of samples we have generated
     files = subjective_directory.rglob('*.wav')
@@ -697,6 +705,7 @@ def speaker(
 ###############################################################################
 # Utilities
 ###############################################################################
+
 
 def default_metrics(gpus):
     """Construct the default metrics dictionary for each condition"""
@@ -716,6 +725,7 @@ def default_metrics(gpus):
 
     return metrics
 
+
 def load_ppg_file(ppg_file, device):
     if promonet.PPG_MODEL is not None:
         ppg = torch.load(ppg_file).to(device)
@@ -727,6 +737,7 @@ def load_ppg_file(ppg_file, device):
     else:
         return torch.load(ppg_file).to(device)
 
+
 def get_resemblyzer(gpu):
     if not hasattr(get_resemblyzer, 'encoder') or gpu != get_resemblyzer.gpu:
         device = 'cpu' if gpu is None else f'cuda:{gpu}'
@@ -734,6 +745,7 @@ def get_resemblyzer(gpu):
         get_resemblyzer.encoder = encoder
         get_resemblyzer.gpu = gpu
     return get_resemblyzer.encoder
+
 
 def get_speaker_embed(dataset, speaker, gpu, return_all=False): #return_all true -> return list of all embeddings, not speaker embedding
     model = get_resemblyzer(gpu)
@@ -747,8 +759,9 @@ def get_speaker_embed(dataset, speaker, gpu, return_all=False): #return_all true
         gt_wavs = [resemblyzer.preprocess_wav(file) for file in all_gts]
         get_speaker_embed.dictionary[speaker_code] = model.embed_speaker(gt_wavs)
         get_speaker_embed.all_dictionary[speaker_code] = [model.embed_utterance(wav) for wav in gt_wavs]
-        
+
     return get_speaker_embed.dictionary[speaker_code] if not return_all else get_speaker_embed.all_dictionary[speaker_code]
+
 
 def get_utterance_embed(utterance, gpu):
     model = get_resemblyzer(gpu)
