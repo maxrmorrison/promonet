@@ -12,7 +12,7 @@ setup(
     name='promonet',
     description='Prosody Modification Network',
     version='0.0.1',
-    author='Max Morrison',
+    author='Interactive Audio Lab',
     author_email='maxrmorrison@gmail.com',
     url='https://github.com/maxrmorrison/promonet',
     ext_modules=cythonize(
@@ -27,14 +27,17 @@ setup(
     install_requires=[
         'alias-free-torch',
         'espnet',
+        'jiwer',
         'librosa',
         'matplotlib',
         'numpy<1.24',
+        'openai-whisper',
         # 'pysodic',  # TEMPORARY - install manually until release of pysodic
         'psola',  # TEMPORARY - GPL dependency
         'pypar',
         'pyworld',
         'pyyaml',
+        'resemblyzer',
         'scipy',
         'tensorboard',
         'torch<2.0.0',
@@ -42,11 +45,10 @@ setup(
         'tqdm',
         'umap-learn',
         'yapecs',
-        'jiwer',
-        'openai-whisper'],
+        ],
     packages=find_packages(),
     package_data={'promonet': ['assets/*', 'assets/*/*']},
     long_description=long_description,
     long_description_content_type='text/markdown',
-    keywords=['audio', 'speech', 'prosody', 'pytorch', 'vits'],
+    keywords=['speech', 'prosody', 'editing', 'synthesis', 'pronunciation'],
     license='MIT')

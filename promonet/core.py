@@ -3,13 +3,13 @@ import os
 from typing import List, Optional, Union
 from pathlib import Path
 
+import ppgs
 import pyfoal
+import pypar
 import pysodic
 import torch
 import torchaudio
 import tqdm
-import pypar
-import ppgs
 
 import promonet
 
@@ -51,7 +51,7 @@ def from_audio(
     if alignment is not None:
         grid = grid_from_alignment(alignment, text, audio, sample_rate, gpu)
     del alignment #Need to have this to get **locals to work
-    
+
     # Maybe use a baseline method instead
     if promonet.MODEL == 'psola':
         with promonet.time.timer('generate'):
@@ -350,7 +350,6 @@ def preprocess(
             if grid is not None:
                 pitch = promonet.interpolate.pitch(pitch, grid)
             target_pitch = pitch
-        # assert (target_pitch==pitch).all(), str(target_pitch-pitch) + '\n' + str(target_pitch) + '\n' + str(pitch)
 
         # Maybe interpolate periodicity
         if grid is not None:
@@ -368,10 +367,11 @@ def preprocess(
 
         # Phonetic posteriorgrams
         if target_ppg is None:
-            features = promonet.data.preprocess.ppg.from_audio(
+            features = ppgs.from_audio(
                 audio,
                 sample_rate,
-                gpu=gpu).squeeze(dim=0)
+                gpu=gpu
+            ).squeeze(dim=0)
         else:
             features = target_ppg
             if promonet.PPG_MODEL is not None and 'ppg' not in promonet.PPG_MODEL \

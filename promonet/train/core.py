@@ -4,6 +4,7 @@ import math
 import os
 
 import matplotlib.pyplot as plt
+import ppgs
 import pysodic
 import torch
 import tqdm
@@ -1034,7 +1035,7 @@ def evaluate(directory, step, generator, loader, gpu):
 
 def infer_ppgs(audio, size, gpu=None):
     """Extract aligned PPGs"""
-    predicted_phonemes = promonet.data.preprocess.ppg.from_audio(
+    predicted_phonemes = ppgs.from_audio(
         audio[0],
         sample_rate=promonet.SAMPLE_RATE,
         gpu=gpu)
