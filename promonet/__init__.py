@@ -12,11 +12,6 @@ yapecs.configure('promonet', defaults)
 
 # Import configuration parameters
 from .config.defaults import *
-from . import time
-try:
-    from .config.secrets import *
-except ImportError as e:
-    pass
 from .config.static import *
 
 
@@ -25,11 +20,10 @@ from .config.static import *
 ###############################################################################
 
 
-from . import notify
 from .core import *
+from .train import train
 from . import adapt
 from . import baseline
-from . import checkpoint
 from . import convert
 from . import data
 from . import evaluate
@@ -40,5 +34,3 @@ from . import loudness
 from . import model
 from . import partition
 from . import plot
-from . import train
-from . import write

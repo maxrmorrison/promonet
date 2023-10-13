@@ -7,8 +7,8 @@ import ppgs
 import pyfoal
 import pypar
 import pysodic
+import torchutil
 import torchaudio
-import tqdm
 
 import promonet
 
@@ -18,7 +18,7 @@ import promonet
 ###############################################################################
 
 
-@promonet.notify.notify_on_finish('preprocess')
+@torchutil.notify.on_return('preprocess')
 def datasets(datasets, features=promonet.ALL_FEATURES, gpu=None):
     """Preprocess a dataset"""
     for dataset in datasets:
@@ -85,12 +85,11 @@ def from_files_to_files(
             window_size=promonet.WINDOW_SIZE / promonet.SAMPLE_RATE,
             voicing_threshold=0.1625,
             gpu=gpu)
-        iterator = tqdm.tqdm(
+        for audio_file, output_prefix in promonet.iterator(
             zip(audio_files, prefixes),
-            total=len(audio_files),
-            dynamic_ncols=True,
-            desc='pysodic')
-        for audio_file, output_prefix in iterator:
+            'pysodic',
+            total=len(audio_files)
+        ):
             extraction_fn(audio_file, output_prefix)
 
         # Extract forced alignments

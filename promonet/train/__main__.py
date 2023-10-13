@@ -9,14 +9,14 @@ import promonet
 # Entry point
 ###############################################################################
 
-@promonet.notify.notify_on_finish('train')
+
 def main(
     config,
     dataset,
     train_partition='train',
     valid_partition='valid',
-    adapt=False,
-    gpus=None):
+    adapt_from=False,
+    gpu=None):
     # Create output directory
     directory = promonet.RUNS_DIR / config.stem
     directory.mkdir(parents=True, exist_ok=True)
@@ -25,20 +25,13 @@ def main(
     shutil.copyfile(config, directory / config.name)
 
     # Train
-    promonet.train.run(
+    promonet.train(
         dataset,
-        directory,
-        directory,
         directory,
         train_partition,
         valid_partition,
-        adapt,
-        gpus)
-
-    # Evaluate
-    # TEMPORARY - only evaluate on training dataset for now
-    # promonet.evaluate.datasets(promonet.DATASETS, directory, gpus)
-    promonet.evaluate.datasets([dataset], directory, gpus)
+        adapt_from,
+        gpu)
 
 
 def parse_args():
@@ -63,14 +56,13 @@ def parse_args():
         default='valid',
         help='The data partition to perform validation on')
     parser.add_argument(
-        '--adapt',
-        action='store_true',
-        help='Whether to use hyperparameters for speaker adaptation')
+        '--adapt_from',
+        type=Path,
+        help='A checkpoint to perform adaptation from')
     parser.add_argument(
-        '--gpus',
+        '--gpu',
         type=int,
-        nargs='+',
-        help='The gpus to run training on')
+        help='The gpu to run training on')
 
     # Delete config files
     args = parser.parse_args()

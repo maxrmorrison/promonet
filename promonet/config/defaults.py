@@ -174,11 +174,8 @@ ADAPTATION = True
 ###############################################################################
 
 
-# Whether to perform benchmarking during evaluation
-BENCHMARK = False
-
 # Number of steps between saving checkpoints
-CHECKPOINT_INTERVAL = 25000  # steps
+CHECKPOINT_INTERVAL = 20000  # steps
 
 # Number of steps between logging to Tensorboard
 LOG_INTERVAL = 2500  # steps
@@ -302,10 +299,10 @@ CHUNK_SIZE = 8192
 GRADIENT_CLIP_GENERATOR = None
 
 # Number of training steps
-NUM_STEPS = 100000
+NUM_STEPS = 200000
 
 # Number of adaptation steps
-NUM_ADAPTATION_STEPS = 5000
+NUM_ADAPTATION_STEPS = 10000
 
 # Number of data loading worker threads
 NUM_WORKERS = 6

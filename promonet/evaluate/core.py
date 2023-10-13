@@ -23,11 +23,11 @@ import pyfoal
 import pypar
 import pysodic
 import torch
+import torchutil
 import torchaudio
 import ppgs
 import resemblyzer
 import numpy as np
-import matplotlib.pyplot as plt
 
 import promonet
 
@@ -50,14 +50,9 @@ else:
 ###############################################################################
 
 
+@torchutil.notify.on_return('evaluate')
 def datasets(datasets, checkpoint=None, gpus=None):
     """Evaluate the performance of the model on datasets"""
-    # Turn on benchmarking
-    current_benchmark = promonet.BENCHMARK
-    promonet.BENCHMARK = True
-
-    print("ratios:", RATIOS, flush=True)
-
     # Evaluate on each dataset
     for dataset in datasets:
 
@@ -88,7 +83,6 @@ def datasets(datasets, checkpoint=None, gpus=None):
             # index = partitions[test_partition][0].split('/')[0]
 
             indices = list(set([stem.split('/')[0] for stem in partitions[test_partition]]))
-            print('speakers:', indices)
             for index in indices:
 
                 # Output directory for checkpoints and logs
@@ -141,7 +135,6 @@ def datasets(datasets, checkpoint=None, gpus=None):
             results['prosody'] = {key: value()
                                   for key, value in metrics.items()}
 
-        print(list(results_directory.rglob('*/results.json')))
         for file in results_directory.rglob('*/results.json'):
             with open(file) as file:
                 result = json.load(file)
@@ -149,7 +142,7 @@ def datasets(datasets, checkpoint=None, gpus=None):
             results['num_frames'] += result['num_frames']
 
         # Parse benchmarking results
-        results['benchmark'] = {'raw': promonet.TIMER()}
+        results['benchmark'] = {'raw': torchutil.time.results()}
 
         # Average benchmarking over samples
         results['benchmark']['average'] = {
@@ -161,9 +154,6 @@ def datasets(datasets, checkpoint=None, gpus=None):
         with open(results_directory / 'results.json', 'w') as file:
             json.dump(results, file, indent=4, sort_keys=True)
 
-    # Maybe turn off benchmarking
-    promonet.BENCHMARK = current_benchmark
-
 
 def speaker(
     dataset,
@@ -171,8 +161,7 @@ def speaker(
     test_partition,
     checkpoint,
     metrics,
-    output_directory,
-    log_directory,
+    directory,
     objective_directory,
     subjective_directory,
     index,
@@ -187,31 +176,34 @@ def speaker(
     if promonet.MODEL not in ['psola', 'world'] and promonet.ADAPTATION:
 
         # Maybe resume adaptation
-        generator_path = promonet.checkpoint.latest_path(
-            output_directory,
+        generator_path = torchutil.checkpoint.latest_path(
+            directory,
             'generator-*.pt')
-        discriminator_path = promonet.checkpoint.latest_path(
-            output_directory,
+        discriminator_path = torchutil.checkpoint.latest_path(
+            directory,
             'discriminator-*.pt')
         if generator_path and discriminator_path:
-            checkpoint = output_directory
+            checkpoint = directory
 
-        # Perform speaker adaptation and get generator checkpoint
-        checkpoint = promonet.train.run(
+        # Perform speaker adaptation
+        promonet.train(
             dataset,
+            directory,
             checkpoint,
-            output_directory,
-            log_directory,
             train_partition,
             test_partition,
             True,
             gpus)
 
+        # Get generator checkpoint
+        checkpoint = torchutil.checkpoint.latest_path(
+            directory,
+            'generator-*.pt')
+
     # Stems to use for evaluation
     test_stems = sorted(promonet.load.partition(dataset)[test_partition])
     test_stems = [stem for stem in test_stems if stem.split('/')[0] == index]
     speaker_ids = [int(stem.split('/')[0]) for stem in test_stems]
-    print(test_stems, speaker_ids)
 
     # Directory to save original audio files
     original_subjective_directory = \
@@ -560,10 +552,7 @@ def speaker(
             file.parent.name /
             f'{file.stem}-{tag}.pt'
             for file in audio_files]
-        ppgs.from_files_to_files(
-            audio_files,
-            ppg_files,
-            gpu)
+        ppgs.from_files_to_files(audio_files, ppg_files, gpu=gpu)
 
         # Preprocess prosody features
         text_files = [

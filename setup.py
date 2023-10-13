@@ -13,7 +13,7 @@ setup(
     description='Prosody Modification Network',
     version='0.0.1',
     author='Interactive Audio Lab',
-    author_email='maxrmorrison@gmail.com',
+    author_email='interactiveaudiolab@gmail.com',
     url='https://github.com/maxrmorrison/promonet',
     ext_modules=cythonize(
         Extension(
@@ -21,7 +21,8 @@ setup(
             sources=['promonet/model/align/align.pyx'],
             include_dirs=[np.get_include()]
         ),
-        compiler_directives={'language_level': '3'}),
+        compiler_directives={'language_level': '3'}
+    ),
     include_dirs=[np.get_include(), 'promonet/model/align'],
     setup_requires=['numpy', 'cython'],
     install_requires=[
@@ -41,11 +42,12 @@ setup(
         'scipy',
         'tensorboard',
         'torch<2.0.0',
+        'torchutil',
         'torchaudio<2.0.0',
         'tqdm',
         'umap-learn',
         'yapecs',
-        ],
+    ],
     packages=find_packages(),
     package_data={'promonet': ['assets/*', 'assets/*/*']},
     long_description=long_description,
