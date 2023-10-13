@@ -8,6 +8,7 @@ import pyfoal
 import pypar
 import pysodic
 import torch
+import torchutil
 import torchaudio
 import tqdm
 
@@ -54,14 +55,14 @@ def from_audio(
 
     # Maybe use a baseline method instead
     if promonet.MODEL == 'psola':
-        with promonet.time.timer('generate'):
+        with torchutil.time.context('generate'):
             return promonet.baseline.psola.from_audio(**locals())
     elif promonet.MODEL == 'world':
-        with promonet.time.timer('generate'):
+        with torchutil.time.context('generate'):
             return promonet.baseline.world.from_audio(**locals())
 
     # Preprocess
-    with promonet.time.timer('preprocess'):
+    with torchutil.time.context('preprocess'):
         (
             features,
             target_pitch,
@@ -269,7 +270,7 @@ def generate(
     """Generate speech from phoneme and prosody features"""
     device = features.device
 
-    with promonet.time.timer('load'):
+    with torchutil.time.context('load'):
 
         # Cache model
         if not hasattr(generate, 'model') or generate.device != device:
@@ -277,12 +278,12 @@ def generate(
             if type(checkpoint) is str:
                 checkpoint = Path(checkpoint)
             if checkpoint.is_dir():
-                checkpoint = promonet.checkpoint.latest_path(checkpoint)
-            model = promonet.checkpoint.load(checkpoint, model)[0]
+                checkpoint = torchutil.checkpoint.latest_path(checkpoint)
+            model, *_ = torchutil.checkpoint.load(checkpoint, model)
             generate.model = model
             generate.device = device
 
-    with promonet.time.timer('generate'):
+    with torchutil.time.context('generate'):
 
         # Default length is the entire sequence
         lengths = torch.tensor(
