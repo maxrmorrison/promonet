@@ -21,7 +21,7 @@ def train(
     directory,
     train_partition='train',
     valid_partition='valid',
-    adapt_from=False,
+    adapt_from=None,
     gpu=None):
     """Train a model"""
     # Prevent matplotlib from warning us about all the figures we will have
@@ -59,10 +59,10 @@ def train(
     ##############################
 
     generator_path = torchutil.checkpoint.latest_path(
-        directory,
+        directory if adapt_from is None else adapt_from,
         'generator-*.pt')
     discriminator_path = torchutil.checkpoint.latest_path(
-        directory,
+        directory if adapt_from is None else adapt_from,
         'discriminator-*.pt')
 
     if generator_path and discriminator_path:
@@ -141,7 +141,7 @@ def train(
     # Setup progress bar
     progress = promonet.iterator(
         range(step, steps),
-        f'{"Adapting" if adapt_from else "Training"} {promonet.CONFIG}',
+        f'{"Train" if adapt_from is None else "Adapt"}ing {promonet.CONFIG}',
         initial=step,
         total=steps)
     while step < steps:

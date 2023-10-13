@@ -44,7 +44,6 @@ else:
     RATIOS = [2 ** (cents / 1200) for cents in promonet.PITCH_CENTS]
 
 
-
 ###############################################################################
 # Perform evaluation
 ###############################################################################
@@ -165,10 +164,9 @@ def speaker(
     objective_directory,
     subjective_directory,
     index,
-    gpus=None):
+    gpu=None):
     """Evaluate one adaptation speaker in a dataset"""
-
-    device = torch.device(f'cuda:{gpus[0]}' if gpus is not None else 'cpu')
+    device = torch.device(f'cuda:{gpu}' if gpu is not None else 'cpu')
 
     plot_dir = promonet.PLOT_DIR / promonet.CONFIG
     plot_dir.mkdir(exist_ok=True, parents=True)
@@ -189,11 +187,10 @@ def speaker(
         promonet.train(
             dataset,
             directory,
-            checkpoint,
             train_partition,
             test_partition,
-            True,
-            gpus)
+            checkpoint,
+            gpu)
 
         # Get generator checkpoint
         checkpoint = torchutil.checkpoint.latest_path(
@@ -214,9 +211,6 @@ def speaker(
     original_objective_directory = \
         promonet.EVAL_DIR / 'original' / 'objective' / dataset
     (original_objective_directory / index).mkdir(exist_ok=True, parents=True)
-
-    # Evaluation device
-    gpu = None if gpus is None else gpus[0]
 
     # Copy original files
     for stem in test_stems:

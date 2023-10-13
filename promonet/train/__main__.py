@@ -45,7 +45,7 @@ def parse_args():
         help='The configuration file')
     parser.add_argument(
         '--dataset',
-        default='vctk',
+        default=promonet.TRAINING_DATASET,
         help='The dataset to train on')
     parser.add_argument(
         '--train_partition',

@@ -49,10 +49,14 @@ WINDOW_SIZE = 1024
 
 
 # Root location for saving outputs
-ROOT_DIR = Path(__file__).parent.parent.parent
+# TEMPORARY
+# ROOT_DIR = Path(__file__).parent.parent.parent
+ROOT_DIR = '/files10/max/promonet'
 
 # Location to save assets to be bundled with pip release
-ASSETS_DIR = Path(__file__).parent.parent / 'assets'
+# TEMPORARY
+# ASSETS_DIR = Path(__file__).parent.parent / 'assets'
+ASSETS_DIR = '/files10/max/promonet/promonet/assets'
 
 # Location of preprocessed features
 CACHE_DIR = ROOT_DIR / 'data' / 'cache'
@@ -119,9 +123,6 @@ LATENT_PHONEME_SHORTCUT = False
 # A-weighted loudness conditioning
 LOUDNESS_FEATURES = False
 
-#Number of speakers (TODO: move to statics based on datasets?)
-NUM_SPEAKERS = 109
-
 # Periodicity conditioning
 PERIODICITY_FEATURES = False
 
@@ -164,6 +165,9 @@ RANDOM_SEED = 1234
 
 # Only use spectral features
 SPECTROGRAM_ONLY = False
+
+# Dataset to use for training
+TRAINING_DATASET = 'vctk'
 
 # Whether to perform speaker adaptation (or multi-speaker)
 ADAPTATION = True

@@ -62,6 +62,16 @@ else:
         promonet.LATENT_PHONEME_SHORTCUT * promonet.PPG_CHANNELS
     )
 
+# Number of speakers
+if promonet.TRAINING_DATASET == 'daps':
+    NUM_SPEAKERS = 20
+elif promonet.TRAINING_DATASET == 'libritts':
+    NUM_SPEAKERS = 1230
+elif promonet.TRAINING_DATASET == 'vctk':
+    NUM_SPEAKERS = 109
+else:
+    raise ValueError(f'Dataset {promonet.TRAINING_DATASET} is not defined')
+
 # First stage of a two-stage model
 TWO_STAGE = TWO_STAGE_1 = promonet.MODEL == 'two-stage'
 
