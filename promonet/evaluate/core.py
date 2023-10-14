@@ -18,16 +18,15 @@ import functools
 import json
 import shutil
 
+import numpy as np
 import ppgs
 import pyfoal
 import pypar
 import pysodic
+import resemblyzer
 import torch
 import torchutil
 import torchaudio
-import ppgs
-import resemblyzer
-import numpy as np
 
 import promonet
 
