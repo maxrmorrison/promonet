@@ -5,6 +5,7 @@ import os
 import resampy
 import soundfile
 import torch
+import torchutil
 
 import promonet
 
@@ -14,6 +15,7 @@ import promonet
 ###############################################################################
 
 
+@torchutil.notify.on_return('augment')
 def datasets(datasets):
     """Perform data augmentation on cached datasets"""
     for dataset in datasets:
