@@ -12,11 +12,6 @@ import torch
 # Configuration name
 CONFIG = 'vits'
 
-###############################################################################
-# Notification settings (apprise)
-###############################################################################
-
-NOTIFICATION_SERVICES = []
 
 ###############################################################################
 # Audio parameters
@@ -51,12 +46,12 @@ WINDOW_SIZE = 1024
 # Root location for saving outputs
 # TEMPORARY
 # ROOT_DIR = Path(__file__).parent.parent.parent
-ROOT_DIR = '/files10/max/promonet'
+ROOT_DIR = Path('/files10/max/promonet')
 
 # Location to save assets to be bundled with pip release
 # TEMPORARY
 # ASSETS_DIR = Path(__file__).parent.parent / 'assets'
-ASSETS_DIR = '/files10/max/promonet/promonet/assets'
+ASSETS_DIR = Path('/files10/max/promonet/promonet/assets')
 
 # Location of preprocessed features
 CACHE_DIR = ROOT_DIR / 'data' / 'cache'
@@ -73,13 +68,17 @@ RUNS_DIR = ROOT_DIR / 'runs'
 # Location of compressed datasets on disk
 SOURCES_DIR = ROOT_DIR / 'data' / 'sources'
 
-#Location to save plots
+# Location to save plots
 PLOT_DIR = ROOT_DIR / 'plots'
+
 
 ###############################################################################
 # Data parameters
 ###############################################################################
 
+
+# Whether to perform speaker adaptation (instead of multi-speaker)
+ADAPTATION = True
 
 # All features considered during preprocessing
 ALL_FEATURES = ['ppg', 'prosody', 'spectrogram']
@@ -155,6 +154,7 @@ PPG_FEATURES = False
 
 # Type of interpolation method to use to scale PPG features
 # Available method are ['nearest', 'linear']
+# TODO - replace with SLERP and remove this variable
 PPG_INTERP_METHOD = 'nearest'
 
 # Type of PPGs to use
@@ -168,9 +168,6 @@ SPECTROGRAM_ONLY = False
 
 # Dataset to use for training
 TRAINING_DATASET = 'vctk'
-
-# Whether to perform speaker adaptation (or multi-speaker)
-ADAPTATION = True
 
 
 ###############################################################################
