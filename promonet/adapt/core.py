@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import List, Optional
 
 import torch
+import torchutil
 import torchaudio
 
 import promonet
@@ -73,10 +74,10 @@ def speaker(
     adapt_directory.mkdir(exist_ok=True, parents=True)
 
     # Maybe resume adaptation
-    generator_path = promonet.checkpoint.latest_path(
+    generator_path = torchutil.checkpoint.latest_path(
         adapt_directory,
         'generator-*.pt')
-    discriminator_path = promonet.checkpoint.latest_path(
+    discriminator_path = torchutil.checkpoint.latest_path(
         adapt_directory,
         'discriminator-*.pt')
     if generator_path and discriminator_path:

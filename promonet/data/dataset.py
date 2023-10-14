@@ -6,79 +6,10 @@ import penn
 import pysodic
 import torch
 import torchaudio
-import os
 
 import promonet
 import ppgs
 
-
-
-
-###############################################################################
-# Metadata
-###############################################################################
-
-class Metadata:
-
-    def __init__(self, dataset, partition, overwrite_cache=False):
-        self.name = dataset
-        self.cache = promonet.CACHE_DIR / self.name
-        stems = [stem for stem in promonet.load.partition(self.name)[partition]]
-        metadata_file = self.cache / f'{partition}-metadata.json'
-
-        # Get data stems assuming no augmentation
-        self.stems = [f'{stem}-100' for stem in stems]
-
-        # For training, maybe add augmented data
-        # This also applies to adaptation partitions: train-adapt-xx
-        if 'train' in partition and promonet.AUGMENT_PITCH:
-            with open(promonet.AUGMENT_DIR / f'{dataset}.json') as file:
-                ratios = json.load(file)
-            self.stems.extend([f'{stem}-{ratios[stem]}' for stem in stems])
-
-        # Maybe limit the maximum length during training to improve
-        # GPU utilization
-        if (
-            ('train' in partition or 'valid' in partition) and
-            promonet.MAX_TEXT_LENGTH is not None
-        ):
-            self.stems = [
-                stem for stem in self.stems if (
-                    len(
-                        promonet.load.phonemes(
-                            self.cache / f'{stem}-phonemes.pt')
-                    ) < promonet.MAX_TEXT_LENGTH and
-                    promonet.convert.samples_to_frames(
-                        torchaudio.info(self.cache / f'{stem}.wav').num_frames
-                    ) < promonet.MAX_FRAME_LENGTH
-                )
-            ]
-
-        if overwrite_cache and metadata_file.exists():
-            print('overwriting metadata cache')
-            os.remove(metadata_file)
-        if metadata_file.exists():
-            print('using cached metadata')
-            with open(metadata_file, 'r') as f:
-                metadata = json.load(f)
-        else:
-            print('generating metadata from scratch')
-            metadata = {}
-        print('preparing dataset metadata (operation may be slow)')
-        self.lengths = []
-        for stem in self.stems:
-            try:
-                self.lengths.append(metadata[stem])
-            except KeyError:
-                length = promonet.convert.samples_to_frames(
-                    torchaudio.info(self.cache / f'{stem}.wav').num_frames)
-                metadata[stem] = length
-                self.lengths.append(length)
-        with open(metadata_file, 'w+') as f:
-            json.dump(metadata, f)
-
-    def __len__(self):
-        return len(self.stems)
 
 ###############################################################################
 # Dataset
@@ -194,18 +125,26 @@ class Dataset(torch.utils.data.Dataset):
 
 class Metadata:
 
-    def __init__(self, name, partition, overwrite_cache=False):
+    def __init__(self, name, partition=None, overwrite_cache=False):
+        """Create a metadata object for the given dataset or sources"""
+        lengths = {}
+
+        # Create dataset from string identifier
         self.name = name
         self.cache = promonet.CACHE_DIR / self.name
 
-        # Load and possibly augment stems
-        stems = promonet.load.partition(self.name)[partition]
+        # Get stems corresponding to partition
+        partition_dict = promonet.load.partition(self.name)
+        if partition is not None:
+            stems = partition_dict[partition]
+        else:
+            stems = sum(partition_dict.values(), start=[])
         self.stems = [f'{stem}-100' for stem in stems]
 
         # For training, maybe add augmented data
         # This also applies to adaptation partitions: train-adapt-xx
         if 'train' in partition and promonet.AUGMENT_PITCH:
-            with open(promonet.AUGMENT_DIR / f'{name}.json') as file:
+            with open(promonet.AUGMENT_DIR / f'{self.name}.json') as file:
                 ratios = json.load(file)
             self.stems.extend([f'{stem}-{ratios[stem]}' for stem in stems])
 
@@ -222,32 +161,45 @@ class Metadata:
                             self.cache / f'{stem}-phonemes.pt')
                     ) < promonet.MAX_TEXT_LENGTH and
                     promonet.convert.samples_to_frames(
-                        torchaudio.info(self.cache / f'{stem}.wav').num_frames
+                        torchaudio.info(
+                            self.cache / f'{stem}.wav').num_frames
                     ) < promonet.MAX_FRAME_LENGTH
                 )
             ]
 
-        metadata_file = self.cache / f'{partition}-metadata.json'
-        if overwrite_cache and metadata_file.exists():
-            os.remove(metadata_file)
-        if metadata_file.exists():
-            print('using cached metadata')
-            with open(metadata_file, 'r') as f:
-                metadata = json.load(f)
+        # Get audio filenames
+        self.audio_files = [
+            self.cache / (stem + '.wav') for stem in self.stems]
+
+        # Get filename of cached lengths
+        if partition is not None:
+            lengths_file = self.cache / f'{partition}-lengths.json'
         else:
-            print('generating metadata from scratch')
-            metadata = {}
-        print('preparing dataset metadata (operation may be slow)')
-        self.lengths = []
-        for stem in self.stems:
-            try:
-                self.lengths.append(metadata[stem])
-            except KeyError:
-                length = torchaudio.info(self.cache / (stem + '.wav')).num_frames // promonet.HOPSIZE
-                metadata[stem] = length
-                self.lengths.append(length)
-        with open(metadata_file, 'w+') as f:
-            json.dump(metadata, f)
+            lengths_file = self.cache / 'lengths.json'
+
+        # Maybe remove existing cache data
+        if overwrite_cache:
+            lengths_file.unlink(missing_ok=True)
+
+        # Load from cache
+        if lengths_file.exists():
+            with open(lengths_file, 'r') as file:
+                lengths = json.load(file)
+
+        if not lengths:
+
+            # Compute length in frames
+            for stem, audio_file in zip(self.stems, self.audio_files):
+                lengths[stem] = \
+                    torchaudio.info(audio_file).num_frames // ppgs.HOPSIZE
+
+            # Maybe cache lengths
+            if self.cache is not None:
+                with open(lengths_file, 'w+') as file:
+                    json.dump(lengths, file)
+
+        # Match ordering
+        self.lengths = [lengths[stem] for stem in self.stems]
 
     def __len__(self):
         return len(self.stems)

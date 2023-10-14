@@ -12,10 +12,6 @@ import torch
 # Configuration name
 CONFIG = 'vits'
 
-###############################################################################
-# Notification settings (apprise)
-###############################################################################
-NOTIFICATION_SERVICES = []
 
 ###############################################################################
 # Audio parameters
@@ -48,10 +44,14 @@ WINDOW_SIZE = 1024
 
 
 # Root location for saving outputs
-ROOT_DIR = Path(__file__).parent.parent.parent
+# TEMPORARY
+# ROOT_DIR = Path(__file__).parent.parent.parent
+ROOT_DIR = Path('/files10/max/promonet')
 
 # Location to save assets to be bundled with pip release
-ASSETS_DIR = Path(__file__).parent.parent / 'assets'
+# TEMPORARY
+# ASSETS_DIR = Path(__file__).parent.parent / 'assets'
+ASSETS_DIR = Path('/files10/max/promonet/promonet/assets')
 
 # Location of preprocessed features
 CACHE_DIR = ROOT_DIR / 'data' / 'cache'
@@ -68,13 +68,20 @@ RUNS_DIR = ROOT_DIR / 'runs'
 # Location of compressed datasets on disk
 SOURCES_DIR = ROOT_DIR / 'data' / 'sources'
 
-#Location to save plots
+# Location to save plots
 PLOT_DIR = ROOT_DIR / 'plots'
+
 
 ###############################################################################
 # Data parameters
 ###############################################################################
 
+
+# Whether to perform speaker adaptation (instead of multi-speaker)
+ADAPTATION = True
+
+# All features considered during preprocessing
+ALL_FEATURES = ['ppg', 'prosody', 'spectrogram']
 
 # Whether to use pitch augmentation
 AUGMENT_PITCH = False
@@ -87,9 +94,6 @@ AUGMENTATION_RATIO_MIN = .5
 
 # Names of all datasets
 DATASETS = ['daps', 'libritts', 'vctk']
-
-#Number of speakers (TODO: move to statics based on datasets?)
-NUM_SPEAKERS = 109
 
 # Discriminator loudness conditioning
 DISCRIM_LOUDNESS_CONDITION = False
@@ -143,17 +147,18 @@ PITCH_BINS = 256
 PITCH_EMBEDDING_SIZE = 64
 
 # Number of channels in the phonetic posteriorgram features
-PPG_CHANNELS = 144
+PPG_CHANNELS = 40
 
 # Phonemic posteriorgram conditioning
 PPG_FEATURES = False
 
 # Type of interpolation method to use to scale PPG features
 # Available method are ['nearest', 'linear']
+# TODO - replace with SLERP and remove this variable
 PPG_INTERP_METHOD = 'nearest'
 
 # Type of PPGs to use
-PPG_MODEL = None
+PPG_MODEL = 'w2v2fb-ppg'
 
 # Seed for all random number generators
 RANDOM_SEED = 1234
@@ -161,8 +166,8 @@ RANDOM_SEED = 1234
 # Only use spectral features
 SPECTROGRAM_ONLY = False
 
-# Whether to perform speaker adaptation (or multi-speaker)
-ADAPTATION = True
+# Dataset to use for training
+TRAINING_DATASET = 'vctk'
 
 
 ###############################################################################
@@ -170,11 +175,8 @@ ADAPTATION = True
 ###############################################################################
 
 
-# Whether to perform benchmarking during evaluation
-BENCHMARK = False
-
 # Number of steps between saving checkpoints
-CHECKPOINT_INTERVAL = 25000  # steps
+CHECKPOINT_INTERVAL = 20000  # steps
 
 # Number of steps between logging to Tensorboard
 LOG_INTERVAL = 2500  # steps
@@ -301,10 +303,10 @@ CHUNK_SIZE = 8192
 GRADIENT_CLIP_GENERATOR = None
 
 # Number of training steps
-NUM_STEPS = 100000
+NUM_STEPS = 200000
 
 # Number of adaptation steps
-NUM_ADAPTATION_STEPS = 5000
+NUM_ADAPTATION_STEPS = 10000
 
 # Number of data loading worker threads
 NUM_WORKERS = 6
