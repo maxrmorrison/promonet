@@ -1,63 +1,13 @@
-import contextlib
 import functools
 import math
-import os
 
 import matplotlib.pyplot as plt
+import ppgs
 import pysodic
 import torch
-import tqdm
+import torchutil
 
 import promonet
-
-
-###############################################################################
-# Training interface
-###############################################################################
-
-
-def run(
-    dataset,
-    checkpoint_directory,
-    output_directory,
-    log_directory,
-    train_partition='train',
-    valid_partition='valid',
-    adapt=False,
-    gpus=None):
-    """Run model training"""
-    # Distributed data parallelism
-    if gpus and len(gpus) > 1:
-        args = (
-            dataset,
-            checkpoint_directory,
-            output_directory,
-            log_directory,
-            train_partition,
-            valid_partition,
-            adapt,
-            gpus)
-        torch.multiprocessing.spawn(
-            train_ddp,
-            args=args,
-            nprocs=len(gpus),
-            join=True)
-
-    else:
-
-        # Single GPU or CPU training
-        train(
-            dataset,
-            checkpoint_directory,
-            output_directory,
-            log_directory,
-            train_partition,
-            valid_partition,
-            adapt,
-            None if gpus is None else gpus[0])
-
-    # Return path to generator checkpoint
-    return promonet.checkpoint.latest_path(output_directory)
 
 
 ###############################################################################
@@ -65,26 +15,18 @@ def run(
 ###############################################################################
 
 
+@torchutil.notify.on_return('train')
 def train(
     dataset,
-    checkpoint_directory,
-    output_directory,
-    log_directory,
+    directory,
     train_partition='train',
     valid_partition='valid',
-    adapt=False,
+    adapt_from=None,
     gpu=None):
     """Train a model"""
-    # Get DDP rank
-    if torch.distributed.is_initialized():
-        rank = torch.distributed.get_rank()
-    else:
-        rank = None
-
     # Prevent matplotlib from warning us about all the figures we will have
     # open at once during evaluation. The figures are correctly closed.
-    if not rank:
-        plt.rcParams.update({'figure.max_open_warning': 100})
+    plt.rcParams.update({'figure.max_open_warning': 100})
 
     # Get torch device
     device = torch.device('cpu' if gpu is None else f'cuda:{gpu}')
@@ -101,20 +43,9 @@ def train(
     # Create models #
     #################
 
-    num_speakers = 109 #TODO: Handle magic number as config variable
+    num_speakers = promonet.NUM_SPEAKERS
     generator = promonet.model.Generator(num_speakers).to(device)
     discriminators = promonet.model.Discriminator().to(device)
-
-    ##################################################
-    # Maybe setup distributed data parallelism (DDP) #
-    ##################################################
-
-    if rank is not None:
-        ddp_fn = functools.partial(
-            torch.nn.parallel.DistributedDataParallel,
-            device_ids=[rank])
-        generator = ddp_fn(generator)
-        discriminators = ddp_fn(discriminators)
 
     #####################
     # Create optimizers #
@@ -127,11 +58,11 @@ def train(
     # Maybe load from checkpoint #
     ##############################
 
-    generator_path = promonet.checkpoint.latest_path(
-        checkpoint_directory,
+    generator_path = torchutil.checkpoint.latest_path(
+        directory if adapt_from is None else adapt_from,
         'generator-*.pt')
-    discriminator_path = promonet.checkpoint.latest_path(
-        checkpoint_directory,
+    discriminator_path = torchutil.checkpoint.latest_path(
+        directory if adapt_from is None else adapt_from,
         'discriminator-*.pt')
 
     if generator_path and discriminator_path:
@@ -140,19 +71,20 @@ def train(
         (
             generator,
             generator_optimizer,
-            step
-        ) = promonet.checkpoint.load(
+            state
+        ) = torchutil.checkpoint.load(
             generator_path,
             generator,
             generator_optimizer
         )
+        step, epoch = state['step'], state['epoch']
 
         # Load discriminator
         (
             discriminators,
             discriminator_optimizer,
-            step
-        ) = promonet.checkpoint.load(
+            _
+        ) = torchutil.checkpoint.load(
             discriminator_path,
             discriminators,
             discriminator_optimizer
@@ -161,7 +93,7 @@ def train(
     else:
 
         # Train from scratch
-        step = 0
+        step, epoch = 0, 0
 
     #########
     # Train #
@@ -171,7 +103,7 @@ def train(
     scaler = torch.cuda.amp.GradScaler()
 
     # Get total number of steps
-    if adapt:
+    if adapt_from:
         steps = promonet.NUM_STEPS + promonet.NUM_ADAPTATION_STEPS
     else:
         steps = promonet.NUM_STEPS
@@ -206,17 +138,12 @@ def train(
             for param in generator.vocoder.parameters():
                 param.requires_grad = True
 
-
-    #setup epoch TODO load from checkpoint
-    epoch = 0
-
     # Setup progress bar
-    if not rank:
-        progress = tqdm.tqdm(
-            initial=step,
-            total=steps,
-            dynamic_ncols=True,
-            desc=f'{"Adapting" if adapt else "Training"} {promonet.CONFIG}')
+    progress = promonet.iterator(
+        range(step, steps),
+        f'{"Train" if adapt_from is None else "Adapt"}ing {promonet.CONFIG}',
+        initial=step,
+        total=steps)
     while step < steps:
 
         # Seed sampler
@@ -471,60 +398,55 @@ def train(
             # Logging #
             ###########
 
-            if not rank:
+            if step % promonet.LOG_INTERVAL == 0:
 
-                if step % promonet.LOG_INTERVAL == 0:
+                # Log training losses
+                scalars = {
+                    'loss/generator/total': generator_losses}
+                if promonet.TWO_STAGE_1:
+                    scalars['loss/synthesizer'] = synthesizer_loss
+                else:
+                    scalars.update({
+                    'loss/discriminator/total': discriminator_losses,
+                    'loss/generator/feature-matching':
+                        feature_matching_loss,
+                    'loss/generator/mels': mel_loss})
+                    if durations is not None:
+                        scalars['loss/generator/duration'] = \
+                            duration_loss
+                    scalars.update(
+                        {f'loss/generator/adversarial-{i:02d}': value
+                        for i, value in enumerate(adversarial_losses)})
+                    scalars.update(
+                        {f'loss/discriminator/real-{i:02d}': value
+                        for i, value in enumerate(real_discriminator_losses)})
+                    scalars.update(
+                        {f'loss/discriminator/fake-{i:02d}': value
+                        for i, value in enumerate(fake_discriminator_losses)})
+                    if promonet.MODEL not in ['hifigan', 'two-stage', 'vocoder']:
+                        scalars['loss/generator/kl-divergence'] = kl_divergence_loss
+                torchutil.tensorboard.update(directory, step, scalars=scalars)
 
-                    # Log training losses
-                    scalars = {
-                        'loss/generator/total': generator_losses}
-                    if promonet.TWO_STAGE_1:
-                        scalars['loss/synthesizer'] = synthesizer_loss
-                    else:
-                        scalars.update({
-                        'loss/discriminator/total': discriminator_losses,
-                        'loss/generator/feature-matching':
-                            feature_matching_loss,
-                        'loss/generator/mels': mel_loss})
-                        if durations is not None:
-                            scalars['loss/generator/duration'] = \
-                                duration_loss
-                        scalars.update(
-                            {f'loss/generator/adversarial-{i:02d}': value
-                            for i, value in enumerate(adversarial_losses)})
-                        scalars.update(
-                            {f'loss/discriminator/real-{i:02d}': value
-                            for i, value in enumerate(real_discriminator_losses)})
-                        scalars.update(
-                            {f'loss/discriminator/fake-{i:02d}': value
-                            for i, value in enumerate(fake_discriminator_losses)})
-                        if promonet.MODEL not in ['hifigan', 'two-stage', 'vocoder']:
-                            scalars['loss/generator/kl-divergence'] = kl_divergence_loss
-                    promonet.write.scalars(log_directory, step, scalars)
+                # Evaluate on validation data
+                evaluate(directory, step, generator, valid_loader, gpu)
 
-                    # Evaluate on validation data
-                    evaluate(
-                        log_directory,
-                        step,
-                        generator,
-                        valid_loader,
-                        gpu)
+            ###################
+            # Save checkpoint #
+            ###################
 
-                ###################
-                # Save checkpoint #
-                ###################
-
-                if step and step % promonet.CHECKPOINT_INTERVAL == 0:
-                    promonet.checkpoint.save(
-                        generator,
-                        generator_optimizer,
-                        step,
-                        output_directory / f'generator-{step:08d}.pt')
-                    promonet.checkpoint.save(
-                        discriminators,
-                        discriminator_optimizer,
-                        step,
-                        output_directory / f'discriminator-{step:08d}.pt')
+            if step and step % promonet.CHECKPOINT_INTERVAL == 0:
+                torchutil.checkpoint.save(
+                    directory / f'generator-{step:08d}.pt',
+                    generator,
+                    generator_optimizer,
+                    step=step,
+                    epoch=epoch)
+                torchutil.checkpoint.save(
+                    directory / f'discriminator-{step:08d}.pt',
+                    discriminators,
+                    discriminator_optimizer,
+                    step=step,
+                    epoch=epoch)
 
             # Maybe finish training
             if step >= steps:
@@ -545,31 +467,29 @@ def train(
                 for param in generator.vocoder.parameters():
                     param.requires_grad = True
 
-            if not rank:
+            # Increment steps
+            step += 1
 
-                # Increment steps
-                step += 1
-
-                # Update progress bar
-                progress.update()
+            # Update progress bar
+            progress.update()
         epoch += 1
 
-    if not rank:
+    # Close progress bar
+    progress.close()
 
-        # Close progress bar
-        progress.close()
-
-        # Save final model
-        promonet.checkpoint.save(
-            generator,
-            generator_optimizer,
-            step,
-            output_directory / f'generator-{step:08d}.pt')
-        promonet.checkpoint.save(
-            discriminators,
-            discriminator_optimizer,
-            step,
-            output_directory / f'discriminator-{step:08d}.pt')
+    # Save final model
+    torchutil.checkpoint.save(
+        directory / f'generator-{step:08d}.pt',
+        generator,
+        generator_optimizer,
+        step=step,
+        epoch=epoch)
+    torchutil.checkpoint.save(
+        directory / f'discriminator-{step:08d}.pt',
+        discriminators,
+        discriminator_optimizer,
+        step=step,
+        epoch=epoch)
 
 
 ###############################################################################
@@ -1027,19 +947,24 @@ def evaluate(directory, step, generator, loader, gpu):
                 scalars[f'{condition}/{key}'] = value
 
     # Write to Tensorboard
-    promonet.write.audio(directory, step, waveforms)
-    promonet.write.figures(directory, step, figures)
-    promonet.write.scalars(directory, step, scalars)
+    torchutil.tensorboard.update(
+        directory,
+        step,
+        figures=figures,
+        scalars=scalars,
+        audio=waveforms,
+        sample_rate=promonet.SAMPLE_RATE)
 
 
 def infer_ppgs(audio, size, gpu=None):
     """Extract aligned PPGs"""
-    predicted_phonemes = promonet.data.preprocess.ppg.from_audio(
+    predicted_phonemes = ppgs.from_audio(
         audio[0],
         sample_rate=promonet.SAMPLE_RATE,
         gpu=gpu)
     if predicted_phonemes.dim() == 2:
         predicted_phonemes = predicted_phonemes[None]
+
     # Maybe resample length
     mode = promonet.PPG_INTERP_METHOD
     return torch.nn.functional.interpolate(
@@ -1047,54 +972,3 @@ def infer_ppgs(audio, size, gpu=None):
         size=size,
         mode=mode,
         align_corners=None if mode == 'nearest' else False)
-
-
-###############################################################################
-# Distributed data parallelism
-###############################################################################
-
-
-def train_ddp(
-    rank,
-    dataset,
-    checkpoint_directory,
-    output_directory,
-    log_directory,
-    train_partition,
-    valid_partition,
-    adapt,
-    gpus):
-    """Train with distributed data parallelism"""
-    with ddp_context(rank, len(gpus)):
-        train(
-            dataset,
-            checkpoint_directory,
-            output_directory,
-            log_directory,
-            train_partition,
-            valid_partition,
-            adapt,
-            gpus[rank])
-
-
-@contextlib.contextmanager
-def ddp_context(rank, world_size):
-    """Context manager for distributed data parallelism"""
-    # Setup ddp
-    os.environ['MASTER_ADDR']='localhost'
-    os.environ['MASTER_PORT']='12355'
-    torch.distributed.init_process_group(
-        'nccl',
-        init_method='env://',
-        world_size=world_size,
-        rank=rank)
-
-    try:
-
-        # Execute user code
-        yield
-
-    finally:
-
-        # Close ddp
-        torch.distributed.destroy_process_group()

@@ -4,10 +4,11 @@ import tarfile
 import urllib
 import zipfile
 from pathlib import Path
+import json
 
 import torch
+import torchutil
 import torchaudio
-import tqdm
 
 import promonet
 
@@ -16,7 +17,8 @@ import promonet
 # Download datasets
 ###############################################################################
 
-@promonet.notify.notify_on_finish('download')
+
+@torchutil.notify.on_return('download')
 def datasets(datasets):
     """Download datasets"""
     # Download and format daps dataset
@@ -62,12 +64,11 @@ def daps():
     with promonet.chdir(output_directory):
 
         # Iterate over files
-        iterator = tqdm.tqdm(
+        for audio_file, text_file in promonet.iterator(
             zip(audio_files, text_files),
-            desc='Formatting daps',
-            dynamic_ncols=True,
-            total=len(audio_files))
-        for audio_file, text_file in iterator:
+            'Formatting daps',
+            total=len(audio_files)
+        ):
 
             # Get speaker ID
             speaker = Path(audio_file.stem.split('_')[0])
@@ -157,12 +158,11 @@ def libritts():
     with promonet.chdir(cache_directory):
 
         # Iterate over files
-        iterator = tqdm.tqdm(
+        for audio_file, text_file in promonet.iterator(
             zip(audio_files, text_files),
-            desc='Formatting libritts',
-            dynamic_ncols=True,
-            total=len(audio_files))
-        for audio_file, text_file in iterator:
+            'Formatting libritts',
+            total=len(audio_files)
+        ):
 
             # Get file metadata
             speaker, book, chapter, utterance = [
@@ -191,7 +191,7 @@ def libritts():
             output_file.parent.mkdir(exist_ok=True, parents=True)
             audio = promonet.resample(audio, sample_rate)
             torchaudio.save(
-                output_file.parent / f'{output_file.stem}.wav',
+                output_file.parent / f'{output_file.stem}-100.wav',
                 audio,
                 promonet.SAMPLE_RATE)
             shutil.copyfile(text_file, output_file.with_suffix('.txt'))
@@ -207,6 +207,14 @@ def libritts():
             else:
                 context[stem] = { 'prev': None, 'next': None }
             prev_parts = (speaker, book, chapter, utterance)
+
+        # Save context information
+        with open('context.json', 'w') as file:
+            json.dump(context, file, indent=4, sort_keys=True)
+
+        # Save speaker map
+        with open('speakers.json', 'w') as file:
+            json.dump(speaker_count, file, indent=4, sort_keys=True)
 
 
 def vctk():
@@ -244,12 +252,11 @@ def vctk():
     with promonet.chdir(output_directory):
 
         # Iterate over files
-        iterator = tqdm.tqdm(
+        for audio_file, text_file in promonet.iterator(
             zip(audio_files, text_files),
-            desc='Formatting vctk',
-            dynamic_ncols=True,
-            total=len(audio_files))
-        for audio_file, text_file in iterator:
+            'Formatting vctk',
+            total=len(audio_files)
+        ):
 
             # Get speaker ID
             speaker = Path(audio_file.stem.split('_')[0])
@@ -288,7 +295,6 @@ def vctk():
                 speaker_directory / f'{output_file.stem}-100.wav',
                 audio,
                 promonet.SAMPLE_RATE)
-
 
 
 ###############################################################################

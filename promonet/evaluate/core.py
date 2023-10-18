@@ -18,12 +18,15 @@ import functools
 import json
 import shutil
 
+import numpy as np
+import ppgs
 import pyfoal
 import pypar
 import pysodic
+import resemblyzer
 import torch
+import torchutil
 import torchaudio
-import ppgs
 
 import promonet
 
@@ -40,20 +43,14 @@ else:
     RATIOS = [2 ** (cents / 1200) for cents in promonet.PITCH_CENTS]
 
 
-
 ###############################################################################
 # Perform evaluation
 ###############################################################################
 
 
+@torchutil.notify.on_return('evaluate')
 def datasets(datasets, checkpoint=None, gpus=None):
     """Evaluate the performance of the model on datasets"""
-    # Turn on benchmarking
-    current_benchmark = promonet.BENCHMARK
-    promonet.BENCHMARK = True
-
-    print("ratios:", RATIOS, flush=True)
-
     # Evaluate on each dataset
     for dataset in datasets:
 
@@ -84,7 +81,6 @@ def datasets(datasets, checkpoint=None, gpus=None):
             # index = partitions[test_partition][0].split('/')[0]
 
             indices = list(set([stem.split('/')[0] for stem in partitions[test_partition]]))
-            print('speakers:', indices)
             for index in indices:
 
                 # Output directory for checkpoints and logs
@@ -137,7 +133,6 @@ def datasets(datasets, checkpoint=None, gpus=None):
             results['prosody'] = {key: value()
                                   for key, value in metrics.items()}
 
-        print(list(results_directory.rglob('*/results.json')))
         for file in results_directory.rglob('*/results.json'):
             with open(file) as file:
                 result = json.load(file)
@@ -145,7 +140,7 @@ def datasets(datasets, checkpoint=None, gpus=None):
             results['num_frames'] += result['num_frames']
 
         # Parse benchmarking results
-        results['benchmark'] = {'raw': promonet.TIMER()}
+        results['benchmark'] = {'raw': torchutil.time.results()}
 
         # Average benchmarking over samples
         results['benchmark']['average'] = {
@@ -157,9 +152,6 @@ def datasets(datasets, checkpoint=None, gpus=None):
         with open(results_directory / 'results.json', 'w') as file:
             json.dump(results, file, indent=4, sort_keys=True)
 
-    # Maybe turn off benchmarking
-    promonet.BENCHMARK = current_benchmark
-
 
 def speaker(
     dataset,
@@ -167,44 +159,47 @@ def speaker(
     test_partition,
     checkpoint,
     metrics,
-    output_directory,
-    log_directory,
+    directory,
     objective_directory,
     subjective_directory,
     index,
-    gpus=None):
+    gpu=None):
     """Evaluate one adaptation speaker in a dataset"""
+    device = torch.device(f'cuda:{gpu}' if gpu is not None else 'cpu')
 
-    device = torch.device(f'cuda:{gpus[0]}' if gpus is not None else 'cpu')
+    plot_dir = promonet.PLOT_DIR / promonet.CONFIG
+    plot_dir.mkdir(exist_ok=True, parents=True)
 
     if promonet.MODEL not in ['psola', 'world'] and promonet.ADAPTATION:
 
         # Maybe resume adaptation
-        generator_path = promonet.checkpoint.latest_path(
-            output_directory,
+        generator_path = torchutil.checkpoint.latest_path(
+            directory,
             'generator-*.pt')
-        discriminator_path = promonet.checkpoint.latest_path(
-            output_directory,
+        discriminator_path = torchutil.checkpoint.latest_path(
+            directory,
             'discriminator-*.pt')
         if generator_path and discriminator_path:
-            checkpoint = output_directory
+            checkpoint = directory
 
-        # Perform speaker adaptation and get generator checkpoint
-        checkpoint = promonet.train.run(
+        # Perform speaker adaptation
+        promonet.train(
             dataset,
-            checkpoint,
-            output_directory,
-            log_directory,
+            directory,
             train_partition,
             test_partition,
-            True,
-            gpus)
+            checkpoint,
+            gpu)
+
+        # Get generator checkpoint
+        checkpoint = torchutil.checkpoint.latest_path(
+            directory,
+            'generator-*.pt')
 
     # Stems to use for evaluation
     test_stems = sorted(promonet.load.partition(dataset)[test_partition])
     test_stems = [stem for stem in test_stems if stem.split('/')[0] == index]
     speaker_ids = [int(stem.split('/')[0]) for stem in test_stems]
-    print(test_stems, speaker_ids)
 
     # Directory to save original audio files
     original_subjective_directory = \
@@ -215,9 +210,6 @@ def speaker(
     original_objective_directory = \
         promonet.EVAL_DIR / 'original' / 'objective' / dataset
     (original_objective_directory / index).mkdir(exist_ok=True, parents=True)
-
-    # Evaluation device
-    gpu = None if gpus is None else gpus[0]
 
     # Copy original files
     for stem in test_stems:
@@ -470,6 +462,7 @@ def speaker(
             text_files = sorted([
                 original_objective_directory / f'{stem}-{key}-text.txt'
                 for stem in test_stems])
+
             # Generate
             promonet.from_files_to_files(
                 files['original'],
@@ -544,14 +537,15 @@ def speaker(
     ############################
 
     for audio_files in files.values():
+
         # Preprocess phonetic posteriorgrams
+        tag = promonet.PPG_MODEL if promonet.PPG_MODEL is not None else 'ppg'
         ppg_files = [
-            objective_directory / file.parent.name / f'{file.stem}-{promonet.PPG_MODEL if promonet.PPG_MODEL is not None else "ppg"}.pt'
+            objective_directory /
+            file.parent.name /
+            f'{file.stem}-{tag}.pt'
             for file in audio_files]
-        promonet.data.preprocess.ppg.from_files_to_files(
-            audio_files,
-            ppg_files,
-            gpu)
+        ppgs.from_files_to_files(audio_files, ppg_files, gpu=gpu)
 
         # Preprocess prosody features
         text_files = [
@@ -581,6 +575,8 @@ def speaker(
 
         for key, value in files.items():
             results['objective']['raw'][key] = []
+
+            utterance_embeds = []
 
             for file in value:
 
@@ -612,8 +608,6 @@ def speaker(
                     torch.load(f'{predicted_prefix}-phonemes.pt'),
                     torch.load(f'{target_prefix}-phonemes.pt'))
 
-                # import pdb; pdb.set_trace()
-
                 # Get predicted PPGs
                 size = prosody_args[0].shape[-1]
                 mode = promonet.PPG_INTERP_METHOD
@@ -643,11 +637,17 @@ def speaker(
 
                 wer_args = (gt_text, audio_file)
 
-                # Update metrics
-                metrics[condition].update(prosody_args, ppg_args, wer_args)
+                speaker_embed = get_speaker_embed(dataset, file.parent.name, gpu)
+                utterance_embed = get_utterance_embed(audio_file, gpu)
+                utterance_embeds.append(utterance_embed)
 
-                speaker_metrics[condition].update(prosody_args, ppg_args, wer_args)
-                file_metrics.update(prosody_args, ppg_args, wer_args)
+                speaker_sim_args = (speaker_embed, utterance_embed)
+
+                # Update metrics
+                metrics[condition].update(prosody_args, ppg_args, wer_args, speaker_sim_args)
+
+                speaker_metrics[condition].update(prosody_args, ppg_args, wer_args, speaker_sim_args)
+                file_metrics.update(prosody_args, ppg_args, wer_args, speaker_sim_args)
 
                 # Get results for this file
                 results['objective']['raw'][key].append(
@@ -655,6 +655,17 @@ def speaker(
 
                 # Reset prosody metrics
                 file_metrics.reset()
+
+            if key == 'original':
+                speaker = value[0].parent.name
+                gt_embed = get_speaker_embed(dataset, speaker, gpu, return_all=True)
+                filename = f'{dataset}-{speaker}.pdf'
+                promonet.plot.speaker_cluster.plot_speaker_clusters(
+                    np.array(gt_embed),
+                    np.array(utterance_embeds),
+                    [speaker] * len(gt_embed),
+                    [speaker] * len(utterance_embeds),
+                    file=plot_dir / filename)
 
         # Get results for this speaker
         results['objective']['average'] = {
@@ -677,6 +688,7 @@ def speaker(
 # Utilities
 ###############################################################################
 
+
 def default_metrics(gpus):
     """Construct the default metrics dictionary for each condition"""
     # Bind shared parameter
@@ -695,6 +707,7 @@ def default_metrics(gpus):
 
     return metrics
 
+
 def load_ppg_file(ppg_file, device):
     if promonet.PPG_MODEL is not None:
         ppg = torch.load(ppg_file).to(device)
@@ -705,4 +718,38 @@ def load_ppg_file(ppg_file, device):
         return ppg.to(torch.float32)
     else:
         return torch.load(ppg_file).to(device)
-            
+
+
+def get_resemblyzer(gpu):
+    if not hasattr(get_resemblyzer, 'encoder') or gpu != get_resemblyzer.gpu:
+        device = 'cpu' if gpu is None else f'cuda:{gpu}'
+        encoder = resemblyzer.VoiceEncoder(device=device)
+        get_resemblyzer.encoder = encoder
+        get_resemblyzer.gpu = gpu
+    return get_resemblyzer.encoder
+
+
+def get_speaker_embed(dataset, speaker, gpu, return_all=False): #return_all true -> return list of all embeddings, not speaker embedding
+    model = get_resemblyzer(gpu)
+    if not hasattr(get_speaker_embed, 'dictionary'):
+        get_speaker_embed.dictionary = {}
+    if not hasattr(get_speaker_embed, 'all_dictionary'):
+        get_speaker_embed.all_dictionary = {}
+    speaker_code = f'{dataset}-{speaker}'
+    if speaker_code not in get_speaker_embed.dictionary.keys(): #Don't already have this embedding
+        all_gts = (promonet.CACHE_DIR / dataset / speaker).glob('*-100.wav')
+        gt_wavs = [resemblyzer.preprocess_wav(file) for file in all_gts]
+        get_speaker_embed.dictionary[speaker_code] = model.embed_speaker(gt_wavs)
+        get_speaker_embed.all_dictionary[speaker_code] = [model.embed_utterance(wav) for wav in gt_wavs]
+
+    return get_speaker_embed.dictionary[speaker_code] if not return_all else get_speaker_embed.all_dictionary[speaker_code]
+
+
+def get_utterance_embed(utterance, gpu):
+    model = get_resemblyzer(gpu)
+    if type(utterance) is torch.Tensor:
+        utterance_preprocess = resemblyzer.preprocess_wav(utterance.numpy(force=True))
+    else: #Should be fpath
+        utterance_preprocess = resemblyzer.preprocess_wav(utterance)
+    utterance_embed = model.embed_utterance(utterance_preprocess)
+    return utterance_embed
