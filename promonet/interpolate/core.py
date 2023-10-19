@@ -1,3 +1,4 @@
+import ppgs
 import torch
 
 import promonet
@@ -25,12 +26,6 @@ def ppgs(sequence, grid):
 
 def grid_sample(sequence, grid, method='linear'):
     """Perform 1D grid-based sampling"""
-    # Require interpolation method to be defined
-    if method not in ['linear', 'nearest']:
-        raise ValueError(
-            f'Interpolation mode {promonet.PPG_INTERP_METHOD} is not defined')
-
-    # Setup grid parameters
     x = grid
     fp = sequence
 
@@ -45,6 +40,10 @@ def grid_sample(sequence, grid, method='linear'):
     # Nearest neighbors grid interpolation
     elif method == 'nearest':
         return fp[..., torch.round(x).to(torch.long)]
+
+    # Spherical linear interpolation
+    elif method == 'slerp':
+        return ppgs.edit.grid.sample(sequence, grid)
 
     else:
         raise ValueError(f'Grid sampling method {method} is not defined')

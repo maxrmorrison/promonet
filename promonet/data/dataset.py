@@ -88,23 +88,13 @@ class Dataset(torch.utils.data.Dataset):
 
     def get_ppg(self, stem, length):
         """Load PPG features"""
-        feature = 'ppg'
-
-        # Maybe use a different type of PPGs
-        if promonet.PPG_MODEL is not None:
-            feature = promonet.PPG_MODEL
-
-        ppg = torch.load(self.cache / f'{stem}-{feature}.pt')
-        if promonet.PPG_MODEL is not None and 'ppg' not in promonet.PPG_MODEL and ppgs.FRONTEND is not None:
-            if not hasattr(self.get_ppg, 'frontend'):
-                self.get_ppg.__func__.frontend = ppgs.FRONTEND()
-            with torch.no_grad():
-                ppg = self.get_ppg.__func__.frontend(ppg[None]).squeeze(dim=0)
+        # Load ppgs
+        ppg = torch.load(self.cache / f'{stem}-ppg.pt')
 
         # Maybe resample length
         if ppg.shape[1] != length:
+            # TODO - SLERP
             mode = promonet.PPG_INTERP_METHOD
-            #TODO shperical linear
             ppg = torch.nn.functional.interpolate(
                 ppg[None].to(torch.float32),
                 size=length,

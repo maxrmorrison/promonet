@@ -1,3 +1,5 @@
+import math
+
 import pyfoal
 
 import promonet
@@ -22,6 +24,14 @@ DEFAULT_CONFIGURATION = promonet.ASSETS_DIR / 'configs' / 'promonet.py'
 
 
 ###############################################################################
+# Audio parameters
+###############################################################################
+
+
+LOG_FMIN = math.log2(promonet.FMIN)
+LOG_FMAX = math.log2(promonet.FMAX)
+
+###############################################################################
 # Model parameters
 ###############################################################################
 
@@ -43,10 +53,10 @@ NUM_FEATURES = (
 # Number of input features to the discriminator
 NUM_FEATURES_DISCRIM = (
     1 +
-    promonet.DISCRIM_LOUDNESS_CONDITION +
-    promonet.DISCRIM_PERIODICITY_CONDITION +
-    promonet.DISCRIM_PITCH_CONDITION +
-    promonet.DISCRIM_PHONEME_CONDITION * promonet.PPG_CHANNELS)
+    promonet.CONDITION_DISCRIM +
+    promonet.CONDITION_DISCRIM +
+    promonet.CONDITION_DISCRIM +
+    promonet.CONDITION_DISCRIM * promonet.PPG_CHANNELS)
 
 # Number of input features to the latent-to-audio model
 if promonet.MODEL == 'hifigan' or promonet.MODEL == 'two-stage':
@@ -55,11 +65,11 @@ elif promonet.MODEL == 'vocoder':
     LATENT_FEATURES = NUM_FEATURES
 else:
     LATENT_FEATURES = promonet.HIDDEN_CHANNELS + (
-        promonet.LATENT_PITCH_SHORTCUT * (
+        promonet.LATENT_SHORTCUT * (
             promonet.PITCH_EMBEDDING_SIZE if promonet.PITCH_EMBEDDING else 1) +
-        promonet.LATENT_LOUDNESS_SHORTCUT +
-        promonet.LATENT_PERIODICITY_SHORTCUT +
-        promonet.LATENT_PHONEME_SHORTCUT * promonet.PPG_CHANNELS
+        promonet.LATENT_SHORTCUT +
+        promonet.LATENT_SHORTCUT +
+        promonet.LATENT_SHORTCUT * promonet.PPG_CHANNELS
     )
 
 # Number of speakers

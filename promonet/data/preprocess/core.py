@@ -53,27 +53,11 @@ def from_files_to_files(
 
     # Preprocess phonetic posteriorgrams
     if 'ppg' in features:
-        if '-latents' in promonet.PPG_MODEL:
-            latent_files = [
-                file.parent / f'{file.stem}-{promonet.PPG_MODEL}.pt'
-                for file in audio_files]
-            ppgs.preprocess.from_files_to_files(
-                audio_files,
-                latent_files,
-                features=[promonet.PPG_MODEL.split('-')[0]],
-                gpu=gpu,
-                num_workers=promonet.NUM_WORKERS)
-        elif '-ppg' in promonet.PPG_MODEL:
-            ppg_files = [
-                file.parent / f'{file.stem}-{promonet.PPG_MODEL}.pt'
-                for file in audio_files]
-            ppgs.from_files_to_files(
-                audio_files,
-                ppg_files,
-                num_workers=promonet.NUM_WORKERS,
-                gpu=gpu)
-        else:
-            raise ValueError(f'Unknown PPG model "{promonet.PPG_MODEL}"')
+        ppgs.from_files_to_files(
+            audio_files,
+            [file.parent / f'{file.stem}-ppg.pt' for file in audio_files],
+            num_workers=promonet.NUM_WORKERS,
+            gpu=gpu)
 
     # Preprocess prosody features
     if 'prosody' in features:
