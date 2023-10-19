@@ -7,7 +7,7 @@ def from_features(
     pitch,
     periodicity,
     loudness,
-    ppgs,
+    ppg,
     pitch_shift_cents=None,
     time_stretch_ratio=None,
     loudness_scale_db=None
@@ -19,14 +19,14 @@ def from_features(
         # Create time-stretch grid
         # TODO - voiced-only interpolation from PPGs
         grid = promonet.interpolate.grid.constant(
-            ppgs,
+            ppg,
             time_stretch_ratio)
 
         # Time-stretch
         pitch = promonet.interpolate.pitch(pitch, grid)
         periodicity = promonet.interpolate.grid_sample(periodicity, grid)
         loudness = promonet.interpolate.grid_sample(loudness, grid)
-        ppgs = promonet.interpolate.ppg(ppgs, grid)
+        ppg = promonet.interpolate.ppg(ppg, grid)
 
     # Maybe pitch-shift
     if pitch_shift_cents is not None:
@@ -37,7 +37,7 @@ def from_features(
     if loudness_scale_db is not None:
         loudness += loudness_scale_db
 
-    return pitch, periodicity, loudness, ppgs
+    return pitch, periodicity, loudness, ppg
 
 
 def from_file(
@@ -72,7 +72,7 @@ def from_file_to_file(
 ):
     """Edit speech representation on disk and save to disk"""
     # Edit
-    pitch, periodicity, loudness, ppgs = from_file(
+    pitch, periodicity, loudness, ppg = from_file(
         pitch_file,
         periodicity_file,
         loudness_file,
@@ -85,7 +85,7 @@ def from_file_to_file(
     torch.save(pitch, f'{output_prefix}-pitch.pt')
     torch.save(periodicity, f'{output_prefix}-periodicity.pt')
     torch.save(loudness, f'{output_prefix}-loudness.pt')
-    torch.save(ppgs, f'{output_prefix}-ppg.pt')
+    torch.save(ppg, f'{output_prefix}-ppg.pt')
 
 
 def from_files_to_files(

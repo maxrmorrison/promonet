@@ -556,7 +556,7 @@ def evaluate(directory, step, generator, loader, gpu):
             audio
         ) = (
             item.to(device) for item in (
-                phonemes,
+                phonemes.squeeze(0),
                 pitch,
                 periodicity,
                 loudness,
@@ -707,7 +707,7 @@ def evaluate(directory, step, generator, loader, gpu):
                 )
 
                 # Get ppgs
-                predicted_phonemes = infer_ppgs(shifted, phonemes.shape[2], gpu)
+                predicted_phonemes = infer_ppgs(shifted, phonemes.shape[-1], gpu)
 
                 # Log pitch-shifted audio
                 key = f'shifted-{int(100 * ratio):03d}/{i:02d}'
@@ -805,7 +805,7 @@ def evaluate(directory, step, generator, loader, gpu):
                 # Get ppgs
                 predicted_phonemes = infer_ppgs(
                     stretched,
-                    stretched_phonemes.shape[2],
+                    stretched_phonemes.shape[-1],
                     gpu)
 
                 # Log time-stretched audio
@@ -879,7 +879,7 @@ def evaluate(directory, step, generator, loader, gpu):
                 )
 
                 # Get ppgs
-                predicted_phonemes = infer_ppgs(scaled, phonemes.shape[2], gpu)
+                predicted_phonemes = infer_ppgs(scaled, phonemes.shape[-1], gpu)
 
                 # Log loudness-scaled audio
                 key = f'scaled-{int(ratio * 100):03d}/{i:02d}'

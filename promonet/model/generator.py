@@ -79,7 +79,7 @@ class Generator(torch.nn.Module):
         # Default augmentation ratio is 1
         if ratios is None and promonet.AUGMENT_PITCH:
             ratios = torch.ones(
-                len(phonemes),
+                1 if phonemes.dim() == 2 else len(phonemes),
                 dtype=torch.float,
                 device=phonemes.device)
 
@@ -503,7 +503,7 @@ class Generator(torch.nn.Module):
         periodicity,
         loudness):
         """Scale, concatenate, or replace input features"""
-        features = phonemes
+        features = phonemes if phonemes.dim() == 3 else phonemes[None]
 
         # Maybe add pitch features
         if promonet.PITCH_FEATURES:

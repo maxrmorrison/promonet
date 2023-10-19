@@ -618,10 +618,10 @@ def speaker(
                 grid = promonet.interpolate.grid.of_length(
                     prosody_args[0].shape[-1])
                 predicted_ppgs = promonet.interpolate.ppg(
-                    torch.load(f'{predicted_prefix}-ppg.pt').to(device)[None],
+                    torch.load(f'{predicted_prefix}-ppg.pt').to(device),
                     grid)
                 target_ppgs = promonet.interpolate.ppg(
-                    torch.load(f'{target_prefix}-ppg.pt').to(device)[None],
+                    torch.load(f'{target_prefix}-ppg.pt').to(device),
                     grid)
                 ppg_args = (predicted_ppgs, target_ppgs)
 
