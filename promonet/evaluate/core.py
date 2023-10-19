@@ -284,7 +284,9 @@ def speaker(
         ],
         files['reconstructed'],
         checkpoint=checkpoint,
-        speakers=speakers,
+        speakers=(
+            [0] * len(test_stems) if promonet.ADAPTATION else speakers
+        ),
         gpu=gpu)
 
     # Perform speech editing only on speech editors
@@ -352,7 +354,9 @@ def speaker(
                 ],
                 files[key],
                 checkpoint=checkpoint,
-                speakers=speakers,
+                speakers=(
+                    [0] * len(test_stems) if promonet.ADAPTATION else speakers
+                ),
                 gpu=gpu)
 
         ###################
@@ -373,6 +377,7 @@ def speaker(
                 alignment = pypar.Alignment(file)
 
                 # Interpolate voiced regions
+                # TODO - can we do this with PPGs instead of forced alignment?
                 interpolated = pyfoal.interpolate.voiced(alignment, ratio)
                 grid = promonet.interpolate.grid.from_alignments(
                     alignment,
@@ -415,16 +420,12 @@ def speaker(
                             grid.squeeze(),
                             'nearest')[None]
                     elif feature == 'ppg':
-                        original_feature = original_feature.to(torch.float32)
-                        # TODO - SLERP
-                        mode = promonet.PPG_INTERP_METHOD
-                        original_feature = torch.nn.functional.interpolate(
-                            original_feature[None].to(torch.float32),
-                            size=size,
-                            mode=mode,
-                            align_corners=None if mode == 'nearest' else False
-                        )[0]
-                        stretched_feature = promonet.interpolate.ppgs(
+                        original_feature = promonet.interpolate.ppg(
+                            original_feature.to(torch.float32),
+                            promonet.interpolate.grid.of_length(
+                                original_feature,
+                                size))
+                        stretched_feature = promonet.interpolate.ppg(
                             original_feature.squeeze(),
                             grid.squeeze())
                     elif feature == 'pitch':
@@ -466,7 +467,9 @@ def speaker(
                 ],
                 files[key],
                 checkpoint=checkpoint,
-                speakers=speakers,
+                speakers=(
+                    [0] * len(test_stems) if promonet.ADAPTATION else speakers
+                ),
                 gpu=gpu)
 
         ####################
@@ -527,7 +530,9 @@ def speaker(
                 ],
                 files[key],
                 checkpoint=checkpoint,
-                speakers=speakers,
+                speakers=(
+                    [0] * len(test_stems) if promonet.ADAPTATION else speakers
+                ),
                 gpu=gpu)
 
     ############################
@@ -609,23 +614,15 @@ def speaker(
                     torch.load(f'{predicted_prefix}-phonemes.pt'),
                     torch.load(f'{target_prefix}-phonemes.pt'))
 
-                # Get predicted PPGs
-                # TODO - SLERP
-                size = prosody_args[0].shape[-1]
-                mode = promonet.PPG_INTERP_METHOD
-                predicted_ppgs = torch.nn.functional.interpolate(
+                # Get predicted and target PPGs
+                grid = promonet.interpolate.grid.of_length(
+                    prosody_args[0].shape[-1])
+                predicted_ppgs = promonet.interpolate.ppg(
                     torch.load(f'{predicted_prefix}-ppg.pt').to(device)[None],
-                    size=size,
-                    mode=mode,
-                    align_corners=None if mode == 'nearest' else False)
-
-                # Get target PPGs
-                # TODO - SLERP
-                target_ppgs = torch.nn.functional.interpolate(
+                    grid)
+                target_ppgs = promonet.interpolate.ppg(
                     torch.load(f'{target_prefix}-ppg.pt').to(device)[None],
-                    size=size,
-                    mode=mode,
-                    align_corners=None if mode == 'nearest' else False)
+                    grid)
                 ppg_args = (predicted_ppgs, target_ppgs)
 
                 # Get target text and audio for WER

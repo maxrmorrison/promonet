@@ -90,13 +90,9 @@ def from_file(
     ppg = torch.load(ppg_file, map_location=device)[None]
 
     # Maybe resample length
-    # TODO - SLERP
-    mode = promonet.PPG_INTERP_METHOD
-    ppg = torch.nn.functional.interpolate(
+    ppg = promonet.interpolate.ppg(
         ppg,
-        size=pitch.shape[-1],
-        mode=mode,
-        align_corners=None if mode == 'nearest' else False)
+        promonet.interpolate.grid.of_length(ppg, pitch.shape[-1]))
 
     # Generate
     try:
@@ -156,7 +152,7 @@ def from_files_to_files(
     loudness_files: List[Union[str, os.PathLike]],
     ppg_files: List[Union[str, os.PathLike]],
     output_files: List[Union[str, os.PathLike]],
-    speakers: Optional[List[Union[int, torch.Tensor]]] = None,
+    speakers: Optional[Union[List[int], torch.Tensor]] = None,
     checkpoint: Union[str, os.PathLike] = promonet.DEFAULT_CHECKPOINT,
     gpu: Optional[int] = None):
     """Edit speech on disk and save to disk
@@ -167,7 +163,7 @@ def from_files_to_files(
         loudness_files: The loudness files
         ppg_files: The phonetic posteriorgram files
         output_files: The files to save generated speech audio
-        speaker: The speaker index
+        speakers: The speaker indices
         checkpoint: The generator checkpoint
         gpu: The GPU index
     """

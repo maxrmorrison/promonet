@@ -17,7 +17,7 @@ def from_features(
     if time_stretch_ratio is not None:
 
         # Create time-stretch grid
-        # TODO - make grid based on V/UV in PPGs
+        # TODO - voiced-only interpolation from PPGs
         grid = promonet.interpolate.grid.constant(
             ppgs,
             time_stretch_ratio)
@@ -26,8 +26,7 @@ def from_features(
         pitch = promonet.interpolate.pitch(pitch, grid)
         periodicity = promonet.interpolate.grid_sample(periodicity, grid)
         loudness = promonet.interpolate.grid_sample(loudness, grid)
-        # TODO - SLERP
-        ppgs = promonet.interpolate.ppgs(ppgs, grid)
+        ppgs = promonet.interpolate.ppg(ppgs, grid)
 
     # Maybe pitch-shift
     if pitch_shift_cents is not None:

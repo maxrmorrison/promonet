@@ -28,8 +28,10 @@ DEFAULT_CONFIGURATION = promonet.ASSETS_DIR / 'configs' / 'promonet.py'
 ###############################################################################
 
 
+# Base-2 log of pitch range boundaries
 LOG_FMIN = math.log2(promonet.FMIN)
 LOG_FMAX = math.log2(promonet.FMAX)
+
 
 ###############################################################################
 # Model parameters
