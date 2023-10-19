@@ -3,10 +3,6 @@ import os
 from typing import List, Optional, Union
 from pathlib import Path
 
-import ppgs
-import pyfoal
-import pypar
-import pysodic
 import torch
 import torchutil
 import torchaudio
@@ -20,236 +16,168 @@ import promonet
 ###############################################################################
 
 
-def from_audio(
-    audio: torch.Tensor,
-    sample_rate: int = promonet.SAMPLE_RATE,
-    text: Optional[str] = None,
-    alignment: Optional[pypar.Alignment] = None,
-    target_loudness: Optional[torch.Tensor] = None,
-    target_pitch: Optional[torch.Tensor] = None,
-    target_ppg: Optional[torch.Tensor] = None,
-    speaker_id: Optional[Union[int, torch.Tensor]] = 0,
+def from_features(
+    pitch: torch.Tensor,
+    periodicity: torch.Tensor,
+    loudness: torch.Tensor,
+    ppg: torch.Tensor,
+    speaker: Optional[Union[int, torch.Tensor]] = 0,
     checkpoint: Union[str, os.PathLike] = promonet.DEFAULT_CHECKPOINT,
     gpu: Optional[int] = None) -> torch.Tensor:
     """Perform speech editing
 
     Args:
-        audio: The audio to edit
-        sample_rate: The audio sample rate
-        text: The speech transcript for editing phoneme durations
-        alignment: The pypar alignment for editing phoneme durations
-        target_loudness: The loudness contour for editing loudness
-        target_pitch: The pitch contour for shifting pitch
-        target_ppg: The ppg for editing pronunciation
+        pitch: The pitch contour
+        periodicity: The periodicity contour
+        loudness: The loudness contour
+        ppg: The phonetic posteriorgram
+        speaker: The speaker index
         checkpoint: The generator checkpoint
         gpu: The GPU index
 
     Returns
-        edited: The edited audio
+        generated: The generated speech
     """
-
-    grid = None
-    if alignment is not None:
-        grid = grid_from_alignment(alignment, text, audio, sample_rate, gpu)
-    del alignment #Need to have this to get **locals to work
+    device = torch.device('cpu' if gpu is None else f'cuda:{gpu}')
 
     # Maybe use a baseline method instead
-    if promonet.MODEL == 'psola':
-        with torchutil.time.context('generate'):
-            return promonet.baseline.psola.from_audio(**locals())
-    elif promonet.MODEL == 'world':
-        with torchutil.time.context('generate'):
-            return promonet.baseline.world.from_audio(**locals())
-
-    # Preprocess
-    with torchutil.time.context('preprocess'):
-        (
-            features,
-            target_pitch,
-            periodicity,
-            target_loudness,
-            spectrograms
-        ) = preprocess(
-            audio,
-            sample_rate,
-            text,
-            grid,
-            target_loudness,
-            target_pitch,
-            target_ppg,
-            gpu)
+    # TODO
+    # if promonet.MODEL == 'psola':
+    #     with torchutil.time.context('generate'):
+    #         return promonet.baseline.psola.from_features(**locals())
+    # elif promonet.MODEL == 'world':
+    #     with torchutil.time.context('generate'):
+    #         return promonet.baseline.world.from_features(**locals())
 
     # Generate
     return generate(
-        features,
-        target_pitch,
-        periodicity,
-        target_loudness,
-        spectrograms,
-        speaker_id,
+        pitch.to(device),
+        periodicity.to(device),
+        loudness.to(device),
+        ppg.to(device),
+        speaker,
         checkpoint)
 
 
 def from_file(
-    audio_file: Union[str, os.PathLike],
-    text_file: Optional[Union[str, os.PathLike]] = None,
-    alignment_file: Optional[Union[str, os.PathLike]] = None,
-    target_loudness_file: Optional[Union[str, os.PathLike]] = None,
-    target_pitch_file: Optional[Union[str, os.PathLike]] = None,
-    target_ppg_file: Optional[Union[str, os.PathLike]] = None,
-    speaker_id: Optional[Union[int, torch.Tensor]] = 0,
+    pitch_file: Union[str, os.PathLike],
+    periodicity_file: Union[str, os.PathLike],
+    loudness_file: Union[str, os.PathLike],
+    ppg_file: Union[str, os.PathLike],
+    speaker: Optional[Union[int, torch.Tensor]] = 0,
     checkpoint: Union[str, os.PathLike] = promonet.DEFAULT_CHECKPOINT,
     gpu: Optional[int] = None) -> torch.Tensor:
     """Edit speech on disk
 
     Args:
-        audio_file: The audio to edit
-        text_file: The speech transcript for editing phoneme durations
-        alignment_file: The pypar alignment file for editing phoneme durations
-        target_loudness_file: The loudness contour for editing loudness
-        target_pitch_file: The pitch contour for shifting pitch
-        target_ppg_file: The ppg for editing pronunciation
+        pitch_file: The pitch file
+        periodicity_file: The periodicity file
+        loudness_file: The loudness file
+        ppg_file: The phonetic posteriorgram file
+        speaker: The speaker index
         checkpoint: The generator checkpoint
         gpu: The GPU index
 
     Returns
-        edited: The edited audio
+        generated: The generated speech
     """
     device = torch.device('cpu' if gpu is None else f'cuda:{gpu}')
 
-    # Load audio
-    audio = promonet.load.audio(audio_file)
+    # Load features
+    pitch = torch.load(pitch_file, map_location=device)
+    periodicity = torch.load(periodicity_file, map_location=device)
+    loudness = torch.load(loudness_file, map_location=device)
+    ppg = torch.load(ppg_file, map_location=device)[None]
 
-    # Load text
-    if text_file is None:
-        text = None
-    else:
-        text = promonet.load.text(text_file)
-
-    # Load alignment
-    if alignment_file is None:
-        alignment = None
-    else:
-        alignment = pypar.Alignment(alignment_file)
-
-    # Load loudness
-    if target_loudness_file is None:
-        loudness = None
-    else:
-        loudness = torch.load(target_loudness_file, map_location=device)
-
-    # Load pitch
-    if target_pitch_file is None:
-        pitch = None
-    else:
-        try:
-            pitch = torch.load(target_pitch_file, map_location=device)
-        except:
-            raise ValueError(target_pitch_file)
-
-    if target_ppg_file is None:
-        ppg = None
-    else:
-        ppg = torch.load(target_ppg_file, map_location=device)
+    # Maybe resample length
+    ppg = promonet.interpolate.ppg(
+        ppg,
+        promonet.interpolate.grid.of_length(ppg, pitch.shape[-1]))
 
     # Generate
-    return from_audio(
-        audio,
-        promonet.SAMPLE_RATE,
-        text,
-        alignment,
-        loudness,
-        pitch,
-        ppg,
-        speaker_id,
-        checkpoint,
-        gpu)
+    try:
+        return from_features(
+            pitch,
+            periodicity,
+            loudness,
+            ppg,
+            speaker,
+            checkpoint,
+            gpu)
+    except Exception:
+        import pdb; pdb.set_trace()
+        pass
 
 
 def from_file_to_file(
-    audio_file: Union[str, os.PathLike],
+    pitch_file: Union[str, os.PathLike],
+    periodicity_file: Union[str, os.PathLike],
+    loudness_file: Union[str, os.PathLike],
+    ppg_file: Union[str, os.PathLike],
     output_file: Union[str, os.PathLike],
-    text_file: Optional[Union[str, os.PathLike]] = None,
-    alignment_file: Optional[Union[str, os.PathLike]] = None,
-    target_loudness_file: Optional[Union[str, os.PathLike]] = None,
-    target_pitch_file: Optional[Union[str, os.PathLike]] = None,
-    target_ppg_file: Optional[Union[str, os.PathLike]] = None,
-    speaker_id: Optional[Union[int, torch.Tensor]] = 0,
+    speaker: Optional[Union[int, torch.Tensor]] = 0,
     checkpoint: Union[str, os.PathLike] = promonet.DEFAULT_CHECKPOINT,
     gpu: Optional[int] = None):
     """Edit speech on disk and save to disk
 
     Args:
-        audio_file: The audio to edit
-        output_file: The file to save the edited audio
-        text_file: The speech transcript for editing phoneme durations
-        alignment_file: The pypar alignment file for editing phoneme durations
-        target_loudness_file: The loudness contour for editing loudness
-        target_pitch_file: The pitch contour for shifting pitch
+        pitch_file: The pitch file
+        periodicity_file: The periodicity file
+        loudness_file: The loudness file
+        ppg_file: The phonetic posteriorgram file
+        output_file: The file to save generated speech audio
+        speaker: The speaker index
         checkpoint: The generator checkpoint
         gpu: The GPU index
     """
+    # Generate
     generated = from_file(
-        audio_file,
-        text_file,
-        alignment_file,
-        target_loudness_file,
-        target_pitch_file,
-        target_ppg_file,
-        speaker_id,
+        pitch_file,
+        periodicity_file,
+        loudness_file,
+        ppg_file,
+        speaker,
         checkpoint,
-        gpu).to(device='cpu', dtype=torch.float32)
+        gpu
+    ).to(device='cpu', dtype=torch.float32)
+
+    # Save
     output_file.parent.mkdir(exist_ok=True, parents=True)
     torchaudio.save(output_file, generated, promonet.SAMPLE_RATE)
 
 
 def from_files_to_files(
-    audio_files: List[Union[str, os.PathLike]],
+    pitch_files: List[Union[str, os.PathLike]],
+    periodicity_files: List[Union[str, os.PathLike]],
+    loudness_files: List[Union[str, os.PathLike]],
+    ppg_files: List[Union[str, os.PathLike]],
     output_files: List[Union[str, os.PathLike]],
-    text_files: Optional[List[Union[str, os.PathLike]]] = None,
-    alignment_files: Optional[List[Union[str, os.PathLike]]] = None,
-    target_loudness_files: Optional[List[Union[str, os.PathLike]]] = None,
-    target_pitch_files: Optional[List[Union[str, os.PathLike]]] = None,
-    target_ppg_files: Optional[List[Union[str, os.PathLike]]] = None,
-    speaker_ids: Optional[List[Union[int, torch.Tensor]]] = None,
+    speakers: Optional[Union[List[int], torch.Tensor]] = None,
     checkpoint: Union[str, os.PathLike] = promonet.DEFAULT_CHECKPOINT,
     gpu: Optional[int] = None):
     """Edit speech on disk and save to disk
 
     Args:
-        audio_files: The audio to edit
-        output_files: The files to save the edited audio
-        text_files: The speech transcripts for editing phoneme durations
-        alignment_files: The alignment files for editing phoneme durations
-        target_loudness_files: The loudness contours for editing loudness
-        target_pitch_files: The pitch contours for shifting pitch
+        pitch_files: The pitch files
+        periodicity_files: The periodicity files
+        loudness_files: The loudness files
+        ppg_files: The phonetic posteriorgram files
+        output_files: The files to save generated speech audio
+        speakers: The speaker indices
         checkpoint: The generator checkpoint
         gpu: The GPU index
     """
-    # Handle None arguments
-    if alignment_files is None:
-        alignment_files = [None] * len(audio_files)
-    if text_files is None:
-        text_files = [None] * len(audio_files)
-    if target_loudness_files is None:
-        target_loudness_files = [None] * len(audio_files)
-    if target_pitch_files is None:
-        target_pitch_files = [None] * len(audio_files)
-    if target_ppg_files is None:
-        target_ppg_files = [None] * len(audio_files)
-    if speaker_ids is None:
-        speaker_ids = [0] * len(audio_files)
+    if speakers is None:
+        speakers = [0] * len(pitch_files)
 
-    # Perform prosody editing
+    # Generate
     iterator = zip(
-        audio_files,
+        pitch_files,
+        periodicity_files,
+        loudness_files,
+        ppg_files,
         output_files,
-        text_files,
-        alignment_files,
-        target_loudness_files,
-        target_pitch_files,
-        target_ppg_files,
-        speaker_ids)
+        speakers)
     for item in iterator:
         from_file_to_file(*item, checkpoint=checkpoint, gpu=gpu)
 
@@ -260,15 +188,14 @@ def from_files_to_files(
 
 
 def generate(
-    features,
     pitch,
     periodicity,
     loudness,
-    spectrograms,
-    speaker_id = 0,
+    ppg,
+    speaker=0,
     checkpoint=promonet.DEFAULT_CHECKPOINT):
     """Generate speech from phoneme and prosody features"""
-    device = features.device
+    device = pitch.device
 
     with torchutil.time.context('load'):
 
@@ -287,133 +214,26 @@ def generate(
 
         # Default length is the entire sequence
         lengths = torch.tensor(
-            (features.shape[-1],),
+            (pitch.shape[-1],),
             dtype=torch.long,
             device=device)
 
-        speakers = torch.full((1,), speaker_id, dtype=torch.long, device=device)
+        # Specify speaker
+        speakers = torch.full(
+            (1,),
+            speaker,
+            dtype=torch.long,
+            device=device)
 
         # Generate
         with generation_context(generate.model):
             return generate.model(
-                features,
+                ppg,
                 pitch,
                 periodicity,
                 loudness,
                 lengths,
-                speakers,
-                spectrograms=spectrograms)[0][0].cpu()
-
-def grid_from_alignment(
-    alignment,
-    text,
-    audio,
-    sample_rate,
-    gpu):
-
-    source_align = pyfoal.from_text_and_audio(text, audio, sample_rate, 'p2fa', gpu=gpu)
-    grid = promonet.interpolate.grid.from_alignments(source_align, alignment).to(device=gpu)
-    return grid
-
-def preprocess(
-    audio,
-    sample_rate=promonet.SAMPLE_RATE,
-    text=None,
-    grid=None,
-    target_loudness=None,
-    target_pitch=None,
-    target_ppg=None,
-    gpu=None):
-    device = torch.device('cpu' if gpu is None else f'cuda:{gpu}')
-
-    # Maybe resample
-    audio = resample(audio, sample_rate)
-
-    if promonet.MODEL == 'vits':
-
-        # Grapheme-to-phoneme
-        _, features = pyfoal.g2p.from_text(text, to_indices=True)
-        target_pitch, periodicity, target_loudness = None, None, None
-
-    else:
-
-        # Extract prosody features
-        pitch, periodicity, loudness, _ = \
-            pysodic.from_audio(
-                audio,
-                promonet.SAMPLE_RATE,
-                promonet.HOPSIZE / promonet.SAMPLE_RATE,
-                promonet.WINDOW_SIZE / promonet.SAMPLE_RATE,
-                gpu=gpu)
-
-        # Maybe interpolate pitch
-        if target_pitch is None:
-            if grid is not None:
-                pitch = promonet.interpolate.pitch(pitch, grid)
-            target_pitch = pitch
-
-        # Maybe interpolate periodicity
-        if grid is not None:
-            periodicity = promonet.interpolate.grid_sample(
-                periodicity,
-                grid)
-
-        # Maybe interpolate loudness
-        if target_loudness is None:
-            if grid is not None:
-                loudness = promonet.interpolate.grid_sample(
-                    loudness,
-                    grid)
-            target_loudness = loudness
-
-        # Phonetic posteriorgrams
-        if target_ppg is None:
-            features = ppgs.from_audio(
-                audio,
-                sample_rate,
-                gpu=gpu
-            ).squeeze(dim=0)
-        else:
-            features = target_ppg
-            if promonet.PPG_MODEL is not None and 'ppg' not in promonet.PPG_MODEL \
-                  and ppgs.FRONTEND is not None:
-                if not hasattr(preprocess, 'frontend'):
-                    preprocess.frontend = ppgs.FRONTEND(features.device)
-                with torch.no_grad():
-                    features = preprocess.frontend(features[None]).squeeze(dim=0)
-
-        # Maybe resample length
-        frames = promonet.convert.samples_to_frames(audio.shape[1])
-        if features.shape[1] != frames:
-            align_corners = \
-                None if promonet.PPG_INTERP_METHOD == 'nearest' else False
-            features = torch.nn.functional.interpolate(
-                features[None],
-                size=frames,
-                mode=promonet.PPG_INTERP_METHOD,
-                align_corners=align_corners)[0]
-
-        # Maybe stretch PPGs
-        if grid is not None:
-            features = promonet.interpolate.ppgs(features, grid)
-
-    features = features.to(device)[None]
-
-    if promonet.MODEL == 'hifigan':
-
-        # Compute spectrogram
-        spectrograms = promonet.data.preprocess.spectrogram.from_audio(
-            audio
-        )[None].to(device)
-
-        # Maybe stretch spectrogram
-        if grid is not None:
-            spectrograms = promonet.interpolate.grid_sample(spectrograms, grid)
-
-    else:
-        spectrograms = None
-
-    return features, target_pitch, periodicity, target_loudness, spectrograms
+                speakers)[0][0].cpu()
 
 
 ###############################################################################

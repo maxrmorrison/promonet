@@ -33,7 +33,7 @@ class DiscriminatorP(torch.nn.Module):
         loudness=None,
         phonemes=None):
         # Maybe add pitch conditioning
-        if promonet.DISCRIM_PITCH_CONDITION:
+        if promonet.CONDITION_DISCRIM:
             pitch = torch.nn.functional.interpolate(
                 torch.log2(pitch)[:, None],
                 scale_factor=promonet.HOPSIZE,
@@ -42,7 +42,7 @@ class DiscriminatorP(torch.nn.Module):
             x = torch.cat((x, pitch), dim=1)
 
         # Maybe add periodicity conditioning
-        if promonet.DISCRIM_PERIODICITY_CONDITION:
+        if promonet.CONDITION_DISCRIM:
             periodicity = torch.nn.functional.interpolate(
                 periodicity[:, None],
                 scale_factor=promonet.HOPSIZE,
@@ -51,7 +51,7 @@ class DiscriminatorP(torch.nn.Module):
             x = torch.cat((x, periodicity), dim=1)
 
         # Maybe add loudness conditioning
-        if promonet.DISCRIM_LOUDNESS_CONDITION:
+        if promonet.CONDITION_DISCRIM:
             loudness = promonet.loudness.normalize(loudness)
             loudness = torch.nn.functional.interpolate(
                 loudness[:, None],
@@ -61,7 +61,7 @@ class DiscriminatorP(torch.nn.Module):
             x = torch.cat((x, loudness), dim=1)
 
         # Maybe add ppg conditioning
-        if promonet.DISCRIM_PHONEME_CONDITION:
+        if promonet.CONDITION_DISCRIM:
             phonemes = torch.nn.functional.interpolate(
                 phonemes,
                 scale_factor=promonet.HOPSIZE,
@@ -117,7 +117,7 @@ class DiscriminatorR(torch.nn.Module):
         features = self.spectrogram(audio)
 
         # Maybe add pitch conditioning
-        if promonet.DISCRIM_PITCH_CONDITION:
+        if promonet.CONDITION_DISCRIM:
             pitch = torch.nn.functional.interpolate(
                 torch.log2(pitch)[:, None],
                 size=features.shape[-1],
@@ -126,7 +126,7 @@ class DiscriminatorR(torch.nn.Module):
             features = torch.cat((features, pitch[:, None]), dim=2)
 
         # Maybe add periodicity conditioning
-        if promonet.DISCRIM_PERIODICITY_CONDITION:
+        if promonet.CONDITION_DISCRIM:
             periodicity = torch.nn.functional.interpolate(
                 periodicity[:, None],
                 size=features.shape[-1],
@@ -135,7 +135,7 @@ class DiscriminatorR(torch.nn.Module):
             features = torch.cat((features, periodicity[:, None]), dim=2)
 
         # Maybe add loudness conditioning
-        if promonet.DISCRIM_LOUDNESS_CONDITION:
+        if promonet.CONDITION_DISCRIM:
             loudness = promonet.loudness.normalize(loudness)
             loudness = torch.nn.functional.interpolate(
                 loudness[:, None],
@@ -145,7 +145,7 @@ class DiscriminatorR(torch.nn.Module):
             features = torch.cat((features, loudness[:, None]), dim=2)
 
         # Maybe add ppg conditioning
-        if promonet.DISCRIM_PHONEME_CONDITION:
+        if promonet.CONDITION_DISCRIM:
             phonemes = torch.nn.functional.interpolate(
                 phonemes,
                 size=features.shape[-1],
@@ -207,7 +207,7 @@ class DiscriminatorS(torch.nn.Module):
         loudness=None,
         phonemes=None):
         # Maybe add pitch conditioning
-        if promonet.DISCRIM_PITCH_CONDITION:
+        if promonet.CONDITION_DISCRIM:
             pitch = torch.nn.functional.interpolate(
                 torch.log2(pitch)[:, None],
                 scale_factor=promonet.HOPSIZE,
@@ -216,7 +216,7 @@ class DiscriminatorS(torch.nn.Module):
             x = torch.cat((x, pitch), dim=1)
 
         # Maybe add periodicity conditioning
-        if promonet.DISCRIM_PERIODICITY_CONDITION:
+        if promonet.CONDITION_DISCRIM:
             periodicity = torch.nn.functional.interpolate(
                 periodicity[:, None],
                 scale_factor=promonet.HOPSIZE,
@@ -225,7 +225,7 @@ class DiscriminatorS(torch.nn.Module):
             x = torch.cat((x, periodicity), dim=1)
 
         # Maybe add loudness conditioning
-        if promonet.DISCRIM_LOUDNESS_CONDITION:
+        if promonet.CONDITION_DISCRIM:
             loudness = promonet.loudness.normalize(loudness)
             loudness = torch.nn.functional.interpolate(
                 loudness[:, None],
@@ -235,7 +235,7 @@ class DiscriminatorS(torch.nn.Module):
             x = torch.cat((x, loudness), dim=1)
 
         # Maybe add ppg conditioning
-        if promonet.DISCRIM_PHONEME_CONDITION:
+        if promonet.CONDITION_DISCRIM:
             phonemes = torch.nn.functional.interpolate(
                 phonemes,
                 scale_factor=promonet.HOPSIZE,
