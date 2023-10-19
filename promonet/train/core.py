@@ -931,18 +931,13 @@ def evaluate(directory, step, generator, loader, gpu):
 
 def infer_ppgs(audio, size, gpu=None):
     """Extract aligned PPGs"""
-    predicted_phonemes = ppgs.from_audio(
+    ppg = ppgs.from_audio(
         audio[0],
         sample_rate=promonet.SAMPLE_RATE,
         gpu=gpu)
-    if predicted_phonemes.dim() == 2:
-        predicted_phonemes = predicted_phonemes[None]
+    if ppg.dim() == 2:
+        ppg = ppg[None]
 
     # Maybe resample length
-    # TODO - SLERP
-    mode = promonet.PPG_INTERP_METHOD
-    return torch.nn.functional.interpolate(
-        predicted_phonemes,
-        size=size,
-        mode=mode,
-        align_corners=None if mode == 'nearest' else False)
+    grid = promonet.interpolate.grid.of_length(ppg, size)
+    return promonet.interpolate.ppg(ppg, grid)

@@ -126,8 +126,7 @@ PPG_CHANNELS = 40
 PPG_FEATURES = False
 
 # Type of interpolation method to use to scale PPG features
-# Available method are ['nearest', 'linear']
-# TODO - replace with SLERP and remove this variable
+# Available method are ['linear', 'nearest', 'slerp']
 PPG_INTERP_METHOD = 'nearest'
 
 # Seed for all random number generators

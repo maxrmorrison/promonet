@@ -20,3 +20,8 @@ def from_alignments(source, target):
         target,
         sample_rate=promonet.SAMPLE_RATE,
         hopsize=promonet.HOPSIZE)
+
+
+def of_length(tensor, length):
+    """Create time-stretch grid of a specified length"""
+    return ppgs.edit.grid.of_length(tensor, length)
