@@ -16,9 +16,19 @@ Official code for the paper _Adaptive Neural Speech Editing_
 
 - [Installation](#installation)
 - [Usage](#usage)
-    * [Example](#example)
-    * [Adaptation](#adaptation)
-    * [Generation](#generation)
+- [Application programming interface (API)](#application-programming-interface-api)
+    * [Adaptation API](#adaptation-api)
+        * [`promonet.adapt.speaker`](#promonetadaptspeaker)
+    * [Generation API](#generation-api)
+        * [`promonet.from_features`](#promonetfrom_features)
+        * [`promonet.from_file`](#promonetfrom_file)
+        * [`promonet.from_file_to_file`](#promonetfrom_file_to_file)
+        * [`promonet.from_files_to_files`](#promonetfrom_files_to_files)
+- [Command-line interface (CLI)](#command-line-interface-cli)
+    * [Adaptation CLI](#adaptation-cli)
+        * [`promonet.adapt`](#promonetadapt)
+    * [Generation CLI](#generation-cli)
+        * [`promonet`](#promonet)
 - [Training](#training)
     * [Download](#download)
     * [Preprocess](#preprocess)
@@ -36,17 +46,12 @@ Official code for the paper _Adaptive Neural Speech Editing_
 
 ## Usage
 
-### Example
-
 To use `promonet` for speech editing, you must first perform speaker
 adaptation on a dataset of recordings of the target speaker. You can then use
 the resulting model checkpoint to perform speech editing in the target
 speaker's voice. All of this can be done using either the API or CLI.
 
-
-#### Application programming interface (API)
-
-```
+```python
 import promonet
 
 
@@ -61,11 +66,8 @@ name = 'max'
 # Audio files for adaptation
 files = [...]
 
-# GPU indices to use for training
-gpus = [0]
-
 # Perform speaker adaptation
-checkpoint = promonet.adapt.speaker(name, files, gpus=gpus)
+checkpoint = promonet.adapt.speaker(name, files)
 
 
 ###############################################################################
@@ -76,121 +78,71 @@ checkpoint = promonet.adapt.speaker(name, files, gpus=gpus)
 # Load audio for prosody editing
 audio = promonet.load.audio('test.wav')
 
-# Get prosody features to edit
-pitch, loudness = promonet.preprocess(audio, gpu=gpus[0])
+# GPU index to perform editing on
+gpu = 0
 
-# (Optional) If you have the text transcript, you can edit phoneme
-#            durations using a forced alignment representation
-pitch, loudness, alignment = promonet.preprocess(
-    audio,
-    text=promonet.load.text('test.txt'),
-    gpu=gpus[0])
+# Get prosody features to edit
+pitch, periodicity, loudness, ppg = promonet.preprocess(
+    audio.to(f'cuda:{gpu}'))
 
 # We'll use a ratio of 2.0 for all prosody editing examples
 ratio = 2.0
 
 # Perform pitch-shifting
-shifted = promonet.from_audio(
-    audio,
-    target_pitch=ratio * pitch,
+shifted = promonet.from_features(
+    *promonet.edit.from_features(
+        pitch,
+        periodicity,
+        loudness,
+        ppg,
+        pitch_shift_cents=promonet.convert.ratio_to_cents(ratio)),
     checkpoint=checkpoint,
-    gpu=gpus[0])
+    gpu=gpu)
 
 # Perform time-stretching
-stretched = promonet.from_audio(
-    audio,
-    grid=promonet.interpolate.grid.constant(pitch, ratio),
+stretched = promonet.from_features(
+    *promonet.edit.from_features(
+        pitch,
+        periodicity,
+        loudness,
+        ppg,
+        time_stretch_ratio=ratio),
     checkpoint=checkpoint,
-    gpu=gpus[0])
+    gpu=gpu)
 
 # Perform loudness-scaling
 scaled = promonet.from_audio(
-    audio,
-    target_loudness=10 * math.log2(ratio) + loudness,
+    *promonet.edit.from_features(
+        pitch,
+        periodicity,
+        loudness,
+        ppg,
+        loudness_scale_db=promonet.convert.ratio_to_db(ratio)),
     checkpoint=checkpoint,
-    gpu=gpus[0])
+    gpu=gpu)
 ```
 
 
-#### Command-line interface (CLI)
+## Application programming interface (API)
 
-```
-###############################################################################
-# Speaker adaptation
-###############################################################################
+### Adaptation API
 
+#### `promonet.adapt.speaker`
 
-# Adapt the base model defined by the configuration and checkpoint to speaker
-# <name> using a list of audio files and the indicated GPUs
-python -m promonet.adapt \
-    --config <config> \
-    --name <name> \
-    --files <files> \
-    --checkpoint <checkpoint> \
-    --gpus <gpus>
-
-
-###############################################################################
-# Speech editing
-###############################################################################
-
-
-# Perform reconstruction
-python -m promonet \
-    --config <config> \
-    --audio_files <audio_files> \
-    --output_files <output_files> \
-    --checkpoint <checkpoint> \
-    --gpu <gpu>
-
-# Perform pitch-shifting
-python -m promonet \
-    --config <config> \
-    --audio_files <audio_files> \
-    --output_files <output_files> \
-    --target_pitch_files <target_pitch_files> \
-    --checkpoint <checkpoint> \
-    --gpu <gpu>
-
-# Perform time-stretching
-python -m promonet \
-    --config <config> \
-    --audio_files <audio_files> \
-    --output_files <output_files> \
-    --alignment_files <alignment_files> \
-    --checkpoint <checkpoint> \
-    --gpu <gpu>
-
-# Perform loudness-scaling
-python -m promonet \
-    --config <config> \
-    --audio_files <audio_files> \
-    --output_files <output_files> \
-    --target_loudness_files <target_loudness_files> \
-    --checkpoint <checkpoint> \
-    --gpu <gpu>
-```
-
-
-### Adaptation
-
-#### Application programming interface (API)
-
-##### `promonet.adapt.speaker`
-
-```
+```python
 def speaker(
     name: str,
     files: List[Path],
     checkpoint: Path = promonet.DEFAULT_CHECKPOINT,
-    gpus: Optional[int] = None) -> Path:
+    gpu: Optional[int] = None
+) -> Path:
     """Perform speaker adaptation
 
     Args:
         name: The name of the speaker
         files: The audio files to use for adaptation
         checkpoint: The model checkpoint
-        gpus: The gpus to run adaptation on
+        gpu: The gpu to run adaptation on
 
     Returns:
         checkpoint: The file containing the trained generator checkpoint
@@ -198,111 +150,87 @@ def speaker(
 ```
 
 
-#### Command-line interface (CLI)
+### Generation API
 
-```
-python -m promonet.adapt \
-    [-h] \
-    [--config CONFIG] \
-    --name NAME \
-    --files FILES \
-    [--checkpoint CHECKPOINT] \
-    [--gpus GPUS [GPUS ...]]
+##### `promonet.from_features`
 
-Perform speaker adaptation
-
-  -h, --help               show this help message and exit
-  --config CONFIG          The configuration file
-  --name NAME              The name of the speaker
-  --files FILES            The audio files to use for adaptation
-  --checkpoint CHECKPOINT  The model checkpoint
-  --gpus GPUS [GPUS ...]   The gpus to run adaptation on
-```
-
-
-### Generation
-
-#### Application programming interface (API)
-
-##### `promonet.from_audio`
-
-```
-def from_audio(
-    audio: torch.Tensor,
-    sample_rate: int = promonet.SAMPLE_RATE,
-    text: Optional[str] = None,
-    alignment: Optional[pypar.Alignment] = None,
-    target_loudness: Optional[torch.Tensor] = None,
-    target_pitch: Optional[torch.Tensor] = None,
+```python
+def from_features(
+    pitch: torch.Tensor,
+    periodicity: torch.Tensor,
+    loudness: torch.Tensor,
+    ppg: torch.Tensor,
+    speaker: Optional[Union[int, torch.Tensor]] = 0,
     checkpoint: Union[str, os.PathLike] = promonet.DEFAULT_CHECKPOINT,
     gpu: Optional[int] = None) -> torch.Tensor:
     """Perform speech editing
 
     Args:
-        audio: The audio to edit
-        sample_rate: The audio sample rate
-        text: The speech transcript for editing phoneme durations
-        alignment: The pypar alignment for editing phoneme durations
-        target_loudness: The loudness contour for editing loudness
-        target_pitch: The pitch contour for shifting pitch
+        pitch: The pitch contour
+        periodicity: The periodicity contour
+        loudness: The loudness contour
+        ppg: The phonetic posteriorgram
+        speaker: The speaker index
         checkpoint: The generator checkpoint
         gpu: The GPU index
 
     Returns
-        edited: The edited audio
+        generated: The generated speech
     """
 ```
 
 
 ##### `promonet.from_file`
 
-```
+```python
 def from_file(
-    audio_file: Union[str, os.PathLike],
-    text_file: Optional[Union[str, os.PathLike]] = None,
-    alignment_file: Optional[Union[str, os.PathLike]] = None,
-    target_loudness_file: Optional[Union[str, os.PathLike]] = None,
-    target_pitch_file: Optional[Union[str, os.PathLike]] = None,
+    pitch_file: Union[str, os.PathLike],
+    periodicity_file: Union[str, os.PathLike],
+    loudness_file: Union[str, os.PathLike],
+    ppg_file: Union[str, os.PathLike],
+    speaker: Optional[Union[int, torch.Tensor]] = 0,
     checkpoint: Union[str, os.PathLike] = promonet.DEFAULT_CHECKPOINT,
-    gpu: Optional[int] = None) -> torch.Tensor:
+    gpu: Optional[int] = None
+) -> torch.Tensor:
     """Edit speech on disk
 
     Args:
-        audio_file: The audio to edit
-        text_file: The speech transcript for editing phoneme durations
-        alignment_file: The pypar alignment file for editing phoneme durations
-        target_loudness_file: The loudness contour for editing loudness
-        target_pitch_file: The pitch contour for shifting pitch
+        pitch_file: The pitch file
+        periodicity_file: The periodicity file
+        loudness_file: The loudness file
+        ppg_file: The phonetic posteriorgram file
+        speaker: The speaker index
         checkpoint: The generator checkpoint
         gpu: The GPU index
 
     Returns
-        edited: The edited audio
+        generated: The generated speech
     """
 ```
 
 
 ##### `promonet.from_file_to_file`
 
-```
+```python
 def from_file_to_file(
-    audio_file: Union[str, os.PathLike],
+    pitch_file: Union[str, os.PathLike],
+    periodicity_file: Union[str, os.PathLike],
+    loudness_file: Union[str, os.PathLike],
+    ppg_file: Union[str, os.PathLike],
     output_file: Union[str, os.PathLike],
-    text_file: Optional[Union[str, os.PathLike]] = None,
-    alignment_file: Optional[Union[str, os.PathLike]] = None,
-    target_loudness_file: Optional[Union[str, os.PathLike]] = None,
-    target_pitch_file: Optional[Union[str, os.PathLike]] = None,
+    speaker: Optional[Union[int, torch.Tensor]] = 0,
     checkpoint: Union[str, os.PathLike] = promonet.DEFAULT_CHECKPOINT,
-    gpu: Optional[int] = None):
+    gpu: Optional[int] = None
+) -> None:
     """Edit speech on disk and save to disk
 
     Args:
-        audio_file: The audio to edit
-        output_file: The file to save the edited audio
-        text_file: The speech transcript for editing phoneme durations
-        alignment_file: The pypar alignment file for editing phoneme durations
-        target_loudness_file: The loudness contour for editing loudness
-        target_pitch_file: The pitch contour for shifting pitch
+        pitch_file: The pitch file
+        periodicity_file: The periodicity file
+        loudness_file: The loudness file
+        ppg_file: The phonetic posteriorgram file
+        output_file: The file to save generated speech audio
+        speaker: The speaker index
         checkpoint: The generator checkpoint
         gpu: The GPU index
     """
@@ -311,65 +239,101 @@ def from_file_to_file(
 
 ##### `promonet.from_files_to_files`
 
-```
+```python
 def from_files_to_files(
-    audio_files: List[Union[str, os.PathLike]],
+    pitch_files: List[Union[str, os.PathLike]],
+    periodicity_files: List[Union[str, os.PathLike]],
+    loudness_files: List[Union[str, os.PathLike]],
+    ppg_files: List[Union[str, os.PathLike]],
     output_files: List[Union[str, os.PathLike]],
-    text_files: Optional[List[Union[str, os.PathLike]]] = None,
-    alignment_files: Optional[List[Union[str, os.PathLike]]] = None,
-    target_loudness_files: Optional[List[Union[str, os.PathLike]]] = None,
-    target_pitch_files: Optional[List[Union[str, os.PathLike]]] = None,
+    speakers: Optional[Union[List[int], torch.Tensor]] = None,
     checkpoint: Union[str, os.PathLike] = promonet.DEFAULT_CHECKPOINT,
-    gpu: Optional[int] = None):
+    gpu: Optional[int] = None
+) -> None:
     """Edit speech on disk and save to disk
 
     Args:
-        audio_files: The audio to edit
-        output_files: The files to save the edited audio
-        text_files: The speech transcripts for editing phoneme durations
-        alignment_files: The alignment files for editing phoneme durations
-        target_loudness_files: The loudness contours for editing loudness
-        target_pitch_files: The pitch contours for shifting pitch
+        pitch_files: The pitch files
+        periodicity_files: The periodicity files
+        loudness_files: The loudness files
+        ppg_files: The phonetic posteriorgram files
+        output_files: The files to save generated speech audio
+        speakers: The speaker indices
         checkpoint: The generator checkpoint
         gpu: The GPU index
     """
 ```
 
 
-#### Command-line interface (CLI)
+## Command-line interface (CLI)
+
+### Adaptation CLI
+
+#### `promonet.adapt`
+
+```
+python -m promonet.adapt \
+    --name NAME \
+    --files FILES \
+    [--checkpoint CHECKPOINT] \
+    [--gpu GPU]
+
+Perform speaker adaptation
+
+arguments:
+  --name NAME
+    The name of the speaker
+  --files FILES
+    The audio files to use for adaptation
+
+optional arguments:
+  -h, --help
+    show this help message and exit
+  --checkpoint CHECKPOINT
+    The model checkpoint
+  --gpu GPU
+    The gpu to run adaptation on
+```
+
+
+### Generation CLI
+
+#### `promonet`
 
 ```
 python -m promonet \
-    [-h] \
-    [--config CONFIG] \
-    --audio_files AUDIO_FILES [AUDIO_FILES ...] \
+    --pitch_files PITCH_FILES [PITCH_FILES ...] \
+    --periodicity_files PERIODICITY_FILES [PERIODICITY_FILES ...] \
+    --loudness_files LOUDNESS_FILES [LOUDNESS_FILES ...] \
+    --ppg_files PPG_FILES [PPG_FILES ...] \
     --output_files OUTPUT_FILES [OUTPUT_FILES ...] \
-    [--alignment_files ALIGNMENT_FILES [ALIGNMENT_FILES ...]] \
-    [--target_loudness_files TARGET_LOUDNESS_FILES [TARGET_LOUDNESS_FILES ...]] \
-    [--target_pitch_files TARGET_PITCH_FILES [TARGET_PITCH_FILES ...]] \
+    [--speakers SPEAKERS [SPEAKERS ...]] \
     [--checkpoint CHECKPOINT] \
     [--gpu GPU]
 
 Perform speech editing
 
-    -h, --help
-        show this help message and exit
-    --config CONFIG
-        The configuration file
-    --audio_files AUDIO_FILES [AUDIO_FILES ...]
-        The audio to edit
-    --output_files OUTPUT_FILES [OUTPUT_FILES ...]
-        The files to save the edited audio
-    --alignment_files ALIGNMENT_FILES [ALIGNMENT_FILES ...]
-        The alignment files for editing phoneme durations
-    --target_loudness_files TARGET_LOUDNESS_FILES [TARGET_LOUDNESS_FILES ...]
-        The loudness contours for editing loudness
-    --target_pitch_files TARGET_PITCH_FILES [TARGET_PITCH_FILES ...]
-        The pitch contours for shifting pitch
-    --checkpoint CHECKPOINT
-        The generator checkpoint
-    --gpu GPU
-        The GPU index
+arguments:
+  --pitch_files PITCH_FILES [PITCH_FILES ...]
+    The pitch files
+  --periodicity_files PERIODICITY_FILES [PERIODICITY_FILES ...]
+    The periodicity files
+  --loudness_files LOUDNESS_FILES [LOUDNESS_FILES ...]
+    The loudness files
+  --ppg_files PPG_FILES [PPG_FILES ...]
+    The phonetic posteriorgram files
+  --output_files OUTPUT_FILES [OUTPUT_FILES ...]
+    The files to save the edited audio
+
+optional arguments:
+  -h, --help
+    show this help message and exit
+  --speakers SPEAKERS [SPEAKERS ...]
+    The IDs of the speakers for voice conversion
+  --checkpoint CHECKPOINT
+    The generator checkpoint
+  --gpu GPU
+    The GPU index
 ```
 
 
@@ -390,7 +354,10 @@ python -m promonet.data.download --datasets <datasets>
 Prepares features for training. Features are stored in `data/cache/`.
 
 ```
-python -m promonet.data.preprocess --datasets <datasets> --gpu <gpu>
+python -m promonet.data.preprocess \
+    --datasets <datasets> \
+    --features <features> \
+    --gpu <gpu>
 ```
 
 
@@ -413,7 +380,7 @@ Trains a model. Checkpoints and logs are stored in `runs/`.
 python -m promonet.train \
     --config <config> \
     --dataset <dataset> \
-    --gpus <gpus>
+    --gpu <gpu>
 ```
 
 If the config file has been previously run, the most recent checkpoint will
@@ -422,11 +389,16 @@ automatically be loaded and training will resume from that checkpoint.
 
 ### Monitor
 
-You can monitor training via `tensorboard` as follows.
+You can monitor training via `tensorboard`.
 
 ```
 tensorboard --logdir runs/ --port <port>
 ```
+
+To use the `torchutil` notification system to receive notifications for long
+jobs (download, preprocess, train, and evaluate), set the
+`PYTORCH_NOTIFICATION_URL` environment variable to a supported webhook as
+explained in [the Apprise documentation](https://pypi.org/project/apprise/).
 
 
 ### Evaluate
@@ -446,7 +418,7 @@ python -m promonet.evaluate \
 
 ### IEEE
 M. Morrison, C. Churchwell, N. Pruyne, and B. Pardo, "Adaptive Neural Speech Prosody Editing," Submitted
-to ICLR 2024, May 2024.
+to ICML 2024, July 2024.
 
 
 ### BibTex
@@ -455,8 +427,8 @@ to ICLR 2024, May 2024.
 @inproceedings{morrison2024adaptive,
     title={Adaptive Neural Speech Prosody Editing},
     author={Morrison, Max and Churchwell, Cameron and Pruyne, Nathan and Pardo, Bryan},
-    booktitle={Submitted to ICLR 2024},
-    month={May},
+    booktitle={Submitted to ICML 2024},
+    month={July},
     year={2024}
 }
 ```

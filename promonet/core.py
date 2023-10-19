@@ -23,7 +23,8 @@ def from_features(
     ppg: torch.Tensor,
     speaker: Optional[Union[int, torch.Tensor]] = 0,
     checkpoint: Union[str, os.PathLike] = promonet.DEFAULT_CHECKPOINT,
-    gpu: Optional[int] = None) -> torch.Tensor:
+    gpu: Optional[int] = None
+) -> torch.Tensor:
     """Perform speech editing
 
     Args:
@@ -66,7 +67,8 @@ def from_file(
     ppg_file: Union[str, os.PathLike],
     speaker: Optional[Union[int, torch.Tensor]] = 0,
     checkpoint: Union[str, os.PathLike] = promonet.DEFAULT_CHECKPOINT,
-    gpu: Optional[int] = None) -> torch.Tensor:
+    gpu: Optional[int] = None
+) -> torch.Tensor:
     """Edit speech on disk
 
     Args:
@@ -95,18 +97,14 @@ def from_file(
         promonet.interpolate.grid.of_length(ppg, pitch.shape[-1]))
 
     # Generate
-    try:
-        return from_features(
-            pitch,
-            periodicity,
-            loudness,
-            ppg,
-            speaker,
-            checkpoint,
-            gpu)
-    except Exception:
-        import pdb; pdb.set_trace()
-        pass
+    return from_features(
+        pitch,
+        periodicity,
+        loudness,
+        ppg,
+        speaker,
+        checkpoint,
+        gpu)
 
 
 def from_file_to_file(
@@ -117,7 +115,8 @@ def from_file_to_file(
     output_file: Union[str, os.PathLike],
     speaker: Optional[Union[int, torch.Tensor]] = 0,
     checkpoint: Union[str, os.PathLike] = promonet.DEFAULT_CHECKPOINT,
-    gpu: Optional[int] = None):
+    gpu: Optional[int] = None
+) -> None:
     """Edit speech on disk and save to disk
 
     Args:
@@ -154,7 +153,8 @@ def from_files_to_files(
     output_files: List[Union[str, os.PathLike]],
     speakers: Optional[Union[List[int], torch.Tensor]] = None,
     checkpoint: Union[str, os.PathLike] = promonet.DEFAULT_CHECKPOINT,
-    gpu: Optional[int] = None):
+    gpu: Optional[int] = None
+) -> None:
     """Edit speech on disk and save to disk
 
     Args:
@@ -183,7 +183,7 @@ def from_files_to_files(
 
 
 ###############################################################################
-# Generation pipeline
+# Pipeline
 ###############################################################################
 
 
@@ -234,6 +234,11 @@ def generate(
                 loudness,
                 lengths,
                 speakers)[0][0].cpu()
+
+
+def preprocess(audio, sample_rate, gpu=None):
+    # TODO
+    pass
 
 
 ###############################################################################

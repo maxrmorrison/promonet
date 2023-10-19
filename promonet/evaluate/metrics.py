@@ -60,9 +60,8 @@ class PPG:
         return {'ppg': torch.sqrt(self.total / self.count).item()}
 
     def update(self, predicted, target):
-        for pred, targ in zip(predicted, target):
-            self.total += ppgs.distance(pred.T, targ.T, reduction='sum')
-            self.count += pred.shape[-1]
+        self.total += ppgs.distance(predicted, target, reduction='sum')
+        self.count += predicted.shape[-1]
 
     def reset(self):
         self.total = 0.
