@@ -40,7 +40,7 @@ def grid_sample(sequence, grid, method='linear'):
 
         # Replicate final frame
         fp = torch.nn.functional.pad(fp, (0, 1), mode='replicate')
-        xp = torch.cat((xp, xp[-1]))
+        xp = torch.cat((xp, xp[-1:]))
 
         # Interpolate
         return fp[..., i - 1] * (xp[i] - x) + fp[..., i] * (x - xp[i - 1])
