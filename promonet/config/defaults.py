@@ -62,14 +62,14 @@ DATA_DIR = ROOT_DIR / 'data' / 'datasets'
 # Location to save evaluation artifacts
 EVAL_DIR = ROOT_DIR / 'eval'
 
+# Location to save results
+RESULTS_DIR = ROOT_DIR / 'results'
+
 # Location to save training and adaptation artifacts
 RUNS_DIR = ROOT_DIR / 'runs'
 
 # Location of compressed datasets on disk
 SOURCES_DIR = ROOT_DIR / 'data' / 'sources'
-
-# Location to save plots
-PLOT_DIR = ROOT_DIR / 'plots'
 
 
 ###############################################################################
@@ -92,32 +92,14 @@ AUGMENTATION_RATIO_MAX = 2.
 # Minimum ratio for pitch augmentation
 AUGMENTATION_RATIO_MIN = .5
 
+# Condition discriminators on speech representation
+CONDITION_DISCRIM = False
+
 # Names of all datasets
 DATASETS = ['daps', 'libritts', 'vctk']
 
-# Discriminator loudness conditioning
-DISCRIM_LOUDNESS_CONDITION = False
-
-# Discriminator periodicity conditioning
-DISCRIM_PERIODICITY_CONDITION = False
-
-# Discriminator pitch conditioning
-DISCRIM_PITCH_CONDITION = False
-
-# Discriminator phoneme conditioning
-DISCRIM_PHONEME_CONDITION = False
-
-# Pass loudness through the latent
-LATENT_LOUDNESS_SHORTCUT = False
-
-# Pass periodicity through the latent
-LATENT_PERIODICITY_SHORTCUT = False
-
-# Pass pitch through the latent
-LATENT_PITCH_SHORTCUT = False
-
-# Pass the phonemes through the latent
-LATENT_PHONEME_SHORTCUT = False
+# Pass speech representation through the latent
+LATENT_SHORTCUT = False
 
 # A-weighted loudness conditioning
 LOUDNESS_FEATURES = False
@@ -130,15 +112,6 @@ PITCH_EMBEDDING = True
 
 # Pitch conditioning
 PITCH_FEATURES = False
-
-# Ratio or Cents
-PITCH_EVAL_METHOD = 'ratio'
-
-# Ratios used as targets in pitch shifting
-PITCH_RATIOS = [0.5, 2.]
-
-# Cents which then get converted to ratios
-PITCH_CENTS = [-200, 200]
 
 # Number of pitch bins
 PITCH_BINS = 256
@@ -153,12 +126,8 @@ PPG_CHANNELS = 40
 PPG_FEATURES = False
 
 # Type of interpolation method to use to scale PPG features
-# Available method are ['nearest', 'linear']
-# TODO - replace with SLERP and remove this variable
+# Available method are ['linear', 'nearest', 'slerp']
 PPG_INTERP_METHOD = 'nearest'
-
-# Type of PPGs to use
-PPG_MODEL = 'w2v2fb-ppg'
 
 # Seed for all random number generators
 RANDOM_SEED = 1234
@@ -168,6 +137,15 @@ SPECTROGRAM_ONLY = False
 
 # Dataset to use for training
 TRAINING_DATASET = 'vctk'
+
+
+###############################################################################
+# Evaluation parameters
+###############################################################################
+
+
+# Evaluation ratios for pitch-shifting, time-stretching, and loudness-scaling
+EVALUATION_RATIOS = [.717, 1.414]
 
 
 ###############################################################################

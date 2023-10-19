@@ -1,10 +1,10 @@
 MODULE = 'promonet'
 
 # Configuration name
-CONFIG = 'conddisc'
+CONFIG = 'augment-512bins'
 
-# Condition discriminators on speech representation
-CONDITION_DISCRIM = True
+# Whether to use pitch augmentation
+AUGMENT_PITCH = True
 
 # Loudness features
 LOUDNESS_FEATURES = True
@@ -25,6 +25,9 @@ PERIODICITY_FEATURES = True
 
 # Pitch conditioning
 PITCH_FEATURES = True
+
+# Number of pitch bins
+PITCH_BINS = 512
 
 # Phonemic posteriorgram conditioning
 PPG_FEATURES = True

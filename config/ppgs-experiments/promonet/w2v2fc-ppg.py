@@ -16,11 +16,9 @@ MODEL = 'end-to-end'
 
 # Pitch conditioning
 PITCH_FEATURES = True
-PITCH_EVAL_METHOD = 'cents'
 
 # Phonemic posteriorgram conditioning
 PPG_FEATURES = True
-PPG_MODEL = 'w2v2fc-ppg'
 PPG_CHANNELS = 40
 
 ADAPTATION=False
