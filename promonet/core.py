@@ -259,12 +259,9 @@ def generation_context(model):
     # Prepare model for evaluation
     model.eval()
 
-    # Turn off gradient computation
-    with torch.no_grad():
-
-        # Automatic mixed precision
-        with torch.autocast(device_type):
-            yield
+    # Turn off gradient computation; turn on mixed precision
+    with torch.inference_mode(), torch.autocast(device_type):
+        yield
 
     # Prepare model for training
     model.train()

@@ -34,6 +34,7 @@ def grid_sample(sequence, grid, method='linear'):
         xp = torch.arange(sequence.shape[-1], device=sequence.device)
         i = torch.searchsorted(xp, x, right=True)
         fp = torch.nn.functional.pad(fp, (0, 1), mode='replicate')
+        xp = torch.nn.functional.pad(xp, (0, 1), mode='replicate')
         return fp[..., i - 1] * (xp[i] - x) + fp[..., i] * (x - xp[i - 1])
 
     # Nearest neighbors grid interpolation
