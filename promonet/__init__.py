@@ -26,6 +26,7 @@ from . import adapt
 from . import baseline
 from . import convert
 from . import data
+from . import edit
 from . import evaluate
 from . import interpolate
 from . import load
@@ -34,3 +35,4 @@ from . import loudness
 from . import model
 from . import partition
 from . import plot
+from . import resemblyzer

@@ -466,30 +466,32 @@ class Generator(torch.nn.Module):
         # Maybe add pitch
         if (
             promonet.PITCH_FEATURES and
-            promonet.LATENT_PITCH_SHORTCUT
+            promonet.LATENT_SHORTCUT
         ):
             if promonet.PITCH_EMBEDDING:
                 pitch_embeddings = self.pitch_embedding(pitch).permute(0, 2, 1)
             else:
-                pitch_embeddings = pitch[:, None]
+                pitch_embeddings = (
+                    (torch.log2(pitch)[:, None] - promonet.LOG_FMIN) /
+                    (promonet.LOG_FMAX - promonet.LOG_FMIN))
             latents = torch.cat((latents, pitch_embeddings), dim=1)
 
         # Maybe add loudness
         if (
             promonet.LOUDNESS_FEATURES and
-            promonet.LATENT_LOUDNESS_SHORTCUT
+            promonet.LATENT_SHORTCUT
         ):
             latents = torch.cat((latents, loudness[:, None]), dim=1)
 
         # Maybe add periodicity
         if (
             promonet.PERIODICITY_FEATURES and
-            promonet.LATENT_PERIODICITY_SHORTCUT
+            promonet.LATENT_SHORTCUT
         ):
             latents = torch.cat((latents, periodicity[:, None]), dim=1)
 
         # Maybe add phonemes
-        if promonet.LATENT_PHONEME_SHORTCUT:
+        if promonet.LATENT_SHORTCUT:
             latents = torch.cat((latents, phonemes), dim=1)
 
         return latents
@@ -509,7 +511,9 @@ class Generator(torch.nn.Module):
                 pitch = promonet.convert.hz_to_bins(pitch)
                 pitch_embeddings = self.pitch_embedding(pitch).permute(0, 2, 1)
             else:
-                pitch_embeddings = pitch[:, None]
+                pitch_embeddings = (
+                    (torch.log2(pitch)[:, None] - promonet.LOG_FMIN) /
+                    (promonet.LOG_FMAX - promonet.LOG_FMIN))
             features = torch.cat((features, pitch_embeddings), dim=1)
 
         # Maybe add loudness features
@@ -542,7 +546,7 @@ class Generator(torch.nn.Module):
         # Maybe slice loudness
         if (
             promonet.LOUDNESS_FEATURES and
-            promonet.LATENT_LOUDNESS_SHORTCUT
+            promonet.LATENT_SHORTCUT
         ):
             loudness_slice = promonet.model.slice_segments(
                 loudness,
@@ -554,7 +558,7 @@ class Generator(torch.nn.Module):
         # Maybe slice periodicity
         if (
             promonet.PERIODICITY_FEATURES and
-            promonet.LATENT_PERIODICITY_SHORTCUT
+            promonet.LATENT_SHORTCUT
         ):
             periodicity_slice = promonet.model.slice_segments(
                 periodicity,
@@ -566,7 +570,7 @@ class Generator(torch.nn.Module):
         # Maybe slice pitch
         if (
             promonet.PITCH_FEATURES and
-            promonet.LATENT_PITCH_SHORTCUT
+            promonet.LATENT_SHORTCUT
         ):
             pitch_slice = promonet.model.slice_segments(
                 pitch,
@@ -576,7 +580,7 @@ class Generator(torch.nn.Module):
             pitch_slice = None
 
         # Maybe slice PPGs
-        if promonet.LATENT_PHONEME_SHORTCUT:
+        if promonet.LATENT_SHORTCUT:
             phoneme_slice = promonet.model.slice_segments(
                 phonemes,
                 slice_indices,

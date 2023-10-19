@@ -7,16 +7,16 @@ CONFIG = 'vocoder'
 AUGMENT_PITCH = True
 
 # Discriminator phoneme conditioning
-DISCRIM_PHONEME_CONDITION = True
+CONDITION_DISCRIM = True
 
 # Discriminator loudness conditioning
-DISCRIM_LOUDNESS_CONDITION = True
+CONDITION_DISCRIM = True
 
 # Discriminator periodicity conditioning
-DISCRIM_PERIODICITY_CONDITION = True
+CONDITION_DISCRIM = True
 
 # Discriminator pitch conditioning
-DISCRIM_PITCH_CONDITION = True
+CONDITION_DISCRIM = True
 
 # Loudness features
 LOUDNESS_FEATURES = True
