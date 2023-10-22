@@ -1,24 +1,32 @@
+from pathlib import Path
+
 import yapecs
 
 import promonet
 
 
 ###############################################################################
-# Preprocess datasets
+# Preprocess
 ###############################################################################
 
 
 def parse_args():
-    parser = yapecs.ArgumentParser(description='Preprocess datasets')
+    parser = yapecs.ArgumentParser(description='Preprocess')
     parser.add_argument(
-        '--datasets',
+        '--files',
         nargs='+',
-        choices=promonet.DATASETS,
-        help='The datasets to preprocess')
+        type=Path,
+        required=True,
+        help='Audio files to preprocess')
+    parser.add_argument(
+        '--output_prefixes',
+        nargs='+',
+        type=Path,
+        help='Files to save features, minus extension')
     parser.add_argument(
         '--features',
-        default=promonet.ALL_FEATURES,
-        choices=promonet.ALL_FEATURES,
+        default=promonet.INPUT_FEATURES,
+        choices=promonet.INPUT_FEATURES,
         nargs='+',
         help='The features to preprocess')
     parser.add_argument(
@@ -28,4 +36,4 @@ def parse_args():
     return parser.parse_args()
 
 
-promonet.data.preprocess.datasets(**vars(parse_args()))
+promonet.preprocess.from_files_to_files(**vars(parse_args()))

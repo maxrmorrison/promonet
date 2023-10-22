@@ -43,12 +43,12 @@ GLOBAL_CHANNELS = promonet.SPEAKER_CHANNELS + promonet.AUGMENT_PITCH
 
 # Number of input features to the generator
 NUM_FEATURES = (
-    len(pyfoal.load.phonemes()) if not promonet.PPG_FEATURES else (
-        promonet.LOUDNESS_FEATURES +
-        promonet.PERIODICITY_FEATURES +
-        promonet.PITCH_FEATURES * (
+    len(pyfoal.load.phonemes()) if not ('ppg' in promonet.INPUT_FEATURES) else (
+        ('loudness' in promonet.INPUT_FEATURES) +
+        ('periodicity' in promonet.INPUT_FEATURES) +
+        ('pitch' in promonet.INPUT_FEATURES) * (
             promonet.PITCH_EMBEDDING_SIZE if promonet.PITCH_EMBEDDING else 1) +
-        promonet.PPG_FEATURES * promonet.PPG_CHANNELS
+        ('periodicity' in promonet.INPUT_FEATURES) * promonet.PPG_CHANNELS
     )
 )
 

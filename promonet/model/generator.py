@@ -60,7 +60,7 @@ class Generator(torch.nn.Module):
                 promonet.SPEAKER_CHANNELS)
 
         # Pitch embedding
-        if promonet.PITCH_FEATURES and promonet.PITCH_EMBEDDING:
+        if 'pitch' in promonet.INPUT_FEATURES and promonet.PITCH_EMBEDDING:
             self.pitch_embedding = torch.nn.Embedding(
                 promonet.PITCH_BINS,
                 promonet.PITCH_EMBEDDING_SIZE)
@@ -110,7 +110,7 @@ class Generator(torch.nn.Module):
                 speakers).unsqueeze(-1)
 
             # Maybe add augmentation ratios
-            if promonet.PITCH_FEATURES and promonet.AUGMENT_PITCH:
+            if ('pitch' in promonet.INPUT_FEATURES) and promonet.AUGMENT_PITCH:
                 speaker_embeddings = torch.cat(
                     (speaker_embeddings, ratios[:, None, None]),
                     dim=1)
@@ -121,7 +121,7 @@ class Generator(torch.nn.Module):
                 if promonet.TWO_STAGE_1:
                     spectrogram_slice, latents = (
                         latents,
-                        promonet.data.preprocess.spectrogram.linear_to_mel(
+                        promonet.preprocess.spectrogram.linear_to_mel(
                             spectrogram_slice)
                     )
                 else:
@@ -267,7 +267,7 @@ class Generator(torch.nn.Module):
             speaker_embeddings = self.speaker_embedding(speakers).unsqueeze(-1)
 
             # Maybe add augmentation ratios
-            if promonet.PITCH_FEATURES and promonet.AUGMENT_PITCH:
+            if ('pitch' in promonet.INPUT_FEATURES) and promonet.AUGMENT_PITCH:
                 speaker_embeddings = torch.cat(
                     (speaker_embeddings, ratios[:, None, None]),
                     dim=1)
@@ -297,7 +297,7 @@ class Generator(torch.nn.Module):
 
                 # Replace latents
                 if promonet.MODEL == 'hifigan':
-                    latents = promonet.data.preprocess.spectrogram.linear_to_mel(
+                    latents = promonet.preprocess.spectrogram.linear_to_mel(
                         spectrograms)
                 elif promonet.MODEL == 'two-stage':
                     latents = embeddings
@@ -367,7 +367,7 @@ class Generator(torch.nn.Module):
 
                 # Replace latents
                 if promonet.MODEL == 'hifigan':
-                    latents = promonet.data.preprocess.spectrogram.linear_to_mel(
+                    latents = promonet.preprocess.spectrogram.linear_to_mel(
                         spectrograms)
                 elif promonet.MODEL == 'two-stage':
                     latents = embeddings
@@ -465,7 +465,7 @@ class Generator(torch.nn.Module):
         """Concatenate or replace latent features with acoustic features"""
         # Maybe add pitch
         if (
-            promonet.PITCH_FEATURES and
+            ('pitch' in promonet.INPUT_FEATURES) and
             promonet.LATENT_SHORTCUT
         ):
             if promonet.PITCH_EMBEDDING:
@@ -478,14 +478,14 @@ class Generator(torch.nn.Module):
 
         # Maybe add loudness
         if (
-            promonet.LOUDNESS_FEATURES and
+            ('loudness' in promonet.INPUT_FEATURES) and
             promonet.LATENT_SHORTCUT
         ):
             latents = torch.cat((latents, loudness[:, None]), dim=1)
 
         # Maybe add periodicity
         if (
-            promonet.PERIODICITY_FEATURES and
+            ('periodicity' in promonet.INPUT_FEATURES) and
             promonet.LATENT_SHORTCUT
         ):
             latents = torch.cat((latents, periodicity[:, None]), dim=1)
@@ -506,7 +506,7 @@ class Generator(torch.nn.Module):
         features = phonemes if phonemes.dim() == 3 else phonemes[None]
 
         # Maybe add pitch features
-        if promonet.PITCH_FEATURES:
+        if 'pitch' in promonet.INPUT_FEATURES:
             if promonet.PITCH_EMBEDDING:
                 pitch = promonet.convert.hz_to_bins(pitch)
                 pitch_embeddings = self.pitch_embedding(pitch).permute(0, 2, 1)
@@ -517,12 +517,12 @@ class Generator(torch.nn.Module):
             features = torch.cat((features, pitch_embeddings), dim=1)
 
         # Maybe add loudness features
-        if promonet.LOUDNESS_FEATURES:
+        if 'loudness' in promonet.INPUT_FEATURES:
             loudness = promonet.loudness.normalize(loudness)
             features = torch.cat((features, loudness[:, None]), dim=1)
 
         # Maybe add periodicity features
-        if promonet.PERIODICITY_FEATURES:
+        if 'periodicity' in promonet.INPUT_FEATURES:
             features = torch.cat((features, periodicity[:, None]), dim=1)
 
         return features, pitch, loudness
@@ -545,7 +545,7 @@ class Generator(torch.nn.Module):
 
         # Maybe slice loudness
         if (
-            promonet.LOUDNESS_FEATURES and
+            ('loudness' in promonet.INPUT_FEATURES) and
             promonet.LATENT_SHORTCUT
         ):
             loudness_slice = promonet.model.slice_segments(
@@ -557,7 +557,7 @@ class Generator(torch.nn.Module):
 
         # Maybe slice periodicity
         if (
-            promonet.PERIODICITY_FEATURES and
+            ('periodicity' in promonet.INPUT_FEATURES) and
             promonet.LATENT_SHORTCUT
         ):
             periodicity_slice = promonet.model.slice_segments(
@@ -569,7 +569,7 @@ class Generator(torch.nn.Module):
 
         # Maybe slice pitch
         if (
-            promonet.PITCH_FEATURES and
+            ('pitch' in promonet.INPUT_FEATURES) and
             promonet.LATENT_SHORTCUT
         ):
             pitch_slice = promonet.model.slice_segments(
