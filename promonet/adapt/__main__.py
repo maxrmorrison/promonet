@@ -18,7 +18,8 @@ def parse_args():
         help='The name of the speaker')
     parser.add_argument(
         '--files',
-        type=list,
+        type=Path,
+        nargs='+',
         required=True,
         help='The audio files to use for adaptation')
     parser.add_argument(

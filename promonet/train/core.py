@@ -225,7 +225,7 @@ def train(
                 ) = generator(*generator_input)
 
                 # Convert to mels
-                mels = promonet.data.preprocess.spectrogram.linear_to_mel(
+                mels = promonet.preprocess.spectrogram.linear_to_mel(
                     spectrograms)
 
                 # Slice segments for training discriminator
@@ -247,13 +247,13 @@ def train(
                 pitch_slices = slice_fn(pitch, fill_value=pitch.mean())
                 periodicity_slices = slice_fn(periodicity)
                 loudness_slices = slice_fn(loudness, fill_value=loudness.min())
-                if promonet.PPG_FEATURES:
+                if 'ppg' in promonet.INPUT_FEATURES:
                     phoneme_slices = slice_fn(phonemes)
                 else:
                     phoneme_slices = None
 
                 # Compute mels of generated audio
-                generated_mels = promonet.data.preprocess.spectrogram.from_audio(
+                generated_mels = promonet.preprocess.spectrogram.from_audio(
                     generated,
                     True)
 
@@ -512,13 +512,13 @@ def evaluate(directory, step, generator, loader, gpu):
         # Editing
         ratios = [
             f'{int(ratio * 100):03d}' for ratio in promonet.EVALUATION_RATIOS]
-        if promonet.PITCH_FEATURES:
+        if 'pitch' in promonet.INPUT_FEATURES:
             metrics.update({
                 f'shifted-{ratio}': metric_fn() for ratio in ratios})
-        if promonet.PPG_FEATURES:
+        if 'ppg' in promonet.INPUT_FEATURES:
             metrics.update({
                 f'stretched-{ratio}': metric_fn() for ratio in ratios})
-        if promonet.LOUDNESS_FEATURES:
+        if 'loudness' in promonet.INPUT_FEATURES:
             metrics.update({
                 f'scaled-{ratio}': metric_fn() for ratio in ratios})
 
@@ -540,7 +540,7 @@ def evaluate(directory, step, generator, loader, gpu):
             spectrogram,
             _,
             audio,
-            _
+            stems
         ) = batch
         text = text[0]
 
@@ -611,6 +611,9 @@ def evaluate(directory, step, generator, loader, gpu):
         key = f'reconstruction/{i:02d}'
         waveforms[f'{key}-audio'] = generated[0]
 
+        if torch.isnan(generated[0]).any():
+            import pdb; pdb.set_trace()
+
         # Get prosody features
         (
             predicted_pitch,
@@ -674,7 +677,7 @@ def evaluate(directory, step, generator, loader, gpu):
         # Pitch shifting #
         ##################
 
-        if promonet.PITCH_FEATURES:
+        if 'pitch' in promonet.INPUT_FEATURES:
             for ratio in promonet.EVALUATION_RATIOS:
 
                 # Shift pitch
@@ -745,7 +748,7 @@ def evaluate(directory, step, generator, loader, gpu):
         # Time stretching #
         ###################
 
-        if promonet.PPG_FEATURES:
+        if 'ppg' in promonet.INPUT_FEATURES:
             for ratio in promonet.EVALUATION_RATIOS:
 
                 # Stretch representation
@@ -844,7 +847,7 @@ def evaluate(directory, step, generator, loader, gpu):
         # Loudness scaling #
         ####################
 
-        if promonet.LOUDNESS_FEATURES:
+        if 'loudness' in promonet.INPUT_FEATURES:
             for ratio in promonet.EVALUATION_RATIOS:
 
                 # Scale loudness

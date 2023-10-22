@@ -9,7 +9,7 @@
 
 # Setup experiments
 # python -m promonet.data.augment --datasets daps vctk
-# python -m promonet.data.preprocess --gpu $1 --datasets daps vctk
+# python -m promonet.preprocess --gpu $1 --datasets daps vctk
 # python -m promonet.partition --datasets daps vctk
 
 # First pass experiments trainings and evaluations

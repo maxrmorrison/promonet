@@ -1,4 +1,5 @@
 import functools
+import os
 from pathlib import Path
 
 import torch
@@ -10,7 +11,7 @@ import torch
 
 
 # Configuration name
-CONFIG = 'vits'
+CONFIG = 'base'
 
 
 ###############################################################################
@@ -81,7 +82,13 @@ SOURCES_DIR = ROOT_DIR / 'data' / 'sources'
 ADAPTATION = True
 
 # All features considered during preprocessing
-ALL_FEATURES = ['ppg', 'prosody', 'spectrogram']
+ALL_FEATURES = [
+    'alignment',
+    'loudness',
+    'periodicity',
+    'pitch',
+    'ppg',
+    'spectrogram']
 
 # Whether to use pitch augmentation
 AUGMENT_PITCH = False
@@ -101,17 +108,8 @@ DATASETS = ['daps', 'libritts', 'vctk']
 # Pass speech representation through the latent
 LATENT_SHORTCUT = False
 
-# A-weighted loudness conditioning
-LOUDNESS_FEATURES = False
-
-# Periodicity conditioning
-PERIODICITY_FEATURES = False
-
 # Whether to use an embedding layer for pitch
 PITCH_EMBEDDING = True
-
-# Pitch conditioning
-PITCH_FEATURES = False
 
 # Number of pitch bins
 PITCH_BINS = 256
@@ -121,9 +119,6 @@ PITCH_EMBEDDING_SIZE = 64
 
 # Number of channels in the phonetic posteriorgram features
 PPG_CHANNELS = 40
-
-# Phonemic posteriorgram conditioning
-PPG_FEATURES = False
 
 # Type of interpolation method to use to scale PPG features
 # Available method are ['linear', 'nearest', 'slerp']
@@ -189,6 +184,9 @@ MEL_LOSS_WEIGHT = 45.
 # The size of the latent bottleneck
 HIDDEN_CHANNELS = 192
 
+# Input features
+INPUT_FEATURES = ['loudness', 'periodicity', 'pitch', 'ppg']
+
 # Hidden dimension channel size
 FILTER_CHANNELS = 768
 
@@ -207,7 +205,7 @@ LRELU_SLOPE = .1
 #     'vocoder',
 #     'world'
 # ]
-MODEL = 'vits'
+MODEL = 'end-to-end'
 
 # Whether to use the multi-resolution spectrogram discriminator from UnivNet
 MULTI_RESOLUTION_DISCRIMINATOR = False
@@ -284,7 +282,7 @@ NUM_STEPS = 200000
 NUM_ADAPTATION_STEPS = 10000
 
 # Number of data loading worker threads
-NUM_WORKERS = 6
+NUM_WORKERS = os.cpu_count() // 4
 
 # Training optimizer
 OPTIMIZER = functools.partial(
