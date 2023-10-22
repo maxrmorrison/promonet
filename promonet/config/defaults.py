@@ -250,6 +250,9 @@ UPSAMPLE_RATES = [8, 8, 2, 2]
 # Whether to omit latent generation
 VOCODER = False
 
+# Type of vocoder, one of ['hifigan', 'vocos']
+VOCODER_TYPE = 'hifigan'
+
 
 ###############################################################################
 # Training parameters
