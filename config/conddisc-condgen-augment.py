@@ -6,49 +6,8 @@ CONFIG = 'conddisc-condgen-augment'
 # Whether to use pitch augmentation
 AUGMENT_PITCH = True
 
-# Discriminator loudness conditioning
-DISCRIM_LOUDNESS_CONDITION = True
+# Condition discriminators on speech representation
+CONDITION_DISCRIM = True
 
-# Discriminator periodicity conditioning
-DISCRIM_PERIODICITY_CONDITION = True
-
-# Discriminator phoneme conditioning
-DISCRIM_PHONEME_CONDITION = True
-
-# Discriminator pitch conditioning
-DISCRIM_PITCH_CONDITION = True
-
-# Pass loudness through the latent
-LATENT_LOUDNESS_SHORTCUT = True
-
-# Pass periodicity through the latent
-LATENT_PERIODICITY_SHORTCUT = True
-
-# Pass the phonemes through the latent
-LATENT_PHONEME_SHORTCUT = True
-
-# Pass pitch through the latent
-LATENT_PITCH_SHORTCUT = True
-
-# Loudness features
-LOUDNESS_FEATURES = True
-
-# The model to use. One of [
-#     'end-to-end',
-#     'hifigan',
-#     'psola',
-#     'two-stage',
-#     'vits',
-#     'vocoder',
-#     'world'
-# ]
-MODEL = 'end-to-end'
-
-# Periodicity conditioning
-PERIODICITY_FEATURES = True
-
-# Pitch conditioning
-PITCH_FEATURES = True
-
-# Phonemic posteriorgram conditioning
-PPG_FEATURES = True
+# Pass speech representation through the latent
+LATENT_SHORTCUT = True

@@ -2,7 +2,6 @@ import jiwer
 import ppgs
 import pysodic
 import torch
-import numpy as np
 import whisper
 from whisper.normalizers import EnglishTextNormalizer
 
@@ -23,8 +22,8 @@ class Metrics:
             promonet.WINDOW_SIZE,
             gpu)
         self.ppg = PPG()
-        self.wer = WER(gpu)
-        self.speaker_sim = SpeakerSimilarity(gpu)
+        self.wer = WER()
+        self.speaker_sim = SpeakerSimilarity()
 
     def __call__(self):
         return {
@@ -61,9 +60,8 @@ class PPG:
         return {'ppg': torch.sqrt(self.total / self.count).item()}
 
     def update(self, predicted, target):
-        for pred, targ in zip(predicted, target):
-            self.total += ppgs.distance(pred.T, targ.T, reduction='sum')
-            self.count += pred.shape[-1]
+        self.total += ppgs.distance(predicted, target, reduction='sum')
+        self.count += predicted.shape[-1]
 
     def reset(self):
         self.total = 0.
@@ -77,16 +75,15 @@ class PPG:
 
 class WER:
 
-    def __init__(self, gpu):
+    def __init__(self):
         self.reset()
-        self.gpu = gpu
 
     def __call__(self):
         return {'wer': self.total / self.count}
 
-    def update(self, gt_text, audio):
-        predicted_text = speech_to_text(audio, self.gpu)
-        self.total += jiwer.wer(normalize_text(gt_text), predicted_text)
+    def update(self, text, audio):
+        predicted_text = speech_to_text(audio)
+        self.total += jiwer.wer(normalize_text(text), predicted_text)
         self.count += 1
 
     def reset(self):
@@ -94,28 +91,22 @@ class WER:
         self.count = 0
 
 
-def speech_to_text(audio, gpu):
+def speech_to_text(audio):
     """Perform speech-to-text using Whisper"""
     # Cache Whisper model
-    if not hasattr(speech_to_text, 'model') or speech_to_text.gpu != gpu:
-        device = 'cpu' if gpu is None else f'cuda:{gpu}'
-        model = whisper.load_model('base.en', device=device)
+    if (
+        not hasattr(speech_to_text, 'model') or
+        speech_to_text.device != audio.device
+    ):
+        model = whisper.load_model('base.en', device=audio.device)
         speech_to_text.model = model
-        speech_to_text.gpu = gpu
+        speech_to_text.device = audio.device
 
-    # Get audio
-    if isinstance(audio, torch.Tensor):
-
-        # Resample audio tensor
-        transcribe_input = promonet.resample(
-            audio,
-            promonet.SAMPLE_RATE,
-            16000)
-
-    else:
-
-        # Assume audio is a filename
-        transcribe_input = audio
+    # Resample audio tensor
+    transcribe_input = promonet.resample(
+        audio.squeeze(),
+        promonet.SAMPLE_RATE,
+        16000)
 
     # Infer text
     text = speech_to_text.model.transcribe(transcribe_input)['text']
@@ -139,17 +130,16 @@ def normalize_text(text):
 
 class SpeakerSimilarity:
 
-    def __init__(self, gpu):
+    def __init__(self):
         self.reset()
 
     def __call__(self):
         if self.count == 0:
             return {}
-        return {'speaker_sim': self.total / self.count}
+        return {'speaker_sim': (self.total / self.count).item()}
 
     def update(self, speaker_embed, utterance_embed):
-        diff = np.sum(np.abs(speaker_embed - utterance_embed))
-        self.total += diff
+        self.total += torch.abs(speaker_embed - utterance_embed).sum()
         self.count += 1
 
     def reset(self):

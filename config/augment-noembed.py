@@ -1,10 +1,10 @@
 MODULE = 'promonet'
 
 # Configuration name
-CONFIG = 'augment-no-periodicity'
+CONFIG = 'augment-noembed'
 
 # Whether to use pitch augmentation
 AUGMENT_PITCH = True
 
-# Input features
-INPUT_FEATURES = ['loudness', 'pitch', 'ppg']
+# Pitch embedding
+PITCH_EMBEDDING = False

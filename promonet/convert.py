@@ -1,3 +1,4 @@
+import math
 import warnings
 
 import torch
@@ -6,7 +7,22 @@ import promonet
 
 
 ###############################################################################
-# Unit conversions
+# Loudness conversions
+###############################################################################
+
+
+def db_to_ratio(db):
+    """Convert decibels to perceptual loudness ratio"""
+    return 2 ** (db / 10)
+
+
+def ratio_to_db(ratio):
+    """Convert perceptual loudness ratio to decibels"""
+    return 10 * math.log2(ratio)
+
+
+###############################################################################
+# Pitch conversions
 ###############################################################################
 
 
@@ -28,6 +44,11 @@ def bins_to_hz(
     return torch.clip(hz, fmin, fmax)
 
 
+def cents_to_ratio(cents):
+    """Convert pitch ratio in cents to linear ratio"""
+    return 2 ** (cents / 1200)
+
+
 def hz_to_bins(
     hz,
     num_bins=promonet.PITCH_BINS,
@@ -45,6 +66,11 @@ def hz_to_bins(
 
     # Convert to integer bin
     return ((num_bins - 1) * normalized).to(torch.long)
+
+
+def ratio_to_cents(ratio):
+    """Convert linear pitch ratio to cents"""
+    return 1200 * math.log2(ratio)
 
 
 ###############################################################################
@@ -77,4 +103,3 @@ def samples_to_frames(samples):
     with warnings.catch_warnings():
         warnings.simplefilter('ignore')
         return samples // promonet.HOPSIZE
-    

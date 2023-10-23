@@ -1,10 +1,10 @@
 MODULE = 'promonet'
 
 # Configuration name
-CONFIG = 'augment-no-periodicity'
+CONFIG = 'augment-512bins'
 
 # Whether to use pitch augmentation
 AUGMENT_PITCH = True
 
-# Input features
-INPUT_FEATURES = ['loudness', 'pitch', 'ppg']
+# Number of pitch bins
+PITCH_BINS = 512

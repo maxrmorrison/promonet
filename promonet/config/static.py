@@ -1,3 +1,5 @@
+import math
+
 import pyfoal
 
 import promonet
@@ -22,6 +24,16 @@ DEFAULT_CONFIGURATION = promonet.ASSETS_DIR / 'configs' / 'promonet.py'
 
 
 ###############################################################################
+# Audio parameters
+###############################################################################
+
+
+# Base-2 log of pitch range boundaries
+LOG_FMIN = math.log2(promonet.FMIN)
+LOG_FMAX = math.log2(promonet.FMAX)
+
+
+###############################################################################
 # Model parameters
 ###############################################################################
 
@@ -31,22 +43,22 @@ GLOBAL_CHANNELS = promonet.SPEAKER_CHANNELS + promonet.AUGMENT_PITCH
 
 # Number of input features to the generator
 NUM_FEATURES = (
-    len(pyfoal.load.phonemes()) if not promonet.PPG_FEATURES else (
-        promonet.LOUDNESS_FEATURES +
-        promonet.PERIODICITY_FEATURES +
-        promonet.PITCH_FEATURES * (
+    len(pyfoal.load.phonemes()) if not ('ppg' in promonet.INPUT_FEATURES) else (
+        ('loudness' in promonet.INPUT_FEATURES) +
+        ('periodicity' in promonet.INPUT_FEATURES) +
+        ('pitch' in promonet.INPUT_FEATURES) * (
             promonet.PITCH_EMBEDDING_SIZE if promonet.PITCH_EMBEDDING else 1) +
-        promonet.PPG_FEATURES * promonet.PPG_CHANNELS
+        ('periodicity' in promonet.INPUT_FEATURES) * promonet.PPG_CHANNELS
     )
 )
 
 # Number of input features to the discriminator
 NUM_FEATURES_DISCRIM = (
     1 +
-    promonet.DISCRIM_LOUDNESS_CONDITION +
-    promonet.DISCRIM_PERIODICITY_CONDITION +
-    promonet.DISCRIM_PITCH_CONDITION +
-    promonet.DISCRIM_PHONEME_CONDITION * promonet.PPG_CHANNELS)
+    promonet.CONDITION_DISCRIM +
+    promonet.CONDITION_DISCRIM +
+    promonet.CONDITION_DISCRIM +
+    promonet.CONDITION_DISCRIM * promonet.PPG_CHANNELS)
 
 # Number of input features to the latent-to-audio model
 if promonet.MODEL == 'hifigan' or promonet.MODEL == 'two-stage':
@@ -55,11 +67,11 @@ elif promonet.MODEL == 'vocoder':
     LATENT_FEATURES = NUM_FEATURES
 else:
     LATENT_FEATURES = promonet.HIDDEN_CHANNELS + (
-        promonet.LATENT_PITCH_SHORTCUT * (
+        promonet.LATENT_SHORTCUT * (
             promonet.PITCH_EMBEDDING_SIZE if promonet.PITCH_EMBEDDING else 1) +
-        promonet.LATENT_LOUDNESS_SHORTCUT +
-        promonet.LATENT_PERIODICITY_SHORTCUT +
-        promonet.LATENT_PHONEME_SHORTCUT * promonet.PPG_CHANNELS
+        promonet.LATENT_SHORTCUT +
+        promonet.LATENT_SHORTCUT +
+        promonet.LATENT_SHORTCUT * promonet.PPG_CHANNELS
     )
 
 # Number of speakers
