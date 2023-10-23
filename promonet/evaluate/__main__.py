@@ -23,10 +23,9 @@ def parse_args():
         default=promonet.DEFAULT_CHECKPOINT,
         help='The checkpoint to use')
     parser.add_argument(
-        '--gpus',
+        '--gpu',
         type=int,
-        nargs='+',
-        help='The indices of the gpus to use for adaptation and evaluation')
+        help='The index of the gpu to use for evaluation')
     return parser.parse_known_args()[0]
 
 

@@ -1,4 +1,5 @@
 import functools
+import os
 from pathlib import Path
 
 import torch
@@ -10,7 +11,7 @@ import torch
 
 
 # Configuration name
-CONFIG = 'vits'
+CONFIG = 'base'
 
 
 ###############################################################################
@@ -62,14 +63,14 @@ DATA_DIR = ROOT_DIR / 'data' / 'datasets'
 # Location to save evaluation artifacts
 EVAL_DIR = ROOT_DIR / 'eval'
 
+# Location to save results
+RESULTS_DIR = ROOT_DIR / 'results'
+
 # Location to save training and adaptation artifacts
 RUNS_DIR = ROOT_DIR / 'runs'
 
 # Location of compressed datasets on disk
 SOURCES_DIR = ROOT_DIR / 'data' / 'sources'
-
-# Location to save plots
-PLOT_DIR = ROOT_DIR / 'plots'
 
 
 ###############################################################################
@@ -81,7 +82,13 @@ PLOT_DIR = ROOT_DIR / 'plots'
 ADAPTATION = True
 
 # All features considered during preprocessing
-ALL_FEATURES = ['ppg', 'prosody', 'spectrogram']
+ALL_FEATURES = [
+    'alignment',
+    'loudness',
+    'periodicity',
+    'pitch',
+    'ppg',
+    'spectrogram']
 
 # Whether to use pitch augmentation
 AUGMENT_PITCH = False
@@ -92,53 +99,17 @@ AUGMENTATION_RATIO_MAX = 2.
 # Minimum ratio for pitch augmentation
 AUGMENTATION_RATIO_MIN = .5
 
+# Condition discriminators on speech representation
+CONDITION_DISCRIM = False
+
 # Names of all datasets
 DATASETS = ['daps', 'libritts', 'vctk']
 
-# Discriminator loudness conditioning
-DISCRIM_LOUDNESS_CONDITION = False
-
-# Discriminator periodicity conditioning
-DISCRIM_PERIODICITY_CONDITION = False
-
-# Discriminator pitch conditioning
-DISCRIM_PITCH_CONDITION = False
-
-# Discriminator phoneme conditioning
-DISCRIM_PHONEME_CONDITION = False
-
-# Pass loudness through the latent
-LATENT_LOUDNESS_SHORTCUT = False
-
-# Pass periodicity through the latent
-LATENT_PERIODICITY_SHORTCUT = False
-
-# Pass pitch through the latent
-LATENT_PITCH_SHORTCUT = False
-
-# Pass the phonemes through the latent
-LATENT_PHONEME_SHORTCUT = False
-
-# A-weighted loudness conditioning
-LOUDNESS_FEATURES = False
-
-# Periodicity conditioning
-PERIODICITY_FEATURES = False
+# Pass speech representation through the latent
+LATENT_SHORTCUT = False
 
 # Whether to use an embedding layer for pitch
 PITCH_EMBEDDING = True
-
-# Pitch conditioning
-PITCH_FEATURES = False
-
-# Ratio or Cents
-PITCH_EVAL_METHOD = 'ratio'
-
-# Ratios used as targets in pitch shifting
-PITCH_RATIOS = [0.5, 2.]
-
-# Cents which then get converted to ratios
-PITCH_CENTS = [-200, 200]
 
 # Number of pitch bins
 PITCH_BINS = 256
@@ -149,16 +120,9 @@ PITCH_EMBEDDING_SIZE = 64
 # Number of channels in the phonetic posteriorgram features
 PPG_CHANNELS = 40
 
-# Phonemic posteriorgram conditioning
-PPG_FEATURES = False
-
 # Type of interpolation method to use to scale PPG features
-# Available method are ['nearest', 'linear']
-# TODO - replace with SLERP and remove this variable
+# Available method are ['linear', 'nearest', 'slerp']
 PPG_INTERP_METHOD = 'nearest'
-
-# Type of PPGs to use
-PPG_MODEL = 'w2v2fb-ppg'
 
 # Seed for all random number generators
 RANDOM_SEED = 1234
@@ -168,6 +132,15 @@ SPECTROGRAM_ONLY = False
 
 # Dataset to use for training
 TRAINING_DATASET = 'vctk'
+
+
+###############################################################################
+# Evaluation parameters
+###############################################################################
+
+
+# Evaluation ratios for pitch-shifting, time-stretching, and loudness-scaling
+EVALUATION_RATIOS = [.717, 1.414]
 
 
 ###############################################################################
@@ -211,6 +184,9 @@ MEL_LOSS_WEIGHT = 45.
 # The size of the latent bottleneck
 HIDDEN_CHANNELS = 192
 
+# Input features
+INPUT_FEATURES = ['loudness', 'periodicity', 'pitch', 'ppg']
+
 # Hidden dimension channel size
 FILTER_CHANNELS = 768
 
@@ -229,7 +205,7 @@ LRELU_SLOPE = .1
 #     'vocoder',
 #     'world'
 # ]
-MODEL = 'vits'
+MODEL = 'end-to-end'
 
 # Whether to use the multi-resolution spectrogram discriminator from UnivNet
 MULTI_RESOLUTION_DISCRIMINATOR = False
@@ -309,7 +285,7 @@ NUM_STEPS = 200000
 NUM_ADAPTATION_STEPS = 10000
 
 # Number of data loading worker threads
-NUM_WORKERS = 6
+NUM_WORKERS = os.cpu_count() // 4
 
 # Training optimizer
 OPTIMIZER = functools.partial(

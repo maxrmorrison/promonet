@@ -18,7 +18,8 @@ def parse_args():
         help='The name of the speaker')
     parser.add_argument(
         '--files',
-        type=list,
+        type=Path,
+        nargs='+',
         required=True,
         help='The audio files to use for adaptation')
     parser.add_argument(
@@ -27,10 +28,9 @@ def parse_args():
         default=promonet.DEFAULT_CHECKPOINT,
         help='The model checkpoint')
     parser.add_argument(
-        '--gpus',
+        '--gpu',
         type=int,
-        nargs='+',
-        help='The gpus to run adaptation on')
+        help='The gpu to run adaptation on')
     return parser.parse_args()
 
 

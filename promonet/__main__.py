@@ -12,18 +12,30 @@ import promonet
 def parse_args():
     """Parse command-line arguments"""
     parser = yapecs.ArgumentParser(description='Perform speech editing')
-    # parser.add_argument(
-    #     '--config',
-    #     type=Path,
-    #     default=promonet.DEFAULT_CONFIGURATION,
-    #     nargs='+,'
-    #     help='The configuration file')
     parser.add_argument(
-        '--audio_files',
+        '--pitch_files',
         type=Path,
         nargs='+',
         required=True,
-        help='The audio to edit')
+        help='The pitch files')
+    parser.add_argument(
+        '--periodicity_files',
+        type=Path,
+        nargs='+',
+        required=True,
+        help='The periodicity files')
+    parser.add_argument(
+        '--loudness_files',
+        type=Path,
+        nargs='+',
+        required=True,
+        help='The loudness files')
+    parser.add_argument(
+        '--ppg_files',
+        type=Path,
+        nargs='+',
+        required=True,
+        help='The phonetic posteriorgram files')
     parser.add_argument(
         '--output_files',
         type=Path,
@@ -31,27 +43,7 @@ def parse_args():
         required=True,
         help='The files to save the edited audio')
     parser.add_argument(
-        '--alignment_files',
-        type=Path,
-        nargs='+',
-        help='The alignment files for editing phoneme durations')
-    parser.add_argument(
-        '--target_loudness_files',
-        type=Path,
-        nargs='+',
-        help='The loudness contours for editing loudness')
-    parser.add_argument(
-        '--target_pitch_files',
-        type=Path,
-        nargs='+',
-        help='The pitch contours for shifting pitch')
-    parser.add_argument(
-        '--target_ppg_files',
-        type=Path,
-        nargs='+',
-        help='The ppgs for pronunciation editing')
-    parser.add_argument(
-        '--speaker_ids',
+        '--speakers',
         type=int,
         nargs='+',
         help='The IDs of the speakers for voice conversion')
@@ -67,6 +59,4 @@ def parse_args():
     return parser.parse_known_args()[0]
 
 
-if __name__ == '__main__':
-    args = parse_args()
-    promonet.from_files_to_files(**vars(parse_args()))
+promonet.from_files_to_files(**vars(parse_args()))
