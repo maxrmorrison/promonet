@@ -13,13 +13,10 @@ def loader(dataset, partition, gpu=None):
     # Get dataset
     dataset = promonet.data.Dataset(dataset, partition)
 
-    # Get sampler
-    sampler = promonet.data.sampler(dataset, partition)
-
     # Create loader
     return torch.utils.data.DataLoader(
         dataset,
         num_workers=promonet.NUM_WORKERS,
         pin_memory=gpu is not None,
         collate_fn=promonet.data.collate,
-        batch_sampler=sampler)
+        batch_sampler=promonet.data.sampler(dataset, partition))

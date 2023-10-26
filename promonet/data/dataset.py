@@ -1,9 +1,6 @@
-import functools
 import json
 
 import numpy as np
-import penn
-import pysodic
 import torch
 import torchaudio
 
@@ -36,12 +33,6 @@ class Dataset(torch.utils.data.Dataset):
         loudness = torch.load(self.cache / f'{stem}-loudness.pt')
         spectrogram = torch.load(self.cache / f'{stem}-spectrogram.pt')
 
-        # Apply linear interpolation to unvoiced pitch regions
-        pitch = penn.voicing.interpolate(
-            pitch,
-            periodicity,
-            pysodic.DEFAULT_VOICING_THRESHOLD)
-
         # Get speaker index. Non-integer speaker names are assumed to be
         # for speaker adaptation and therefore default to index zero.
         if 'adapt' not in self.partition:
@@ -61,11 +52,13 @@ class Dataset(torch.utils.data.Dataset):
 
             # Maybe resample length
             if phonemes.shape[1] != spectrogram.shape[-1]:
-                grid = promonet.interpolate.grid.of_length(
+                grid = promonet.edit.grid.of_length(
                     phonemes,
                     spectrogram.shape[-1])
-                phonemes = promonet.interpolate.ppg(phonemes, grid)
-
+                phonemes = promonet.edit.grid.sample(
+                    phonemes,
+                    grid,
+                    promonet.PPG_INTERP_METHOD)
 
         return (
             text,
