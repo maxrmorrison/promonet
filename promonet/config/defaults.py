@@ -26,11 +26,17 @@ FMAX = 550.  # Hz
 # Audio hopsize
 HOPSIZE = 256  # samples
 
+# Minimum decibel level
+MIN_DB = -100.
+
 # Number of melspectrogram channels
 NUM_MELS = 80
 
 # Number of spectrogram channels
 NUM_FFT = 1024
+
+# Reference decibel level
+REF_DB = 20.
 
 # Audio sample rate
 SAMPLE_RATE = 22050  # Hz
@@ -70,7 +76,7 @@ RESULTS_DIR = ROOT_DIR / 'results'
 RUNS_DIR = ROOT_DIR / 'runs'
 
 # Location of compressed datasets on disk
-SOURCES_DIR = ROOT_DIR / 'data' / 'sources'
+SOURCE_DIR = ROOT_DIR / 'data' / 'sources'
 
 
 ###############################################################################
@@ -83,7 +89,6 @@ ADAPTATION = True
 
 # All features considered during preprocessing
 ALL_FEATURES = [
-    'alignment',
     'loudness',
     'periodicity',
     'pitch',
@@ -104,6 +109,9 @@ CONDITION_DISCRIM = False
 
 # Names of all datasets
 DATASETS = ['daps', 'libritts', 'vctk']
+
+# Default periodicity threshold of the voiced/unvoiced decision
+VOICING_THRESOLD = .1625
 
 # Pass speech representation through the latent
 LATENT_SHORTCUT = False
@@ -138,6 +146,18 @@ TRAINING_DATASET = 'vctk'
 # Evaluation parameters
 ###############################################################################
 
+
+# Error threshold beyond which a frame of loudness is considered incorrect
+ERROR_THRESHOLD_LOUDNESS = 6.  # decibels
+
+# Error threshold beyond which a frame of periodicity is considered incorrect
+ERROR_THRESHOLD_PERIODICITY = .1
+
+# Error threshold beyond which a frame of pitch is considered incorrect
+ERROR_THRESHOLD_PITCH = 50.  # cents
+
+# Error threshold beyond which a frame of PPG is considered incorrect
+ERROR_THRESHOLD_PPG = .1  # JSD
 
 # Evaluation ratios for pitch-shifting, time-stretching, and loudness-scaling
 EVALUATION_RATIOS = [.717, 1.414]

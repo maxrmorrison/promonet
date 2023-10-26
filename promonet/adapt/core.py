@@ -62,7 +62,7 @@ def speaker(
             json.dump(ratios, file, indent=4)
 
     # Preprocess features
-    promonet.preprocess.from_files_to_files(
+    promonet.data.preprocess.from_files_to_files(
         cache,
         cache.rglob('*.wav'),
         gpu=gpu)

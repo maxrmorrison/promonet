@@ -30,10 +30,10 @@ Official code for the paper _Adaptive Neural Speech Editing_
         * [`promonet.edit.from_file_to_file`](#promoneteditfrom_file_to_file)
         * [`promonet.edit.from_files_to_files`](#promoneteditfrom_files_to_files)
     * [Synthesis API](#synthesis-api)
-        * [`promonet.from_features`](#promonetfrom_features)
-        * [`promonet.from_file`](#promonetfrom_file)
-        * [`promonet.from_file_to_file`](#promonetfrom_file_to_file)
-        * [`promonet.from_files_to_files`](#promonetfrom_files_to_files)
+        * [`promonet.synthesize.from_features`](#promonetsynthesizefrom_features)
+        * [`promonet.synthesize.from_file`](#promonetsynthesizefrom_file)
+        * [`promonet.synthesize.from_file_to_file`](#promonetsynthesizefrom_file_to_file)
+        * [`promonet.synthesize.from_files_to_files`](#promonetsynthesizefrom_files_to_files)
 - [Command-line interface (CLI)](#command-line-interface-cli)
     * [Adaptation CLI](#adaptation-cli)
         * [`promonet.adapt`](#promonetadapt)
@@ -42,7 +42,7 @@ Official code for the paper _Adaptive Neural Speech Editing_
     * [Editing CLI](#editing-cli)
         * [`promonet.edit`](#promonetedit)
     * [Synthesis CLI](#synthesis-cli)
-        * [`promonet`](#promonet)
+        * [`promonet.synthesize`](#promonetsynthesize)
 - [Training](#training)
     * [Download](#download)
     * [Preprocess](#preprocess)
@@ -105,7 +105,7 @@ pitch, periodicity, loudness, ppg = promonet.preprocess.from_audio(
 ratio = 2.0
 
 # Perform pitch-shifting
-shifted = promonet.from_features(
+shifted = promonet.synthesize.from_features(
     *promonet.edit.from_features(
         pitch,
         periodicity,
@@ -116,7 +116,7 @@ shifted = promonet.from_features(
     gpu=gpu)
 
 # Perform time-stretching
-stretched = promonet.from_features(
+stretched = promonet.synthesize.from_features(
     *promonet.edit.from_features(
         pitch,
         periodicity,
@@ -127,7 +127,7 @@ stretched = promonet.from_features(
     gpu=gpu)
 
 # Perform loudness-scaling
-scaled = promonet.from_audio(
+scaled = promonet.synthesize.from_features(
     *promonet.edit.from_features(
         pitch,
         periodicity,
@@ -370,7 +370,7 @@ def from_files_to_files(
 
 ### Synthesis API
 
-##### `promonet.from_features`
+##### `promonet.synthesize.from_features`
 
 ```python
 def from_features(
@@ -381,7 +381,7 @@ def from_features(
     speaker: Optional[Union[int, torch.Tensor]] = 0,
     checkpoint: Union[str, os.PathLike] = promonet.DEFAULT_CHECKPOINT,
     gpu: Optional[int] = None) -> torch.Tensor:
-    """Perform speech editing
+    """Perform speech synthesis
 
     Args:
         pitch: The pitch contour
@@ -398,7 +398,7 @@ def from_features(
 ```
 
 
-##### `promonet.from_file`
+##### `promonet.synthesize.from_file`
 
 ```python
 def from_file(
@@ -410,7 +410,7 @@ def from_file(
     checkpoint: Union[str, os.PathLike] = promonet.DEFAULT_CHECKPOINT,
     gpu: Optional[int] = None
 ) -> torch.Tensor:
-    """Edit speech on disk
+    """Perform speech synthesis from features on disk
 
     Args:
         pitch_file: The pitch file
@@ -427,7 +427,7 @@ def from_file(
 ```
 
 
-##### `promonet.from_file_to_file`
+##### `promonet.synthesize.from_file_to_file`
 
 ```python
 def from_file_to_file(
@@ -440,7 +440,7 @@ def from_file_to_file(
     checkpoint: Union[str, os.PathLike] = promonet.DEFAULT_CHECKPOINT,
     gpu: Optional[int] = None
 ) -> None:
-    """Edit speech on disk and save to disk
+    """Perform speech synthesis from features on disk and save
 
     Args:
         pitch_file: The pitch file
@@ -455,7 +455,7 @@ def from_file_to_file(
 ```
 
 
-##### `promonet.from_files_to_files`
+##### `promonet.synthesize.from_files_to_files`
 
 ```python
 def from_files_to_files(
@@ -468,7 +468,7 @@ def from_files_to_files(
     checkpoint: Union[str, os.PathLike] = promonet.DEFAULT_CHECKPOINT,
     gpu: Optional[int] = None
 ) -> None:
-    """Edit speech on disk and save to disk
+    """Perform batched speech synthesis from features on disk and save
 
     Args:
         pitch_files: The pitch files
@@ -566,7 +566,7 @@ arguments:
   --periodicity_files PERIODICITY_FILES [PERIODICITY_FILES ...]
     The periodicity files to edit
   --loudness_files LOUDNESS_FILES [LOUDNESS_FILES ...]
-    The alignment files to edit
+    The loudness files to edit
   --ppg_files PPG_FILES [PPG_FILES ...]
     The ppg files to edit
   --output_prefixes OUTPUT_PREFIXES [OUTPUT_PREFIXES ...]
@@ -586,10 +586,10 @@ optional arguments:
 
 ### Synthesis CLI
 
-#### `promonet`
+#### `promonet.synthesize`
 
 ```
-python -m promonet \
+python -m promonet.synthesize \
     --pitch_files PITCH_FILES [PITCH_FILES ...] \
     --periodicity_files PERIODICITY_FILES [PERIODICITY_FILES ...] \
     --loudness_files LOUDNESS_FILES [LOUDNESS_FILES ...] \
@@ -599,7 +599,7 @@ python -m promonet \
     [--checkpoint CHECKPOINT] \
     [--gpu GPU]
 
-Perform speech editing
+Synthesize speech from features
 
 arguments:
   --pitch_files PITCH_FILES [PITCH_FILES ...]
@@ -680,7 +680,7 @@ automatically be loaded and training will resume from that checkpoint.
 You can monitor training via `tensorboard`.
 
 ```
-tensorboard --logdir runs/ --port <port>
+tensorboard --logdir runs/ --port <port> --load_fast true
 ```
 
 To use the `torchutil` notification system to receive notifications for long
