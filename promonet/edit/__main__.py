@@ -1,4 +1,4 @@
-import argparse
+import yapecs
 from pathlib import Path
 
 import promonet
@@ -11,7 +11,7 @@ import promonet
 
 def parse_args():
     """Parse command-line arguments"""
-    parser = argparse.ArgumentParser(description='Edit speech representation')
+    parser = yapecs.ArgumentParser(description='Edit speech representation')
     parser.add_argument(
         '--pitch_files',
         type=Path,
@@ -29,7 +29,7 @@ def parse_args():
         type=Path,
         nargs='+',
         required=True,
-        help='The alignment files to edit')
+        help='The loudness files to edit')
     parser.add_argument(
         '--ppg_files',
         type=Path,
@@ -54,6 +54,14 @@ def parse_args():
         '--loudness_scale_db',
         type=float,
         help='Amount of loudness scaling in dB')
+    parser.add_argument(
+        '--stretch_unvoiced',
+        action='store_true',
+        help='If provided, applies time-stretching to unvoiced frames')
+    parser.add_argument(
+        '--stretch_silence',
+        action='store_true',
+        help='If provided, applies time-stretching to silence frames')
     return parser.parse_known_args()[0]
 
 

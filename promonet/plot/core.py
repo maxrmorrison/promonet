@@ -1,14 +1,50 @@
 import matplotlib.pyplot as plt
-import pyfoal
-import pysodic
+import penn
 import torch
 
 import promonet
 
 
 ###############################################################################
-# Plot prosody
+# Plot speech representation
 ###############################################################################
+
+
+def from_audio(
+    audio,
+    target_audio=None,
+    features=promonet.DEFAULT_PLOT_FEATURES,
+    gpu=None):
+    """Plot speech representation from audio"""
+    # Preprocess
+    pitch, periodicity, loudness, ppg = promonet.preprocess.from_audio(
+        audio,
+        gpu=gpu)
+    if target_audio is None:
+        target_pitch = None
+        target_periodicity = None
+        target_loudness = None
+        target_ppg = None
+    else:
+        (
+            target_pitch,
+            target_periodicity,
+            target_loudness,
+            target_ppg
+        ) = promonet.preprocess.from_audio(audio, gpu=gpu)
+
+    # Plot
+    return from_features(
+        audio,
+        pitch,
+        periodicity,
+        loudness,
+        ppg,
+        target_pitch,
+        target_periodicity,
+        target_loudness,
+        target_ppg,
+        features=features)
 
 
 def from_features(
@@ -16,99 +52,113 @@ def from_features(
         pitch,
         periodicity,
         loudness,
-        alignment,
+        ppg,
         target_pitch=None,
         target_periodicity=None,
-        target_loudness=None):
-    """Plot prosody from features"""
-    figure, axes = plt.subplots(5, 1, figsize=(18, 6))
+        target_loudness=None,
+        target_ppg=None,
+        features=promonet.DEFAULT_PLOT_FEATURES):
+    """Plot speech representation"""
+    figure, axes = plt.subplots(len(features), 1, figsize=(18, 2 * len(features)))
 
     # Plot audio
-    axes[0].plot(audio.squeeze().cpu(), color='black', linewidth=.5)
-    axes[0].set_axis_off()
-    axes[0].set_ylim([-1., 1.])
+    i = 0
+    if 'audio' in features:
+        axes[i].plot(audio.squeeze().cpu(), color='black', linewidth=.5)
+        axes[i].set_axis_off()
+        axes[i].set_ylim([-1., 1.])
+        i += 1
 
     # Plot pitch
-    axes[1].plot(pitch.squeeze().cpu(), color='black', linewidth=1.)
-    if target_pitch is not None:
-        axes[1].plot(target_pitch.squeeze().cpu(), color='green', linewidth=1.)
-        if target_periodicity is not None:
-            voicing = pysodic.voicing(periodicity)
-            target_voicing = pysodic.voicing(target_periodicity)
-            cents = 1200 * torch.abs(torch.log2(pitch) - torch.log2(target_pitch))
-            errors = voicing & target_voicing & (cents > 50.)
-            pitch_errors = target_pitch.clone()
-            pitch_errors[~errors] = float('nan')
-            axes[1].plot(pitch_errors.squeeze().cpu(), color='red', linewidth=1.)
-    axes[1].set_axis_off()
+    if 'pitch' in features:
+        axes[i].plot(pitch.squeeze().cpu(), color='black', linewidth=1.)
+        if target_pitch is not None:
+            axes[i].plot(target_pitch.squeeze().cpu(), color='green', linewidth=1.)
+            if target_periodicity is not None:
+                voicing = penn.voicing.threshold(
+                    periodicity,
+                    promonet.VOICING_THRESOLD)
+                target_voicing = penn.voicing.threshold(
+                    target_periodicity,
+                    promonet.VOICING_THRESOLD)
+                cents = 1200 * torch.abs(torch.log2(pitch) - torch.log2(target_pitch))
+                errors = (
+                    voicing &
+                    target_voicing &
+                    (cents > promonet.ERROR_THRESHOLD_PITCH))
+                pitch_errors = target_pitch.clone()
+                pitch_errors[~errors] = float('nan')
+                axes[i].plot(pitch_errors.squeeze().cpu(), color='red', linewidth=1.)
+        axes[i].set_axis_off()
+        i += 1
 
     # Plot periodicity
-    axes[2].plot(periodicity.squeeze().cpu(), color='black', linewidth=1.)
-    if target_periodicity is not None:
-        axes[2].plot(
-            target_periodicity.squeeze().cpu(),
-            color='green',
-            linewidth=1.)
-        errors = torch.abs(periodicity - target_periodicity) > .1
-        periodicity_errors = target_periodicity.clone()
-        periodicity_errors[~errors] = float('nan')
-        axes[2].plot(
-            periodicity_errors.squeeze().cpu(),
-            color='red',
-            linewidth=1.)
-    axes[2].set_axis_off()
+    if 'periodicity' in features:
+        axes[i].plot(periodicity.squeeze().cpu(), color='black', linewidth=1.)
+        if target_periodicity is not None:
+            axes[i].plot(
+                target_periodicity.squeeze().cpu(),
+                color='green',
+                linewidth=1.)
+            errors = (
+                torch.abs(periodicity - target_periodicity) >
+                promonet.ERROR_THRESHOLD_PERIODICITY)
+            periodicity_errors = target_periodicity.clone()
+            periodicity_errors[~errors] = float('nan')
+            axes[i].plot(
+                periodicity_errors.squeeze().cpu(),
+                color='red',
+                linewidth=1.)
+        axes[i].set_axis_off()
+        i += 1
 
     # Plot loudness
-    axes[3].plot(loudness.squeeze().cpu(), color='black', linewidth=1.)
-    if target_loudness is not None:
-        axes[3].plot(
-            target_loudness.squeeze().cpu(),
-            color='green',
-            linewidth=1.)
-        errors = torch.abs(loudness - target_loudness) > 6.
-        loudness_errors = target_loudness.clone()
-        loudness_errors[~errors] = float('nan')
-        axes[3].plot(
-            loudness_errors.squeeze().cpu(),
-            color='red',
-            linewidth=1.)
-    axes[3].set_axis_off()
+    if 'loudness' in features:
+        axes[i].plot(loudness.squeeze().cpu(), color='black', linewidth=1.)
+        if target_loudness is not None:
+            axes[i].plot(
+                target_loudness.squeeze().cpu(),
+                color='green',
+                linewidth=1.)
+            errors = (
+                torch.abs(loudness - target_loudness) >
+                promonet.ERROR_THRESHOLD_LOUDNESS)
+            loudness_errors = target_loudness.clone()
+            loudness_errors[~errors] = float('nan')
+            axes[i].plot(
+                loudness_errors.squeeze().cpu(),
+                color='red',
+                linewidth=1.)
+        axes[i].set_axis_off()
+        i += 1
 
-    # Plot alignment
-    pyfoal.plot.phonemes(axes[4], alignment, 5)
+    # TODO - plot PPG
 
     return figure
 
 
-def from_file(text_file, audio_file, gpu=None):
-    """Plot prosody from text and audio on disk"""
-    # Load
-    text = promonet.load.text(text_file)
-    audio = promonet.load.audio(audio_file)
+def from_file(
+    audio_file,
+    target_file=None,
+    features=promonet.DEFAULT_PLOT_FEATURES,
+    gpu=None):
+    """Plot speech representation from audio on disk"""
+    return from_audio(
+        promonet.load.audio(audio_file),
+        None if target_file is None else promonet.load.audio(target_file),
+        features,
+        gpu)
 
+
+def from_file_to_file(
+    audio_file,
+    output_file,
+    target_file=None,
+    features=promonet.DEFAULT_PLOT_FEATURES,
+    gpu=None):
+    """Plot speech representation from audio on disk and save to disk"""
     # Plot
-    return from_text_and_audio(text, audio, gpu)
-
-
-def from_file_to_file(text_file, audio_file, output_file, gpu=None):
-    """Plot prosody from text and audio on disk and save to disk"""
-    # Plot
-    figure = from_file(text_file, audio_file, gpu)
+    figure = from_file(audio_file, target_file, features, gpu)
 
     # Save
     figure.savefig(output_file, bbox_inches='tight', pad_inches=0, dpi=300)
-
-
-def from_text_and_audio(text, audio, gpu=None):
-    """Plot prosody from text and audio inputs"""
-    # Preprocess
-    pitch, periodicity, loudness, _, alignment = pysodic.from_audio_and_text(
-        audio,
-        promonet.SAMPLE_RATE,
-        text,
-        promonet.HOPSIZE / promonet.SAMPLE_RATE,
-        promonet.WINDOW_SIZE / promonet.SAMPLE_RATE,
-        gpu=gpu)
-
-    # Plot
-    return from_features(audio, pitch, periodicity, loudness, alignment)

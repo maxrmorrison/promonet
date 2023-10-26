@@ -1,4 +1,4 @@
-import argparse
+import yapecs
 from pathlib import Path
 
 import promonet
@@ -11,7 +11,7 @@ import promonet
 
 def parse_args():
     """Parse command-line arguments"""
-    parser = argparse.ArgumentParser(description='Perform speaker adaptation')
+    parser = yapecs.ArgumentParser(description='Perform speaker adaptation')
     parser.add_argument(
         '--name',
         required=True,

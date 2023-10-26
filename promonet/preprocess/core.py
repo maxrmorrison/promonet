@@ -1,15 +1,9 @@
-import functools
-import multiprocessing as mp
 import os
-from pathlib import Path
 from typing import List, Optional, Tuple, Union
 
+import penn
 import ppgs
-import pyfoal
-import pypar
-import pysodic
 import torch
-import torchaudio
 
 import promonet
 
@@ -37,18 +31,25 @@ def from_audio(
         loudness: The loudness contour
         ppg: The phonetic posteriorgram
     """
-    # Infer prosody
-    pitch, periodicity, loudness = pysodic.pitch_periodicity_loudness(
+    # Estimate pitch and periodicity
+    pitch, periodicity = penn.from_audio(
         audio,
-        sample_rate,
-        promonet.convert.samples_to_seconds(promonet.HOPSIZE),
-        promonet.convert.samples_to_seconds(promonet.WINDOW_SIZE),
+        sample_rate=sample_rate,
+        hopsize=promonet.convert.samples_to_seconds(promonet.HOPSIZE),
+        fmin=promonet.FMIN,
+        fmax=promonet.FMAX,
+        batch_size=2048,
+        center='half-hop',
+        interp_unvoiced_at=promonet.VOICING_THRESOLD,
         gpu=gpu)
+
+    # Compute loudness
+    loudness = promonet.loudness.from_audio(audio).to(pitch.device)
 
     # Infer ppg
     ppg = ppgs.from_audio(audio, sample_rate, gpu=gpu)
-    grid = promonet.interpolate.grid.of_length(ppg, pitch.shape[-1])
-    ppg = promonet.interpolate.ppg(ppg, grid)
+    grid = promonet.edit.grid.of_length(ppg, pitch.shape[-1])
+    ppg = promonet.edit.grid.sample(ppg, grid, promonet.PPG_INTERP_METHOD)
 
     return pitch, periodicity, loudness, ppg
 
@@ -99,7 +100,6 @@ def from_file_to_file(
 def from_files_to_files(
     files: List[Union[str, bytes, os.PathLike]],
     output_prefixes: Optional[List[Union[str, os.PathLike]]] = None,
-    features=promonet.INPUT_FEATURES,
     gpu=None
 ) -> None:
     """Preprocess multiple audio files on disk and save
@@ -107,102 +107,31 @@ def from_files_to_files(
     Arguments
         files: Audio files to preprocess
         output_prefixes: Files to save features, minus extension
-        features: The features to preprocess
         gpu: The GPU index
     """
     if output_prefixes is None:
         output_prefixes = [file.parent / file.stem for file in files]
 
     # Preprocess phonetic posteriorgrams
-    if 'ppg' in features:
-        ppgs.from_files_to_files(
-            files,
-            [f'{prefix}-ppg.pt' for prefix in output_prefixes],
-            num_workers=promonet.NUM_WORKERS,
-            gpu=gpu)
+    ppgs.from_files_to_files(
+        files,
+        [f'{prefix}-ppg.pt' for prefix in output_prefixes],
+        num_workers=promonet.NUM_WORKERS,
+        gpu=gpu)
 
-    # Preprocess prosody features
-    if any(feature in features for feature in [
-        'loudness',
-        'periodicity',
-        'pitch'
-    ]):
-        for file, prefix in promonet.iterator(
-            zip(files, output_prefixes),
-            'pysodic',
-            total=len(files)
-        ):
-            pysodic.from_file_to_file(
-                file,
-                prefix,
-                hopsize=promonet.HOPSIZE / promonet.SAMPLE_RATE,
-                window_size=promonet.WINDOW_SIZE / promonet.SAMPLE_RATE,
-                voicing_threshold=0.1625,
-                gpu=gpu)
+    # Preprocess pitch and periodicity
+    penn.from_files_to_files(
+        files,
+        output_prefixes,
+        hopsize=promonet.HOPSIZE / promonet.SAMPLE_RATE,
+        fmin=promonet.FMIN,
+        fmax=promonet.FMAX,
+        batch_size=2048,
+        center='half-hop',
+        interp_unvoiced_at=promonet.VOICING_THRESOLD,
+        gpu=gpu)
 
-
-###############################################################################
-# Utilities
-###############################################################################
-
-
-def forced_alignment(text_files, audio_files, output_prefixes):
-    """Compute forced phoneme alignments"""
-    if output_prefixes is None:
-        output_prefixes = [file.parent / file.stem for file in text_files]
-
-    # Output files
-    alignment_files = [
-        Path(f'{prefix}.TextGrid') for prefix in output_prefixes]
-
-    # Default to using all cpus
-    num_workers = max(min(len(text_files) // 2, promonet.NUM_WORKERS), 1)
-
-    # Launch multiprocessed P2FA alignment
-    align_fn = functools.partial(pyfoal_catch_failed)
-    iterator = zip(text_files, audio_files, alignment_files)
-    with mp.get_context('spawn').Pool(num_workers) as pool:
-        failed = pool.starmap(align_fn, iterator)
-
-    # Handle alignment failures of data-augmented speech by stretching
-    # non-augmented alignments
-    for file in [i for i in failed if i is not None]:
-        good_textgrid = file.parent / f'{file.stem[:-4]}-100.TextGrid'
-        ratio = int(file.stem[-3:]) / 100.
-        alignment = pypar.Alignment(good_textgrid)
-        durations = [
-            phoneme.duration() for phoneme in alignment.phonemes()]
-        new_durations = [duration / ratio for duration in durations]
-        alignment.update(durations=new_durations)
-        alignment.save(file.parent / f'{file.stem}.TextGrid')
-
-    # Get exact lengths derived from audio files to avoid length
-    # mismatch due to floating-point vs integer hopsize
-    hopsize = promonet.HOPSIZE / promonet.SAMPLE_RATE
-    lengths = [
-        int(
-            torchaudio.info(file).num_frames //
-            (torchaudio.info(file).sample_rate * hopsize)
-        )
-        for file in audio_files]
-
-    # Convert alignments to indices
-    indices_files = [
-        file.parent / f'{file.stem}-phonemes.pt'
-        for file in alignment_files]
-    pysodic.alignment_files_to_indices_files(
-        alignment_files,
-        indices_files,
-        lengths,
-        hopsize)
-
-
-def pyfoal_catch_failed(text_file, audio_file, output_file):
-    try:
-        pyfoal.from_file_to_file(
-            text_file,
-            audio_file,
-            output_file,
-            aligner='p2fa')
-    except IndexError:
-        return audio_file
+    # Preprocess loudness
+    promonet.loudness.from_files_to_files(
+        files,
+        [f'{prefix}-loudness.pt' for prefix in output_prefixes])

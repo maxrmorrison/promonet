@@ -1,14 +1,38 @@
+"""Download and format datasets
+
+Files produced are saved in data/. The directory structure is as follows.
+
+data
+├── cache
+|   └── <dataset>
+|       ├── <speaker>
+|       |   ├── <utterance>-<ratio>-loudness.pt
+|       |   ├── <utterance>-<ratio>-periodicity.pt
+|       |   ├── <utterance>-<ratio>-pitch.pt
+|       |   ├── <utterance>-<ratio>-ppg.pt
+|       |   ├── <utterance>-<ratio>-spectrogram.pt
+|       |   ├── <utterance>-<ratio>.wav
+|       |   ├── <utterance>.txt
+|       |   └── <utterance>.wav
+|       └── <partition>-lengths.json  # Cached utterance lengths
+├── datasets
+|   └── <dataset>
+|       └── <original, uncompressed contents of the dataset>
+└── sources
+    └── <dataset>
+        └── <tar or zip files>
+"""
+import json
 import shutil
 import ssl
 import tarfile
 import urllib
 import zipfile
 from pathlib import Path
-import json
 
 import torch
-import torchutil
 import torchaudio
+import torchutil
 
 import promonet
 
@@ -38,7 +62,7 @@ def daps():
     """Download daps dataset"""
     # Download
     url = 'https://zenodo.org/record/4783456/files/daps-segmented.tar.gz?download=1'
-    file = promonet.SOURCES_DIR / 'daps.tar.gz'
+    file = promonet.SOURCE_DIR / 'daps.tar.gz'
     download_file(url, file)
 
     with promonet.chdir(promonet.DATA_DIR):
@@ -112,7 +136,7 @@ def daps():
 def libritts():
     """Download libritts dataset"""
     # Create directory for downloads
-    source_directory = promonet.SOURCES_DIR / 'libritts'
+    source_directory = promonet.SOURCE_DIR / 'libritts'
     source_directory.mkdir(exist_ok=True, parents=True)
 
     # Create directory for unpacking
@@ -147,10 +171,6 @@ def libritts():
     text_files = [
         file.with_suffix('.normalized.txt') for file in audio_files]
 
-    # Track previous and next utterances
-    context = {}
-    prev_parts = None
-
     # Write audio to cache
     speaker_count = {}
     cache_directory = promonet.CACHE_DIR / 'libritts'
@@ -165,7 +185,7 @@ def libritts():
         ):
 
             # Get file metadata
-            speaker, book, chapter, utterance = [
+            speaker, *_ = [
                 int(part) for part in audio_file.stem.split('_')]
 
             # Update speaker and get current entry
@@ -196,22 +216,6 @@ def libritts():
                 promonet.SAMPLE_RATE)
             shutil.copyfile(text_file, output_file.with_suffix('.txt'))
 
-            # Update context
-            if (
-                prev_parts is not None and
-                prev_parts == (speaker, book, chapter, utterance - 1)
-            ):
-                prev_stem = f'{index:04d}/{count - 1:06d}'
-                context[stem] = { 'prev': prev_stem, 'next': None }
-                context[prev_stem]['next'] = stem
-            else:
-                context[stem] = { 'prev': None, 'next': None }
-            prev_parts = (speaker, book, chapter, utterance)
-
-        # Save context information
-        with open('context.json', 'w') as file:
-            json.dump(context, file, indent=4, sort_keys=True)
-
         # Save speaker map
         with open('speakers.json', 'w') as file:
             json.dump(speaker_count, file, indent=4, sort_keys=True)
@@ -221,7 +225,7 @@ def vctk():
     """Download vctk dataset"""
     # Download
     url = 'https://datashare.ed.ac.uk/download/DS_10283_3443.zip'
-    file = promonet.SOURCES_DIR / 'vctk.zip'
+    file = promonet.SOURCE_DIR / 'vctk.zip'
     download_file(url, file)
 
     # Unzip

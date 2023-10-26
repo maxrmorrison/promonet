@@ -33,10 +33,9 @@ setup(
         'matplotlib',
         'numpy<1.24',
         'openai-whisper',
-        # 'ppgs',  # TEMPORARY - install manually until release of pysodic
+        # 'ppgs',  # TEMPORARY - install manually until release
         'psola',  # TEMPORARY - GPL dependency
         'pypar',
-        # 'pysodic',  # TEMPORARY - install manually until release of pysodic
         'pyworld',
         'pyyaml',
         'resemblyzer',
