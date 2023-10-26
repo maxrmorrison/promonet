@@ -1,8 +1,36 @@
 import functools
+from typing import Optional
 
 import torch
+import vocos
 
 import promonet
+
+class VocosVocoder(torch.nn.Module):
+
+    def __init__(self, initial_channel, gin_channels):
+        super().__init__()
+
+        #Backbone and head defaults from https://github.com/charactr-platform/vocos/blob/main/configs/vocos.yaml#L48
+        self.backbone = vocos.models.VocosBackbone(initial_channel, 512, 1536, 8)
+        self.head = vocos.heads.ISTFTHead(512, promonet.NUM_FFT, promonet.HOPSIZE)
+
+        # Speaker conditioning
+        self.cond = torch.nn.Conv1d(
+            gin_channels,
+            initial_channel,
+            1)
+
+    def forward(self, x, g=None):
+        if g:
+            x = x + self.cond(g)
+
+        x = self.backbone(x)
+        output = self.head(x)
+        output = output.unsqueeze(1)
+        #print(f'output shape: {output.shape}')
+        return output
+
 
 
 ###############################################################################
@@ -10,7 +38,7 @@ import promonet
 ###############################################################################
 
 
-class Vocoder(torch.nn.Module):
+class HifiganVocoder(torch.nn.Module):
 
     def __init__(self, initial_channel, gin_channels):
         super().__init__()
@@ -118,6 +146,8 @@ class Vocoder(torch.nn.Module):
         # Final conv
         x = self.conv_post(x)
 
+        #print(f'output shape: {x.shape}')
+
         # Bound to [-1, 1]
         return torch.tanh(x)
 
@@ -203,3 +233,11 @@ def init_weights(m, mean=0.0, std=0.01):
     classname = m.__class__.__name__
     if classname.find("Conv") != -1:
         m.weight.data.normal_(mean, std)
+
+def get_vocoder(*args):
+    if promonet.VOCODER_TYPE == 'hifigan':
+        return HifiganVocoder(*args)
+    elif promonet.VOCODER_TYPE == 'vocos':
+        return VocosVocoder(*args)
+    else:
+        raise ValueError(f'Vocoder type {promonet.VOCODER_TYPE} is not defined')

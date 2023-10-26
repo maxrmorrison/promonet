@@ -46,6 +46,7 @@ setup(
         'torchaudio<2.0.0',
         'tqdm',
         'umap-learn',
+        'vocos[train]',
         'yapecs',
     ],
     packages=find_packages(),
