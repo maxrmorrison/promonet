@@ -1,7 +1,7 @@
 MODULE = 'promonet'
 
 # Configuration name
-CONFIG = 'augment-slerp-pitchembed128'
+CONFIG = 'augment-slerp-pitchembed16'
 
 # Whether to use pitch augmentation
 AUGMENT_PITCH = True
@@ -11,4 +11,4 @@ AUGMENT_PITCH = True
 PPG_INTERP_METHOD = 'slerp'
 
 # Embedding size used to represent each pitch bin
-PITCH_EMBEDDING_SIZE = 128
+PITCH_EMBEDDING_SIZE = 16

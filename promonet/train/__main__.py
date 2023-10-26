@@ -1,4 +1,4 @@
-import argparse
+import yapecs
 import shutil
 from pathlib import Path
 
@@ -36,7 +36,7 @@ def main(
 
 def parse_args():
     """Parse command-line arguments"""
-    parser = argparse.ArgumentParser(description='Train a model')
+    parser = yapecs.ArgumentParser(description='Train a model')
     parser.add_argument(
         '--config',
         type=Path,

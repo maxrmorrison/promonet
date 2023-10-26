@@ -1,4 +1,4 @@
-import argparse
+import yapecs
 
 import promonet
 
@@ -10,7 +10,7 @@ import promonet
 
 def parse_args():
     """Parse command-line arguments"""
-    parser = argparse.ArgumentParser(description='Perform data augmentation')
+    parser = yapecs.ArgumentParser(description='Perform data augmentation')
     parser.add_argument(
         '--datasets',
         nargs='+',

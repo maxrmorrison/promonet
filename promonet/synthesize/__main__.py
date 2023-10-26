@@ -11,7 +11,8 @@ import promonet
 
 def parse_args():
     """Parse command-line arguments"""
-    parser = yapecs.ArgumentParser(description='Perform speech editing')
+    parser = yapecs.ArgumentParser(
+        description='Synthesize speech from features')
     parser.add_argument(
         '--pitch_files',
         type=Path,
@@ -59,4 +60,4 @@ def parse_args():
     return parser.parse_known_args()[0]
 
 
-promonet.from_files_to_files(**vars(parse_args()))
+promonet.synthesize.from_files_to_files(**vars(parse_args()))

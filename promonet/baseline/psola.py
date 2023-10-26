@@ -33,7 +33,9 @@ def from_audio(
 
             # Maybe stretch pitch
             if grid is not None:
-                target_pitch = promonet.interpolate.pitch(target_pitch, grid)
+                target_pitch = 2 ** promonet.edit.grid.sample(
+                    torch.log2(target_pitch),
+                    grid)
 
             audio = psola.core.pitch_shift(
                 audio,

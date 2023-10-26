@@ -19,8 +19,6 @@ def datasets(datasets, features=promonet.ALL_FEATURES, gpu=None):
         # Get text and audio files for this speaker
         audio_files = sorted(list(directory.rglob('*.wav')))
         audio_files = [file for file in audio_files if '-' in file.stem]
-        text_files = [
-            file.parent / f'{file.stem[:-4]}.txt' for file in audio_files]
 
         # Preprocess input features
         if any(feature in features for feature in [
@@ -29,10 +27,7 @@ def datasets(datasets, features=promonet.ALL_FEATURES, gpu=None):
             'pitch',
             'ppg'
         ]):
-            promonet.preprocess.from_files_to_files(
-                audio_files,
-                features=features,
-                gpu=gpu)
+            promonet.preprocess.from_files_to_files(audio_files, gpu=gpu)
 
         # Preprocess spectrograms
         if 'spectrogram' in features:
@@ -42,11 +37,3 @@ def datasets(datasets, features=promonet.ALL_FEATURES, gpu=None):
             promonet.preprocess.spectrogram.from_files_to_files(
                 audio_files,
                 spectrogram_files)
-
-        # Preprocess alignment
-        if 'alignment' in features:
-            prefixes = [file.name / file.stem for file in text_files]
-            promonet.preprocess.forced_alignment(
-                text_files,
-                audio_files,
-                prefixes)
