@@ -31,7 +31,9 @@ class Metrics:
             'pitch': self.pitch(),
             'ppg': self.ppg(),
             'wer': self.wer(),
-            'speaker_sim': self.speaker_sim()}
+            'speaker_sim': (
+                self.speaker_sim() if self.speaker_sim.count
+                else float('nan'))}
 
     def update(
         self,
@@ -142,7 +144,8 @@ class WER(torchutil.metrics.Average):
     """Word error rate"""
     def update(self, text, audio):
         super().update(
-            jiwer.wer(normalize_text(text), speech_to_text(audio)),
+            torch.tensor(
+                jiwer.wer(normalize_text(text), speech_to_text(audio))),
             1)
 
 
