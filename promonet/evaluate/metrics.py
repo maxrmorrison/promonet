@@ -25,15 +25,15 @@ class Metrics:
         self.speaker_sim = SpeakerSimilarity()
 
     def __call__(self):
-        return {
+        result = {
             'loudness': self.loudness(),
             'periodicity': self.periodicity(),
             'pitch': self.pitch(),
             'ppg': self.ppg(),
-            'wer': self.wer(),
-            'speaker_sim': (
-                self.speaker_sim() if self.speaker_sim.count
-                else float('nan'))}
+            'wer': self.wer()}
+        if self.speaker_sim.count:
+            result['speaker_sim'] = self.speaker_sim()
+        return result
 
     def update(
         self,
@@ -131,7 +131,10 @@ class PPG(torchutil.metrics.Average):
     """PPG distance"""
     def update(self, predicted, target):
         super().update(
-            ppgs.distance(predicted, target, reduction='sum'),
+            ppgs.distance(
+                predicted.squeeze(0),
+                target.squeeze(0),
+                reduction='sum'),
             predicted.shape[-1])
 
 

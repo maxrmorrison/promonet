@@ -213,20 +213,9 @@ def vctk():
     """Download vctk dataset"""
     directory = promonet.DATA_DIR / 'vctk'
     directory.mkdir(exist_ok=True, parents=True)
-    # TODO
-    # torchutil.download.zip(
-    #     'https://datashare.ed.ac.uk/download/DS_10283_3443.zip',
-    #     directory)
-
-    # Download
-    url = 'https://datashare.ed.ac.uk/download/DS_10283_3443.zip'
-    file = promonet.SOURCE_DIR / 'vctk.zip'
-    torchutil.download.file(url, file)
-
-    # Unzip
-    directory = promonet.DATA_DIR / 'vctk'
-    with zipfile.ZipFile(file, 'r') as zfile:
-        zfile.extractall(directory)
+    torchutil.download.zip(
+        'https://datashare.ed.ac.uk/download/DS_10283_3443.zip',
+        directory)
 
     # Unzip
     for file in directory.glob('*.zip'):
