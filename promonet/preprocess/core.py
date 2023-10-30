@@ -123,7 +123,7 @@ def from_files_to_files(
     penn.from_files_to_files(
         files,
         output_prefixes,
-        hopsize=promonet.HOPSIZE / promonet.SAMPLE_RATE,
+        hopsize=promonet.convert.samples_to_seconds(promonet.HOPSIZE),
         fmin=promonet.FMIN,
         fmax=promonet.FMAX,
         batch_size=2048,

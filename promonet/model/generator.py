@@ -518,11 +518,13 @@ class Generator(torch.nn.Module):
 
         # Maybe add loudness features
         if 'loudness' in promonet.INPUT_FEATURES:
-            loudness = promonet.loudness.normalize(loudness)
-            features = torch.cat((features, loudness[:, None]), dim=1)
+            normalized = promonet.loudness.normalize(loudness)
+            features = torch.cat((features, normalized[:, None]), dim=1)
 
         # Maybe add periodicity features
         if 'periodicity' in promonet.INPUT_FEATURES:
+            # TEMPORARY - if it works, make part of penn
+            periodicity[loudness < promonet.SILENCE_THRESHOLD] = 0.
             features = torch.cat((features, periodicity[:, None]), dim=1)
 
         return features, pitch, loudness
