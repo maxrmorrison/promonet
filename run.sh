@@ -8,12 +8,13 @@
 # python -m promonet.data.download --datasets daps vctk
 
 # Setup experiments
-# python -m promonet.data.augment --datasets daps vctk
-# python -m promonet.preprocess --gpu $1 --datasets daps vctk
-# python -m promonet.partition --datasets daps vctk
+python -m promonet.data.augment --datasets daps vctk
+python -m promonet.data.preprocess --gpu $1 --datasets daps vctk
+python -m promonet.partition --datasets daps vctk
 
 # First pass experiments trainings and evaluations
 python -m promonet.train --config config/base.py --gpu $1
+python -m promonet.train --config config/augment.py --gpu $1
 # python -m promonet.train --config config/conddisc.py --gpu $1
 # python -m promonet.train --config config/conddisc-condgen.py --gpu $1
 # python -m promonet.train --config config/conddisc-condgen-augment.py --gpu $1
