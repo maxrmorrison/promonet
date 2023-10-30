@@ -24,9 +24,6 @@ data
 """
 import json
 import shutil
-import ssl
-import tarfile
-import urllib
 import zipfile
 from pathlib import Path
 
@@ -60,32 +57,29 @@ def datasets(datasets):
 
 def daps():
     """Download daps dataset"""
-    # Download
-    url = 'https://zenodo.org/record/4783456/files/daps-segmented.tar.gz?download=1'
-    file = promonet.SOURCE_DIR / 'daps.tar.gz'
-    download_file(url, file)
+    torchutil.download.targz(
+        'https://zenodo.org/record/4783456/files/daps-segmented.tar.gz?download=1',
+        promonet.DATA_DIR)
 
-    with promonet.chdir(promonet.DATA_DIR):
+    # Delete previous directory
+    shutil.rmtree(promonet.DATA_DIR / 'daps', ignore_errors=True)
 
-        # Unzip
-        with tarfile.open(file, 'r:gz') as tfile:
-            tfile.extractall()
+    # Rename directory
+    data_directory = promonet.DATA_DIR / 'daps'
+    shutil.move(
+        promonet.DATA_DIR / 'daps-segmented',
+        data_directory)
 
-        # Rename directory
-        if Path('daps').exists():
-            shutil.rmtree('daps')
-        shutil.move('daps-segmented', 'daps')
-
-        # Get audio files
-        audio_files = sorted(
-            [path.resolve() for path in  Path('daps').rglob('*.wav')])
-        text_files = [file.with_suffix('.txt') for file in audio_files]
+    # Get audio files
+    audio_files = sorted(
+        [path.resolve() for path in data_directory.rglob('*.wav')])
+    text_files = [file.with_suffix('.txt') for file in audio_files]
 
     # Write audio to cache
     speaker_count = {}
-    output_directory = promonet.CACHE_DIR / 'daps'
-    output_directory.mkdir(exist_ok=True, parents=True)
-    with promonet.chdir(output_directory):
+    cache_directory = promonet.CACHE_DIR / 'daps'
+    cache_directory.mkdir(exist_ok=True, parents=True)
+    with promonet.chdir(cache_directory):
 
         # Iterate over files
         for audio_file, text_file in promonet.iterator(
@@ -114,7 +108,7 @@ def daps():
                 audio *= .35 / maximum
 
             # Save at original sampling rate
-            speaker_directory = output_directory / f'{index:04d}'
+            speaker_directory = cache_directory / f'{index:04d}'
             speaker_directory.mkdir(exist_ok=True, parents=True)
             output_file = Path(f'{count:06d}.wav')
             torchaudio.save(
@@ -149,15 +143,9 @@ def libritts():
         'train-clean-360',
         'dev-clean',
         'test-clean']:
-
-        # Download
-        url = f'https://us.openslr.org/resources/60/{partition}.tar.gz'
-        file = source_directory / f'libritts-{partition}.tar.gz'
-        download_file(url, file)
-
-        # Unpack
-        with tarfile.open(file, 'r:gz') as tfile:
-            tfile.extractall(promonet.DATA_DIR)
+        torchutil.download.targz(
+            f'https://us.openslr.org/resources/60/{partition}.tar.gz',
+            promonet.DATA_DIR)
 
     # Uncapitalize directory name
     shutil.rmtree(str(data_directory), ignore_errors=True)
@@ -223,18 +211,16 @@ def libritts():
 
 def vctk():
     """Download vctk dataset"""
-    # Download
-    url = 'https://datashare.ed.ac.uk/download/DS_10283_3443.zip'
-    file = promonet.SOURCE_DIR / 'vctk.zip'
-    download_file(url, file)
+    directory = promonet.DATA_DIR / 'vctk'
+    directory.mkdir(exist_ok=True, parents=True)
+    torchutil.download.zip(
+        'https://datashare.ed.ac.uk/download/DS_10283_3443.zip',
+        directory)
 
     # Unzip
-    directory = promonet.DATA_DIR / 'vctk'
-    with zipfile.ZipFile(file, 'r') as zfile:
-        zfile.extractall(directory)
-    file = next((directory).glob('*.zip'))
-    with zipfile.ZipFile(file) as zfile:
-        zfile.extractall(directory)
+    for file in directory.glob('*.zip'):
+        with zipfile.ZipFile(file) as zfile:
+            zfile.extractall(directory)
 
     # File locations
     audio_directory = directory / 'wav48_silence_trimmed'
@@ -322,10 +308,3 @@ def vctk_text_file_to_audio_file(text_file):
         audio_directory /
         text_file.parent.name /
         f'{text_file.stem}.flac')
-
-
-def download_file(url, file):
-    """Download file from url"""
-    with urllib.request.urlopen(url, context=ssl.SSLContext()) as response, \
-         open(file, 'wb') as output:
-        shutil.copyfileobj(response, output)
