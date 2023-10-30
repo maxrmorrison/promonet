@@ -52,16 +52,17 @@ WINDOW_SIZE = 1024
 
 # Root location for saving outputs
 # TEMPORARY
-# ROOT_DIR = Path(__file__).parent.parent.parent
-ROOT_DIR = Path('/files10/max/promonet')
+ROOT_DIR = Path(__file__).parent.parent.parent
+# ROOT_DIR = Path('/files10/max/promonet')
 
 # Location to save assets to be bundled with pip release
 # TEMPORARY
-# ASSETS_DIR = Path(__file__).parent.parent / 'assets'
-ASSETS_DIR = Path('/files10/max/promonet/promonet/assets')
+ASSETS_DIR = Path(__file__).parent.parent / 'assets'
+# ASSETS_DIR = Path('/files10/max/promonet/promonet/assets')
 
 # Location of preprocessed features
-CACHE_DIR = ROOT_DIR / 'data' / 'cache'
+# CACHE_DIR = ROOT_DIR / 'data' / 'cache'
+CACHE_DIR = Path('/files10/max/promonet/data/cache')
 
 # Location of datasets on disk
 DATA_DIR = ROOT_DIR / 'data' / 'datasets'
@@ -115,6 +116,9 @@ VOICING_THRESOLD = .1625
 
 # Pass speech representation through the latent
 LATENT_SHORTCUT = False
+
+#Whether to slice during training
+SLICING = True
 
 # Whether to use an embedding layer for pitch
 PITCH_EMBEDDING = True
