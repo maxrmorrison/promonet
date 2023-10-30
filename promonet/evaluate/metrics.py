@@ -17,21 +17,23 @@ import promonet
 class Metrics:
 
     def __init__(self):
-        self.loudness = Loudness()
-        self.periodicity = Periodicity()
+        self.loudness = torchutil.metrics.RMSE()
+        self.periodicity = torchutil.metrics.RMSE()
         self.pitch = Pitch()
         self.ppg = PPG()
         self.wer = WER()
         self.speaker_sim = SpeakerSimilarity()
 
     def __call__(self):
-        return {
+        result = {
             'loudness': self.loudness(),
             'periodicity': self.periodicity(),
             'pitch': self.pitch(),
             'ppg': self.ppg(),
-            'wer': self.wer(),
-            'speaker_sim': self.speaker_sim()}
+            'wer': self.wer()}
+        if self.speaker_sim.count:
+            result['speaker_sim'] = self.speaker_sim()
+        return result
 
     def update(
         self,
@@ -69,16 +71,6 @@ class Metrics:
 ###############################################################################
 # Prosody metrics
 ###############################################################################
-
-
-class Loudness(torchutil.metrics.RMSE):
-    """Evaluates differences in speech loudness via root-mean-squared-error"""
-    pass
-
-
-class Periodicity(torchutil.metrics.RMSE):
-    """Evaluates differences in periodicity via root-mean-squared-error"""
-    pass
 
 
 class Pitch(torchutil.metrics.L1):
@@ -135,21 +127,15 @@ class Pitch(torchutil.metrics.L1):
 ###############################################################################
 
 
-class PPG:
-
-    def __init__(self):
-        self.reset()
-
-    def __call__(self):
-        return torch.sqrt(self.total / self.count).item()
-
+class PPG(torchutil.metrics.Average):
+    """PPG distance"""
     def update(self, predicted, target):
-        self.total += ppgs.distance(predicted, target, reduction='sum')
-        self.count += predicted.shape[-1]
-
-    def reset(self):
-        self.total = 0.
-        self.count = 0
+        super().update(
+            ppgs.distance(
+                predicted.squeeze(0),
+                target.squeeze(0),
+                reduction='sum'),
+            predicted.shape[-1])
 
 
 ###############################################################################
@@ -157,22 +143,13 @@ class PPG:
 ###############################################################################
 
 
-class WER:
-
-    def __init__(self):
-        self.reset()
-
-    def __call__(self):
-        return self.total / self.count
-
+class WER(torchutil.metrics.Average):
+    """Word error rate"""
     def update(self, text, audio):
-        predicted_text = speech_to_text(audio)
-        self.total += jiwer.wer(normalize_text(text), predicted_text)
-        self.count += 1
-
-    def reset(self):
-        self.total = 0.
-        self.count = 0
+        super().update(
+            torch.tensor(
+                jiwer.wer(normalize_text(text), speech_to_text(audio))),
+            1)
 
 
 def speech_to_text(audio):
@@ -212,20 +189,7 @@ def normalize_text(text):
 ###############################################################################
 
 
-class SpeakerSimilarity:
-
-    def __init__(self):
-        self.reset()
-
-    def __call__(self):
-        if self.count == 0:
-            return -1
-        return (self.total / self.count).item()
-
+class SpeakerSimilarity(torchutil.metrics.Average):
+    """Speaker similarity metric"""
     def update(self, speaker_embed, utterance_embed):
-        self.total += torch.abs(speaker_embed - utterance_embed).sum()
-        self.count += 1
-
-    def reset(self):
-        self.total = 0.
-        self.count = 0
+        super().update(torch.abs(speaker_embed - utterance_embed).sum(), 1)

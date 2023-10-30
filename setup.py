@@ -27,7 +27,6 @@ setup(
     setup_requires=['numpy', 'cython'],
     install_requires=[
         'alias-free-torch',
-        'espnet',
         'jiwer',
         'librosa',
         'matplotlib',
@@ -37,10 +36,8 @@ setup(
         'psola',  # TEMPORARY - GPL dependency
         'pypar',
         'pyworld',
-        'pyyaml',
         'resemblyzer',
         'scipy',
-        'tensorboard',
         'torch<2.0.0',
         'torchutil',
         'torchaudio<2.0.0',

@@ -127,10 +127,10 @@ class Metadata:
         ):
             self.stems = [
                 stem for stem in self.stems if (
-                    len(
-                        promonet.load.phonemes(
-                            self.cache / f'{stem}-phonemes.pt')
-                    ) < promonet.MAX_TEXT_LENGTH and
+                    # len(
+                    #     promonet.load.phonemes(
+                    #         self.cache / f'{stem}-phonemes.pt')
+                    # ) < promonet.MAX_TEXT_LENGTH and
                     promonet.convert.samples_to_frames(
                         torchaudio.info(
                             self.cache / f'{stem}.wav').num_frames
