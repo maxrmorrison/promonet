@@ -1,6 +1,5 @@
 import functools
 import multiprocessing as mp
-import os
 
 import torch
 import librosa
@@ -30,10 +29,7 @@ def from_audio(audio, mels=False):
 
     # Pad audio
     size = (promonet.NUM_FFT - promonet.HOPSIZE) // 2
-    audio = torch.nn.functional.pad(
-        audio,
-        (size, size),
-        mode='reflect')
+    audio = torch.nn.functional.pad(audio, (size, size), mode='reflect')
 
     # Compute stft
     stft = torch.stft(
@@ -71,7 +67,7 @@ def from_file_to_file(audio_file, output_file, mels=False):
 def from_files_to_files(audio_files, output_files, mels=False):
     """Compute spectrogram from audio files and save to disk"""
     preprocess_fn = functools.partial(from_file_to_file, mels=mels)
-    with mp.get_context('spawn').Pool(os.cpu_count() // 2) as pool:
+    with mp.get_context('spawn').Pool(promonet.NUM_WORKERS) as pool:
         pool.starmap(preprocess_fn, zip(audio_files, output_files))
 
 
