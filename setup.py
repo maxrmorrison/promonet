@@ -27,25 +27,23 @@ setup(
     setup_requires=['numpy', 'cython'],
     install_requires=[
         'alias-free-torch',
-        'espnet',
         'jiwer',
         'librosa',
         'matplotlib',
         'numpy<1.24',
         'openai-whisper',
-        # 'pysodic',  # TEMPORARY - install manually until release of pysodic
+        # 'ppgs',  # TEMPORARY - install manually until release
         'psola',  # TEMPORARY - GPL dependency
         'pypar',
         'pyworld',
-        'pyyaml',
         'resemblyzer',
         'scipy',
-        'tensorboard',
         'torch<2.0.0',
         'torchutil',
         'torchaudio<2.0.0',
         'tqdm',
         'umap-learn',
+        'vocos[train]',
         'yapecs',
     ],
     packages=find_packages(),

@@ -1,32 +1,41 @@
-import argparse
+import yapecs
 from pathlib import Path
 
 import promonet
 
 
 ###############################################################################
-# Plot prosody
+# Plot speech representation
 ###############################################################################
 
 
 def parse_args():
     """Parse command-line arguments"""
-    parser = argparse.ArgumentParser(description='Plot pitch and alignment')
-    parser.add_argument(
-        '--text_file',
-        type=Path,
-        required=True,
-        help='The speech transcript')
+    parser = yapecs.ArgumentParser(description='Plot speech representation')
     parser.add_argument(
         '--audio_file',
         type=Path,
         required=True,
-        help='The corresponding speech audio')
+        help='The speech audio')
     parser.add_argument(
         '--output_file',
         type=Path,
         required=True,
         help='The file to save the output figure')
+    parser.add_argument(
+        '--target_file',
+        type=Path,
+        help='Optional corresponding ground truth to compare to')
+    parser.add_argument(
+        '--features',
+        nargs='+',
+        choices=promonet.DEFAULT_PLOT_FEATURES,
+        default=promonet.DEFAULT_PLOT_FEATURES,
+        help='The features to plot' )
+    parser.add_argument(
+        '--gpu',
+        type=int,
+        help='The GPU index')
     return parser.parse_args()
 
 

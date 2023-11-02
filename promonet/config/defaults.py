@@ -1,4 +1,5 @@
 import functools
+import os
 from pathlib import Path
 
 import torch
@@ -10,7 +11,7 @@ import torch
 
 
 # Configuration name
-CONFIG = 'vits'
+CONFIG = 'base'
 
 
 ###############################################################################
@@ -25,11 +26,17 @@ FMAX = 550.  # Hz
 # Audio hopsize
 HOPSIZE = 256  # samples
 
+# Minimum decibel level
+MIN_DB = -100.
+
 # Number of melspectrogram channels
 NUM_MELS = 80
 
 # Number of spectrogram channels
 NUM_FFT = 1024
+
+# Reference decibel level
+REF_DB = 20.
 
 # Audio sample rate
 SAMPLE_RATE = 22050  # Hz
@@ -69,7 +76,7 @@ RESULTS_DIR = ROOT_DIR / 'results'
 RUNS_DIR = ROOT_DIR / 'runs'
 
 # Location of compressed datasets on disk
-SOURCES_DIR = ROOT_DIR / 'data' / 'sources'
+SOURCE_DIR = ROOT_DIR / 'data' / 'sources'
 
 
 ###############################################################################
@@ -81,7 +88,12 @@ SOURCES_DIR = ROOT_DIR / 'data' / 'sources'
 ADAPTATION = True
 
 # All features considered during preprocessing
-ALL_FEATURES = ['ppg', 'prosody', 'spectrogram']
+ALL_FEATURES = [
+    'loudness',
+    'periodicity',
+    'pitch',
+    'ppg',
+    'spectrogram']
 
 # Whether to use pitch augmentation
 AUGMENT_PITCH = False
@@ -98,20 +110,14 @@ CONDITION_DISCRIM = False
 # Names of all datasets
 DATASETS = ['daps', 'libritts', 'vctk']
 
+# Default periodicity threshold of the voiced/unvoiced decision
+VOICING_THRESOLD = .1625
+
 # Pass speech representation through the latent
 LATENT_SHORTCUT = False
 
-# A-weighted loudness conditioning
-LOUDNESS_FEATURES = False
-
-# Periodicity conditioning
-PERIODICITY_FEATURES = False
-
 # Whether to use an embedding layer for pitch
 PITCH_EMBEDDING = True
-
-# Pitch conditioning
-PITCH_FEATURES = False
 
 # Number of pitch bins
 PITCH_BINS = 256
@@ -122,15 +128,15 @@ PITCH_EMBEDDING_SIZE = 64
 # Number of channels in the phonetic posteriorgram features
 PPG_CHANNELS = 40
 
-# Phonemic posteriorgram conditioning
-PPG_FEATURES = False
-
 # Type of interpolation method to use to scale PPG features
 # Available method are ['linear', 'nearest', 'slerp']
 PPG_INTERP_METHOD = 'nearest'
 
 # Seed for all random number generators
 RANDOM_SEED = 1234
+
+# Loudness threshold below which periodicity is set to zero
+SILENCE_THRESHOLD = -60.  # dB
 
 # Only use spectral features
 SPECTROGRAM_ONLY = False
@@ -143,6 +149,18 @@ TRAINING_DATASET = 'vctk'
 # Evaluation parameters
 ###############################################################################
 
+
+# Error threshold beyond which a frame of loudness is considered incorrect
+ERROR_THRESHOLD_LOUDNESS = 6.  # decibels
+
+# Error threshold beyond which a frame of periodicity is considered incorrect
+ERROR_THRESHOLD_PERIODICITY = .1
+
+# Error threshold beyond which a frame of pitch is considered incorrect
+ERROR_THRESHOLD_PITCH = 50.  # cents
+
+# Error threshold beyond which a frame of PPG is considered incorrect
+ERROR_THRESHOLD_PPG = .1  # JSD
 
 # Evaluation ratios for pitch-shifting, time-stretching, and loudness-scaling
 EVALUATION_RATIOS = [.717, 1.414]
@@ -189,6 +207,9 @@ MEL_LOSS_WEIGHT = 45.
 # The size of the latent bottleneck
 HIDDEN_CHANNELS = 192
 
+# Input features
+INPUT_FEATURES = ['loudness', 'periodicity', 'pitch', 'ppg']
+
 # Hidden dimension channel size
 FILTER_CHANNELS = 768
 
@@ -207,7 +228,7 @@ LRELU_SLOPE = .1
 #     'vocoder',
 #     'world'
 # ]
-MODEL = 'vits'
+MODEL = 'end-to-end'
 
 # Whether to use the multi-resolution spectrogram discriminator from UnivNet
 MULTI_RESOLUTION_DISCRIMINATOR = False
@@ -252,6 +273,9 @@ UPSAMPLE_RATES = [8, 8, 2, 2]
 # Whether to omit latent generation
 VOCODER = False
 
+# Type of vocoder, one of ['hifigan', 'vocos']
+VOCODER_TYPE = 'hifigan'
+
 
 ###############################################################################
 # Training parameters
@@ -284,7 +308,7 @@ NUM_STEPS = 200000
 NUM_ADAPTATION_STEPS = 10000
 
 # Number of data loading worker threads
-NUM_WORKERS = 6
+NUM_WORKERS = os.cpu_count() // 4
 
 # Training optimizer
 OPTIMIZER = functools.partial(

@@ -3,24 +3,11 @@ MODULE = 'promonet'
 # Configuration name
 CONFIG = 'w2v2fb-ppg'
 
-# The model to use. One of [
-#     'end-to-end',
-#     'hifigan',
-#     'psola',
-#     'two-stage',
-#     'vits',
-#     'vocoder',
-#     'world'
-# ]
-MODEL = 'end-to-end'
+# Whether to perform speaker adaptation (instead of multi-speaker)
+ADAPTATION = False
 
-# Pitch conditioning
-PITCH_FEATURES = True
+# Input features
+INPUT_FEATURES = ['pitch', 'ppg']
 
-# Phonemic posteriorgram conditioning
-PPG_FEATURES = True
-PPG_CHANNELS = 40
-
-ADAPTATION=False
-
+# Number of training steps
 NUM_STEPS = 800000

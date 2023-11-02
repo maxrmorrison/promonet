@@ -9,7 +9,7 @@ python -m promonet.data.download --datasets libritts
 
 # Setup experiments
 python -m promonet.data.augment --datasets libritts
-python -m promonet.data.preprocess --gpu $1 --datasets libritts
+python -m promonet.preprocess --gpu $1 --datasets libritts
 python -m promonet.partition --datasets libritts
 
 # First pass experiments trainings and evaluations

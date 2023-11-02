@@ -3,28 +3,12 @@ import torch
 
 import promonet
 
-
-###############################################################################
-# Feature interpolation
-###############################################################################
-
-
-def pitch(sequence, grid):
-    """Interpolate pitch using a grid"""
-    return 2 ** grid_sample(torch.log2(sequence), grid)
-
-
-def ppg(sequence, grid):
-    """Interpolate ppgs using a grid"""
-    return grid_sample(sequence, grid, promonet.PPG_INTERP_METHOD)
-
-
 ###############################################################################
 # Grid sampling
 ###############################################################################
 
 
-def grid_sample(sequence, grid, method='linear'):
+def sample(sequence, grid, method='linear'):
     """Perform 1D grid-based sampling"""
     x = grid
     fp = sequence
@@ -55,3 +39,27 @@ def grid_sample(sequence, grid, method='linear'):
 
     else:
         raise ValueError(f'Grid sampling method {method} is not defined')
+
+
+###############################################################################
+# Interpolation grids
+###############################################################################
+
+
+def constant(tensor, ratio):
+    """Create a grid for constant-ratio time-stretching"""
+    return ppgs.edit.grid.constant(tensor, ratio)
+
+
+def from_alignments(source, target):
+    """Create time-stretch grid to convert source alignment to target"""
+    return ppgs.edit.grid.from_alignments(
+        source,
+        target,
+        sample_rate=promonet.SAMPLE_RATE,
+        hopsize=promonet.HOPSIZE)
+
+
+def of_length(tensor, length):
+    """Create time-stretch grid of a specified length"""
+    return ppgs.edit.grid.of_length(tensor, length)
