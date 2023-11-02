@@ -120,7 +120,8 @@ def datasets(datasets):
     """Partition datasets and save to disk"""
     for name in datasets:
 
-        metadata_files = (promonet.CACHE_DIR / name).glob('-metadata.json')
+        # Remove cached metadata that may become stale
+        metadata_files = (promonet.CACHE_DIR / name).glob('-lengths.json')
         for metadata_file in metadata_files:
             os.remove(metadata_file)
 
@@ -246,7 +247,7 @@ def vctk():
         for speaker, speaker_stems in test_speaker_stems.items():
             random.shuffle(speaker_stems)
             test_stems += list(filter(filter_fn, speaker_stems))[:10]
-        
+
         residual = [stem for stem in stems if stem not in test_stems]
         random.shuffle(residual)
 

@@ -1,4 +1,4 @@
-import argparse
+import yapecs
 from pathlib import Path
 
 import promonet
@@ -11,28 +11,37 @@ import promonet
 
 def parse_args():
     """Parse command-line arguments"""
-    parser = argparse.ArgumentParser(description='Perform evaluation')
+    parser = yapecs.ArgumentParser(description='Edit speech representation')
     parser.add_argument(
-        'pitch_files',
+        '--pitch_files',
         type=Path,
-        help='The pitch files')
+        nargs='+',
+        required=True,
+        help='The pitch files to edit')
     parser.add_argument(
-        'periodicity_files',
+        '--periodicity_files',
         type=Path,
-        help='The periodicity files')
+        nargs='+',
+        required=True,
+        help='The periodicity files to edit')
     parser.add_argument(
-        'loudness_files',
+        '--loudness_files',
         type=Path,
-        help='The alignment files')
+        nargs='+',
+        required=True,
+        help='The loudness files to edit')
     parser.add_argument(
-        'ppgs_files',
+        '--ppg_files',
         type=Path,
-        help='The ppgs files')
+        nargs='+',
+        required=True,
+        help='The ppg files to edit')
     parser.add_argument(
         '--output_prefixes',
         required=True,
         type=Path,
-        help='The locations to save output files, minus extension.')
+        nargs='+',
+        help='The locations to save output files, minus extension')
     parser.add_argument(
         '--pitch_shift_cents',
         type=float,
@@ -40,11 +49,19 @@ def parse_args():
     parser.add_argument(
         '--time_stretch_ratio',
         type=float,
-        help='Amount of time-stretching. Makes speech faster when above one.')
+        help='Amount of time-stretching. Faster when above one.')
     parser.add_argument(
         '--loudness_scale_db',
         type=float,
         help='Amount of loudness scaling in dB')
+    parser.add_argument(
+        '--stretch_unvoiced',
+        action='store_true',
+        help='If provided, applies time-stretching to unvoiced frames')
+    parser.add_argument(
+        '--stretch_silence',
+        action='store_true',
+        help='If provided, applies time-stretching to silence frames')
     return parser.parse_known_args()[0]
 
 

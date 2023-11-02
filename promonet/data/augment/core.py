@@ -20,7 +20,8 @@ def datasets(datasets):
     """Perform data augmentation on cached datasets"""
     for dataset in datasets:
 
-        metadata_files = (promonet.CACHE_DIR / dataset).glob('-metadata.json')
+        # Remove cached metadata that may become stale
+        metadata_files = (promonet.CACHE_DIR / dataset).glob('-lengths.json')
         for metadata_file in metadata_files:
             os.remove(metadata_file)
 
@@ -52,7 +53,7 @@ def from_files_to_files(audio_files):
 
     # Perform multiprocessed augmentation
     iterator = list(zip(audio_files, ratios))
-    with mp.get_context('spawn').Pool(os.cpu_count() // 2) as pool:
+    with mp.get_context('spawn').Pool(promonet.NUM_WORKERS) as pool:
         pool.starmap(from_file_to_file, iterator)
 
     # Save augmentation info

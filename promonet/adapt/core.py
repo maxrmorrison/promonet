@@ -18,14 +18,15 @@ def speaker(
     name: str,
     files: List[Path],
     checkpoint: Path = promonet.DEFAULT_CHECKPOINT,
-    gpus: Optional[int] = None) -> Path:
+    gpu: Optional[int] = None
+) -> Path:
     """Perform speaker adaptation
 
     Args:
         name: The name of the speaker
         files: The audio files to use for adaptation
         checkpoint: The model checkpoint
-        gpus: The gpus to run adaptation on
+        gpu: The gpu to run adaptation on
 
     Returns:
         checkpoint: The file containing the trained generator checkpoint
@@ -64,30 +65,28 @@ def speaker(
     promonet.data.preprocess.from_files_to_files(
         cache,
         cache.rglob('*.wav'),
-        gpu=None if gpus is None else gpus[0])
+        gpu=gpu)
 
     # Partition (all files are used for training)
     promonet.partition.dataset(name)
 
     # Directory to save configuration, checkpoints, and logs
-    adapt_directory = promonet.RUNS_DIR / promonet.CONFIG / 'adapt' / name
-    adapt_directory.mkdir(exist_ok=True, parents=True)
+    directory = promonet.RUNS_DIR / promonet.CONFIG / 'adapt' / name
+    directory.mkdir(exist_ok=True, parents=True)
 
     # Maybe resume adaptation
     generator_path = torchutil.checkpoint.latest_path(
-        adapt_directory,
+        directory,
         'generator-*.pt')
     discriminator_path = torchutil.checkpoint.latest_path(
-        adapt_directory,
+        directory,
         'discriminator-*.pt')
     if generator_path and discriminator_path:
-        checkpoint = adapt_directory
+        checkpoint = directory
 
     # Perform adaptation and return generator checkpoint
-    return promonet.train.run(
+    return promonet.train(
         name,
-        checkpoint,
-        adapt_directory,
-        adapt_directory,
-        adapt=True,
-        gpus=gpus)
+        directory,
+        adapt_from=checkpoint,
+        gpu=gpu)

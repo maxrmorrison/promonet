@@ -1,7 +1,5 @@
 import math
 
-import pyfoal
-
 import promonet
 
 
@@ -34,6 +32,15 @@ LOG_FMAX = math.log2(promonet.FMAX)
 
 
 ###############################################################################
+# Evaluation parameters
+###############################################################################
+
+
+# Features to plot
+DEFAULT_PLOT_FEATURES = ['audio'] + promonet.INPUT_FEATURES
+
+
+###############################################################################
 # Model parameters
 ###############################################################################
 
@@ -43,14 +50,11 @@ GLOBAL_CHANNELS = promonet.SPEAKER_CHANNELS + promonet.AUGMENT_PITCH
 
 # Number of input features to the generator
 NUM_FEATURES = (
-    len(pyfoal.load.phonemes()) if not promonet.PPG_FEATURES else (
-        promonet.LOUDNESS_FEATURES +
-        promonet.PERIODICITY_FEATURES +
-        promonet.PITCH_FEATURES * (
-            promonet.PITCH_EMBEDDING_SIZE if promonet.PITCH_EMBEDDING else 1) +
-        promonet.PPG_FEATURES * promonet.PPG_CHANNELS
-    )
-)
+    promonet.PPG_CHANNELS +
+    ('loudness' in promonet.INPUT_FEATURES) +
+    ('periodicity' in promonet.INPUT_FEATURES) +
+    ('pitch' in promonet.INPUT_FEATURES) * (
+        promonet.PITCH_EMBEDDING_SIZE if promonet.PITCH_EMBEDDING else 1))
 
 # Number of input features to the discriminator
 NUM_FEATURES_DISCRIM = (

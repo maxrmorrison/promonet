@@ -1,9 +1,6 @@
-import functools
 import json
 
 import numpy as np
-import penn
-import pysodic
 import torch
 import torchaudio
 
@@ -36,12 +33,6 @@ class Dataset(torch.utils.data.Dataset):
         loudness = torch.load(self.cache / f'{stem}-loudness.pt')
         spectrogram = torch.load(self.cache / f'{stem}-spectrogram.pt')
 
-        # Apply linear interpolation to unvoiced pitch regions
-        pitch = penn.voicing.interpolate(
-            pitch,
-            periodicity,
-            pysodic.DEFAULT_VOICING_THRESHOLD)
-
         # Get speaker index. Non-integer speaker names are assumed to be
         # for speaker adaptation and therefore default to index zero.
         if 'adapt' not in self.partition:
@@ -55,7 +46,19 @@ class Dataset(torch.utils.data.Dataset):
                 self.cache / f'{stem}-phonemes.pt',
                 interleave=True)
         else:
-            phonemes = self.get_ppg(stem, spectrogram.shape[1])
+
+            # Load ppgs
+            phonemes = torch.load(self.cache / f'{stem}-ppg.pt')
+
+            # Maybe resample length
+            if phonemes.shape[1] != spectrogram.shape[-1]:
+                grid = promonet.edit.grid.of_length(
+                    phonemes,
+                    spectrogram.shape[-1])
+                phonemes = promonet.edit.grid.sample(
+                    phonemes,
+                    grid,
+                    promonet.PPG_INTERP_METHOD)
 
         return (
             text,
@@ -85,28 +88,6 @@ class Dataset(torch.utils.data.Dataset):
 
         # Add max length of each bucket
         return [(self.lengths[bucket[-1]], bucket) for bucket in buckets]
-
-    def get_ppg(self, stem, length):
-        """Load PPG features"""
-        # Load ppgs
-        ppg = torch.load(self.cache / f'{stem}-ppg.pt')
-
-        # Maybe resample length
-        if ppg.shape[1] != length:
-            # TODO - SLERP
-            mode = promonet.PPG_INTERP_METHOD
-            ppg = torch.nn.functional.interpolate(
-                ppg[None].to(torch.float32),
-                size=length,
-                mode=mode,
-                align_corners=None if mode == 'nearest' else False)[0]
-
-        return ppg
-
-    @functools.cached_property
-    def speakers(self):
-        """Retrieve the list of speaker ids"""
-        return sorted(list(self.cache.glob('*')))
 
 
 ###############################################################################
@@ -146,10 +127,10 @@ class Metadata:
         ):
             self.stems = [
                 stem for stem in self.stems if (
-                    len(
-                        promonet.load.phonemes(
-                            self.cache / f'{stem}-phonemes.pt')
-                    ) < promonet.MAX_TEXT_LENGTH and
+                    # len(
+                    #     promonet.load.phonemes(
+                    #         self.cache / f'{stem}-phonemes.pt')
+                    # ) < promonet.MAX_TEXT_LENGTH and
                     promonet.convert.samples_to_frames(
                         torchaudio.info(
                             self.cache / f'{stem}.wav').num_frames
