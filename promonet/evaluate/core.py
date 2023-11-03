@@ -357,7 +357,7 @@ def speaker(
                 prefix = f'{dataset}-{stem.replace("/", "-")}'
                 file = (
                     original_objective_directory /
-                    f'{prefix}-original-100-ppg.pt')
+                    f'{prefix}-original-100{ppgs.representation_file_extension()}')
 
                 # Stretch features and save to disk
                 output_prefix = \
@@ -477,7 +477,7 @@ def speaker(
         promonet.preprocess.from_files_to_files(
             audio_files,
             [
-                objective_directory / f'{file.stem}-ppg.pt'
+                objective_directory / f'{file.stem}{ppgs.representation_file_extension()}'
                 for file in audio_files
             ],
             gpu=gpu
