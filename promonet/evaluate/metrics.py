@@ -82,7 +82,7 @@ class Pitch(torchutil.metrics.L1):
         Returns:
             average pitch error in cents
         """
-        return 1200 * (self.total / self.count).item()
+        return 1200 * super().__call__()
 
     def update(
         self,
