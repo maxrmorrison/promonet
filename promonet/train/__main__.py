@@ -1,6 +1,7 @@
-import yapecs
 import shutil
 from pathlib import Path
+
+import yapecs
 
 import promonet
 

@@ -631,7 +631,11 @@ def evaluate(directory, step, generator, loader, gpu):
                 predicted_pitch,
                 predicted_periodicity,
                 predicted_loudness,
-                predicted_phonemes)
+                predicted_phonemes,
+                pitch,
+                periodicity,
+                loudness,
+                phonemes)
 
         ##################
         # Pitch shifting #
@@ -673,7 +677,8 @@ def evaluate(directory, step, generator, loader, gpu):
                     predicted_phonemes,
                     shifted_pitch,
                     periodicity,
-                    loudness)
+                    loudness,
+                    phonemes)
 
                 # Update metrics
                 metrics[key.split('/')[0]].update(
@@ -743,7 +748,8 @@ def evaluate(directory, step, generator, loader, gpu):
                     predicted_phonemes,
                     stretched_pitch,
                     stretched_periodicity,
-                    stretched_loudness)
+                    stretched_loudness,
+                    stretched_phonemes)
 
                 # Update metrics
                 metrics[key.split('/')[0]].update(
@@ -798,7 +804,8 @@ def evaluate(directory, step, generator, loader, gpu):
                     predicted_phonemes,
                     pitch,
                     periodicity,
-                    scaled_loudness)
+                    scaled_loudness,
+                    phonemes)
 
                 # Update metrics
                 metrics[key.split('/')[0]].update(
