@@ -258,14 +258,7 @@ def vctk():
         # Get training stems
         train_stems = [stem for stem in residual if stem not in valid_stems]
 
-        return {
-            'train': train_stems,
-            'valid': valid_stems,
-            'test': test_stems
-        }
-
-
-
+        return {'train': train_stems, 'valid': valid_stems, 'test': test_stems}
 
 
 ###############################################################################

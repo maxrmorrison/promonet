@@ -28,7 +28,7 @@ class Dataset(torch.utils.data.Dataset):
         stem = self.stems[index]
         text = promonet.load.text(self.cache / f'{stem[:-4]}.txt')
         audio = promonet.load.audio(self.cache / f'{stem}.wav')
-        pitch = promonet.load.pitch(self.cache / f'{stem}-pitch.pt')
+        pitch = torch.load(self.cache / f'{stem}-pitch.pt')
         periodicity = torch.load(self.cache / f'{stem}-periodicity.pt')
         loudness = torch.load(self.cache / f'{stem}-loudness.pt')
         spectrogram = torch.load(self.cache / f'{stem}-spectrogram.pt')

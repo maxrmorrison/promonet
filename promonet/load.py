@@ -45,17 +45,6 @@ def phonemes(file, interleave=False):
     return interleaved
 
 
-def pitch(file):
-    """Load pitch from file"""
-    pitch = torch.load(file)
-
-    # Bound to range
-    pitch[pitch < promonet.FMIN] = promonet.FMIN
-    pitch[pitch > promonet.FMAX] = promonet.FMAX
-
-    return pitch
-
-
 def pitch_distribution(dataset, partition='train'):
     """Load pitch distribution"""
     if not hasattr(pitch_distribution, 'distribution'):
