@@ -187,7 +187,7 @@ def from_file_to_file(
     torch.save(pitch, f'{output_prefix}-pitch.pt')
     torch.save(periodicity, f'{output_prefix}-periodicity.pt')
     torch.save(loudness, f'{output_prefix}-loudness.pt')
-    torch.save(ppg, f'{output_prefix}-ppg.pt')
+    torch.save(ppg, f'{output_prefix}{ppgs.representation_file_extension()}')
 
 
 def from_files_to_files(
