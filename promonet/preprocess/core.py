@@ -94,7 +94,7 @@ def from_file_to_file(
     torch.save(pitch, f'{output_prefix}-pitch.pt')
     torch.save(periodicity, f'{output_prefix}-periodicity.pt')
     torch.save(loudness, f'{output_prefix}-loudness.pt')
-    torch.save(ppg, f'{output_prefix}-ppg.pt')
+    torch.save(ppg, f'{output_prefix}{ppgs.representation_output_extension()}')
 
 
 def from_files_to_files(
@@ -113,9 +113,10 @@ def from_files_to_files(
         output_prefixes = [file.parent / file.stem for file in files]
 
     # Preprocess phonetic posteriorgrams
+    extension = ppgs.representation_file_extension()
     ppgs.from_files_to_files(
         files,
-        [f'{prefix}-ppg.pt' for prefix in output_prefixes],
+        [f'{prefix}{extension}' for prefix in output_prefixes],
         num_workers=promonet.NUM_WORKERS,
         gpu=gpu)
 
