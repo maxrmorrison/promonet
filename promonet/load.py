@@ -21,6 +21,15 @@ def audio(file):
     return promonet.resample(audio, sample_rate)
 
 
+def features(prefix):
+    """Load input features from file prefix"""
+    return (
+        torch.load(f'{prefix}-pitch.pt'),
+        torch.load(f'{prefix}-periodicity.pt'),
+        torch.load(f'{prefix}-loudness.pt'),
+        torch.load(f'{prefix}-ppg.pt'))
+
+
 def partition(dataset):
     """Load partitions for dataset"""
     with open(promonet.PARTITION_DIR / f'{dataset}.json') as file:
