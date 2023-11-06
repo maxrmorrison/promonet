@@ -332,24 +332,41 @@ class Generator(torch.nn.Module):
                     prior
                 )
 
-            # Extract random segments for training decoder
-            (
-                latents,
-                phoneme_slice,
-                pitch_slice,
-                periodicity_slice,
-                loudness_slice,
-                spectrogram_slice,
-                slice_indices
-            ) = self.slice(
-                latents,
-                phonemes,
-                pitch,
-                periodicity,
-                loudness,
-                spectrograms,
-                spectrogram_lengths
-            )
+            if promonet.SLICING:
+                # Extract random segments for training decoder
+                (
+                    latents,
+                    phoneme_slice,
+                    pitch_slice,
+                    periodicity_slice,
+                    loudness_slice,
+                    spectrogram_slice,
+                    slice_indices
+                ) = self.slice(
+                    latents,
+                    phonemes,
+                    pitch,
+                    periodicity,
+                    loudness,
+                    spectrograms,
+                    spectrogram_lengths
+                )
+            else:
+                # No slicing
+                (
+                    phoneme_slice,
+                    pitch_slice,
+                    periodicity_slice,
+                    loudness_slice,
+                    spectrogram_slice
+                ) = (
+                    phonemes,
+                    pitch,
+                    periodicity,
+                    loudness,
+                    spectrograms
+                )
+                slice_indices = None
 
         # Generation
         else:
