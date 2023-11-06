@@ -1,7 +1,7 @@
 import shutil
 from pathlib import Path
 
-import yapecs
+import argparse
 
 import promonet
 
@@ -37,7 +37,7 @@ def main(
 
 def parse_args():
     """Parse command-line arguments"""
-    parser = yapecs.ArgumentParser(description='Train a model')
+    parser = argparse.ArgumentParser(description='Train a model')
     parser.add_argument(
         '--config',
         type=Path,

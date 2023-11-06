@@ -48,7 +48,7 @@ class Dataset(torch.utils.data.Dataset):
         else:
 
             # Load ppgs
-            phonemes = torch.load(self.cache / f'{stem}-ppg.pt')
+            phonemes = torch.load(self.cache / f'{stem}{ppgs.representation_file_extension()}')
 
             # Maybe resample length
             if phonemes.shape[1] != spectrogram.shape[-1]:
