@@ -39,17 +39,6 @@ def generation_context(model):
     model.train()
 
 
-def iterator(iterable, message, initial=0, total=None):
-    """Create a tqdm iterator"""
-    total = len(iterable) if total is None else total
-    return tqdm.tqdm(
-        iterable,
-        desc=message,
-        dynamic_ncols=True,
-        initial=initial,
-        total=total)
-
-
 def resample(audio, sample_rate, target_rate=promonet.SAMPLE_RATE):
     """Perform audio resampling"""
     if sample_rate == target_rate:
