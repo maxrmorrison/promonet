@@ -82,7 +82,7 @@ def daps():
     with promonet.chdir(cache_directory):
 
         # Iterate over files
-        for audio_file, text_file in promonet.iterator(
+        for audio_file, text_file in torchutil.iterator(
             zip(audio_files, text_files),
             'Formatting daps',
             total=len(audio_files)
@@ -166,7 +166,7 @@ def libritts():
     with promonet.chdir(cache_directory):
 
         # Iterate over files
-        for audio_file, text_file in promonet.iterator(
+        for audio_file, text_file in torchutil.iterator(
             zip(audio_files, text_files),
             'Formatting libritts',
             total=len(audio_files)
@@ -242,7 +242,7 @@ def vctk():
     with promonet.chdir(output_directory):
 
         # Iterate over files
-        for audio_file, text_file in promonet.iterator(
+        for audio_file, text_file in torchutil.iterator(
             zip(audio_files, text_files),
             'Formatting vctk',
             total=len(audio_files)

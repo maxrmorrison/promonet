@@ -136,7 +136,7 @@ def train(
                 param.requires_grad = True
 
     # Setup progress bar
-    progress = promonet.iterator(
+    progress = torchutil.iterator(
         range(step, steps),
         f'{"Train" if adapt_from is None else "Adapt"}ing {promonet.CONFIG}',
         initial=step,
