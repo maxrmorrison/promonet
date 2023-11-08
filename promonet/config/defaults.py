@@ -135,8 +135,8 @@ PPG_INTERP_METHOD = 'nearest'
 # Seed for all random number generators
 RANDOM_SEED = 1234
 
-# Loudness threshold below which periodicity is set to zero
-SILENCE_THRESHOLD = -60.  # dB
+# Loudness threshold (in dB) below which periodicity is set to zero
+SILENCE_THRESHOLD = None
 
 # Only use spectral features
 SPECTROGRAM_ONLY = False

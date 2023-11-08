@@ -48,6 +48,12 @@ class Metrics:
         wer_args,
         speaker_sim_args=None):
         self.loudness.update(predicted_loudness, target_loudness)
+        # TEMPORARY - if it works better, make part of penn
+        if promonet.SILENCE_THRESHOLD is not None:
+                predicted_periodicity[
+                    predicted_loudness < promonet.SILENCE_THRESHOLD] = 0.
+                target_periodicity[
+                    target_loudness < promonet.SILENCE_THRESHOLD] = 0.
         self.periodicity.update(predicted_periodicity, target_periodicity)
         self.pitch.update(
             predicted_pitch,
