@@ -7,7 +7,7 @@ import promonet
 
 
 ###############################################################################
-# Entry point
+# Training
 ###############################################################################
 
 
@@ -42,7 +42,6 @@ def parse_args():
         '--config',
         type=Path,
         nargs='+',
-        default=[promonet.DEFAULT_CONFIGURATION],
         help='The configuration file')
     parser.add_argument(
         '--dataset',
