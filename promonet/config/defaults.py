@@ -144,6 +144,9 @@ SPECTROGRAM_ONLY = False
 # Dataset to use for training
 TRAINING_DATASET = 'vctk'
 
+# Whether to use variable-width pitch bins
+VARIABLE_PITCH_BINS = False
+
 
 ###############################################################################
 # Evaluation parameters
