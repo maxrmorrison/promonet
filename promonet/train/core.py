@@ -354,9 +354,13 @@ def train(
                         else:
                             duration_loss = 0
 
-                        # Get melspectrogram loss
-                        mel_loss = torch.nn.functional.l1_loss(mel_slices, generated_mels)
-                        generator_losses +=  promonet.MEL_LOSS_WEIGHT * mel_loss
+                        if promonet.MULTI_MEL_LOSS:
+                            mel_loss = promonet.loss.multimel(audio, generated)
+                            generator_losses += promonet.MEL_LOSS_WEIGHT / len(promonet.MULTI_MEL_LOSS_WINDOWS) * mel_loss
+                        else:
+                            # Get melspectrogram loss
+                            mel_loss = torch.nn.functional.l1_loss(mel_slices, generated_mels)
+                            generator_losses +=  promonet.MEL_LOSS_WEIGHT * mel_loss
 
                         # Get KL divergence loss between features and prior
                         if promonet.MODEL in ['end-to-end', 'vits']:

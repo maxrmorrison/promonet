@@ -14,7 +14,7 @@ class VocosVocoder(torch.nn.Module):
         self.conv_pre = torch.nn.Conv1d(
             initial_channel,
             initial_channel,
-            5,
+            7,
             1,
             padding=3)
 

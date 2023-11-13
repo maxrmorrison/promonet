@@ -182,6 +182,128 @@ class DiscriminatorR(torch.nn.Module):
         x = torch.view_as_real(x)
         return torch.norm(x, p=2, dim=-1).unsqueeze(1)
 
+def WNConv2d(*args, **kwargs):
+    act = kwargs.pop("act", True)
+    conv = torch.nn.utils.weight_norm(torch.nn.Conv2d(*args, **kwargs))
+    if not act:
+        return conv
+    return torch.nn.Sequential(conv, torch.nn.LeakyReLU(0.1))
+
+class DiscriminatorCMB(torch.nn.Module):
+    def __init__(
+        self,
+        bands: list = [(0.0, 0.1), (0.1, 0.25), (0.25, 0.5), (0.5, 0.75), (0.75, 1.0)],
+    ):
+        """Complex multi-band spectrogram discriminator.
+        Parameters
+        ----------
+        bands : list, optional
+            Bands to run discriminator over.
+        """
+        super().__init__()
+
+        self.window_length = promonet.NUM_FFT
+        self.hop_size = promonet.HOPSIZE
+        self.sample_rate = promonet.SAMPLE_RATE
+
+        n_fft = self.window_length // 2 + 1
+        bands = [(int(b[0] * n_fft), int(b[1] * n_fft)) for b in bands]
+        self.bands = bands
+
+        ch = 32
+        convs = lambda: torch.nn.ModuleList(
+            [
+                WNConv2d(1, ch, (3, 9), (1, 1), padding=(1, 4)),
+                WNConv2d(ch, ch, (3, 9), (1, 2), padding=(1, 4)),
+                WNConv2d(ch, ch, (3, 9), (1, 2), padding=(1, 4)),
+                WNConv2d(ch, ch, (3, 9), (1, 2), padding=(1, 4)),
+                WNConv2d(ch, ch, (3, 3), (1, 1), padding=(1, 1)),
+            ]
+        )
+        self.band_convs = torch.nn.ModuleList([convs() for _ in range(len(self.bands))])
+        self.conv_post = WNConv2d(ch, 1, (3, 3), (1, 1), padding=(1, 1), act=False)
+
+    def spectrogram(self, x):
+        x = torch.nn.functional.pad(
+            x,
+            (int((self.window_length - self.hop_size) / 2), int((self.window_length - self.hop_size) / 2)),
+            mode='reflect')
+        x = torch.stft(
+            x.squeeze(1),
+            n_fft=self.window_length,
+            hop_length=self.hop_size,
+            win_length=self.window_length,
+            center=False,
+            return_complex=True)
+        x = torch.view_as_real(x)
+        x = torch.norm(x, p=2, dim=-1).unsqueeze(1) # Unsqueeze generates the channels dimension
+        #x = rearrange(x, "b 1 f t c -> (b 1) c t f")
+        x = torch.permute(x, (0, 1, 3, 2))
+        # Split into bands
+        x_bands = [x[..., b[0] : b[1]] for b in self.bands]
+        return x_bands
+
+    def forward(
+        self,
+        x,
+        pitch=None,
+        periodicity=None,
+        loudness=None,
+        phonemes=None):
+        
+        x_bands = self.spectrogram(x)
+        fmap = []
+
+        x = []
+        for band, stack in zip(x_bands, self.band_convs):
+            for layer in stack:
+                band = layer(band)
+                fmap.append(band)
+            x.append(band)
+
+        # Maybe add pitch conditioning
+        if promonet.CONDITION_DISCRIM:
+            pitch = torch.nn.functional.interpolate(
+                torch.log2(pitch)[:, None],
+                scale_factor=promonet.HOPSIZE,
+                mode='linear',
+                align_corners=False)
+            x = torch.cat((x, pitch), dim=1)
+
+        # Maybe add periodicity conditioning
+        if promonet.CONDITION_DISCRIM:
+            periodicity = torch.nn.functional.interpolate(
+                periodicity[:, None],
+                scale_factor=promonet.HOPSIZE,
+                mode='linear',
+                align_corners=False)
+            x = torch.cat((x, periodicity), dim=1)
+
+        # Maybe add loudness conditioning
+        if promonet.CONDITION_DISCRIM:
+            loudness = promonet.loudness.normalize(loudness)
+            loudness = torch.nn.functional.interpolate(
+                loudness[:, None],
+                scale_factor=promonet.HOPSIZE,
+                mode='linear',
+                align_corners=False)
+            x = torch.cat((x, loudness), dim=1)
+
+        # Maybe add ppg conditioning
+        if promonet.CONDITION_DISCRIM:
+            phonemes = torch.nn.functional.interpolate(
+                phonemes,
+                scale_factor=promonet.HOPSIZE,
+                mode='linear',
+                align_corners=False)
+            x = torch.cat((x, phonemes), dim=1)
+
+        x = torch.cat(x, dim=-1)
+        x = self.conv_post(x)
+        fmap.append(x)
+
+        return torch.flatten(x, 1, -1), fmap
+
 
 class DiscriminatorS(torch.nn.Module):
     """Multi-scale waveform discriminator"""
@@ -268,6 +390,8 @@ class Discriminator(torch.nn.Module):
             resolutions = [(1024, 120, 600), (2048, 240, 1200), (512, 50, 240)]
             discriminators.extend(
                 [DiscriminatorR(i) for i in resolutions])
+        if promonet.COMPLEX_MULTIBAND_DISCRIMINATOR:
+            discriminators.append(DiscriminatorCMB())
         self.discriminators = torch.nn.ModuleList(discriminators)
 
     def forward(
