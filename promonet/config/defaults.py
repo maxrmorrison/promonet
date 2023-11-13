@@ -202,6 +202,11 @@ FEATURE_MATCHING_OMIT_FIRST = False
 # Weight applied to the melspectrogram loss
 MEL_LOSS_WEIGHT = 45.
 
+# Whether to use multi-mel loss
+MULTI_MEL_LOSS = False
+
+# Window sizes to be used in the multi-scale mel loss
+MULTI_MEL_LOSS_WINDOWS = [32, 64, 128, 256, 512, 1024, 2048]
 
 ###############################################################################
 # Model parameters
@@ -239,6 +244,9 @@ MULTI_RESOLUTION_DISCRIMINATOR = False
 
 # Whether to use the multi-scale waveform discriminator from MelGAN
 MULTI_SCALE_DISCRIMINATOR = True
+
+# Whether to use the complex multi-band discriminator from RVQGAN
+COMPLEX_MULTIBAND_DISCRIMINATOR = False
 
 # Number of attention heads
 N_HEADS = 2
