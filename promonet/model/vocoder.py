@@ -11,6 +11,13 @@ class VocosVocoder(torch.nn.Module):
     def __init__(self, initial_channel, gin_channels):
         super().__init__()
 
+        self.conv_pre = torch.nn.Conv1d(
+            initial_channel,
+            initial_channel,
+            7,
+            1,
+            padding=3)
+
         #Backbone and head defaults from https://github.com/charactr-platform/vocos/blob/main/configs/vocos.yaml#L48
         self.backbone = vocos.models.VocosBackbone(initial_channel, 512, 1536, 8)
         self.head = vocos.heads.ISTFTHead(512, promonet.NUM_FFT, promonet.HOPSIZE)
@@ -22,6 +29,9 @@ class VocosVocoder(torch.nn.Module):
             1)
 
     def forward(self, x, g=None):
+        # Initial conv
+        x = self.conv_pre(x)
+
         if g:
             x = x + self.cond(g)
 
