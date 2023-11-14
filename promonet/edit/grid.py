@@ -10,28 +10,26 @@ import promonet
 
 def sample(sequence, grid, method='linear'):
     """Perform 1D grid-based sampling"""
-    x = grid
-    fp = sequence
-
     # Linear grid interpolation
     if method == 'linear':
-
-        # Input indices
-        xp = torch.arange(sequence.shape[-1], device=sequence.device)
-
-        # Output indices
-        i = torch.searchsorted(xp, x, right=True)
+        x = grid
+        fp = sequence
 
         # Replicate final frame
         fp = torch.nn.functional.pad(fp, (0, 1), mode='replicate')
-        xp = torch.cat((xp, xp[-1:]))
+
+        # Input indices
+        xp = torch.arange(fp.shape[-1], device=fp.device)
+
+        # Output indices
+        i = torch.searchsorted(xp, x, right=True)
 
         # Interpolate
         return fp[..., i - 1] * (xp[i] - x) + fp[..., i] * (x - xp[i - 1])
 
     # Nearest neighbors grid interpolation
     elif method == 'nearest':
-        return fp[..., torch.round(x).to(torch.long)]
+        return sequence[..., torch.round(grid).to(torch.long)]
 
     # Spherical linear interpolation
     elif method == 'slerp':

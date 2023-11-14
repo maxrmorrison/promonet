@@ -1,4 +1,5 @@
 import torch
+import librosa
 
 import promonet
 
@@ -50,3 +51,78 @@ def kl(prior, true_logstd, predicted_mean, predicted_logstd, latent_mask):
         0.5 * ((prior - predicted_mean) ** 2) * \
         torch.exp(-2. * predicted_logstd)
     return torch.sum(divergence * latent_mask) / torch.sum(latent_mask)
+
+def multimel(ground_truth, generated):
+    #Cache hann windows
+    if (
+        not hasattr(multimel, 'windows') or
+        multimel.dtype != ground_truth.dtype or
+        multimel.device != ground_truth.device
+    ):
+        multimel.windows = [torch.hann_window(
+            win_size,
+            dtype= ground_truth.dtype,
+            device= ground_truth.device) for win_size in promonet.MULTI_MEL_LOSS_WINDOWS]
+        multimel.dtype = ground_truth.dtype
+        multimel.device = ground_truth.device
+
+    #Cache mel bases
+    if not hasattr(multimel, 'mel_bases'):
+        all_bases = []
+        for win_size in promonet.MULTI_MEL_LOSS_WINDOWS:
+            basis = librosa.filters.mel(
+                sr=promonet.SAMPLE_RATE,
+                n_fft=win_size,
+                n_mels=promonet.NUM_MELS)
+            basis = torch.from_numpy(basis)
+            basis = basis.to(ground_truth.dtype).to(ground_truth.device)
+            all_bases.append(basis)
+        multimel.mel_bases = all_bases
+
+    loss = 0.0
+    hopsizes = [window // 4 for window in promonet.MULTI_MEL_LOSS_WINDOWS]
+    for hopsize, window, window_size, mel_basis in zip(hopsizes, multimel.windows, promonet.MULTI_MEL_LOSS_WINDOWS, multimel.mel_bases):
+
+        # Pad audio
+        size = (promonet.NUM_FFT - hopsize) // 2
+        gt_pad = torch.nn.functional.pad(ground_truth, (size, size), mode='reflect')
+        gen_pad = torch.nn.functional.pad(generated, (size, size), mode='reflect')
+
+        # Compute stft
+        gt_stft = torch.stft(
+            gt_pad.squeeze(1),
+            window_size,
+            hop_length=hopsize,
+            window=window,
+            center=False,
+            normalized=False,
+            onesided=True,
+            return_complex=True)
+
+        gen_stft = torch.stft(
+            gen_pad.squeeze(1),
+            window_size,
+            hop_length=hopsize,
+            window=window,
+            center=False,
+            normalized=False,
+            onesided=True,
+            return_complex=True)
+        
+        # if promonet.COMPLEX_SPECTROGRAM:
+        #     pass
+        # else:
+
+        gt_stft = torch.view_as_real(gt_stft)
+        gen_stft = torch.view_as_real(gen_stft)
+
+        #Compute magnitude
+        gt_spec = torch.sqrt(gt_stft.pow(2).sum(-1) + 1e-6)
+        gen_spec = torch.sqrt(gen_stft.pow(2).sum(-1) + 1e-6)
+
+        gt_spec = torch.log(torch.clamp(torch.matmul(mel_basis, gt_spec), min=1e-5))
+        gen_spec = torch.log(torch.clamp(torch.matmul(mel_basis, gen_spec), min=1e-5))
+
+        loss += torch.nn.functional.l1_loss(gt_spec, gen_spec)
+
+    return loss
