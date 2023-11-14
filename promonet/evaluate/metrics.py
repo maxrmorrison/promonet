@@ -5,6 +5,7 @@ import torch
 import torchutil
 import whisper
 from whisper.normalizers import EnglishTextNormalizer
+import numpy as np
 
 import promonet
 
@@ -20,7 +21,9 @@ class Metrics:
         self.loudness = torchutil.metrics.RMSE()
         self.periodicity = torchutil.metrics.RMSE()
         self.pitch = Pitch()
-        self.ppg = PPG()
+        # self.ppg = [PPG(exponent) for exponent in np.arange(0.0, 2.0, 0.05)]
+        self.ppg = [PPG(1.0)]
+        # self.ppg = PPG()
         self.wer = WER()
         self.speaker_sim = SpeakerSimilarity()
 
@@ -29,7 +32,10 @@ class Metrics:
             'loudness': self.loudness(),
             'periodicity': self.periodicity(),
             'pitch': self.pitch(),
-            'ppg': self.ppg(),
+            'ppg': {
+                str(ppg_metric.exponent): ppg_metric() for ppg_metric in self.ppg
+            },
+            # 'ppg': self.ppg(),
             'wer': self.wer()}
         if self.speaker_sim.count:
             result['speaker_sim'] = self.speaker_sim()
@@ -54,7 +60,9 @@ class Metrics:
             predicted_periodicity,
             target_pitch,
             target_periodicity)
-        self.ppg.update(predicted_ppg, target_ppg)
+        for ppg_metric in self.ppg:
+            ppg_metric.update(predicted_ppg, target_ppg)
+        # self.ppg.update(predicted_ppg, target_ppg)
         self.wer.update(*wer_args)
         if speaker_sim_args:
             self.speaker_sim.update(*speaker_sim_args)
@@ -63,7 +71,9 @@ class Metrics:
         self.loudness.reset()
         self.periodicity.reset()
         self.pitch.reset()
-        self.ppg.reset()
+        for ppg_metric in self.ppg:
+            ppg_metric.reset()
+        # self.ppg.reset()
         self.wer.reset()
         self.speaker_sim.reset()
 
@@ -129,12 +139,18 @@ class Pitch(torchutil.metrics.L1):
 
 class PPG(torchutil.metrics.Average):
     """PPG distance"""
+
+    def __init__(self, exponent=ppgs.SIMILARITY_EXPONENT):
+        super().__init__()
+        self.exponent = exponent
+
     def update(self, predicted, target):
         super().update(
             ppgs.distance(
                 predicted.squeeze(0),
                 target.squeeze(0),
-                reduction='sum'),
+                reduction='sum',
+                exponent=self.exponent),
             predicted.shape[-1])
 
 
