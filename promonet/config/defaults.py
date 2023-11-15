@@ -52,16 +52,17 @@ WINDOW_SIZE = 1024
 
 # Root location for saving outputs
 # TEMPORARY
-# ROOT_DIR = Path(__file__).parent.parent.parent
-ROOT_DIR = Path('/files10/max/promonet')
+ROOT_DIR = Path(__file__).parent.parent.parent
+# ROOT_DIR = Path('/files10/max/promonet')
 
 # Location to save assets to be bundled with pip release
 # TEMPORARY
-# ASSETS_DIR = Path(__file__).parent.parent / 'assets'
-ASSETS_DIR = Path('/files10/max/promonet/promonet/assets')
+ASSETS_DIR = Path(__file__).parent.parent / 'assets'
+# ASSETS_DIR = Path('/files10/max/promonet/promonet/assets')
 
 # Location of preprocessed features
-CACHE_DIR = ROOT_DIR / 'data' / 'cache'
+# CACHE_DIR = ROOT_DIR / 'data' / 'cache'
+CACHE_DIR = Path('/files10/max/promonet/data/cache')
 
 # Location of datasets on disk
 DATA_DIR = ROOT_DIR / 'data' / 'datasets'
@@ -115,6 +116,9 @@ VOICING_THRESOLD = .1625
 
 # Pass speech representation through the latent
 LATENT_SHORTCUT = False
+
+#Whether to slice during training
+SLICING = True
 
 # Whether to use an embedding layer for pitch
 PITCH_EMBEDDING = True
@@ -201,6 +205,11 @@ FEATURE_MATCHING_OMIT_FIRST = False
 # Weight applied to the melspectrogram loss
 MEL_LOSS_WEIGHT = 45.
 
+# Whether to use multi-mel loss
+MULTI_MEL_LOSS = False
+
+# Window sizes to be used in the multi-scale mel loss
+MULTI_MEL_LOSS_WINDOWS = [32, 64, 128, 256, 512, 1024, 2048]
 
 ###############################################################################
 # Model parameters
@@ -238,6 +247,9 @@ MULTI_RESOLUTION_DISCRIMINATOR = False
 
 # Whether to use the multi-scale waveform discriminator from MelGAN
 MULTI_SCALE_DISCRIMINATOR = True
+
+# Whether to use the complex multi-band discriminator from RVQGAN
+COMPLEX_MULTIBAND_DISCRIMINATOR = False
 
 # Number of attention heads
 N_HEADS = 2
