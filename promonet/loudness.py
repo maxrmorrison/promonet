@@ -20,7 +20,8 @@ def from_audio(audio):
     audio = torch.nn.functional.pad(
         audio[None],
         (padding, padding),
-        mode='reflect').squeeze(0)
+        mode='reflect'
+    ).squeeze(0)
 
     # Save device
     device = audio.device
@@ -82,6 +83,7 @@ def limit(audio, delay=40, attack_coef=.9, release_coef=.9995, threshold=.99):
     envelope = 0
 
     for idx, sample in enumerate(audio[0]):
+
         # Update signal history
         delay_line[delay_index] = sample
         delay_index = (delay_index + 1) % delay

@@ -3,8 +3,8 @@ import json
 import ppgs
 import pypar
 import torch
-import torchutil
 import torchaudio
+import torchutil
 
 import promonet
 
@@ -55,7 +55,7 @@ def phonemes(file, interleave=False):
     return interleaved
 
 
-def pitch_distribution(dataset, partition='train'):
+def pitch_distribution(dataset=promonet.TRAINING_DATASET, partition='train'):
     """Load pitch distribution"""
     if not hasattr(pitch_distribution, 'distribution'):
 
@@ -93,9 +93,10 @@ def pitch_distribution(dataset, partition='train'):
 
             # Bucket
             indices = torch.linspace(
-                0,
+                0.,
                 len(pitch) - 1,
-                int(len(pitch) / promonet.PITCH_BINS)
+                promonet.PITCH_BINS,
+                dtype=torch.float64
             ).to(torch.long)
             pitch_distribution.distribution = pitch[indices]
             pitch_distribution.distribution[0] = promonet.FMIN

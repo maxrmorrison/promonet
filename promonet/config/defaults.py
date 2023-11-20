@@ -76,9 +76,6 @@ RESULTS_DIR = ROOT_DIR / 'results'
 # Location to save training and adaptation artifacts
 RUNS_DIR = ROOT_DIR / 'runs'
 
-# Location of compressed datasets on disk
-SOURCE_DIR = ROOT_DIR / 'data' / 'sources'
-
 
 ###############################################################################
 # Data parameters

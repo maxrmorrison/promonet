@@ -118,6 +118,7 @@ def from_files_to_files(
         files,
         [f'{prefix}{extension}' for prefix in output_prefixes],
         num_workers=promonet.NUM_WORKERS,
+        max_frames=5000,
         gpu=gpu)
 
     # Preprocess pitch and periodicity

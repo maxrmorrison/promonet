@@ -27,8 +27,8 @@ import shutil
 
 import ppgs
 import torch
-import torchutil
 import torchaudio
+import torchutil
 
 import promonet
 
@@ -38,7 +38,7 @@ import promonet
 ###############################################################################
 
 
-@torchutil.notify.on_return('evaluate')
+@torchutil.notify('evaluate')
 def datasets(datasets, checkpoint=None, gpu=None):
     """Evaluate the performance of the model on datasets"""
     # Metrics over all datasets
@@ -173,6 +173,7 @@ def datasets(datasets, checkpoint=None, gpu=None):
     print(results)
     with open(results_directory / f'results.json', 'w') as file:
         json.dump(results, file, indent=4, sort_keys=True)
+
 
 ###############################################################################
 # Evaluate one speaker
@@ -332,8 +333,8 @@ def speaker(
                 # Copy text
                 shutil.copyfile(
                     original_objective_directory /
-                    f'{prefix}-original-100-{feature}.txt',
-                    f'{output_prefix}-{feature}.txt')
+                    f'{prefix}-original-100-text.txt',
+                    f'{output_prefix}-text.txt')
 
             # Generate
             files[key] = [
@@ -392,8 +393,8 @@ def speaker(
                 # Copy text
                 shutil.copyfile(
                     original_objective_directory /
-                    f'{prefix}-original-100-{feature}.txt',
-                    f'{output_prefix}-{feature}.txt')
+                    f'{prefix}-original-100-text.txt',
+                    f'{output_prefix}-text.txt')
 
             # Generate
             files[key] = [
@@ -451,8 +452,8 @@ def speaker(
                 # Copy text
                 shutil.copyfile(
                     original_objective_directory /
-                    f'{prefix}-original-100-{feature}.txt',
-                    f'{output_prefix}-{feature}.txt')
+                    f'{prefix}-original-100-text.txt',
+                    f'{output_prefix}-text.txt')
 
             # Generate
             files[key] = [
@@ -493,12 +494,8 @@ def speaker(
         # Infer speech representation
         promonet.preprocess.from_files_to_files(
             audio_files,
-            [
-                objective_directory / f'{file.stem}{ppgs.representation_file_extension()}'
-                for file in audio_files
-            ],
-            gpu=gpu
-        )
+            [objective_directory / file.stem for file in audio_files],
+            gpu=gpu)
 
         # Infer speaker embeddings
         embedding_files = [
