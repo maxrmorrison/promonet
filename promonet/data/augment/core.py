@@ -14,7 +14,7 @@ import promonet
 ###############################################################################
 
 
-@torchutil.notify.on_return('augment')
+@torchutil.notify('augment')
 def datasets(datasets):
     """Perform data augmentation on cached datasets"""
     for dataset in datasets:

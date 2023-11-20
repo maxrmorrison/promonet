@@ -1,7 +1,7 @@
 MODULE = 'promonet'
 
 # Configuration name
-CONFIG = 'augment-slerp-varpitch-256'
+CONFIG = 'augment-slerp-silence'
 
 # Whether to use pitch augmentation
 AUGMENT_PITCH = True
@@ -10,5 +10,5 @@ AUGMENT_PITCH = True
 # Available method are ['linear', 'nearest', 'slerp']
 PPG_INTERP_METHOD = 'slerp'
 
-# Whether to use variable-width pitch bins
-VARIABLE_PITCH_BINS = True
+# Loudness threshold (in dB) below which periodicity is set to zero
+SILENCE_THRESHOLD = -60.

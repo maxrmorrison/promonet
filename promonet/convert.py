@@ -69,13 +69,14 @@ def hz_to_bins(
     fmin=promonet.FMIN,
     fmax=promonet.FMAX):
     """Convert pitch in hz to bins"""
-    # Maybe size bins according to count
-    if promonet.VARIABLE_PITCH_BINS:
-        distribution = promonet.load.pitch_distribution()
-        return torch.searchsorted(distribution, hz)
-
     # Clip to bounds
     hz = torch.clip(hz, fmin, fmax)
+
+    # Maybe size bins according to count
+    if promonet.VARIABLE_PITCH_BINS:
+        distribution = promonet.load.pitch_distribution().to(hz.device)
+        bins = torch.searchsorted(distribution, hz)
+        return torch.clip(bins, 0, promonet.PITCH_BINS - 1)
 
     # Normalize to [0, 1]
     logfmin = torch.log2(torch.tensor(fmin))

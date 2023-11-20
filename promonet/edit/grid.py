@@ -22,7 +22,7 @@ def sample(sequence, grid, method='linear'):
         xp = torch.arange(fp.shape[-1], device=fp.device)
 
         # Output indices
-        i = torch.searchsorted(xp, x, right=True)
+        i = torch.searchsorted(xp, x, side='right')
 
         # Interpolate
         return fp[..., i - 1] * (xp[i] - x) + fp[..., i] * (x - xp[i - 1])

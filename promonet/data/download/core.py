@@ -1,6 +1,7 @@
 """Download and format datasets
 
-Files produced are saved in data/. The directory structure is as follows.
+Files are saved in data/. The directory structure is as follows. Some of
+these files are produced during augmentation, preprocessing, and training.
 
 data
 ├── cache
@@ -15,12 +16,9 @@ data
 |       |   ├── <utterance>.txt
 |       |   └── <utterance>.wav
 |       └── <partition>-lengths.json  # Cached utterance lengths
-├── datasets
-|   └── <dataset>
-|       └── <original, uncompressed contents of the dataset>
-└── sources
+└── datasets
     └── <dataset>
-        └── <tar or zip files>
+        └── <original, uncompressed contents of the dataset>
 """
 import json
 import shutil
@@ -39,7 +37,7 @@ import promonet
 ###############################################################################
 
 
-@torchutil.notify.on_return('download')
+@torchutil.notify('download')
 def datasets(datasets):
     """Download datasets"""
     # Download and format daps dataset
@@ -79,7 +77,7 @@ def daps():
     speaker_count = {}
     cache_directory = promonet.CACHE_DIR / 'daps'
     cache_directory.mkdir(exist_ok=True, parents=True)
-    with promonet.chdir(cache_directory):
+    with torchutil.paths.chdir(cache_directory):
 
         # Iterate over files
         for audio_file, text_file in torchutil.iterator(
@@ -129,10 +127,6 @@ def daps():
 
 def libritts():
     """Download libritts dataset"""
-    # Create directory for downloads
-    source_directory = promonet.SOURCE_DIR / 'libritts'
-    source_directory.mkdir(exist_ok=True, parents=True)
-
     # Create directory for unpacking
     data_directory = promonet.DATA_DIR / 'libritts'
     data_directory.mkdir(exist_ok=True, parents=True)
@@ -163,7 +157,7 @@ def libritts():
     speaker_count = {}
     cache_directory = promonet.CACHE_DIR / 'libritts'
     cache_directory.mkdir(exist_ok=True, parents=True)
-    with promonet.chdir(cache_directory):
+    with torchutil.paths.chdir(cache_directory):
 
         # Iterate over files
         for audio_file, text_file in torchutil.iterator(
@@ -193,16 +187,24 @@ def libritts():
             if maximum < .35:
                 audio *= .35 / maximum
 
+            # Save at original sampling rate
+            speaker_directory = cache_directory / f'{index:04d}'
+            speaker_directory.mkdir(exist_ok=True, parents=True)
+            output_file = Path(f'{count:06d}.wav')
+            torchaudio.save(
+                speaker_directory / output_file,
+                audio,
+                sample_rate)
+            shutil.copyfile(
+                text_file,
+                (speaker_directory / output_file).with_suffix('.txt'))
+
             # Save at system sample rate
-            stem = f'{index:04d}/{count:06d}'
-            output_file = Path(f'{stem}.wav')
-            output_file.parent.mkdir(exist_ok=True, parents=True)
             audio = promonet.resample(audio, sample_rate)
             torchaudio.save(
-                output_file.parent / f'{output_file.stem}-100.wav',
+                speaker_directory / f'{output_file.stem}-100.wav',
                 audio,
                 promonet.SAMPLE_RATE)
-            shutil.copyfile(text_file, output_file.with_suffix('.txt'))
 
         # Save speaker map
         with open('speakers.json', 'w') as file:
@@ -239,7 +241,7 @@ def vctk():
     speaker_count = {}
     output_directory = promonet.CACHE_DIR / 'vctk'
     output_directory.mkdir(exist_ok=True, parents=True)
-    with promonet.chdir(output_directory):
+    with torchutil.paths.chdir(output_directory):
 
         # Iterate over files
         for audio_file, text_file in torchutil.iterator(
