@@ -267,7 +267,7 @@ def train(
                         slice_indices * promonet.HOPSIZE, 
                         promonet.CHUNK_SIZE)
                     if predicted_mels:
-                        predicted_mels = promonet.model.slice_segments(predicted_mels, start_indices=slice_indices, segment_size=slice_size)
+                        predicted_mels = promonet.model.slice_segments(predicted_mels, start_indices=slice_indices, segment_size=segment_size)
 
                 # Compute mels of generated audio
                 generated_mels = promonet.preprocess.spectrogram.from_audio(
