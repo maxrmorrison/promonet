@@ -48,8 +48,7 @@ def from_audio(
 
     # Infer ppg
     ppg = ppgs.from_audio(audio, sample_rate, gpu=gpu)
-    grid = promonet.edit.grid.of_length(ppg, pitch.shape[-1])
-    ppg = promonet.edit.grid.sample(ppg, grid, promonet.PPG_INTERP_METHOD)
+    ppg = promonet.load.ppg(ppg, resample_length=pitch.shape[-1])
 
     return pitch, periodicity, loudness, ppg
 
