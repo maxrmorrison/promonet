@@ -27,11 +27,13 @@ setup(
     setup_requires=['numpy', 'cython'],
     install_requires=[
         'alias-free-torch',
+        'GPUtil',
         'jiwer',
         'librosa',
         'matplotlib',
         'numpy<1.24',
         'openai-whisper',
+        'penn',
         # 'ppgs',  # TEMPORARY - install manually until release
         'psola',  # TEMPORARY - GPL dependency
         'pypar',

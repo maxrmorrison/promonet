@@ -18,7 +18,7 @@ AUGMENT_PITCH = True
 MODEL = 'two-stage'
 
 # Number of training steps
-NUM_STEPS = 400000
+STEPS = 400000
 
 # Number of adaptation steps
-NUM_ADAPTATION_STEPS = 20000
+ADAPTATION_STEPS = 20000
