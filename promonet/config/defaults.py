@@ -3,6 +3,7 @@ import os
 from pathlib import Path
 
 import GPUtil
+import GPUtil
 import torch
 
 
@@ -208,6 +209,7 @@ MULTI_MEL_LOSS = False
 MULTI_MEL_LOSS_WINDOWS = [32, 64, 128, 256, 512, 1024, 2048]
 
 
+
 ###############################################################################
 # Model parameters
 ###############################################################################
@@ -320,6 +322,10 @@ STEPS = 200000
 ADAPTATION_STEPS = 10000
 
 # Number of data loading worker threads
+try:
+    NUM_WORKERS = int(os.cpu_count() / max(1, len(GPUtil.getGPUs())))
+except ValueError:
+    NUM_WORKERS = os.cpu_count()
 try:
     NUM_WORKERS = int(os.cpu_count() / max(1, len(GPUtil.getGPUs())))
 except ValueError:
