@@ -1,5 +1,6 @@
 import functools
 
+import GPUtil
 import matplotlib.pyplot as plt
 import torch
 import torchutil
@@ -101,9 +102,9 @@ def train(
 
     # Get total number of steps
     if adapt_from:
-        steps = promonet.NUM_STEPS + promonet.NUM_ADAPTATION_STEPS
+        steps = promonet.STEPS + promonet.ADAPTATION_STEPS
     else:
-        steps = promonet.NUM_STEPS
+        steps = promonet.STEPS
 
     # Determine which stage of two-stage model we are on
     if promonet.MODEL == 'two-stage':
@@ -113,9 +114,9 @@ def train(
             param.requires_grad = False
 
         if (
-            step < promonet.NUM_STEPS // 2 or
-            (step >= promonet.NUM_STEPS and
-             step - promonet.NUM_STEPS < promonet.NUM_ADAPTATION_STEPS // 2)
+            step < promonet.STEPS // 2 or
+            (step >= promonet.STEPS and
+             step - promonet.STEPS < promonet.ADAPTATION_STEPS // 2)
         ):
             promonet.TWO_STAGE_1 = True
             promonet.TWO_STAGE_2 = False
@@ -470,9 +471,21 @@ def train(
                     step=step,
                     epoch=epoch)
 
-            # Maybe finish training
-            if step >= steps:
+            ########################
+            # Termination criteria #
+            ########################
+
+            # Finished training
+            if step >= promonet.STEPS:
                 break
+
+            # Raise if GPU tempurature exceeds 80 C
+            if any(gpu.temperature > 80. for gpu in GPUtil.getGPUs()):
+                raise RuntimeError(f'GPU is overheating. Terminating training.')
+
+            ###########
+            # Updates #
+            ###########
 
             # Two-stage model transition from training synthesizer to vocoder
             if promonet.MODEL == 'two-stage' and step == steps // 2:

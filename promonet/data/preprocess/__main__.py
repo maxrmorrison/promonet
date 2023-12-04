@@ -13,6 +13,7 @@ def parse_args():
     parser.add_argument(
         '--datasets',
         nargs='+',
+        default=promonet.DATASETS,
         choices=promonet.DATASETS,
         help='The datasets to preprocess')
     parser.add_argument(

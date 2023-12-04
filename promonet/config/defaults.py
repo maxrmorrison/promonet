@@ -2,6 +2,7 @@ import functools
 import os
 from pathlib import Path
 
+import GPUtil
 import torch
 
 
@@ -61,8 +62,9 @@ ASSETS_DIR = Path(__file__).parent.parent / 'assets'
 # ASSETS_DIR = Path('/files10/max/promonet/promonet/assets')
 
 # Location of preprocessed features
-# CACHE_DIR = ROOT_DIR / 'data' / 'cache'
-CACHE_DIR = Path('/files10/max/promonet/data/cache')
+# TEMPORARY
+CACHE_DIR = ROOT_DIR / 'data' / 'cache'
+# CACHE_DIR = Path('/files10/max/promonet/data/cache')
 
 # Location of datasets on disk
 DATA_DIR = ROOT_DIR / 'data' / 'datasets'
@@ -136,9 +138,6 @@ PPG_INTERP_METHOD = 'nearest'
 # Seed for all random number generators
 RANDOM_SEED = 1234
 
-# Loudness threshold (in dB) below which periodicity is set to zero
-SILENCE_THRESHOLD = None
-
 # Only use spectral features
 SPECTROGRAM_ONLY = False
 
@@ -207,6 +206,7 @@ MULTI_MEL_LOSS = False
 
 # Window sizes to be used in the multi-scale mel loss
 MULTI_MEL_LOSS_WINDOWS = [32, 64, 128, 256, 512, 1024, 2048]
+
 
 ###############################################################################
 # Model parameters
@@ -314,13 +314,16 @@ CHUNK_SIZE = 8192
 GRADIENT_CLIP_GENERATOR = None
 
 # Number of training steps
-NUM_STEPS = 200000
+STEPS = 200000
 
 # Number of adaptation steps
-NUM_ADAPTATION_STEPS = 10000
+ADAPTATION_STEPS = 10000
 
 # Number of data loading worker threads
-NUM_WORKERS = os.cpu_count() // 4
+try:
+    NUM_WORKERS = int(os.cpu_count() / max(1, len(GPUtil.getGPUs())))
+except ValueError:
+    NUM_WORKERS = os.cpu_count()
 
 # Training optimizer
 OPTIMIZER = functools.partial(
