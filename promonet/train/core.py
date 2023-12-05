@@ -12,7 +12,7 @@ import promonet
 ###############################################################################
 
 
-@torchutil.notify.on_return('train')
+@torchutil.notify('train')
 def train(
     dataset,
     directory,
@@ -614,8 +614,9 @@ def evaluate(directory, step, generator, loader, gpu):
             predicted_pitch,
             predicted_periodicity,
             predicted_loudness,
-            predicted_phonemes
-        ) = promonet.preprocess.from_audio(generated[0], gpu=gpu)
+            predicted_phonemes,
+            predicted_text
+        ) = promonet.preprocess.from_audio(generated[0], gpu=gpu, text=True)
 
         if promonet.MODEL != 'vits':
 
@@ -641,7 +642,7 @@ def evaluate(directory, step, generator, loader, gpu):
                 predicted_periodicity,
                 predicted_loudness,
                 predicted_phonemes,
-                (text, generated.squeeze()))
+                (text, predicted_text))
         else:
 
             # Plot generated prosody
@@ -680,8 +681,9 @@ def evaluate(directory, step, generator, loader, gpu):
                     predicted_pitch,
                     predicted_periodicity,
                     predicted_loudness,
-                    predicted_phonemes
-                ) = promonet.preprocess.from_audio(shifted[0], gpu=gpu)
+                    predicted_phonemes,
+                    predicted_text
+                ) = promonet.preprocess.from_audio(shifted[0], gpu=gpu, text=True)
 
                 # Log pitch-shifted audio
                 key = f'shifted-{int(100 * ratio):03d}/{i:02d}'
@@ -709,7 +711,7 @@ def evaluate(directory, step, generator, loader, gpu):
                     predicted_periodicity,
                     predicted_loudness,
                     predicted_phonemes,
-                    (text, shifted.squeeze()))
+                    (text, predicted_text))
 
         ###################
         # Time stretching #
@@ -751,8 +753,9 @@ def evaluate(directory, step, generator, loader, gpu):
                     predicted_pitch,
                     predicted_periodicity,
                     predicted_loudness,
-                    predicted_phonemes
-                ) = promonet.preprocess.from_audio(stretched[0], gpu=gpu)
+                    predicted_phonemes,
+                    predicted_text
+                ) = promonet.preprocess.from_audio(stretched[0], gpu=gpu, text=True)
 
                 # Log time-stretched audio
                 key = f'stretched-{int(ratio * 100):03d}/{i:02d}'
@@ -780,7 +783,7 @@ def evaluate(directory, step, generator, loader, gpu):
                     predicted_periodicity,
                     predicted_loudness,
                     predicted_phonemes,
-                    (text, stretched.squeeze()))
+                    (text, predicted_text))
 
         ####################
         # Loudness scaling #
@@ -808,7 +811,8 @@ def evaluate(directory, step, generator, loader, gpu):
                     predicted_periodicity,
                     predicted_loudness,
                     predicted_phonemes,
-                ) = promonet.preprocess.from_audio(scaled[0], gpu=gpu)
+                    predicted_text
+                ) = promonet.preprocess.from_audio(scaled[0], gpu=gpu, text=True)
 
                 # Log loudness-scaled audio
                 key = f'scaled-{int(ratio * 100):03d}/{i:02d}'
@@ -836,7 +840,7 @@ def evaluate(directory, step, generator, loader, gpu):
                     predicted_periodicity,
                     predicted_loudness,
                     predicted_phonemes,
-                    (text, scaled.squeeze()))
+                    (text, predicted_text))
 
     # Format prosody metrics
     if promonet.MODEL != 'vits':
