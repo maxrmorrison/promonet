@@ -60,14 +60,17 @@ class Metrics:
                     predicted_loudness < promonet.SILENCE_THRESHOLD] = 0.
                 target_periodicity[
                     target_loudness < promonet.SILENCE_THRESHOLD] = 0.
-        self.periodicity.update(predicted_periodicity, target_periodicity)
-        self.pitch.update(
-            predicted_pitch,
-            predicted_periodicity,
-            target_pitch,
-            target_periodicity)
-        for ppg_metric in self.ppg:
-            ppg_metric.update(predicted_ppg, target_ppg)
+        with torchutil.time.context('update-periodicity'):
+            self.periodicity.update(predicted_periodicity, target_periodicity)
+        with torchutil.time.context('update-pitch'):
+            self.pitch.update(
+                predicted_pitch,
+                predicted_periodicity,
+                target_pitch,
+                target_periodicity)
+        with torchutil.time.context('update-ppg'):
+            for ppg_metric in self.ppg:
+                ppg_metric.update(predicted_ppg, target_ppg)
         # self.ppg.update(predicted_ppg, target_ppg)
         self.wer.update(*wer_args)
         if speaker_sim_args:
@@ -167,11 +170,10 @@ class PPG(torchutil.metrics.Average):
 
 class WER(torchutil.metrics.Average):
     """Word error rate"""
-    def update(self, text, audio):
-        super().update(
-            torch.tensor(
-                jiwer.wer(normalize_text(text), speech_to_text(audio))),
-            1)
+    def update(self, normalized_text, text_from_speech):
+        with torchutil.time.context('jiwer'):
+            wer = jiwer.wer(normalized_text, text_from_speech)
+            super().update(torch.tensor(wer), 1)
 
 
 def speech_to_text(audio):

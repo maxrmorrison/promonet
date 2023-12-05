@@ -58,7 +58,7 @@ def from_features(
 
             # Maybe add silence
             if stretch_silence:
-                indices.append(pypar.SILENCE)
+                indices.append(ppgs.PHONEME_TO_INDEX_MAPPING[pypar.SILENCE])
 
             # Maybe add unvoiced
             if stretch_unvoiced:
@@ -74,7 +74,7 @@ def from_features(
             selected = ppg[torch.tensor(indices)].sum(dim=0) > .5
 
             # Compute effective ratio on selected frames
-            target_frames = math.round(time_stretch_ratio * ppg.shape[-1])
+            target_frames = round(time_stretch_ratio * ppg.shape[-1])
             num_selected = selected.sum()
             effective_ratio = (
                 target_frames - ppg.shape[-1] + num_selected) / num_selected
@@ -82,9 +82,12 @@ def from_features(
             # Create time-stretch grid
             grid = torch.zeros(target_frames)
             i = 0.
+            max_idx = selected.shape[-1] - 1
             for j in range(1, target_frames):
                 idx = int(round(i))
-                step = effective_ratio if selected[idx] else 1.
+                if idx == max_idx + 1:
+                    idx -= 1
+                step = effective_ratio.item() if selected[idx] else 1.
                 grid[j] = grid[j - 1] + step
                 i += step
 
