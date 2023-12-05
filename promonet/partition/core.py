@@ -11,7 +11,7 @@ LibriTTS
 ====
 * train - Training data
 * valid - Validation set of seen speakers for debugging and tensorboard
-    (10 examples)
+    (64 examples)
 * train_adapt_{:02d} - Training dataset for speaker adaptation (10 speakers)
 * test_adapt_{:02d} - Test dataset for speaker adaptation
     (10 speakers; 10 examples per speaker; 4-10 seconds)
@@ -20,7 +20,7 @@ VCTK
 ====
 * train - Training data
 * valid - Validation set of seen speakers for debugging and tensorboard
-    (10 examples; 4-10 seconds)
+    (64 examples; 4-10 seconds)
 * train_adapt_{:02d} - Training dataset for speaker adaptation (10 speakers)
 * test_adapt_{:02d} - Test dataset for speaker adaptation
     (10 speakers; 10 examples per speaker; 4-10 seconds)
@@ -196,7 +196,7 @@ def libritts():
 
     # Get validation stems
     filter_fn = functools.partial(meets_length_criteria, directory)
-    valid_stems = list(filter(filter_fn, residual))[:10]
+    valid_stems = list(filter(filter_fn, residual))[:64]
 
     # Get training stems
     train_stems = [stem for stem in residual if stem not in valid_stems]
@@ -231,7 +231,7 @@ def vctk():
 
         # Get validation stems
         filter_fn = functools.partial(meets_length_criteria, directory)
-        valid_stems = list(filter(filter_fn, residual))[:10]
+        valid_stems = list(filter(filter_fn, residual))[:64]
 
         # Get training stems
         train_stems = [stem for stem in residual if stem not in valid_stems]
