@@ -420,7 +420,7 @@ def train(
             # Logging #
             ###########
 
-            if step % promonet.LOG_INTERVAL == 0:
+            if step % promonet.EVALUATION_INTERVAL == 0:
 
                 # Log training losses
                 scalars = {
@@ -451,7 +451,16 @@ def train(
 
                 # Evaluate on validation data
                 with promonet.generation_context(generator):
-                    evaluate(directory, step, generator, valid_loader, gpu)
+                    evaluation_steps = (
+                        None if step == promonet.STEPS
+                        else promonet.DEFAULT_EVALUATION_STEPS)
+                    evaluate(
+                        directory,
+                        step,
+                        generator,
+                        valid_loader,
+                        gpu,
+                        evaluation_steps)
 
             ###################
             # Save checkpoint #
@@ -532,7 +541,7 @@ def train(
 ###############################################################################
 
 
-def evaluate(directory, step, generator, loader, gpu):
+def evaluate(directory, step, generator, loader, gpu, evaluation_steps=None):
     """Perform model evaluation"""
     device = 'cpu' if gpu is None else f'cuda:{gpu}'
 
@@ -855,6 +864,10 @@ def evaluate(directory, step, generator, loader, gpu):
                     predicted_loudness,
                     predicted_phonemes,
                     (text, scaled.squeeze()))
+
+        # Stop when we exceed some number of batches
+        if evaluation_steps is not None and i + 1 == evaluation_steps:
+            break
 
     # Format prosody metrics
     if promonet.MODEL != 'vits':
