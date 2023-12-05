@@ -20,6 +20,7 @@ def from_features(
     loudness: torch.Tensor,
     ppg: torch.Tensor,
     speaker: Optional[Union[int, torch.Tensor]] = 0,
+    formant_ratio: float: 1.,
     checkpoint: Union[str, os.PathLike] = promonet.DEFAULT_CHECKPOINT,
     gpu: Optional[int] = None
 ) -> torch.Tensor:
@@ -31,6 +32,7 @@ def from_features(
         loudness: The loudness contour
         ppg: The phonetic posteriorgram
         speaker: The speaker index
+        formant_ratio: > 1 for Alvin and the Chipmunks; < 1 for Patrick Star
         checkpoint: The generator checkpoint
         gpu: The GPU index
 
@@ -55,6 +57,7 @@ def from_features(
         loudness.to(device),
         ppg.to(device),
         speaker,
+        formant_ratio,
         checkpoint)
 
 
@@ -64,6 +67,7 @@ def from_file(
     loudness_file: Union[str, os.PathLike],
     ppg_file: Union[str, os.PathLike],
     speaker: Optional[Union[int, torch.Tensor]] = 0,
+    formant_ratio: float: 1.,
     checkpoint: Union[str, os.PathLike] = promonet.DEFAULT_CHECKPOINT,
     gpu: Optional[int] = None
 ) -> torch.Tensor:
@@ -75,6 +79,7 @@ def from_file(
         loudness_file: The loudness file
         ppg_file: The phonetic posteriorgram file
         speaker: The speaker index
+        formant_ratio: > 1 for Alvin and the Chipmunks; < 1 for Patrick Star
         checkpoint: The generator checkpoint
         gpu: The GPU index
 
@@ -102,6 +107,7 @@ def from_file(
         loudness,
         ppg,
         speaker,
+        formant_ratio,
         checkpoint,
         gpu)
 
@@ -113,6 +119,7 @@ def from_file_to_file(
     ppg_file: Union[str, os.PathLike],
     output_file: Union[str, os.PathLike],
     speaker: Optional[Union[int, torch.Tensor]] = 0,
+    formant_ratio: float: 1.,
     checkpoint: Union[str, os.PathLike] = promonet.DEFAULT_CHECKPOINT,
     gpu: Optional[int] = None
 ) -> None:
@@ -125,6 +132,7 @@ def from_file_to_file(
         ppg_file: The phonetic posteriorgram file
         output_file: The file to save generated speech audio
         speaker: The speaker index
+        formant_ratio: > 1 for Alvin and the Chipmunks; < 1 for Patrick Star
         checkpoint: The generator checkpoint
         gpu: The GPU index
     """
@@ -135,6 +143,7 @@ def from_file_to_file(
         loudness_file,
         ppg_file,
         speaker,
+        formant_ratio,
         checkpoint,
         gpu
     ).to(device='cpu', dtype=torch.float32)
@@ -151,6 +160,7 @@ def from_files_to_files(
     ppg_files: List[Union[str, os.PathLike]],
     output_files: List[Union[str, os.PathLike]],
     speakers: Optional[Union[List[int], torch.Tensor]] = None,
+    formant_ratio: float: 1.,
     checkpoint: Union[str, os.PathLike] = promonet.DEFAULT_CHECKPOINT,
     gpu: Optional[int] = None
 ) -> None:
@@ -163,6 +173,7 @@ def from_files_to_files(
         ppg_files: The phonetic posteriorgram files
         output_files: The files to save generated speech audio
         speakers: The speaker indices
+        formant_ratio: > 1 for Alvin and the Chipmunks; < 1 for Patrick Star
         checkpoint: The generator checkpoint
         gpu: The GPU index
     """
@@ -178,7 +189,11 @@ def from_files_to_files(
         output_files,
         speakers)
     for item in iterator:
-        from_file_to_file(*item, checkpoint=checkpoint, gpu=gpu)
+        from_file_to_file(
+            *item,
+            formant_ratio=formant_ratio,
+            checkpoint=checkpoint,
+            gpu=gpu)
 
 
 ###############################################################################
@@ -192,6 +207,7 @@ def generate(
     loudness,
     ppg,
     speaker=0,
+    formant_ratio: float: 1.,
     checkpoint=promonet.DEFAULT_CHECKPOINT):
     """Generate speech from phoneme and prosody features"""
     device = pitch.device
@@ -226,6 +242,12 @@ def generate(
             dtype=torch.long,
             device=device)
 
+        # Format formant ratio
+        formant_ratio = torch.tensor(
+            [formant_ratio],
+            dtype=torch.float,
+            device=device)
+
         # Generate
         with promonet.generation_context(generate.model):
             return generate.model(
@@ -234,4 +256,5 @@ def generate(
                 periodicity,
                 loudness,
                 lengths,
-                speakers)[0][0].cpu()
+                speakers,
+                formant_ratio)[0][0].cpu()

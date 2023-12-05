@@ -209,7 +209,7 @@ def from_files_to_files(
         pitch_files: Pitch files to edit
         periodicity_files: Periodicity files to edit
         loudness_files: Loudness files to edit
-        ppg_files: PPG files to edit
+        ppg_files: Phonetic posteriorgram files to edit
         output_prefixes: Files to save output, minus extension
         pitch_shift_cents: Amount of pitch-shifting in cents
         time_stretch_ratio: Amount of time-stretching. Faster when above one.
