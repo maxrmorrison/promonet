@@ -22,7 +22,6 @@ class Dataset(torch.utils.data.Dataset):
         self.stems = self.metadata.stems
         self.lengths = self.metadata.lengths
         self.partition = partition
-        self.dataset = dataset
 
     def __getitem__(self, index):
         stem = self.stems[index]
@@ -86,6 +85,11 @@ class Dataset(torch.utils.data.Dataset):
         # Split into buckets based on length
         buckets = [indices[i:i + size] for i in range(0, len(self), size)]
 
+        # Concatenate partial bucket
+        if len(buckets) == promonet.BUCKETS + 1:
+            residual = buckets.pop()
+            buckets[-1] = np.concatenate((buckets[-1], residual))
+
         # Add max length of each bucket
         return [(self.lengths[bucket[-1]], bucket) for bucket in buckets]
 
@@ -93,6 +97,7 @@ class Dataset(torch.utils.data.Dataset):
 ###############################################################################
 # Metadata
 ###############################################################################
+
 
 class Metadata:
 
@@ -161,8 +166,12 @@ class Metadata:
 
             # Compute length in frames
             for stem, audio_file in zip(self.stems, self.audio_files):
-                lengths[stem] = \
-                    torchaudio.info(audio_file).num_frames // ppgs.HOPSIZE
+                info = torchaudio.info(audio_file)
+                lengths[stem] = (
+                    int(
+                        info.num_frames *
+                        (promonet.SAMPLE_RATE / info.sample_rate)
+                    ) // promonet.HOPSIZE)
 
             # Maybe cache lengths
             if self.cache is not None:

@@ -32,6 +32,7 @@ setup(
         'matplotlib',
         'numpy<1.24',
         'openai-whisper',
+        'penn',
         # 'ppgs',  # TEMPORARY - install manually until release
         'psola',  # TEMPORARY - GPL dependency
         'pypar',

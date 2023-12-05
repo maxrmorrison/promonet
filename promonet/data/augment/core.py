@@ -1,6 +1,5 @@
 import json
 import multiprocessing as mp
-import os
 
 import resampy
 import soundfile
@@ -15,15 +14,17 @@ import promonet
 ###############################################################################
 
 
-@torchutil.notify.on_return('augment')
+@torchutil.notify('augment')
 def datasets(datasets):
     """Perform data augmentation on cached datasets"""
     for dataset in datasets:
 
         # Remove cached metadata that may become stale
-        metadata_files = (promonet.CACHE_DIR / dataset).glob('-lengths.json')
+        metadata_files = (promonet.CACHE_DIR / dataset).glob('*-lengths.json')
         for metadata_file in metadata_files:
-            os.remove(metadata_file)
+            metadata_file.unlink()
+        for stats_file in (promonet.ASSETS_DIR / 'stats').glob('*.pt'):
+            stats_file.unlink()
 
         # Get cache directory
         directory = promonet.CACHE_DIR / dataset

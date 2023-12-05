@@ -85,11 +85,10 @@ def from_features(
             max_idx = selected.shape[-1] - 1
             for j in range(1, target_frames):
                 idx = int(round(i))
-                if idx == max_idx + 1:
-                    idx -= 1
                 step = effective_ratio.item() if selected[idx] else 1.
                 grid[j] = grid[j - 1] + step
                 i += step
+            grid[-1] = torch.clip(grid[-1], max=len(ppg) - 1)
 
         # Time-stretch
         pitch = 2 ** promonet.edit.grid.sample(torch.log2(pitch), grid)

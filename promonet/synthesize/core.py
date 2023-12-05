@@ -3,8 +3,8 @@ from typing import List, Optional, Union
 from pathlib import Path
 
 import torch
-import torchutil
 import torchaudio
+import torchutil
 
 import promonet
 
@@ -204,7 +204,9 @@ def generate(
             if type(checkpoint) is str:
                 checkpoint = Path(checkpoint)
             if checkpoint.is_dir():
-                checkpoint = torchutil.checkpoint.latest_path(checkpoint)
+                checkpoint = torchutil.checkpoint.latest_path(
+                    checkpoint,
+                    'generator-*.pt')
             model, *_ = torchutil.checkpoint.load(checkpoint, model)
             generate.model = model
             generate.device = device
