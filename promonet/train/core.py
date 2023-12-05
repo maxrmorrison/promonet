@@ -166,6 +166,11 @@ def train(
                 _
             ) = batch
 
+
+            # Skip examples that are too short
+            if audio.shape[-1] < promonet.CHUNK_SIZE:
+                continue
+
             # Copy to device
             (
                 phonemes,

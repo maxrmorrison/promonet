@@ -26,10 +26,10 @@ import json
 import shutil
 import random
 
-import torch
-import torchutil
-import torchaudio
 import ppgs
+import torch
+import torchaudio
+import torchutil
 
 import promonet
 
@@ -130,10 +130,12 @@ def datasets(datasets, checkpoint=None, gpu=None):
         results_directory.mkdir(exist_ok=True, parents=True)
         results = {'num_samples': 0, 'num_frames': 0}
         if promonet.MODEL != 'vits':
-            results['prosody'] = {
-                key: value() for key, value in dataset_metrics.items()}
+            results |= {key: value() for key, value in dataset_metrics.items()}
 
+        results_directory = promonet.RESULTS_DIR / promonet.CONFIG / dataset
         for file in results_directory.glob(f'*.json'):
+            if file.stem == 'results':
+                continue
             with open(file) as file:
                 result = json.load(file)
             results['num_samples'] += result['num_samples']
@@ -148,7 +150,6 @@ def datasets(datasets, checkpoint=None, gpu=None):
         #     for key, value in results['benchmark']['raw'].items()}
 
         # Print results and save to disk
-        print(results)
         with open(results_directory / f'results.json', 'w') as file:
             json.dump(results, file, indent=4, sort_keys=True)
 
@@ -164,6 +165,25 @@ def datasets(datasets, checkpoint=None, gpu=None):
         #     for index in indices}
         # file = results_directory / f'speaker.pdf'
         # promonet.plot.speaker.from_embeddings(centers, embeddings, file=file)
+
+    # Aggregate results
+    results = {'num_samples': 0, 'num_frames': 0}
+    if promonet.MODEL != 'vits':
+        results |= {key: value() for key, value in aggregate_metrics.items()}
+
+    results_directory = promonet.RESULTS_DIR / promonet.CONFIG
+    for file in results_directory.glob(f'*/results.json'):
+        with open(file) as file:
+            result = json.load(file)
+        results['num_samples'] += result['num_samples']
+        results['num_frames'] += result['num_frames']
+
+    # TODO - aggregate benchmarking
+
+    # Print results and save to disk
+    print(results)
+    with open(results_directory / f'results.json', 'w') as file:
+        json.dump(results, file, indent=4, sort_keys=True)
 
 
 ###############################################################################
@@ -632,8 +652,7 @@ def speaker(
     results['num_frames'] = promonet.convert.samples_to_frames(
         results['num_samples'])
 
-    # Print results and save to disk
-    print(results)
+    # Save to disk
     file = (
         promonet.RESULTS_DIR /
         promonet.CONFIG /

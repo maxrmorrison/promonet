@@ -3,8 +3,8 @@ from pathlib import Path
 from typing import List, Optional
 
 import torch
-import torchutil
 import torchaudio
+import torchutil
 
 import promonet
 

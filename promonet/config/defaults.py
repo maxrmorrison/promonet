@@ -2,6 +2,7 @@ import functools
 import os
 from pathlib import Path
 
+import GPUtil
 import torch
 
 
@@ -61,8 +62,8 @@ ASSETS_DIR = Path(__file__).parent.parent / 'assets'
 # ASSETS_DIR = Path('/files10/max/promonet/promonet/assets')
 
 # Location of preprocessed features
-# CACHE_DIR = ROOT_DIR / 'data' / 'cache'
-CACHE_DIR = Path('/files10/max/promonet/data/cache')
+CACHE_DIR = ROOT_DIR / 'data' / 'cache'
+# CACHE_DIR = Path('/files10/max/promonet/data/cache')
 
 # Location of datasets on disk
 DATA_DIR = ROOT_DIR / 'data' / 'datasets'
@@ -75,9 +76,6 @@ RESULTS_DIR = ROOT_DIR / 'results'
 
 # Location to save training and adaptation artifacts
 RUNS_DIR = ROOT_DIR / 'runs'
-
-# Location of compressed datasets on disk
-SOURCE_DIR = ROOT_DIR / 'data' / 'sources'
 
 
 ###############################################################################
@@ -148,6 +146,9 @@ SPECTROGRAM_ONLY = False
 # Dataset to use for training
 TRAINING_DATASET = 'vctk'
 
+# Whether to use variable-width pitch bins
+VARIABLE_PITCH_BINS = False
+
 
 ###############################################################################
 # Evaluation parameters
@@ -207,6 +208,7 @@ MULTI_MEL_LOSS = False
 
 # Window sizes to be used in the multi-scale mel loss
 MULTI_MEL_LOSS_WINDOWS = [32, 64, 128, 256, 512, 1024, 2048]
+
 
 ###############################################################################
 # Model parameters
@@ -320,7 +322,10 @@ NUM_STEPS = 200000
 NUM_ADAPTATION_STEPS = 10000
 
 # Number of data loading worker threads
-NUM_WORKERS = os.cpu_count() // 4
+try:
+    NUM_WORKERS = int(os.cpu_count() / max(1, len(GPUtil.getGPUs())))
+except ValueError:
+    NUM_WORKERS = os.cpu_count()
 
 # Training optimizer
 OPTIMIZER = functools.partial(
