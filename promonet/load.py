@@ -5,6 +5,7 @@ import ppgs
 import pypar
 import torch
 import torchaudio
+import torchutil
 
 import promonet
 
@@ -55,7 +56,7 @@ def phonemes(file, interleave=False):
     return interleaved
 
 
-def pitch_distribution(dataset, partition='train'):
+def pitch_distribution(dataset=promonet.TRAINING_DATASET, partition='train'):
     """Load pitch distribution"""
     if not hasattr(pitch_distribution, 'distribution'):
 
@@ -74,7 +75,10 @@ def pitch_distribution(dataset, partition='train'):
 
             # Get all voiced pitch frames
             allpitch = []
-            for stem in promonet.load.partition(dataset)[partition]:
+            for stem in torchutil.iterator(
+                promonet.load.partition(dataset)[partition],
+                'promonet.load.pitch_distribution'
+            ):
                 for pitch_file in (promonet.CACHE_DIR / dataset).glob(
                     f'{stem}*-pitch.pt'
                 ):
@@ -86,15 +90,17 @@ def pitch_distribution(dataset, partition='train'):
                         pitch[periodicity > promonet.VOICING_THRESOLD])
 
             # Sort
-            pitch = torch.cat(allpitch).sort()
+            pitch, _ = torch.sort(torch.cat(allpitch))
 
             # Bucket
             indices = torch.linspace(
-                0,
-                len(pitch),
-                len(pitch) / promonet.PITCH_BINS
+                0.,
+                len(pitch) - 1,
+                promonet.PITCH_BINS,
+                dtype=torch.float64
             ).to(torch.long)
             pitch_distribution.distribution = pitch[indices]
+            pitch_distribution.distribution[0] = promonet.FMIN
 
             # Save
             torch.save(pitch_distribution.distribution, file)

@@ -8,7 +8,7 @@ import promonet
 ###############################################################################
 
 
-@torchutil.notify.on_return('preprocess')
+@torchutil.notify('preprocess')
 def datasets(datasets, features=promonet.ALL_FEATURES, gpu=None):
     """Preprocess a dataset"""
     for dataset in datasets:
