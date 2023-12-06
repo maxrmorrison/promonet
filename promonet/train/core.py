@@ -231,55 +231,54 @@ def train(
                 mels = promonet.preprocess.spectrogram.linear_to_mel(
                     spectrograms)
 
-                # Compute mels of generated audio
-                generated_mels = promonet.preprocess.spectrogram.from_audio(
-                    generated,
-                    True)
+                # Slice segments for training discriminator
+                segment_size = promonet.convert.samples_to_frames(
+                    promonet.CHUNK_SIZE)
 
-                if promonet.SLICING:
-
-                    # Slice segments for training discriminator
-                    segment_size = promonet.convert.samples_to_frames(
-                        promonet.CHUNK_SIZE)
-
+                if not promonet.SLICING: #Get indices (in frames) here
+                    mel_slices, slice_indices = promonet.model.generator.random_slice_segments(
+                        mels, spectrogram_lengths, segment_size)
+                else:
                     # Slice spectral features
                     mel_slices = promonet.model.slice_segments(
                         mels,
                         start_indices=slice_indices,
                         segment_size=segment_size)
 
-                    # Slice prosody
-                    indices, size = slice_indices, segment_size
-                    slice_fn = functools.partial(
-                        promonet.model.slice_segments,
-                        start_indices=indices,
-                        segment_size=size)
-                    pitch_slices = slice_fn(pitch, fill_value=pitch.mean())
-                    periodicity_slices = slice_fn(periodicity)
-                    loudness_slices = slice_fn(loudness, fill_value=loudness.min())
-                    if 'ppg' in promonet.INPUT_FEATURES:
-                        phoneme_slices = slice_fn(phonemes)
-                    else:
-                        phoneme_slices = None
-
-                    # Slice ground truth audio
-                    audio = promonet.model.slice_segments(
-                        audio,
-                        slice_indices * promonet.HOPSIZE,
-                        promonet.CHUNK_SIZE)
-
+                # Slice prosody
+                indices, size = slice_indices, segment_size
+                slice_fn = functools.partial(
+                    promonet.model.slice_segments,
+                    start_indices=indices,
+                    segment_size=size)
+                pitch_slices = slice_fn(pitch, fill_value=pitch.mean())
+                periodicity_slices = slice_fn(periodicity)
+                loudness_slices = slice_fn(loudness, fill_value=loudness.min())
+                if 'ppg' in promonet.INPUT_FEATURES:
+                    phoneme_slices = slice_fn(phonemes)
                 else:
-                    print(f"Input shape: {audio.shape}")
-                    print(f"Generated shape: {generated.shape}")
-                    print(f"Pitch shape: {pitch.shape}")
-                    mel_slices = mels
-                    pitch_slices = pitch
-                    periodicity_slices = periodicity
-                    loudness_slices = loudness
-                    if 'ppg' in promonet.INPUT_FEATURES:
-                        phoneme_slices = phonemes
-                    else:
-                        phoneme_slices = None
+                    phoneme_slices = None
+
+                # Slice ground truth audio
+                audio = promonet.model.slice_segments(
+                    audio,
+                    slice_indices * promonet.HOPSIZE,
+                    promonet.CHUNK_SIZE)
+
+                # If not slicing in generator, slice for discriminator here
+                if not promonet.SLICING:
+                    generated = promonet.model.slice_segments(
+                        generated, 
+                        slice_indices * promonet.HOPSIZE, 
+                        promonet.CHUNK_SIZE)
+                    if predicted_mels:
+                        predicted_mels = promonet.model.slice_segments(predicted_mels, start_indices=slice_indices, segment_size=segment_size)
+
+                # Compute mels of generated audio
+                generated_mels = promonet.preprocess.spectrogram.from_audio(
+                    generated,
+                    True)
+
 
                 #######################
                 # Train discriminator #
