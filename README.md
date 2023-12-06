@@ -391,7 +391,7 @@ def from_features(
     loudness: torch.Tensor,
     ppg: torch.Tensor,
     speaker: Optional[Union[int, torch.Tensor]] = 0,
-    formant_ratio: float: 1.,
+    formant_ratio: float = 1.,
     checkpoint: Union[str, os.PathLike] = promonet.DEFAULT_CHECKPOINT,
     gpu: Optional[int] = None) -> torch.Tensor:
     """Perform speech synthesis

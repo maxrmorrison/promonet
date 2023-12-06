@@ -20,7 +20,7 @@ def from_features(
     loudness: torch.Tensor,
     ppg: torch.Tensor,
     speaker: Optional[Union[int, torch.Tensor]] = 0,
-    formant_ratio: float: 1.,
+    formant_ratio: float = 1.,
     checkpoint: Union[str, os.PathLike] = promonet.DEFAULT_CHECKPOINT,
     gpu: Optional[int] = None
 ) -> torch.Tensor:
@@ -67,7 +67,7 @@ def from_file(
     loudness_file: Union[str, os.PathLike],
     ppg_file: Union[str, os.PathLike],
     speaker: Optional[Union[int, torch.Tensor]] = 0,
-    formant_ratio: float: 1.,
+    formant_ratio: float = 1.,
     checkpoint: Union[str, os.PathLike] = promonet.DEFAULT_CHECKPOINT,
     gpu: Optional[int] = None
 ) -> torch.Tensor:
@@ -119,7 +119,7 @@ def from_file_to_file(
     ppg_file: Union[str, os.PathLike],
     output_file: Union[str, os.PathLike],
     speaker: Optional[Union[int, torch.Tensor]] = 0,
-    formant_ratio: float: 1.,
+    formant_ratio: float = 1.,
     checkpoint: Union[str, os.PathLike] = promonet.DEFAULT_CHECKPOINT,
     gpu: Optional[int] = None
 ) -> None:
@@ -160,7 +160,7 @@ def from_files_to_files(
     ppg_files: List[Union[str, os.PathLike]],
     output_files: List[Union[str, os.PathLike]],
     speakers: Optional[Union[List[int], torch.Tensor]] = None,
-    formant_ratio: float: 1.,
+    formant_ratio: float = 1.,
     checkpoint: Union[str, os.PathLike] = promonet.DEFAULT_CHECKPOINT,
     gpu: Optional[int] = None
 ) -> None:
@@ -207,7 +207,7 @@ def generate(
     loudness,
     ppg,
     speaker=0,
-    formant_ratio: float: 1.,
+    formant_ratio: float = 1.,
     checkpoint=promonet.DEFAULT_CHECKPOINT):
     """Generate speech from phoneme and prosody features"""
     device = pitch.device

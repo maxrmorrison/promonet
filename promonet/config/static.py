@@ -4,6 +4,16 @@ import promonet
 
 
 ###############################################################################
+# Audio parameters
+###############################################################################
+
+
+# Base-2 log of pitch range boundaries
+LOG_FMIN = math.log2(promonet.FMIN)
+LOG_FMAX = math.log2(promonet.FMAX)
+
+
+###############################################################################
 # Directories
 ###############################################################################
 
@@ -16,19 +26,6 @@ PARTITION_DIR = promonet.ASSETS_DIR / 'partitions'
 
 # Default checkpoint for generation
 DEFAULT_CHECKPOINT = promonet.ASSETS_DIR / 'checkpoints'
-
-# Default configuration file
-DEFAULT_CONFIGURATION = promonet.ASSETS_DIR / 'configs' / 'promonet.py'
-
-
-###############################################################################
-# Audio parameters
-###############################################################################
-
-
-# Base-2 log of pitch range boundaries
-LOG_FMIN = math.log2(promonet.FMIN)
-LOG_FMAX = math.log2(promonet.FMAX)
 
 
 ###############################################################################
