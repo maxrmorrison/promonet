@@ -19,5 +19,4 @@ def parse_args():
     return parser.parse_args()
 
 
-if __name__ == '__main__':
-    promonet.partition.datasets(**vars(parse_args()))
+promonet.partition.datasets(**vars(parse_args()))
