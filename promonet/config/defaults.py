@@ -313,6 +313,12 @@ VOCODER_TYPE = 'hifigan'
 # Number of items in a batch
 BATCH_SIZE = 32
 
+# Whether to use variable batch size
+VARIABLE_BATCH = False
+
+# Maximum number of frames in a batch
+MAX_TRAINING_FRAMES = 10000
+
 # Number of buckets to partition training and validation data into based on
 # length to avoid excess padding
 BUCKETS = 8
