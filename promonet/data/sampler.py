@@ -32,10 +32,12 @@ def sampler(dataset, partition):
 
 class Sampler:
 
-    def __init__(self, dataset):
+    def __init__(self, dataset, max_frames = promonet.MAX_TRAINING_FRAMES, variable_batch = promonet.VARIABLE_BATCH):
+        self.max_frames = max_frames
         self.epoch = 0
         self.length = len(dataset)
         self.buckets = dataset.buckets()
+        self.variable_batch = variable_batch
 
     def __iter__(self):
         return iter(self.batch())
@@ -51,14 +53,18 @@ class Sampler:
 
         # Make batches with roughly equal number of frames
         batches = []
-        for _, bucket in self.buckets:
+        for max_length, bucket in self.buckets:
 
             # Shuffle bucket
             bucket = bucket[
                 torch.randperm(len(bucket), generator=generator).tolist()]
 
             # Get current batch size
-            size = promonet.BATCH_SIZE
+            if self.variable_batch:
+                size = self.max_frames // max_length
+                #print(size)
+            else:
+                size = promonet.BATCH_SIZE
 
             # Make batches
             batches.extend(

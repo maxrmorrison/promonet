@@ -3,6 +3,7 @@ from typing import List, Optional, Tuple, Union
 
 import penn
 import ppgs
+import whisper
 import torch
 
 import promonet
@@ -17,6 +18,7 @@ def from_audio(
     audio: torch.Tensor,
     sample_rate: int = promonet.SAMPLE_RATE,
     gpu: Optional[int] = None
+    text: Optional[bool] = False
 ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
     """Preprocess audio
 
@@ -24,12 +26,14 @@ def from_audio(
         audio: Audio to preprocess
         sample_rate: Audio sample rate
         gpu: The GPU index
+        text: Infer text using Whisper
 
     Returns
         pitch: The pitch contour
         periodicity: The periodicity contour
         loudness: The loudness contour
         ppg: The phonetic posteriorgram
+        text: The text transcript
     """
     # Estimate pitch and periodicity
     pitch, periodicity = penn.from_audio(
@@ -48,9 +52,13 @@ def from_audio(
 
     # Infer ppg
     ppg = ppgs.from_audio(audio, sample_rate, gpu=gpu)
-    grid = promonet.edit.grid.of_length(ppg, pitch.shape[-1])
-    ppg = promonet.edit.grid.sample(ppg, grid, promonet.PPG_INTERP_METHOD)
-
+    ppg = promonet.load.ppg(ppg, resample_length=pitch.shape[-1])
+    
+    # Infer transcript
+    if text:
+        text = promonet.preprocess.text.from_audio(audio, sample_rate, gpu=gpu)
+        return pitch, periodicity, loudness, ppg, text
+      
     return pitch, periodicity, loudness, ppg
 
 
@@ -100,7 +108,8 @@ def from_file_to_file(
 def from_files_to_files(
     files: List[Union[str, bytes, os.PathLike]],
     output_prefixes: Optional[List[Union[str, os.PathLike]]] = None,
-    gpu=None
+    gpu=None,
+    text: Optional[bool] = False
 ) -> None:
     """Preprocess multiple audio files on disk and save
 
@@ -108,6 +117,7 @@ def from_files_to_files(
         files: Audio files to preprocess
         output_prefixes: Files to save features, minus extension
         gpu: The GPU index
+        text: Preprocess text using whisper
     """
     if output_prefixes is None:
         output_prefixes = [file.parent / file.stem for file in files]

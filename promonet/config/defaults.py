@@ -102,6 +102,22 @@ PPG_CHANNELS = 40
 # Available method are ['linear', 'nearest', 'slerp']
 PPG_INTERP_METHOD = 'nearest'
 
+# Whether to use sparse ppgs
+SPARSE_PPGS = False
+
+# Type of sparsification used for ppgs
+# Available methods are ['constant_threshold', 'percent_threshold', 'top_n']
+SPARSE_METHOD = 'top_n'
+
+# Constant threshold for ppg sparsification (should be in [0, 1])
+SPARSE_THRESHOLD = 0.001
+
+# Percentage threshold for ppg sparsification (should be in [0, 1])
+SPARSE_PERCENT_THRESHOLD = 0.8
+
+# Number of top bins to take in ppg sparsification
+SPARSE_NUM_BINS = 3
+
 # Seed for all random number generators
 RANDOM_SEED = 1234
 
@@ -302,6 +318,12 @@ VOCODER_TYPE = 'hifigan'
 
 # Number of items in a batch
 BATCH_SIZE = 32
+
+# Whether to use variable batch size
+VARIABLE_BATCH = False
+
+# Maximum number of frames in a batch
+MAX_TRAINING_FRAMES = 10000
 
 # Number of buckets to partition training and validation data into based on
 # length to avoid excess padding
