@@ -231,55 +231,54 @@ def train(
                 mels = promonet.preprocess.spectrogram.linear_to_mel(
                     spectrograms)
 
-                # Compute mels of generated audio
-                generated_mels = promonet.preprocess.spectrogram.from_audio(
-                    generated,
-                    True)
+                # Slice segments for training discriminator
+                segment_size = promonet.convert.samples_to_frames(
+                    promonet.CHUNK_SIZE)
 
-                if promonet.SLICING:
-
-                    # Slice segments for training discriminator
-                    segment_size = promonet.convert.samples_to_frames(
-                        promonet.CHUNK_SIZE)
-
+                if not promonet.SLICING: #Get indices (in frames) here
+                    mel_slices, slice_indices = promonet.model.generator.random_slice_segments(
+                        mels, spectrogram_lengths, segment_size)
+                else:
                     # Slice spectral features
                     mel_slices = promonet.model.slice_segments(
                         mels,
                         start_indices=slice_indices,
                         segment_size=segment_size)
 
-                    # Slice prosody
-                    indices, size = slice_indices, segment_size
-                    slice_fn = functools.partial(
-                        promonet.model.slice_segments,
-                        start_indices=indices,
-                        segment_size=size)
-                    pitch_slices = slice_fn(pitch, fill_value=pitch.mean())
-                    periodicity_slices = slice_fn(periodicity)
-                    loudness_slices = slice_fn(loudness, fill_value=loudness.min())
-                    if 'ppg' in promonet.INPUT_FEATURES:
-                        phoneme_slices = slice_fn(phonemes)
-                    else:
-                        phoneme_slices = None
-
-                    # Slice ground truth audio
-                    audio = promonet.model.slice_segments(
-                        audio,
-                        slice_indices * promonet.HOPSIZE,
-                        promonet.CHUNK_SIZE)
-
+                # Slice prosody
+                indices, size = slice_indices, segment_size
+                slice_fn = functools.partial(
+                    promonet.model.slice_segments,
+                    start_indices=indices,
+                    segment_size=size)
+                pitch_slices = slice_fn(pitch, fill_value=pitch.mean())
+                periodicity_slices = slice_fn(periodicity)
+                loudness_slices = slice_fn(loudness, fill_value=loudness.min())
+                if 'ppg' in promonet.INPUT_FEATURES:
+                    phoneme_slices = slice_fn(phonemes)
                 else:
-                    print(f"Input shape: {audio.shape}")
-                    print(f"Generated shape: {generated.shape}")
-                    print(f"Pitch shape: {pitch.shape}")
-                    mel_slices = mels
-                    pitch_slices = pitch
-                    periodicity_slices = periodicity
-                    loudness_slices = loudness
-                    if 'ppg' in promonet.INPUT_FEATURES:
-                        phoneme_slices = phonemes
-                    else:
-                        phoneme_slices = None
+                    phoneme_slices = None
+
+                # Slice ground truth audio
+                audio = promonet.model.slice_segments(
+                    audio,
+                    slice_indices * promonet.HOPSIZE,
+                    promonet.CHUNK_SIZE)
+
+                # If not slicing in generator, slice for discriminator here
+                if not promonet.SLICING:
+                    generated = promonet.model.slice_segments(
+                        generated, 
+                        slice_indices * promonet.HOPSIZE, 
+                        promonet.CHUNK_SIZE)
+                    if predicted_mels:
+                        predicted_mels = promonet.model.slice_segments(predicted_mels, start_indices=slice_indices, segment_size=segment_size)
+
+                # Compute mels of generated audio
+                generated_mels = promonet.preprocess.spectrogram.from_audio(
+                    generated,
+                    True)
+
 
                 #######################
                 # Train discriminator #
@@ -640,8 +639,9 @@ def evaluate(directory, step, generator, loader, gpu, evaluation_steps=None):
             predicted_pitch,
             predicted_periodicity,
             predicted_loudness,
-            predicted_phonemes
-        ) = promonet.preprocess.from_audio(generated[0], gpu=gpu)
+            predicted_phonemes,
+            predicted_text
+        ) = promonet.preprocess.from_audio(generated[0], gpu=gpu, text=True)
 
         if promonet.MODEL != 'vits':
 
@@ -668,7 +668,7 @@ def evaluate(directory, step, generator, loader, gpu, evaluation_steps=None):
                 predicted_periodicity,
                 predicted_loudness,
                 predicted_phonemes,
-                (text, generated.squeeze()))
+                (text, predicted_text))
         else:
 
             # Plot generated prosody
@@ -707,8 +707,9 @@ def evaluate(directory, step, generator, loader, gpu, evaluation_steps=None):
                     predicted_pitch,
                     predicted_periodicity,
                     predicted_loudness,
-                    predicted_phonemes
-                ) = promonet.preprocess.from_audio(shifted[0], gpu=gpu)
+                    predicted_phonemes,
+                    predicted_text
+                ) = promonet.preprocess.from_audio(shifted[0], gpu=gpu, text=True)
 
                 # Log pitch-shifted audio
                 key = f'shifted-{int(100 * ratio):03d}/{i:02d}'
@@ -737,7 +738,7 @@ def evaluate(directory, step, generator, loader, gpu, evaluation_steps=None):
                     predicted_periodicity,
                     predicted_loudness,
                     predicted_phonemes,
-                    (text, shifted.squeeze()))
+                    (text, predicted_text))
 
         ###################
         # Time stretching #
@@ -779,8 +780,9 @@ def evaluate(directory, step, generator, loader, gpu, evaluation_steps=None):
                     predicted_pitch,
                     predicted_periodicity,
                     predicted_loudness,
-                    predicted_phonemes
-                ) = promonet.preprocess.from_audio(stretched[0], gpu=gpu)
+                    predicted_phonemes,
+                    predicted_text
+                ) = promonet.preprocess.from_audio(stretched[0], gpu=gpu, text=True)
 
                 # Log time-stretched audio
                 key = f'stretched-{int(ratio * 100):03d}/{i:02d}'
@@ -809,7 +811,7 @@ def evaluate(directory, step, generator, loader, gpu, evaluation_steps=None):
                     predicted_periodicity,
                     predicted_loudness,
                     predicted_phonemes,
-                    (text, stretched.squeeze()))
+                    (text, predicted_text))
 
         ####################
         # Loudness scaling #
@@ -837,7 +839,8 @@ def evaluate(directory, step, generator, loader, gpu, evaluation_steps=None):
                     predicted_periodicity,
                     predicted_loudness,
                     predicted_phonemes,
-                ) = promonet.preprocess.from_audio(scaled[0], gpu=gpu)
+                    predicted_text
+                ) = promonet.preprocess.from_audio(scaled[0], gpu=gpu, text=True)
 
                 # Log loudness-scaled audio
                 key = f'scaled-{int(ratio * 100):03d}/{i:02d}'
@@ -866,7 +869,7 @@ def evaluate(directory, step, generator, loader, gpu, evaluation_steps=None):
                     predicted_periodicity,
                     predicted_loudness,
                     predicted_phonemes,
-                    (text, scaled.squeeze()))
+                    (text, predicted_text))
 
         # Stop when we exceed some number of batches
         if evaluation_steps is not None and i + 1 == evaluation_steps:
