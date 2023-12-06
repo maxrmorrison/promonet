@@ -1,16 +1,22 @@
 import functools
-from typing import Optional
 
 import torch
 import vocos
 
 import promonet
 
-class VocosVocoder(torch.nn.Module):
+
+###############################################################################
+# Vocos vocoder
+###############################################################################
+
+
+class Vocos(torch.nn.Module):
 
     def __init__(self, initial_channel, gin_channels):
         super().__init__()
 
+        # Input feature projection
         self.conv_pre = torch.nn.Conv1d(
             initial_channel,
             initial_channel,
@@ -18,9 +24,18 @@ class VocosVocoder(torch.nn.Module):
             1,
             padding=3)
 
-        #Backbone and head defaults from https://github.com/charactr-platform/vocos/blob/main/configs/vocos.yaml#L48
-        self.backbone = vocos.models.VocosBackbone(initial_channel, 512, 1536, 8)
-        self.head = vocos.heads.ISTFTHead(512, promonet.NUM_FFT, promonet.HOPSIZE)
+        # Model architecture
+        self.backbone = vocos.models.VocosBackbone(
+            initial_channel,
+            512,
+            1536,
+            8)
+
+        # Differentiable iSTFT
+        self.head = vocos.heads.ISTFTHead(
+            512,
+            promonet.NUM_FFT,
+            promonet.HOPSIZE)
 
         # Speaker conditioning
         self.cond = torch.nn.Conv1d(
@@ -32,15 +47,15 @@ class VocosVocoder(torch.nn.Module):
         # Initial conv
         x = self.conv_pre(x)
 
-        if g:
+        # Speaker conditioning
+        if g is not None:
             x = x + self.cond(g)
 
+        # Infer complex STFT
         x = self.backbone(x)
-        output = self.head(x)
-        output = output.unsqueeze(1)
-        #print(f'output shape: {output.shape}')
-        return output
 
+        # Perform iSTFT to get waveform
+        return self.head(x).unsqueeze(1)
 
 
 ###############################################################################
@@ -48,7 +63,7 @@ class VocosVocoder(torch.nn.Module):
 ###############################################################################
 
 
-class HifiganVocoder(torch.nn.Module):
+class HiFiGAN(torch.nn.Module):
 
     def __init__(self, initial_channel, gin_channels):
         super().__init__()
@@ -156,8 +171,6 @@ class HifiganVocoder(torch.nn.Module):
         # Final conv
         x = self.conv_post(x)
 
-        #print(f'output shape: {x.shape}')
-
         # Bound to [-1, 1]
         return torch.tanh(x)
 
@@ -244,10 +257,12 @@ def init_weights(m, mean=0.0, std=0.01):
     if classname.find("Conv") != -1:
         m.weight.data.normal_(mean, std)
 
+
 def get_vocoder(*args):
     if promonet.VOCODER_TYPE == 'hifigan':
-        return HifiganVocoder(*args)
+        return HiFiGAN(*args)
     elif promonet.VOCODER_TYPE == 'vocos':
-        return VocosVocoder(*args)
+        return Vocos(*args)
     else:
-        raise ValueError(f'Vocoder type {promonet.VOCODER_TYPE} is not defined')
+        raise ValueError(
+            f'Vocoder type {promonet.VOCODER_TYPE} is not defined')
