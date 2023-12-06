@@ -1,4 +1,3 @@
-import math
 import os
 from typing import List, Optional, Tuple, Union
 
@@ -82,7 +81,6 @@ def from_features(
             # Create time-stretch grid
             grid = torch.zeros(target_frames)
             i = 0.
-            max_idx = selected.shape[-1] - 1
             for j in range(1, target_frames):
                 idx = int(round(i))
                 step = effective_ratio.item() if selected[idx] else 1.
