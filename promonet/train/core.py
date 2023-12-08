@@ -268,8 +268,8 @@ def train(
                 # If not slicing in generator, slice for discriminator here
                 if not promonet.SLICING:
                     generated = promonet.model.slice_segments(
-                        generated, 
-                        slice_indices * promonet.HOPSIZE, 
+                        generated,
+                        slice_indices * promonet.HOPSIZE,
                         promonet.CHUNK_SIZE)
                     if predicted_mels:
                         predicted_mels = promonet.model.slice_segments(predicted_mels, start_indices=slice_indices, segment_size=segment_size)

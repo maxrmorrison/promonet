@@ -32,11 +32,8 @@ class Metrics:
             'loudness': self.loudness(),
             'periodicity': self.periodicity(),
             'pitch': self.pitch(),
-            'ppg': {
-                str(ppg_metric.exponent): ppg_metric() for ppg_metric in self.ppg
-            },
-            # 'ppg': self.ppg(),
             'wer': self.wer()}
+        result |= {f'ppg-{ppg.exponent}': ppg() for ppg in self.ppg}
         if self.speaker_sim.count:
             result['speaker_sim'] = self.speaker_sim()
         return result
