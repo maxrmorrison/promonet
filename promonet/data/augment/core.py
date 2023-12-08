@@ -60,8 +60,7 @@ def from_files_to_files(audio_files):
     # Save augmentation info
     ratio_dict = {}
     for audio_file, ratio in iterator:
-        key = \
-            f'{audio_file.parent.name}/{audio_file.stem.split("-")[0]}'
+        key = f'{audio_file.parent.name}/{audio_file.stem.split("-")[0]}'
         ratio_dict[key] = f'{int(ratio * 100):03d}'
 
     return ratio_dict
@@ -73,10 +72,7 @@ def from_file_to_file(audio_file, ratio):
     audio, sample_rate = soundfile.read(str(audio_file))
 
     # Scale audio
-    scaled = resampy.resample(
-        audio,
-        int(ratio * sample_rate),
-        sample_rate)
+    scaled = resampy.resample(audio, int(ratio * sample_rate), sample_rate)
 
     # Resample to promonet sample rate
     scaled = resampy.resample(scaled, sample_rate, promonet.SAMPLE_RATE)

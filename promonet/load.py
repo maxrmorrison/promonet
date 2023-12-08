@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 
 import ppgs
 import pypar
@@ -105,6 +106,43 @@ def pitch_distribution(dataset=promonet.TRAINING_DATASET, partition='train'):
             torch.save(pitch_distribution.distribution, file)
 
     return pitch_distribution.distribution
+
+
+def ppg(file, resample_length = None, sparse=promonet.SPARSE_PPGS, method=promonet.SPARSE_METHOD, device='cpu'):
+    """Load a PPG file, resample with a grid if need be, sparsify if needed"""
+
+    if issubclass(type(file), Path):
+        ppg_data = torch.load(file, map_location=device)
+    else:
+        ppg_data = file
+
+    if resample_length is not None:
+        #Maybe resample length
+        ppg_data = promonet.edit.grid.sample(
+            ppg_data,
+            promonet.edit.grid.of_length(ppg_data, resample_length),
+            promonet.PPG_INTERP_METHOD)
+
+    if sparse:
+        if method in ['constant_threshold', 'percent_threshold']:
+            #Threshold either a constant value or a percentile
+            if method == 'constant_threshold':
+                threshold = promonet.SPARSE_THRESHOLD
+            else:
+                threshold = torch.quantile(ppg_data, promonet.SPARSE_PERCENT_THRESHOLD)
+            ppg_data = torch.where(ppg_data > threshold, ppg_data, 0)
+
+        elif method == 'top_n':
+            #Take the top n bins
+            thresholds = torch.quantile(ppg_data.T, (ppg_data.shape[0] - promonet.SPARSE_NUM_BINS) / ppg_data.shape[0], dim=1, interpolation='lower').unsqueeze(1)
+            ppg_data = torch.where(ppg_data.T > thresholds, ppg_data.T, 0).T
+
+        else:
+            raise ValueError(f"interpolation mode {method} is not defined")
+
+        ppg_data = torch.softmax(torch.log(ppg_data), 0)
+
+    return ppg_data
 
 
 def text(file):

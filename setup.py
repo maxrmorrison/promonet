@@ -27,6 +27,7 @@ setup(
     setup_requires=['numpy', 'cython'],
     install_requires=[
         'alias-free-torch',
+        'GPUtil',
         'jiwer',
         'librosa',
         'matplotlib',
