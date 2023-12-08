@@ -1,11 +1,11 @@
 import jiwer
+import numpy as np
 import penn
 import ppgs
 import torch
 import torchutil
 import whisper
 from whisper.normalizers import EnglishTextNormalizer
-import numpy as np
 
 import promonet
 

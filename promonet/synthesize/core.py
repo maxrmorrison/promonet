@@ -40,17 +40,6 @@ def from_features(
         generated: The generated speech
     """
     device = torch.device('cpu' if gpu is None else f'cuda:{gpu}')
-
-    # Maybe use a baseline method instead
-    # TODO - baseline interface
-    # if promonet.MODEL == 'psola':
-    #     with torchutil.time.context('generate'):
-    #         return promonet.baseline.psola.from_features(**locals())
-    # elif promonet.MODEL == 'world':
-    #     with torchutil.time.context('generate'):
-    #         return promonet.baseline.world.from_features(**locals())
-
-    # Generate
     return generate(
         pitch.to(device),
         periodicity.to(device),
