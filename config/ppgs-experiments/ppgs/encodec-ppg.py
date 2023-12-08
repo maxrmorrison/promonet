@@ -6,7 +6,7 @@ CONFIG = 'encodec-ppg'
 INPUT_CHANNELS = 128 #dimensionality of encodec latents
 REPRESENTATION = 'encodec'
 
-CUSTOM_CHECKPOINT = '/repos/ppgs/ppgs/assets/checkpoints/encodec.pt'
+LOCAL_CHECKPOINT = '/repos/ppgs/ppgs/assets/checkpoints/encodec.pt'
 
 MAX_FRAMES = 10000
 

@@ -1,7 +1,7 @@
 MODULE = 'promonet'
 
 # Configuration name
-CONFIG = 'w2v2fb-ppg-periodicity'
+CONFIG = '2_00'
 
 # The model to use. One of [
 #     'end-to-end',
@@ -16,7 +16,6 @@ MODEL = 'end-to-end'
 
 # Pitch conditioning
 PITCH_FEATURES = True
-PERIODICITY_FEATURES = True
 PITCH_EVAL_METHOD = 'cents'
 
 # Phonemic posteriorgram conditioning
