@@ -3,6 +3,7 @@ import os
 from pathlib import Path
 
 import GPUtil
+import GPUtil
 import torch
 
 
@@ -62,6 +63,7 @@ ASSETS_DIR = Path(__file__).parent.parent / 'assets'
 # ASSETS_DIR = Path('/files10/max/promonet/promonet/assets')
 
 # Location of preprocessed features
+# TEMPORARY
 CACHE_DIR = ROOT_DIR / 'data' / 'cache'
 # CACHE_DIR = Path('/files10/max/promonet/data/cache')
 
@@ -115,7 +117,7 @@ VOICING_THRESOLD = .1625
 # Pass speech representation through the latent
 LATENT_SHORTCUT = False
 
-#Whether to slice during training
+#Whether to slice for generator during training
 SLICING = True
 
 # Whether to use an embedding layer for pitch
@@ -134,11 +136,24 @@ PPG_CHANNELS = 40
 # Available method are ['linear', 'nearest', 'slerp']
 PPG_INTERP_METHOD = 'nearest'
 
+# Whether to use sparse ppgs
+SPARSE_PPGS = False
+
+# Type of sparsification used for ppgs
+# Available methods are ['constant_threshold', 'percent_threshold', 'top_n']
+SPARSE_METHOD = 'top_n'
+
+# Constant threshold for ppg sparsification (should be in [0, 1])
+SPARSE_THRESHOLD = 0.001
+
+# Percentage threshold for ppg sparsification (should be in [0, 1])
+SPARSE_PERCENT_THRESHOLD = 0.8
+
+# Number of top bins to take in ppg sparsification
+SPARSE_NUM_BINS = 3
+
 # Seed for all random number generators
 RANDOM_SEED = 1234
-
-# Loudness threshold (in dB) below which periodicity is set to zero
-SILENCE_THRESHOLD = None
 
 # Only use spectral features
 SPECTROGRAM_ONLY = False
@@ -208,6 +223,7 @@ MULTI_MEL_LOSS = False
 
 # Window sizes to be used in the multi-scale mel loss
 MULTI_MEL_LOSS_WINDOWS = [32, 64, 128, 256, 512, 1024, 2048]
+
 
 
 ###############################################################################
@@ -299,6 +315,12 @@ VOCODER_TYPE = 'hifigan'
 # Number of items in a batch
 BATCH_SIZE = 32
 
+# Whether to use variable batch size
+VARIABLE_BATCH = False
+
+# Maximum number of frames in a batch
+MAX_TRAINING_FRAMES = 10000
+
 # Number of buckets to partition training and validation data into based on
 # length to avoid excess padding
 BUCKETS = 8
@@ -316,12 +338,16 @@ CHUNK_SIZE = 8192
 GRADIENT_CLIP_GENERATOR = None
 
 # Number of training steps
-NUM_STEPS = 200000
+STEPS = 200000
 
 # Number of adaptation steps
-NUM_ADAPTATION_STEPS = 10000
+ADAPTATION_STEPS = 10000
 
 # Number of data loading worker threads
+try:
+    NUM_WORKERS = int(os.cpu_count() / max(1, len(GPUtil.getGPUs())))
+except ValueError:
+    NUM_WORKERS = os.cpu_count()
 try:
     NUM_WORKERS = int(os.cpu_count() / max(1, len(GPUtil.getGPUs())))
 except ValueError:
