@@ -75,15 +75,15 @@ class Dataset(torch.utils.data.Dataset):
 
         # Split into buckets based on length
         buckets = [
-            list(zip(indices[i:i + size], lengths[i:i + size]))
+            np.stack((indices[i:i + size], lengths[i:i + size])).T
             for i in range(0, len(self), size)]
 
         # Concatenate partial bucket
         if len(buckets) == promonet.BUCKETS + 1:
             residual = buckets.pop()
-            buckets[-1] = buckets[-1].extend(residual)
+            buckets[-1] = np.concatenate((buckets[-1], residual), axis=0)
 
-        return np.array(buckets)
+        return buckets
 
 
 ###############################################################################
