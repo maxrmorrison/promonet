@@ -1,7 +1,6 @@
+import argparse
 import shutil
 from pathlib import Path
-
-import argparse
 
 import promonet
 
@@ -17,7 +16,8 @@ def main(
     train_partition='train',
     valid_partition='valid',
     adapt_from=False,
-    gpu=None):
+    gpu=None
+):
     # Create output directory
     directory = promonet.RUNS_DIR / config.stem
     directory.mkdir(parents=True, exist_ok=True)
@@ -70,5 +70,4 @@ def parse_args():
     return args
 
 
-if __name__ == '__main__':
-    main(**vars(parse_args()))
+main(**vars(parse_args()))

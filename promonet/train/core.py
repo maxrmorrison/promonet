@@ -20,7 +20,8 @@ def train(
     train_partition='train',
     valid_partition='valid',
     adapt_from=None,
-    gpu=None):
+    gpu=None
+):
     """Train a model"""
     # Prevent matplotlib from warning us about all the figures we will have
     # open at once during evaluation. The figures are correctly closed.
@@ -147,8 +148,6 @@ def train(
         # Seed sampler
         train_loader.batch_sampler.set_epoch(epoch)
 
-        generator.train()
-        discriminators.train()
         for batch in train_loader:
 
             # Unpack batch
@@ -359,11 +358,11 @@ def train(
                         else:
                             duration_loss = 0
 
+                        # Mel spectrogram loss
                         if promonet.MULTI_MEL_LOSS:
                             mel_loss = promonet.loss.multimel(audio, generated)
                             generator_losses += promonet.MEL_LOSS_WEIGHT / len(promonet.MULTI_MEL_LOSS_WINDOWS) * mel_loss
                         else:
-                            # Get melspectrogram loss
                             mel_loss = torch.nn.functional.l1_loss(mel_slices, generated_mels)
                             generator_losses +=  promonet.MEL_LOSS_WEIGHT * mel_loss
 
@@ -419,7 +418,7 @@ def train(
             # Logging #
             ###########
 
-            if step % promonet.LOG_INTERVAL == 0:
+            if step % promonet.EVALUATION_INTERVAL == 0:
 
                 # Log training losses
                 scalars = {
@@ -450,7 +449,16 @@ def train(
 
                 # Evaluate on validation data
                 with promonet.generation_context(generator):
-                    evaluate(directory, step, generator, valid_loader, gpu)
+                    evaluation_steps = (
+                        None if step == steps
+                        else promonet.DEFAULT_EVALUATION_STEPS)
+                    evaluate(
+                        directory,
+                        step,
+                        generator,
+                        valid_loader,
+                        gpu,
+                        evaluation_steps)
 
             ###################
             # Save checkpoint #
@@ -475,7 +483,7 @@ def train(
             ########################
 
             # Finished training
-            if step >= promonet.STEPS:
+            if step >= steps:
                 break
 
             # Raise if GPU tempurature exceeds 80 C
@@ -531,7 +539,7 @@ def train(
 ###############################################################################
 
 
-def evaluate(directory, step, generator, loader, gpu):
+def evaluate(directory, step, generator, loader, gpu, evaluation_steps=None):
     """Perform model evaluation"""
     device = 'cpu' if gpu is None else f'cuda:{gpu}'
 
@@ -638,16 +646,17 @@ def evaluate(directory, step, generator, loader, gpu):
         if promonet.MODEL != 'vits':
 
             # Plot target and generated prosody
-            figures[key] = promonet.plot.from_features(
-                generated,
-                predicted_pitch,
-                predicted_periodicity,
-                predicted_loudness,
-                predicted_phonemes,
-                pitch,
-                periodicity,
-                loudness,
-                phonemes)
+            if i < promonet.PLOT_EXAMPLES:
+                figures[key] = promonet.plot.from_features(
+                    generated,
+                    predicted_pitch,
+                    predicted_periodicity,
+                    predicted_loudness,
+                    predicted_phonemes,
+                    pitch,
+                    periodicity,
+                    loudness,
+                    phonemes)
 
             # Update metrics
             metrics[key.split('/')[0]].update(
@@ -707,16 +716,17 @@ def evaluate(directory, step, generator, loader, gpu):
                 waveforms[f'{key}-audio'] = shifted[0]
 
                 # Log prosody figure
-                figures[key] = promonet.plot.from_features(
-                    shifted,
-                    predicted_pitch,
-                    predicted_periodicity,
-                    predicted_loudness,
-                    predicted_phonemes,
-                    shifted_pitch,
-                    periodicity,
-                    loudness,
-                    phonemes)
+                if i < promonet.PLOT_EXAMPLES:
+                    figures[key] = promonet.plot.from_features(
+                        shifted,
+                        predicted_pitch,
+                        predicted_periodicity,
+                        predicted_loudness,
+                        predicted_phonemes,
+                        shifted_pitch,
+                        periodicity,
+                        loudness,
+                        phonemes)
 
                 # Update metrics
                 metrics[key.split('/')[0]].update(
@@ -779,16 +789,17 @@ def evaluate(directory, step, generator, loader, gpu):
                 waveforms[f'{key}-audio'] = stretched[0]
 
                 # Log prosody figure
-                figures[key] = promonet.plot.from_features(
-                    stretched,
-                    predicted_pitch,
-                    predicted_periodicity,
-                    predicted_loudness,
-                    predicted_phonemes,
-                    stretched_pitch,
-                    stretched_periodicity,
-                    stretched_loudness,
-                    stretched_phonemes)
+                if i < promonet.PLOT_EXAMPLES:
+                    figures[key] = promonet.plot.from_features(
+                        stretched,
+                        predicted_pitch,
+                        predicted_periodicity,
+                        predicted_loudness,
+                        predicted_phonemes,
+                        stretched_pitch,
+                        stretched_periodicity,
+                        stretched_loudness,
+                        stretched_phonemes)
 
                 # Update metrics
                 metrics[key.split('/')[0]].update(
@@ -836,16 +847,17 @@ def evaluate(directory, step, generator, loader, gpu):
                 waveforms[f'{key}-audio'] = scaled[0]
 
                 # Log prosody figure
-                figures[key] = promonet.plot.from_features(
-                    scaled,
-                    predicted_pitch,
-                    predicted_periodicity,
-                    predicted_loudness,
-                    predicted_phonemes,
-                    pitch,
-                    periodicity,
-                    scaled_loudness,
-                    phonemes)
+                if i < promonet.PLOT_EXAMPLES:
+                    figures[key] = promonet.plot.from_features(
+                        scaled,
+                        predicted_pitch,
+                        predicted_periodicity,
+                        predicted_loudness,
+                        predicted_phonemes,
+                        pitch,
+                        periodicity,
+                        scaled_loudness,
+                        phonemes)
 
                 # Update metrics
                 metrics[key.split('/')[0]].update(
@@ -858,6 +870,10 @@ def evaluate(directory, step, generator, loader, gpu):
                     predicted_loudness,
                     predicted_phonemes,
                     (text, predicted_text))
+
+        # Stop when we exceed some number of batches
+        if evaluation_steps is not None and i + 1 == evaluation_steps:
+            break
 
     # Format prosody metrics
     if promonet.MODEL != 'vits':
