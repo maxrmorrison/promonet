@@ -17,7 +17,7 @@ import promonet
 def from_audio(
     audio: torch.Tensor,
     sample_rate: int = promonet.SAMPLE_RATE,
-    gpu: Optional[int] = None
+    gpu: Optional[int] = None,
     text: Optional[bool] = False
 ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
     """Preprocess audio

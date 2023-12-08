@@ -162,24 +162,27 @@ class Metadata:
             with open(lengths_file, 'r') as file:
                 lengths = json.load(file)
 
+        self.lengths = []
         if not lengths:
+            lengths = {}
 
-            # Compute length in frames
-            for stem, audio_file in zip(self.stems, self.audio_files):
+        # Compute length in frames
+        for stem, audio_file in zip(self.stems, self.audio_files):
+            try:
+                self.lengths.append(lengths[stem])
+            except KeyError:
                 info = torchaudio.info(audio_file)
                 lengths[stem] = (
                     int(
                         info.num_frames *
                         (promonet.SAMPLE_RATE / info.sample_rate)
                     ) // promonet.HOPSIZE)
+                self.lengths.append(lengths[stem])
 
-            # Maybe cache lengths
-            if self.cache is not None:
-                with open(lengths_file, 'w+') as file:
-                    json.dump(lengths, file)
-
-        # Match ordering
-        self.lengths = [lengths[stem] for stem in self.stems]
+        # Maybe cache lengths
+        if self.cache is not None:
+            with open(lengths_file, 'w+') as file:
+                json.dump(lengths, file)
 
     def __len__(self):
         return len(self.stems)
