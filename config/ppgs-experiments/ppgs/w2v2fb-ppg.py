@@ -3,3 +3,5 @@ MODULE = 'ppgs'
 CONFIG = 'w2v2fb'
 
 MAX_FRAMES = 10000
+
+REPRESENTATION = 'w2v2fb'

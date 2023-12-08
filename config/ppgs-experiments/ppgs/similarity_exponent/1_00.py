@@ -1,0 +1,5 @@
+MODULE = 'ppgs'
+
+CONFIG = '1_00'
+
+SIMILARIT_EXPONENT = 1.0

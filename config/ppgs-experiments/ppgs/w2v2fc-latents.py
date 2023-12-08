@@ -3,5 +3,6 @@ MODULE = 'ppgs'
 CONFIG = 'w2v2fc'
 
 REPRESENTATION = 'w2v2fc'
+REPRESENTATION_KIND = 'latents'
 
 MAX_FRAMES = 10000

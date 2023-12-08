@@ -5,6 +5,7 @@ MODULE = 'ppgs'
 CONFIG = 'encodec-latents'
 
 REPRESENTATION = 'encodec'
+REPRESENTATION_KIND = 'latents'
 
 MAX_FRAMES = 10000
 
