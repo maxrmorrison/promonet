@@ -7,8 +7,10 @@ import promonet
 
 MODEL_ID = "openai/whisper-large-v3"
 
-def from_audio(audio, gpu=None):
+def from_audio(audio, sample_rate=None, gpu=None):
     device = f'cuda:{gpu}' if gpu is not None else 'cpu'
+
+    if sample_rate is None: assert isinstance(audio, dict)
 
     if not hasattr(from_files_to_files, 'pipe'):
 
@@ -36,7 +38,21 @@ def from_audio(audio, gpu=None):
             device=device,
         )
 
+    # build sample rate dictionaries
+    if isinstance(audio, list):
+        assert sample_rate is not None
+        audio = [
+            {'sampling_rate': sample_rate, 'raw': a.to(torch.float32).squeeze(dim=0).cpu().numpy()}
+            for a in audio
+        ]
+    elif isinstance(audio, torch.Tensor):
+        assert sample_rate is not None
+        audio = {'sampling_rate': sample_rate, 'raw': audio.to(torch.float32).squeeze(dim=0).cpu().numpy()}
+
     results = from_files_to_files.pipe(audio)
+
+    if isinstance(results, dict):
+        results = [results]
 
     output = []
 
@@ -45,7 +61,7 @@ def from_audio(audio, gpu=None):
             result['text'] = str(result['text'])
 
         result_text = promonet.evaluate.metrics.normalize_text(result['text'].lower())
-        output.append[result_text]
+        output.append(result_text)
     if len(output) == 1:
         return output[0]
     return output
