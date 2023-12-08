@@ -85,7 +85,7 @@ checkpoint = promonet.adapt.speaker(name, files)
 
 
 ###############################################################################
-# Prosody editing
+# Speech editing
 ###############################################################################
 
 
@@ -136,6 +136,18 @@ scaled = promonet.synthesize.from_features(
         loudness_scale_db=promonet.convert.ratio_to_db(ratio)),
     checkpoint=checkpoint,
     gpu=gpu)
+
+# Edit formants (> 1 for Alvin and the Chipmunks; < 1 for Patrick Star)
+alvin = promonet.synthesize.from_features(
+    pitch,
+    periodicity,
+    loudness,
+    ppg,
+    formant_ratio=ratio,
+    checkpoint=checkpoint,
+    gpu=gpu)
+
+# TODO - pronunciation editing
 ```
 
 
@@ -359,7 +371,7 @@ def from_files_to_files(
         pitch_files: Pitch files to edit
         periodicity_files: Periodicity files to edit
         loudness_files: Loudness files to edit
-        ppg_files: PPG files to edit
+        ppg_files: Phonetic posteriorgram files to edit
         output_prefixes: Files to save output, minus extension
         pitch_shift_cents: Amount of pitch-shifting in cents
         time_stretch_ratio: Amount of time-stretching. Faster when above one.
@@ -379,6 +391,7 @@ def from_features(
     loudness: torch.Tensor,
     ppg: torch.Tensor,
     speaker: Optional[Union[int, torch.Tensor]] = 0,
+    formant_ratio: float = 1.,
     checkpoint: Union[str, os.PathLike] = promonet.DEFAULT_CHECKPOINT,
     gpu: Optional[int] = None) -> torch.Tensor:
     """Perform speech synthesis
@@ -389,6 +402,7 @@ def from_features(
         loudness: The loudness contour
         ppg: The phonetic posteriorgram
         speaker: The speaker index
+        formant_ratio: > 1 for Alvin and the Chipmunks; < 1 for Patrick Star
         checkpoint: The generator checkpoint
         gpu: The GPU index
 

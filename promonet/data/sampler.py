@@ -10,12 +10,12 @@ import promonet
 
 def sampler(dataset, partition):
     """Create batch sampler"""
-    # Deterministic random sampler for training and validation
-    if partition.startswith('train') or partition.startswith('valid'):
+    # Deterministic random sampler for training
+    if partition.startswith('train'):
         return Sampler(dataset)
 
-    # Sample test data sequentially
-    elif partition.startswith('test'):
+    # Sample validation and test data sequentially
+    elif partition.startswith('test') or partition.startswith('valid'):
         return torch.utils.data.BatchSampler(
             torch.utils.data.SequentialSampler(dataset),
             1,
@@ -43,10 +43,7 @@ class Sampler:
         return iter(self.batch())
 
     def __len__(self):
-        if self.variable_batch:
-            return len(self.batch())
-        else:
-            return self.length
+        return len(self.batch())
 
     def batch(self):
         """Produces batch indices for one epoch"""

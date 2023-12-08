@@ -19,5 +19,4 @@ def parse_args():
     return parser.parse_args()
 
 
-if __name__ == '__main__':
-    promonet.data.augment.datasets(**vars(parse_args()))
+promonet.data.augment.datasets(**vars(parse_args()))

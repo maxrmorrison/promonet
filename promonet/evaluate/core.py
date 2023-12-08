@@ -78,9 +78,6 @@ def datasets(datasets, checkpoint=None, gpu=None):
                 [stem.split('/')[0] for stem in partitions[test_partition]]))
             for speaker_number, index in enumerate(indices):
 
-                #TODO remove
-                print(f'starting {speaker_number}th (jajaja) speaker, {index}')
-
                 # Output directory for checkpoints and logs
                 adapt_directory = (
                     promonet.RUNS_DIR /
@@ -247,10 +244,6 @@ def speaker(
         promonet.EVAL_DIR / 'objective' / 'original'
     (original_objective_directory / index).mkdir(exist_ok=True, parents=True)
 
-    #TODO remove lol
-    assert len(set(speakers)) == 1, set(speakers)
-    # test_stems = list(random.sample(test_stems, 100))
-
     # Copy original files
     audio_files = []
     for stem in test_stems:
@@ -305,7 +298,6 @@ def speaker(
             gpu=gpu
         )
 
-
     ##################
     # Reconstruction #
     ##################
@@ -343,6 +335,8 @@ def speaker(
             [0] * len(test_stems) if promonet.ADAPTATION else speakers
         ),
         gpu=gpu)
+
+    # TODO - baselines
 
     # Perform speech editing only on speech editors
     if promonet.MODEL in ['hifigan', 'vits']:
@@ -412,6 +406,8 @@ def speaker(
                 ),
                 gpu=gpu)
 
+            # TODO - baselines
+
             ###################
             # Time stretching #
             ###################
@@ -472,6 +468,8 @@ def speaker(
             #     ),
             #     gpu=gpu)
 
+            # TODO - baselines
+
             ####################
             # Loudness scaling #
             ####################
@@ -530,6 +528,8 @@ def speaker(
             #         [0] * len(test_stems) if promonet.ADAPTATION else speakers
             #     ),
             #     gpu=gpu)
+
+            # TODO - baselines
 
     ############################
     # Speech -> representation #
@@ -680,6 +680,7 @@ def default_metrics():
         # for condition in ['scaled', 'shifted', 'stretched']:
         for condition in ['shifted']:
             for ratio in promonet.EVALUATION_RATIOS:
-                metrics[f'{condition}-{int(ratio * 100):03d}'] = promonet.evaluate.Metrics()
+                metrics[f'{condition}-{int(ratio * 100):03d}'] = \
+                    promonet.evaluate.Metrics()
 
     return metrics

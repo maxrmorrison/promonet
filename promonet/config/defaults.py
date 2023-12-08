@@ -3,7 +3,6 @@ import os
 from pathlib import Path
 
 import GPUtil
-import GPUtil
 import torch
 
 
@@ -13,7 +12,7 @@ import torch
 
 
 # Configuration name
-CONFIG = 'base'
+CONFIG = 'promonet'
 
 
 ###############################################################################
@@ -45,39 +44,6 @@ SAMPLE_RATE = 22050  # Hz
 
 # Number of spectrogram channels
 WINDOW_SIZE = 1024
-
-
-###############################################################################
-# Directories
-###############################################################################
-
-
-# Root location for saving outputs
-# TEMPORARY
-ROOT_DIR = Path(__file__).parent.parent.parent
-# ROOT_DIR = Path('/files10/max/promonet')
-
-# Location to save assets to be bundled with pip release
-# TEMPORARY
-ASSETS_DIR = Path(__file__).parent.parent / 'assets'
-# ASSETS_DIR = Path('/files10/max/promonet/promonet/assets')
-
-# Location of preprocessed features
-# TEMPORARY
-CACHE_DIR = ROOT_DIR / 'data' / 'cache'
-# CACHE_DIR = Path('/files10/max/promonet/data/cache')
-
-# Location of datasets on disk
-DATA_DIR = ROOT_DIR / 'data' / 'datasets'
-
-# Location to save evaluation artifacts
-EVAL_DIR = ROOT_DIR / 'eval'
-
-# Location to save results
-RESULTS_DIR = ROOT_DIR / 'results'
-
-# Location to save training and adaptation artifacts
-RUNS_DIR = ROOT_DIR / 'runs'
 
 
 ###############################################################################
@@ -117,7 +83,7 @@ VOICING_THRESOLD = .1625
 # Pass speech representation through the latent
 LATENT_SHORTCUT = False
 
-#Whether to slice for generator during training
+# Whether to slice during training
 SLICING = True
 
 # Whether to use an embedding layer for pitch
@@ -166,6 +132,39 @@ VARIABLE_PITCH_BINS = False
 
 
 ###############################################################################
+# Directories
+###############################################################################
+
+
+# Root location for saving outputs
+# TEMPORARY
+ROOT_DIR = Path(__file__).parent.parent.parent
+# ROOT_DIR = Path('/files10/max/promonet')
+
+# Location to save assets to be bundled with pip release
+# TEMPORARY
+ASSETS_DIR = Path(__file__).parent.parent / 'assets'
+# ASSETS_DIR = Path('/files10/max/promonet/promonet/assets')
+
+# Location of preprocessed features
+# TEMPORARY
+CACHE_DIR = ROOT_DIR / 'data' / 'cache'
+# CACHE_DIR = Path('/files10/max/promonet/data/cache')
+
+# Location of datasets on disk
+DATA_DIR = ROOT_DIR / 'data' / 'datasets'
+
+# Location to save evaluation artifacts
+EVAL_DIR = ROOT_DIR / 'eval'
+
+# Location to save results
+RESULTS_DIR = ROOT_DIR / 'results'
+
+# Location to save training and adaptation artifacts
+RUNS_DIR = ROOT_DIR / 'runs'
+
+
+###############################################################################
 # Evaluation parameters
 ###############################################################################
 
@@ -195,7 +194,13 @@ EVALUATION_RATIOS = [.717, 1.414]
 CHECKPOINT_INTERVAL = 20000  # steps
 
 # Number of steps between logging to Tensorboard
-LOG_INTERVAL = 2500  # steps
+EVALUATION_INTERVAL = 2500  # steps
+
+# Number of steps to perform for tensorboard logging
+DEFAULT_EVALUATION_STEPS = 16
+
+# Number of examples to plot while evaluating during training
+PLOT_EXAMPLES = 10
 
 
 ###############################################################################
@@ -223,7 +228,6 @@ MULTI_MEL_LOSS = False
 
 # Window sizes to be used in the multi-scale mel loss
 MULTI_MEL_LOSS_WINDOWS = [32, 64, 128, 256, 512, 1024, 2048]
-
 
 
 ###############################################################################
@@ -344,14 +348,12 @@ STEPS = 200000
 ADAPTATION_STEPS = 10000
 
 # Number of data loading worker threads
-try:
-    NUM_WORKERS = int(os.cpu_count() / max(1, len(GPUtil.getGPUs())))
-except ValueError:
-    NUM_WORKERS = os.cpu_count()
-try:
-    NUM_WORKERS = int(os.cpu_count() / max(1, len(GPUtil.getGPUs())))
-except ValueError:
-    NUM_WORKERS = os.cpu_count()
+# TEMPORARY
+# try:
+#     NUM_WORKERS = int(os.cpu_count() / max(1, len(GPUtil.getGPUs())))
+# except ValueError:
+#     NUM_WORKERS = os.cpu_count()
+NUM_WORKERS = 12
 
 # Training optimizer
 OPTIMIZER = functools.partial(

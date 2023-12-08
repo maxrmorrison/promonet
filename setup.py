@@ -31,7 +31,7 @@ setup(
         'jiwer',
         'librosa',
         'matplotlib',
-        'numpy<1.24',
+        'numpy',
         'openai-whisper',
         'penn',
         # 'ppgs',  # TEMPORARY - install manually until release
@@ -43,7 +43,6 @@ setup(
         'torch<2.0.0',
         'torchutil',
         'torchaudio<2.0.0',
-        'tqdm',
         'umap-learn',
         'vocos[train]',
         'yapecs',

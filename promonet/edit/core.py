@@ -1,4 +1,3 @@
-import math
 import os
 from typing import List, Optional, Tuple, Union
 
@@ -82,7 +81,6 @@ def from_features(
             # Create time-stretch grid
             grid = torch.zeros(target_frames)
             i = 0.
-            max_idx = selected.shape[-1] - 1
             for j in range(1, target_frames):
                 idx = int(round(i))
                 step = effective_ratio.item() if selected[idx] else 1.
@@ -210,7 +208,7 @@ def from_files_to_files(
         pitch_files: Pitch files to edit
         periodicity_files: Periodicity files to edit
         loudness_files: Loudness files to edit
-        ppg_files: PPG files to edit
+        ppg_files: Phonetic posteriorgram files to edit
         output_prefixes: Files to save output, minus extension
         pitch_shift_cents: Amount of pitch-shifting in cents
         time_stretch_ratio: Amount of time-stretching. Faster when above one.

@@ -18,7 +18,7 @@ def from_audio(
     audio: torch.Tensor,
     sample_rate: int = promonet.SAMPLE_RATE,
     gpu: Optional[int] = None,
-    text: Optional[bool] = False
+    text: bool = False
 ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
     """Preprocess audio
 
@@ -53,12 +53,12 @@ def from_audio(
     # Infer ppg
     ppg = ppgs.from_audio(audio, sample_rate, gpu=gpu)
     ppg = promonet.load.ppg(ppg, resample_length=pitch.shape[-1])
-    
+
     # Infer transcript
     if text:
         text = promonet.preprocess.text.from_audio(audio, sample_rate, gpu=gpu)
         return pitch, periodicity, loudness, ppg, text
-      
+
     return pitch, periodicity, loudness, ppg
 
 
@@ -108,8 +108,8 @@ def from_file_to_file(
 def from_files_to_files(
     files: List[Union[str, bytes, os.PathLike]],
     output_prefixes: Optional[List[Union[str, os.PathLike]]] = None,
-    gpu=None,
-    text: Optional[bool] = False
+    gpu: Optional[int] = None,
+    text: bool = False
 ) -> None:
     """Preprocess multiple audio files on disk and save
 
