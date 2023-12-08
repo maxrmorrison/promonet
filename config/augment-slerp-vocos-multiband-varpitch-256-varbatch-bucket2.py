@@ -1,13 +1,13 @@
 MODULE = 'promonet'
 
 # Configuration name
-CONFIG = 'augment-slerp-vocos-multiband-varpitch-256-scale'
+CONFIG = 'augment-slerp-vocos-multiband-varpitch-256-bucket2'
 
 # Whether to use pitch augmentation
 AUGMENT_PITCH = True
 
 # Number of buckets to partition training and validation data into based on length to avoid excess padding
-BUCKETS = 1
+BUCKETS = 2
 
 # Number of samples generated during training
 CHUNK_SIZE = 16384

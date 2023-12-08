@@ -32,7 +32,12 @@ def sampler(dataset, partition):
 
 class Sampler:
 
-    def __init__(self, dataset, max_frames = promonet.MAX_TRAINING_FRAMES, variable_batch = promonet.VARIABLE_BATCH):
+    def __init__(
+        self,
+        dataset,
+        max_frames=promonet.MAX_TRAINING_FRAMES,
+        variable_batch=promonet.VARIABLE_BATCH
+    ):
         self.max_frames = max_frames
         self.epoch = 0
         self.length = len(dataset)
@@ -51,24 +56,31 @@ class Sampler:
         generator = torch.Generator()
         generator.manual_seed(promonet.RANDOM_SEED + self.epoch)
 
-        # Make batches with roughly equal number of frames
+        # Iterate over length-partitioned buckets
         batches = []
-        for max_length, bucket in self.buckets:
+        for bucket in self.buckets:
 
             # Shuffle bucket
             bucket = bucket[
                 torch.randperm(len(bucket), generator=generator).tolist()]
 
-            # Get current batch size
+            # Variable batch size
             if self.variable_batch:
-                size = self.max_frames // max_length
-                #print(size)
-            else:
-                size = promonet.BATCH_SIZE
+                batch = []
+                max_length = 0
+                for index, length in bucket:
+                    batch.append(index)
+                    max_length = max(max_length, length)
+                    if len(batch) * max_length >= self.max_frames:
+                        batches.append(batch)
+                        max_length = 0
+                        batch = []
 
-            # Make batches
-            batches.extend(
-                [bucket[i:i + size] for i in range(0, len(bucket), size)])
+            # Constant batch size
+            else:
+                batches.extend([
+                    bucket[i:i + promonet.BATCH_SIZE]
+                    for i in range(0, len(bucket), promonet.BATCH_SIZE)])
 
         # Shuffle
         return [
