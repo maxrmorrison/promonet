@@ -30,11 +30,12 @@ class Metrics:
         result = {
             'loudness': self.loudness(),
             'periodicity': self.periodicity(),
-            'pitch': self.pitch(),
-            'wer': self.wer()}
+            'pitch': self.pitch()}
         result |= {f'ppg-{ppg.exponent}': ppg() for ppg in self.ppg}
         if self.speaker_sim.count:
             result['speaker_sim'] = self.speaker_sim()
+        if self.wer.count > 0:
+            result |= {'wer': self.wer()}
         return result
 
     def update(
@@ -61,7 +62,8 @@ class Metrics:
         with torchutil.time.context('update-ppg'):
             for ppg_metric in self.ppg:
                 ppg_metric.update(predicted_ppg, target_ppg)
-        self.wer.update(*wer_args)
+        if None not in wer_args:
+            self.wer.update(*wer_args)
         if speaker_sim_args:
             self.speaker_sim.update(*speaker_sim_args)
 
