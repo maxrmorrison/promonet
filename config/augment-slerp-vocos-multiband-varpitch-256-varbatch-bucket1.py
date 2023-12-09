@@ -16,7 +16,7 @@ CHUNK_SIZE = 16384
 COMPLEX_MULTIBAND_DISCRIMINATOR = True
 
 # Maximum number of frames in a batch
-MAX_TRAINING_FRAMES = 40000
+MAX_TRAINING_FRAMES = 120000
 
 # The model to use. One of [
 #     'end-to-end',

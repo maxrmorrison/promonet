@@ -56,8 +56,9 @@ def from_audio(
 
     # Infer transcript
     if text:
-        text = promonet.preprocess.text.from_audio(audio, sample_rate, gpu=gpu)
-        return pitch, periodicity, loudness, ppg, text
+        # text = promonet.preprocess.text.from_audio(audio, sample_rate, gpu=gpu)
+        # return pitch, periodicity, loudness, ppg, text
+        return pitch, periodicity, loudness, ppg, None
 
     return pitch, periodicity, loudness, ppg
 
