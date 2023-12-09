@@ -1,13 +1,13 @@
 MODULE = 'promonet'
 
 # Configuration name
-CONFIG = 'augment-slerp-vocos-multiband-varpitch-256-varbatch-bucket4'
+CONFIG = 'augment-slerp-vocos-multiband-varpitch-256-varbatch-bucket1-100000'
 
 # Whether to use pitch augmentation
 AUGMENT_PITCH = True
 
 # Number of buckets to partition training and validation data into based on length to avoid excess padding
-BUCKETS = 4
+BUCKETS = 1
 
 # Number of samples generated during training
 CHUNK_SIZE = 16384
@@ -16,7 +16,7 @@ CHUNK_SIZE = 16384
 COMPLEX_MULTIBAND_DISCRIMINATOR = True
 
 # Maximum number of frames in a batch
-MAX_TRAINING_FRAMES = 130000
+MAX_TRAINING_FRAMES = 100000
 
 # The model to use. One of [
 #     'end-to-end',

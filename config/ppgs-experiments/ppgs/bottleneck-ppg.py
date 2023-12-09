@@ -2,7 +2,7 @@ MODULE = 'ppgs'
 
 CONFIG = 'bottleneck-ppg'
 
-MAX_FRAMES = 4000
+MAX_TRAINING_FRAMES = 4000
 
 INPUT_CHANNELS = 144 #dimensionality of bottleneck representation
 REPRESENTATION = 'bottleneck'

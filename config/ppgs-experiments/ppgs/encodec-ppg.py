@@ -8,7 +8,7 @@ REPRESENTATION = 'encodec'
 
 LOCAL_CHECKPOINT = '/repos/ppgs/ppgs/assets/checkpoints/encodec.pt'
 
-MAX_FRAMES = 10000
+MAX_TRAINING_FRAMES = 10000
 
 def _frontend(device='cpu'):
     import torch
