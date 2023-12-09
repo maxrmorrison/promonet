@@ -75,8 +75,8 @@ class Sampler:
                         (len(batch) + 1) * max_length > self.max_frames
                     ):
                         batches.append(batch)
-                        max_length = 0
-                        batch = []
+                        max_length = length
+                        batch = [index]
                     else:
                         batch.append(index)
 
