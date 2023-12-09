@@ -23,7 +23,6 @@ class Metrics:
         self.pitch = Pitch()
         # self.ppg = [PPG(exponent) for exponent in np.arange(0.0, 2.0, 0.05)]
         self.ppg = [PPG(1.0)]
-        # self.ppg = PPG()
         self.wer = WER()
         self.speaker_sim = SpeakerSimilarity()
 
@@ -62,7 +61,6 @@ class Metrics:
         with torchutil.time.context('update-ppg'):
             for ppg_metric in self.ppg:
                 ppg_metric.update(predicted_ppg, target_ppg)
-        # self.ppg.update(predicted_ppg, target_ppg)
         self.wer.update(*wer_args)
         if speaker_sim_args:
             self.speaker_sim.update(*speaker_sim_args)
@@ -73,7 +71,6 @@ class Metrics:
         self.pitch.reset()
         for ppg_metric in self.ppg:
             ppg_metric.reset()
-        # self.ppg.reset()
         self.wer.reset()
         self.speaker_sim.reset()
 

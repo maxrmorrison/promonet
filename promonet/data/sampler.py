@@ -69,17 +69,21 @@ class Sampler:
                 batch = []
                 max_length = 0
                 for index, length in bucket:
-                    batch.append(index)
                     max_length = max(max_length, length)
-                    if len(batch) * max_length >= self.max_frames:
+                    if (
+                        batch and
+                        (len(batch) + 1) * max_length > self.max_frames
+                    ):
                         batches.append(batch)
                         max_length = 0
                         batch = []
+                    else:
+                        batch.append(index)
 
             # Constant batch size
             else:
                 batches.extend([
-                    bucket[i:i + promonet.BATCH_SIZE]
+                    bucket[i:i + promonet.BATCH_SIZE, 0]
                     for i in range(0, len(bucket), promonet.BATCH_SIZE)])
 
         # Shuffle
