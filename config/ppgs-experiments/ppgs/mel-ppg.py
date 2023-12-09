@@ -2,7 +2,7 @@ MODULE = 'ppgs'
 
 CONFIG = 'mel-ppg'
 
-MAX_FRAMES = 10000
+MAX_TRAINING_FRAMES = 10000
 INPUT_CHANNELS = 80 #dimensionality of mels
 REPRESENTATION = 'mel'
 

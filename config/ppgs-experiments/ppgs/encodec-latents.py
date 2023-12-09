@@ -7,7 +7,7 @@ CONFIG = 'encodec-latents'
 REPRESENTATION = 'encodec'
 REPRESENTATION_KIND = 'latents'
 
-MAX_FRAMES = 10000
+MAX_TRAINING_FRAMES = 10000
 
 def _frontend(device='cpu'):
     import torch
