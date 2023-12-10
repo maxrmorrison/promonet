@@ -43,7 +43,10 @@ DEFAULT_PLOT_FEATURES = ['audio'] + promonet.INPUT_FEATURES
 
 
 # Global input channels
-GLOBAL_CHANNELS = promonet.SPEAKER_CHANNELS + promonet.AUGMENT_PITCH
+GLOBAL_CHANNELS = (
+    promonet.SPEAKER_CHANNELS +
+    promonet.AUGMENT_PITCH +
+    promonet.AUGMENT_LOUDNESS)
 
 # Number of input features to the generator
 NUM_FEATURES = (
