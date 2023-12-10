@@ -20,7 +20,8 @@ def collate(batch):
         spectrograms,
         audio,
         speakers,
-        ratios,
+        pitch_ratios,
+        loudness_ratios,
         stems
     ) = zip(*batch)
 
@@ -89,7 +90,10 @@ def collate(batch):
     text = [text[i] for i in sorted_indices]
     stems = [stems[i] for i in sorted_indices]
     speakers = torch.tensor(speakers, dtype=torch.long)[sorted_indices]
-    ratios = torch.tensor(ratios, dtype=torch.float)[sorted_indices]
+    pitch_ratios = torch.tensor(
+        pitch_ratios, dtype=torch.float)[sorted_indices]
+    loudness_ratios = torch.tensor(
+        loudness_ratios, dtype=torch.float)[sorted_indices]
 
     return (
         text,
@@ -99,7 +103,8 @@ def collate(batch):
         padded_loudness,
         feature_lengths,
         speakers,
-        ratios,
+        pitch_ratios,
+        loudness_ratios,
         padded_spectrograms,
         spectrogram_lengths,
         padded_audio,

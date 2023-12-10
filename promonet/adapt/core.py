@@ -52,14 +52,10 @@ def speaker(
             audio,
             promonet.SAMPLE_RATE)
 
-    if promonet.AUGMENT_PITCH:
+    if promonet.AUGMENT_PITCH or promonet.AUGMENT_LOUDNESS:
 
         # Augment and get augmentation ratios
-        ratios = promonet.data.augment.from_files_to_files(files)
-
-        # Save augmentation ratios
-        with open(promonet.AUGMENT_DIR / 'adapt' / f'{name}.json', 'w') as file:
-            json.dump(ratios, file, indent=4)
+        promonet.data.augment.from_files_to_files(files, name)
 
     # Preprocess features
     promonet.data.preprocess.from_files_to_files(

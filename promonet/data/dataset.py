@@ -49,6 +49,20 @@ class Dataset(torch.utils.data.Dataset):
             # Load ppgs
             phonemes = promonet.load.ppg(self.cache / f'{stem}{ppgs.representation_file_extension()}', resample_length=spectrogram.shape[-1])
 
+        # Data augmentation ratios
+        augmentation = stem[-4:]
+        if augmentation.startswith('-'):
+            pitch_ratio, loudness_ratio = 1., 1.
+        elif augmentation.startswith('p'):
+            pitch_ratio = int(stem[-3:]) / 100.
+            loudness_ratio = 1.
+        elif augmentation.startswith('l'):
+            pitch_ratio = 1.
+            loudness_ratio = int(stem[-3:]) / 100.
+        else:
+            raise ValueError(
+                f'Unrecognized augmentation string {augmentation}')
+
         return (
             text,
             phonemes,
@@ -58,7 +72,8 @@ class Dataset(torch.utils.data.Dataset):
             spectrogram,
             audio,
             torch.tensor(speaker, dtype=torch.long),
-            int(stem[-3:]) / 100.,
+            pitch_ratio,
+            loudness_ratio,
             stem)
 
     def __len__(self):
@@ -111,10 +126,19 @@ class Metadata:
 
         # For training, maybe add augmented data
         # This also applies to adaptation partitions: train-adapt-xx
-        if 'train' in partition and promonet.AUGMENT_PITCH:
-            with open(promonet.AUGMENT_DIR / f'{self.name}.json') as file:
-                ratios = json.load(file)
-            self.stems.extend([f'{stem}-{ratios[stem]}' for stem in stems])
+        if 'train' in partition:
+            if promonet.AUGMENT_PITCH:
+                with open(
+                    promonet.AUGMENT_DIR / f'{self.name}-pitch.json'
+                ) as file:
+                    ratios = json.load(file)
+                self.stems.extend([f'{stem}-p{ratios[stem]}' for stem in stems])
+            if promonet.AUGMENT_LOUDNESS:
+                with open(
+                    promonet.AUGMENT_DIR / f'{self.name}-loudness.json'
+                ) as file:
+                    ratios = json.load(file)
+                self.stems.extend([f'{stem}-l{ratios[stem]}' for stem in stems])
 
         # Maybe limit the maximum length during training to improve
         # GPU utilization

@@ -159,7 +159,8 @@ def train(
                 loudness,
                 lengths,
                 speakers,
-                ratios,
+                pitch_ratios,
+                loudness_ratios,
                 spectrograms,
                 spectrogram_lengths,
                 audio,
@@ -179,7 +180,8 @@ def train(
                 loudness,
                 lengths,
                 speakers,
-                ratios,
+                pitch_ratios,
+                loudness_ratios,
                 spectrograms,
                 spectrogram_lengths,
                 audio
@@ -192,7 +194,8 @@ def train(
                     loudness,
                     lengths,
                     speakers,
-                    ratios,
+                    pitch_ratios,
+                    loudness_ratios,
                     spectrograms,
                     spectrogram_lengths,
                     audio
@@ -207,7 +210,8 @@ def train(
                 loudness,
                 lengths,
                 speakers,
-                ratios,
+                pitch_ratios,
+                loudness_ratios,
                 spectrograms,
                 spectrogram_lengths)
 
@@ -576,6 +580,7 @@ def evaluate(directory, step, generator, loader, gpu, evaluation_steps=None):
             loudness,
             lengths,
             speakers,
+            _,
             _,
             spectrogram,
             _,

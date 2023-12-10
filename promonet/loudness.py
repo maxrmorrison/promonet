@@ -125,7 +125,16 @@ def scale(audio, target_loudness):
     loudness = from_audio(audio.to(torch.float64))
 
     # Take difference and convert from dB to ratio
-    gain = 10 ** ((target_loudness - loudness) / 20)
+    gain = promonet.convert.db_to_ratio(target_loudness - loudness)
+
+    # Apply gain and prevent clipping
+    return limit(shift(audio, gain))
+
+
+def shift(audio, value):
+    """Shift loudness by target value in decibels"""
+    # Convert from dB to ratio
+    gain = promonet.convert.db_to_ratio(value)
 
     # Linearly interpolate to the audio resolution
     gain = torch.nn.functional.interpolate(
@@ -135,7 +144,4 @@ def scale(audio, target_loudness):
         align_corners=False)[0]
 
     # Scale
-    scaled = gain * audio
-
-    # Prevent clipping
-    return limit(scaled)
+    return gain * audio

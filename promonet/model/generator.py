@@ -73,15 +73,22 @@ class Generator(torch.nn.Module):
         loudness,
         lengths,
         speakers,
-        ratios=None,
+        pitch_ratios=None,
+        loudness_ratios=None,
         spectrograms=None,
         spectrogram_lengths=None):
         # Default augmentation ratio is 1
-        if ratios is None and promonet.AUGMENT_PITCH:
-            ratios = torch.ones(
+        if pitch_ratios is None and promonet.AUGMENT_PITCH:
+            pitch_ratios = torch.ones(
                 1 if phonemes.dim() == 2 else len(phonemes),
                 dtype=torch.float,
                 device=phonemes.device)
+        if loudness_ratios is None and promonet.AUGMENT_LOUDNESS:
+            loudness_ratios = torch.ones(
+                1 if phonemes.dim() == 2 else len(phonemes),
+                dtype=torch.float,
+                device=phonemes.device)
+        ratios = torch.cat((pitch_ratios, loudness_ratios), dim=-1)
 
         # Get latent representation
         (
@@ -110,7 +117,7 @@ class Generator(torch.nn.Module):
                 speakers).unsqueeze(-1)
 
             # Maybe add augmentation ratios
-            if ('pitch' in promonet.INPUT_FEATURES) and promonet.AUGMENT_PITCH:
+            if promonet.AUGMENT_PITCH or promonet.AUGMENT_LOUDNESS:
                 speaker_embeddings = torch.cat(
                     (speaker_embeddings, ratios[:, None, None]),
                     dim=1)
@@ -267,7 +274,7 @@ class Generator(torch.nn.Module):
             speaker_embeddings = self.speaker_embedding(speakers).unsqueeze(-1)
 
             # Maybe add augmentation ratios
-            if ('pitch' in promonet.INPUT_FEATURES) and promonet.AUGMENT_PITCH:
+            if promonet.AUGMENT_PITCH or promonet.AUGMENT_LOUDNESS:
                 speaker_embeddings = torch.cat(
                     (speaker_embeddings, ratios[:, None, None]),
                     dim=1)
