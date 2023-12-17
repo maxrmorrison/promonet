@@ -1,3 +1,4 @@
+import collections
 import functools
 
 import GPUtil
@@ -100,6 +101,9 @@ def train(
 
     # Automatic mixed precision (amp) gradient scaler
     scaler = torch.cuda.amp.GradScaler()
+
+    # Autoclip history
+    gradient_history = collections.deque()
 
     # Get total number of steps
     if adapt_from:
@@ -279,7 +283,6 @@ def train(
                     generated,
                     True)
 
-
                 #######################
                 # Train discriminator #
                 #######################
@@ -397,16 +400,40 @@ def train(
                 # Backward pass
                 scaler.scale(generator_losses).backward()
 
+                # Get gradient norm
+                max_grad = 0
+                total_norm = 0
+                for p in generator.parameters():
+                    if p.grad is not None:
+                        max_grad = max(max_grad, p.grad.data.max())
+                        total_norm += p.grad.data.norm(2)
+                total_norm = total_norm ** (1. / 2)
+                torchutil.tensorboard.update(
+                    directory,
+                    step,
+                    scalars={
+                        'gradient_norm': total_norm,
+                        'max_gradient': max_grad})
+
                 # Maybe perform gradient clipping
                 if promonet.GRADIENT_CLIP_GENERATOR is not None:
 
                     # Unscale gradients
                     scaler.unscale_(generator_optimizer)
 
-                    # Clip gradients
-                    torch.nn.utils.clip_grad_norm_(
-                        generator.parameters(),
-                        promonet.GRADIENT_CLIP_GENERATOR)
+                    # Track gradient history
+                    gradient_history.append(max_grad)
+
+                    # Threshold gradients
+                    if len(gradient_history > 100):
+                        threshold = max(gradient_history)
+                        if max_grad > threshold:
+                            print(f'Clipping gradients above {max_grad}')
+                            torch.nn.utils.clip_grad_norm_(
+                                generator.parameters(),
+                                threshold,
+                                norm_type='inf')
+                            gradient_history.popleft()
 
                 # Update weights
                 scaler.step(generator_optimizer)
