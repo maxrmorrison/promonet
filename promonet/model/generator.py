@@ -151,6 +151,7 @@ class Generator(torch.nn.Module):
             if self.training:
 
                 # Compute attention mask
+                # b x frames x frames
                 attention_mask = feature_mask * mask.permute(0, 2, 1)
 
                 # Compute monotonic alignment
@@ -282,6 +283,7 @@ class Generator(torch.nn.Module):
         if self.training:
 
             # Mask denoting valid frames
+            # b x 1 x frames
             mask = sequence_mask(
                 spectrogram_lengths,
                 spectrograms.size(2)
@@ -669,6 +671,7 @@ class PriorEncoder(torch.nn.Module):
         embeddings = embeddings.permute(0, 2, 1) * self.scale
 
     # Construct binary mask from lengths
+    # b x 1 x frames
     mask = torch.unsqueeze(
         sequence_mask(feature_lengths, embeddings.size(2)),
         1
