@@ -219,11 +219,7 @@ def generate(
             device=device)
 
         # Specify speaker
-        speakers = torch.full(
-            (1,),
-            speaker,
-            dtype=torch.long,
-            device=device)
+        speakers = torch.full((1,), speaker, dtype=torch.long, device=device)
 
         # Format formant ratio
         formant_ratio = torch.tensor(
