@@ -16,8 +16,8 @@ import promonet
 
 @torchutil.notify('train')
 def train(
-    dataset,
     directory,
+    dataset=promonet.TRAINING_DATASET,
     train_partition='train',
     valid_partition='valid',
     adapt_from=None,
@@ -421,19 +421,14 @@ def train(
                     # Unscale gradients
                     scaler.unscale_(generator_optimizer)
 
-                    # Track gradient history
-                    gradient_history.append(max_grad)
-
                     # Threshold gradients
-                    if len(gradient_history > 100):
-                        threshold = max(gradient_history)
-                        if max_grad > threshold:
-                            print(f'Clipping gradients above {max_grad}')
-                            torch.nn.utils.clip_grad_norm_(
-                                generator.parameters(),
-                                threshold,
-                                norm_type='inf')
-                            gradient_history.popleft()
+                    if max_grad > promonet.GRADIENT_CLIP_GENERATOR:
+                        print(f'Clipping gradients above {max_grad}')
+                        torch.nn.utils.clip_grad_norm_(
+                            generator.parameters(),
+                            threshold,
+                            norm_type='inf')
+                        gradient_history.popleft()
 
                 # Update weights
                 scaler.step(generator_optimizer)
