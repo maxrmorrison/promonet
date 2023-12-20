@@ -86,7 +86,7 @@ def speaker(
 
     # Perform adaptation and return generator checkpoint
     return promonet.train(
-        name,
         directory,
+        name,
         adapt_from=checkpoint,
         gpu=gpu)
