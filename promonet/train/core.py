@@ -423,10 +423,10 @@ def train(
 
                     # Threshold gradients
                     if max_grad > promonet.GRADIENT_CLIP_GENERATOR:
-                        print(f'Clipping gradients above {max_grad}')
+                        print(f'Maximum gradient {max_grad} exceeds threshold of {promonet.GRADIENT_CLIP_GENERATOR}. Clipping.')
                         torch.nn.utils.clip_grad_norm_(
                             generator.parameters(),
-                            threshold,
+                            promonet.GRADIENT_CLIP_GENERATOR,
                             norm_type='inf')
                         gradient_history.popleft()
 
