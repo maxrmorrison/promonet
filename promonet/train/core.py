@@ -1,4 +1,3 @@
-import collections
 import functools
 
 import GPUtil
@@ -101,9 +100,6 @@ def train(
 
     # Automatic mixed precision (amp) gradient scaler
     scaler = torch.cuda.amp.GradScaler()
-
-    # Autoclip history
-    gradient_history = collections.deque()
 
     # Get total number of steps
     if adapt_from:
@@ -428,7 +424,6 @@ def train(
                             generator.parameters(),
                             promonet.GRADIENT_CLIP_GENERATOR,
                             norm_type='inf')
-                        gradient_history.popleft()
 
                 # Update weights
                 scaler.step(generator_optimizer)
