@@ -1,7 +1,7 @@
 MODULE = 'promonet'
 
 # Configuration name
-CONFIG = 'augment-slerp-vocos-multiband-varpitch-256-varbatch-bucket1-100000-constant005-clip'
+CONFIG = 'augment-slerp-vocos-multiband-varpitch-256-varbatch-bucket1-100000-constant005-clip-libritts'
 
 # Whether to use pitch augmentation
 AUGMENT_PITCH = True
@@ -48,6 +48,9 @@ SPARSE_METHOD = 'constant_threshold'
 
 # Constant threshold for ppg sparsification (should be in [0, 1])
 SPARSE_THRESHOLD = 0.05
+
+# Dataset to use for training
+TRAINING_DATASET = 'libritts'
 
 # Whether to use variable batch size
 VARIABLE_BATCH = True

@@ -15,8 +15,8 @@ CHUNK_SIZE = 16384
 # Whether to use the complex multi-band discriminator from RVQGAN
 COMPLEX_MULTIBAND_DISCRIMINATOR = True
 
-# Gradients with norms above this value are clipped to this value
-GRADIENT_CLIP_GENERATOR = 75000
+# Gradients above this value are clipped to this value
+GRADIENT_CLIP_GENERATOR = 10000
 
 # Maximum number of frames in a batch
 MAX_TRAINING_FRAMES = 100000
