@@ -338,7 +338,7 @@ MAX_TEXT_LENGTH = 190
 # Number of samples generated during training
 CHUNK_SIZE = 8192
 
-# Gradients with norms above this value are clipped to this value
+# Gradients above this value are clipped to this value
 GRADIENT_CLIP_GENERATOR = None
 
 # Number of training steps
@@ -353,7 +353,7 @@ ADAPTATION_STEPS = 10000
 #     NUM_WORKERS = int(os.cpu_count() / max(1, len(GPUtil.getGPUs())))
 # except ValueError:
 #     NUM_WORKERS = os.cpu_count()
-NUM_WORKERS = 12
+NUM_WORKERS = 8
 
 # Training optimizer
 OPTIMIZER = functools.partial(

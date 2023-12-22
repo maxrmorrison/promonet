@@ -1,7 +1,7 @@
 MODULE = 'promonet'
 
 # Configuration name
-CONFIG = 'augment-slerp-vocos-multiband-varpitch-256-varbatch-bucket1-100000-constant005-clip'
+CONFIG = 'augment-slerp-vocos-multiband-varpitch-1024-varbatch-bucket1-100000-constant005-clip'
 
 # Whether to use pitch augmentation
 AUGMENT_PITCH = True
@@ -31,6 +31,9 @@ MAX_TRAINING_FRAMES = 100000
 #     'world'
 # ]
 MODEL = 'vocoder'
+
+# Number of pitch bins
+PITCH_BINS = 1024
 
 # Type of interpolation method to use to scale PPG features
 # Available method are ['linear', 'nearest', 'slerp']
