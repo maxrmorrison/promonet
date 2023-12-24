@@ -1,8 +1,0 @@
-MODULE = 'ppgs'
-
-CONFIG = 'mel-latents'
-
-REPRESENTATION = 'mel'
-REPRESENTATION_KIND = 'latents'
-
-MAX_TRAINING_FRAMES = 100000

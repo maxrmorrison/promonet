@@ -1,3 +1,5 @@
+
+import math
 import functools
 
 import torch
@@ -19,43 +21,57 @@ class Vocos(torch.nn.Module):
         # Input feature projection
         self.conv_pre = torch.nn.Conv1d(
             initial_channel,
-            initial_channel,
+            promonet.HIDDEN_CHANNELS,
             7,
             1,
-            padding=3)
+            padding='same')
 
         # Model architecture
-        self.backbone = vocos.models.VocosBackbone(
-            initial_channel,
-            512,
-            1536,
-            8)
+        if promonet.VOCOS_ARCHITECTURE == 'convnext':
+            self.backbone = vocos.models.VocosBackbone(
+                promonet.HIDDEN_CHANNELS,
+                promonet.HIDDEN_CHANNELS,
+                1536,
+                promonet.N_LAYERS)
+        elif promonet.VOCOS_ARCHITECTURE == 'transformer':
+            self.backbone = Transformer()
+        else:
+            raise ValueError(
+                f'Vocos architecture {promonet.VOCOS_ARCHITECTURE} '
+                'is not implemented')
 
         # Differentiable iSTFT
         self.head = vocos.heads.ISTFTHead(
-            512,
+            promonet.HIDDEN_CHANNELS,
             promonet.NUM_FFT,
             promonet.HOPSIZE)
 
         # Speaker conditioning
         self.cond = torch.nn.Conv1d(
             gin_channels,
-            initial_channel,
+            promonet.HIDDEN_CHANNELS,
             1)
 
-    def forward(self, x, g=None):
+    def forward(self, x, lengths, g=None):
+        mask = mask_from_lengths(lengths).unsqueeze(1)
+
         # Initial conv
-        x = self.conv_pre(x)
+        x = self.conv_pre(x) * mask
 
         # Speaker conditioning
         if g is not None:
-            x = x + self.cond(g)
+            g = self.cond(g)
+        if not promonet.FILM_CONDITIONING:
+            x += g
 
         # Infer complex STFT
-        x = self.backbone(x)
+        if promonet.VOCOS_ARCHITECTURE == 'convnext':
+            x = self.backbone(x).transpose(1, 2) * mask
+        elif promonet.VOCOS_ARCHITECTURE == 'transformer':
+            x = self.backbone(x, lengths, g)
 
         # Perform iSTFT to get waveform
-        return self.head(x).unsqueeze(1)
+        return self.head(x.transpose(1, 2)).unsqueeze(1)
 
 
 ###############################################################################
@@ -266,3 +282,81 @@ def get_vocoder(*args):
     else:
         raise ValueError(
             f'Vocoder type {promonet.VOCODER_TYPE} is not defined')
+
+
+###############################################################################
+# Transformer model
+###############################################################################
+
+
+class Transformer(torch.nn.Module):
+
+    def __init__(
+        self,
+        num_layers=promonet.N_LAYERS,
+        channels=promonet.HIDDEN_CHANNELS):
+        super().__init__()
+        self.position = PositionalEncoding(channels)
+        self.model = torch.nn.ModuleList([
+            torch.nn.TransformerEncoderLayer(channels, 2, batch_first=True)
+            for _ in range(num_layers)])
+        if promonet.FILM_CONDITIONING:
+            self.film = torch.nn.ModuleList([FiLM() for _ in range(num_layers)])
+
+    def forward(self, x, lengths, z):
+        mask = mask_from_lengths(lengths).unsqueeze(1)
+        x = self.position(x.permute(2, 0, 1)).permute(1, 2, 0)[mask]
+        for layer, film in zip(self.model, self.film):
+            x = layer(x, src_key_padding_mask=~mask.squeeze(1))
+            if promonet.FILM_CONDITIONING:
+                x = film(x, z)[mask]
+        return x
+
+
+###############################################################################
+# Utilities
+###############################################################################
+
+
+class FiLM(torch.nn.Module):
+
+    def __init__(self):
+        self.gamma = torch.nn.Conv1d(
+            promonet.HIDDEN_CHANNELS,
+            promonet.HIDDEN_CHANNELS,
+            1)
+        self.beta = torch.nn.Conv1d(
+            promonet.HIDDEN_CHANNELS,
+            promonet.HIDDEN_CHANNELS,
+            1)
+
+    def forward(self, x, z):
+        return self.gamma(z) * x + self.beta(z)
+
+
+class PositionalEncoding(torch.nn.Module):
+
+    def __init__(self, channels, dropout=.1, max_len=5000):
+        super().__init__()
+        self.dropout = torch.nn.Dropout(p=dropout)
+        index = torch.arange(max_len).unsqueeze(1)
+        frequency = torch.exp(
+            torch.arange(0, channels, 2) * (-math.log(10000.0) / channels))
+        encoding = torch.zeros(max_len, 1, channels)
+        encoding[:, 0, 0::2] = torch.sin(index * frequency)
+        encoding[:, 0, 1::2] = torch.cos(index * frequency)
+        self.register_buffer('encoding', encoding)
+
+    def forward(self, x):
+        if x.size(0) > self.encoding.size(0):
+            raise ValueError('size is too large')
+        return self.dropout(x + self.encoding[:x.size(0)])
+
+
+def mask_from_lengths(lengths, padding=0):
+    """Create boolean mask from sequence lengths and offset to start"""
+    x = torch.arange(
+        lengths.max() + 2 * padding,
+        dtype=lengths.dtype,
+        device=lengths.device)
+    return x.unsqueeze(0) - 2 * padding < lengths.unsqueeze(1)

@@ -37,17 +37,11 @@ def collate(batch):
 
     # We store original lengths for, e.g., loss evaluation
     feature_lengths = torch.empty((len(batch),), dtype=torch.long)
-    spectrogram_lengths = torch.empty((len(batch),), dtype=torch.long)
 
     # Initialize padded tensors
-    if promonet.MODEL == 'vits':
-        padded_phonemes = torch.zeros(
-            (len(batch), max_length_phonemes),
-            dtype=torch.long)
-    else:
-        padded_phonemes = torch.zeros(
-            (len(batch), promonet.PPG_CHANNELS, max_length_phonemes),
-            dtype=torch.float)
+    padded_phonemes = torch.zeros(
+        (len(batch), promonet.PPG_CHANNELS, max_length_phonemes),
+        dtype=torch.float)
     padded_pitch = torch.zeros(
         (len(batch), max_length_frames),
         dtype=torch.float)
@@ -67,19 +61,17 @@ def collate(batch):
 
         # Get lengths
         feature_lengths[i] = phonemes[index].shape[-1]
-        spectrogram_lengths[i] = promonet.convert.samples_to_frames(
-            lengths[index].item())
 
         # Prepare phoneme features
         padded_phonemes[i, :, :feature_lengths[i]] = phonemes[index]
 
         # Prepare prosody features
-        padded_pitch[i, :spectrogram_lengths[i]] = pitch[index]
-        padded_periodicity[i, :spectrogram_lengths[i]] = periodicity[index]
-        padded_loudness[i, :spectrogram_lengths[i]] = loudness[index]
+        padded_pitch[i, :feature_lengths[i]] = pitch[index]
+        padded_periodicity[i, :feature_lengths[i]] = periodicity[index]
+        padded_loudness[i, :feature_lengths[i]] = loudness[index]
 
         # Prepare spectrogram
-        padded_spectrograms[i, :, :spectrogram_lengths[i]] = \
+        padded_spectrograms[i, :, :feature_lengths[i]] = \
             spectrograms[index]
 
         # Prepare audio
@@ -101,6 +93,5 @@ def collate(batch):
         speakers,
         ratios,
         padded_spectrograms,
-        spectrogram_lengths,
         padded_audio,
         stems)

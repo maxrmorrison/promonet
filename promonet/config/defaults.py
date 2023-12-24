@@ -72,6 +72,7 @@ AUGMENTATION_RATIO_MAX = 2.
 AUGMENTATION_RATIO_MIN = .5
 
 # Condition discriminators on speech representation
+# TODO
 CONDITION_DISCRIM = False
 
 # Names of all datasets
@@ -79,12 +80,6 @@ DATASETS = ['daps', 'libritts', 'vctk']
 
 # Default periodicity threshold of the voiced/unvoiced decision
 VOICING_THRESOLD = .1625
-
-# Pass speech representation through the latent
-LATENT_SHORTCUT = False
-
-# Whether to slice during training
-SLICING = True
 
 # Whether to use an embedding layer for pitch
 PITCH_EMBEDDING = True
@@ -100,23 +95,18 @@ PPG_CHANNELS = 40
 
 # Type of interpolation method to use to scale PPG features
 # Available method are ['linear', 'nearest', 'slerp']
-PPG_INTERP_METHOD = 'nearest'
-
-# Whether to use sparse ppgs
-SPARSE_PPGS = False
+PPG_INTERP_METHOD = 'slerp'
 
 # Type of sparsification used for ppgs
-# Available methods are ['constant_threshold', 'percent_threshold', 'top_n']
-SPARSE_METHOD = 'top_n'
+# One of ['constant', 'percentile', 'topk', None]
+SPARSE_PPG_METHOD = None
 
-# Constant threshold for ppg sparsification (should be in [0, 1])
-SPARSE_THRESHOLD = 0.001
-
-# Percentage threshold for ppg sparsification (should be in [0, 1])
-SPARSE_PERCENT_THRESHOLD = 0.8
+# Threshold for ppg sparsification.
+# In [0, 1] for 'contant' and 'percentile'; integer > 0 for 'topk'.
+SPARSE_PPG_THRESHOLD = 0.8
 
 # Number of top bins to take in ppg sparsification
-SPARSE_NUM_BINS = 3
+SPARSE_PPG_THRESHOLD = 3
 
 # Seed for all random number generators
 RANDOM_SEED = 1234
@@ -211,9 +201,6 @@ PLOT_EXAMPLES = 10
 # Weight applied to the discriminator loss
 ADVERSARIAL_LOSS_WEIGHT = 1.
 
-# Weight applied to the KL divergence loss
-KL_DIVERGENCE_LOSS_WEIGHT = 1.
-
 # Weight applied to the feature matching loss
 FEATURE_MATCHING_LOSS_WEIGHT = 1.
 
@@ -235,11 +222,14 @@ MULTI_MEL_LOSS_WINDOWS = [32, 64, 128, 256, 512, 1024, 2048]
 ###############################################################################
 
 
-# The size of the latent bottleneck
-HIDDEN_CHANNELS = 192
+# The size of intermediate feature activations
+HIDDEN_CHANNELS = 512
 
 # Input features
 INPUT_FEATURES = ['loudness', 'periodicity', 'pitch', 'ppg']
+
+# Whether to use FiLM for global conditioning
+FILM_CONDITIONING = False
 
 # Hidden dimension channel size
 FILTER_CHANNELS = 768
@@ -250,16 +240,8 @@ KERNEL_SIZE = 3
 # (Negative) slope of leaky ReLU activations
 LRELU_SLOPE = .1
 
-# The model to use. One of [
-#     'end-to-end',
-#     'hifigan',
-#     'psola',
-#     'two-stage',
-#     'vits',
-#     'vocoder',
-#     'world'
-# ]
-MODEL = 'end-to-end'
+# The model to use. One of ['psola', 'vocoder', 'world']
+MODEL = 'vocoder'
 
 # Whether to use the multi-resolution spectrogram discriminator from UnivNet
 MULTI_RESOLUTION_DISCRIMINATOR = False
@@ -274,11 +256,7 @@ COMPLEX_MULTIBAND_DISCRIMINATOR = False
 N_HEADS = 2
 
 # Number of attention layers
-N_LAYERS = 6
-
-# Noise scales for inference
-NOISE_SCALE_INFERENCE = .667
-NOISE_SCALE_W_INFERENCE = .8
+N_LAYERS = 5
 
 # Dropout probability
 P_DROPOUT = .1
@@ -290,6 +268,7 @@ RESBLOCK_KERNEL_SIZES = [3, 7, 11]
 RESBLOCK_DILATION_SIZES = [[1, 3, 5], [1, 3, 5], [1, 3, 5]]
 
 # Whether to use snake activation in the audio generator
+# TODO
 SNAKE = False
 
 # Speaker embedding size
@@ -304,11 +283,12 @@ UPSAMPLE_KERNEL_SIZES = [16, 16, 4, 4]
 # Upsample rates of residual blocks
 UPSAMPLE_RATES = [8, 8, 2, 2]
 
-# Whether to omit latent generation
-VOCODER = False
-
 # Type of vocoder, one of ['hifigan', 'vocos']
-VOCODER_TYPE = 'hifigan'
+VOCODER_TYPE = 'vocos'
+
+# Model architecture to use for vocos vocoder.
+# One of ['convnext', 'transformer'].
+VOCOS_ARCHITECTURE = 'convnext'
 
 
 ###############################################################################
@@ -316,27 +296,15 @@ VOCODER_TYPE = 'hifigan'
 ###############################################################################
 
 
-# Number of items in a batch
-BATCH_SIZE = 32
-
-# Whether to use variable batch size
-VARIABLE_BATCH = False
-
 # Maximum number of frames in a batch
-MAX_TRAINING_FRAMES = 10000
+MAX_TRAINING_FRAMES = 100000
 
 # Number of buckets to partition training and validation data into based on
 # length to avoid excess padding
-BUCKETS = 8
+BUCKETS = 1
 
-# Maximum length of frames during training
-MAX_FRAME_LENGTH = 1600
-
-# Maximum length of phonemes during training
-MAX_TEXT_LENGTH = 190
-
-# Number of samples generated during training
-CHUNK_SIZE = 8192
+# Size in samples of discriminator inputs
+CHUNK_SIZE = 16384
 
 # Gradients above this value are clipped to this value
 GRADIENT_CLIP_GENERATOR = None
@@ -356,8 +324,9 @@ ADAPTATION_STEPS = 10000
 NUM_WORKERS = 8
 
 # Training optimizer
+# TODO
 OPTIMIZER = functools.partial(
     torch.optim.AdamW,
     lr=2e-4,
-    betas=(.8, .99),
+    betas=(.8, .9),
     eps=1e-9)

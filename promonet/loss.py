@@ -45,13 +45,6 @@ def generator(discriminator_outputs):
     return sum(losses), losses
 
 
-def kl(prior, true_logstd, predicted_mean, predicted_logstd, latent_mask):
-    """KL-divergence loss"""
-    divergence = predicted_logstd - true_logstd - 0.5 + \
-        0.5 * ((prior - predicted_mean) ** 2) * \
-        torch.exp(-2. * predicted_logstd)
-    return torch.sum(divergence * latent_mask) / torch.sum(latent_mask)
-
 def multimel(ground_truth, generated):
     #Cache hann windows
     if (
@@ -108,7 +101,7 @@ def multimel(ground_truth, generated):
             normalized=False,
             onesided=True,
             return_complex=True)
-        
+
         # if promonet.COMPLEX_SPECTROGRAM:
         #     pass
         # else:
