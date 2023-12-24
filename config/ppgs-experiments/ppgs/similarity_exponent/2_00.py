@@ -1,5 +1,0 @@
-MODULE = 'ppgs'
-
-CONFIG = '2_00'
-
-SIMILARITY_EXPONENT = 2.0

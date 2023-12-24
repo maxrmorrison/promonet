@@ -12,7 +12,7 @@ import promonet
 
 def main(
     config,
-    dataset,
+    dataset=promonet.TRAINING_DATASET,
     train_partition='train',
     valid_partition='valid',
     adapt_from=False,
@@ -27,8 +27,8 @@ def main(
 
     # Train
     promonet.train(
-        dataset,
         directory,
+        dataset,
         train_partition,
         valid_partition,
         adapt_from,

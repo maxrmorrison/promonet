@@ -217,8 +217,8 @@ def speaker(
 
         # Perform speaker adaptation
         promonet.train(
-            dataset,
             directory,
+            dataset,
             train_partition,
             test_partition,
             checkpoint,

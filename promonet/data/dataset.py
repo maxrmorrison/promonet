@@ -39,15 +39,10 @@ class Dataset(torch.utils.data.Dataset):
         else:
             speaker = 0
 
-        # Load supervised or unsupervised phoneme features
-        if promonet.MODEL == 'vits':
-            phonemes = promonet.load.phonemes(
-                self.cache / f'{stem}-phonemes.pt',
-                interleave=True)
-        else:
-
-            # Load ppgs
-            phonemes = promonet.load.ppg(self.cache / f'{stem}{ppgs.representation_file_extension()}', resample_length=spectrogram.shape[-1])
+        # Load ppgs
+        phonemes = promonet.load.ppg(
+            self.cache / f'{stem}{ppgs.representation_file_extension()}',
+            resample_length=spectrogram.shape[-1])
 
         # Data augmentation ratios
         augmentation = stem[-4:]
@@ -139,25 +134,6 @@ class Metadata:
                 ) as file:
                     ratios = json.load(file)
                 self.stems.extend([f'{stem}-l{ratios[stem]}' for stem in stems])
-
-        # Maybe limit the maximum length during training to improve
-        # GPU utilization
-        if (
-            ('train' in partition or 'valid' in partition) and
-            promonet.MAX_TEXT_LENGTH is not None
-        ):
-            self.stems = [
-                stem for stem in self.stems if (
-                    # len(
-                    #     promonet.load.phonemes(
-                    #         self.cache / f'{stem}-phonemes.pt')
-                    # ) < promonet.MAX_TEXT_LENGTH and
-                    promonet.convert.samples_to_frames(
-                        torchaudio.info(
-                            self.cache / f'{stem}.wav').num_frames
-                    ) < promonet.MAX_FRAME_LENGTH
-                )
-            ]
 
         # Get audio filenames
         self.audio_files = [
