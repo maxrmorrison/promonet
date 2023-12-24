@@ -40,7 +40,8 @@ class Generator(torch.nn.Module):
         loudness,
         lengths,
         speakers,
-        ratios=None,
+        pitch_ratios=None,
+        loudness_ratios=None,
         spectrograms=None
     ):
         # Prepare input features
@@ -50,7 +51,8 @@ class Generator(torch.nn.Module):
             periodicity,
             loudness,
             speakers,
-            ratios,
+            pitch_ratios,
+            loudness_ratios,
             spectrograms)
 
         # Decode latent representation to waveform
@@ -65,7 +67,8 @@ class Generator(torch.nn.Module):
         periodicity,
         loudness,
         speakers,
-        ratios,
+        pitch_ratios,
+        loudness_ratios,
         spectrograms
     ):
         """Prepare input features for training or inference"""
@@ -98,8 +101,13 @@ class Generator(torch.nn.Module):
             features = torch.cat((features, periodicity[:, None]), dim=1)
 
         # Default augmentation ratio is 1
-        if ratios is None and promonet.AUGMENT_PITCH:
-            ratios = torch.ones(
+        if pitch_ratios is None and promonet.AUGMENT_PITCH:
+            pitch_ratios = torch.ones(
+                1 if ppgs.dim() == 2 else len(ppgs),
+                dtype=torch.float,
+                device=ppgs.device)
+        if loudness_ratios is None and promonet.AUGMENT_LOUDNESS:
+            loudness_ratios = torch.ones(
                 1 if ppgs.dim() == 2 else len(ppgs),
                 dtype=torch.float,
                 device=ppgs.device)
@@ -110,7 +118,13 @@ class Generator(torch.nn.Module):
         # Maybe add augmentation ratios
         if ('pitch' in promonet.INPUT_FEATURES) and promonet.AUGMENT_PITCH:
             global_features = torch.cat(
-                (global_features, ratios[:, None, None]),
+                (global_features, pitch_ratios[:, None, None]),
+                dim=1)
+
+        # Maybe add augmentation ratios
+        if ('loudness' in promonet.INPUT_FEATURES) and promonet.AUGMENT_LOUDNESS:
+            global_features = torch.cat(
+                (global_features, loudness_ratios[:, None, None]),
                 dim=1)
 
         return features, global_features

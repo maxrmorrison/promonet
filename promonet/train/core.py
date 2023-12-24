@@ -178,7 +178,8 @@ def train(
                 loudness,
                 lengths,
                 speakers,
-                ratios,
+                pitch_ratios,
+                loudness_ratios,
                 spectrograms)
 
             #######################
