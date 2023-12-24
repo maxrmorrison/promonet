@@ -1,7 +1,0 @@
-MODULE = 'ppgs'
-
-CONFIG = 'w2v2fb'
-
-REPRESENTATION_KIND = 'latents'
-
-MAX_TRAINING_FRAMES = 10000
