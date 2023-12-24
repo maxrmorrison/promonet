@@ -141,8 +141,7 @@ def ppg(file, resample_length=None, device='cpu'):
         ppg_data = torch.where(ppg_data.T > thresholds, ppg_data.T, 0).T
 
     # Renormalize after sparsification
-    if promonet.SPARSE_PPG_METHOD is not None:
-        ppg_data = torch.softmax(torch.log(ppg_data), 0)
+    ppg_data = torch.softmax(torch.log(ppg_data), -2)
 
     return ppg_data
 
