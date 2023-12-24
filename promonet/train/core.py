@@ -229,23 +229,20 @@ def train(
                     loudness=loudness_slices,
                     phonemes=phoneme_slices)
 
-                # TODO - fp16 discriminators?
-                with torch.autocast(device.type, enabled=False):
-
-                    # Get discriminator loss
-                    (
-                        discriminator_losses,
-                        real_discriminator_losses,
-                        fake_discriminator_losses
-                    ) = promonet.loss.discriminator(
-                        [logit.float() for logit in real_logits],
-                        [logit.float() for logit in fake_logits])
+                # Get discriminator loss
+                (
+                    discriminator_losses,
+                    real_discriminator_losses,
+                    fake_discriminator_losses
+                ) = promonet.loss.discriminator(
+                    [logit.float() for logit in real_logits],
+                    [logit.float() for logit in fake_logits])
 
 
-                # Backward pass through discriminators
-                discriminator_optimizer.zero_grad()
-                scaler.scale(discriminator_losses).backward()
-                scaler.step(discriminator_optimizer)
+            # Backward pass through discriminators
+            discriminator_optimizer.zero_grad()
+            scaler.scale(discriminator_losses).backward()
+            scaler.step(discriminator_optimizer)
 
             ###################
             # Train generator #
@@ -267,68 +264,65 @@ def train(
                     loudness=loudness_slices,
                     phonemes=phoneme_slices)
 
-                # TODO - fp16 losses?
                 # Compute generator losses
-                with torch.autocast(device.type, enabled=False):
+                generator_losses = 0.
 
-                    generator_losses = 0.
+                # Mel spectrogram loss
+                if promonet.MULTI_MEL_LOSS:
+                    mel_loss = promonet.loss.multimel(audio, generated)
+                    generator_losses += promonet.MEL_LOSS_WEIGHT / len(promonet.MULTI_MEL_LOSS_WINDOWS) * mel_loss
+                else:
+                    mel_loss = torch.nn.functional.l1_loss(mel_slices, generated_mels)
+                    generator_losses +=  promonet.MEL_LOSS_WEIGHT * mel_loss
 
-                    # Mel spectrogram loss
-                    if promonet.MULTI_MEL_LOSS:
-                        mel_loss = promonet.loss.multimel(audio, generated)
-                        generator_losses += promonet.MEL_LOSS_WEIGHT / len(promonet.MULTI_MEL_LOSS_WINDOWS) * mel_loss
-                    else:
-                        mel_loss = torch.nn.functional.l1_loss(mel_slices, generated_mels)
-                        generator_losses +=  promonet.MEL_LOSS_WEIGHT * mel_loss
+                # Get feature matching loss
+                feature_matching_loss = promonet.loss.feature_matching(
+                    real_feature_maps,
+                    fake_feature_maps)
+                generator_losses += promonet.FEATURE_MATCHING_LOSS_WEIGHT * feature_matching_loss
 
-                    # Get feature matching loss
-                    feature_matching_loss = promonet.loss.feature_matching(
-                        real_feature_maps,
-                        fake_feature_maps)
-                    generator_losses += promonet.FEATURE_MATCHING_LOSS_WEIGHT * feature_matching_loss
+                # Get adversarial loss
+                adversarial_loss, adversarial_losses = \
+                    promonet.loss.generator(
+                        [logit.float() for logit in fake_logits])
+                generator_losses += promonet.ADVERSARIAL_LOSS_WEIGHT * adversarial_loss
 
-                    # Get adversarial loss
-                    adversarial_loss, adversarial_losses = \
-                        promonet.loss.generator(
-                            [logit.float() for logit in fake_logits])
-                    generator_losses += promonet.ADVERSARIAL_LOSS_WEIGHT * adversarial_loss
+            # Zero gradients
+            generator_optimizer.zero_grad()
 
-                # Zero gradients
-                generator_optimizer.zero_grad()
+            # Backward pass
+            scaler.scale(generator_losses).backward()
 
-                # Backward pass
-                scaler.scale(generator_losses).backward()
+            # Monitor gradient statistics
+            gradient_statistics = torchutil.gradients.stats(generator)
+            torchutil.tensorboard.update(
+                directory,
+                step,
+                scalars=gradient_statistics)
 
-                # Monitor gradient statistics
-                gradient_statistics = torchutil.gradients.stats(generator)
-                torchutil.tensorboard.update(
-                    directory,
-                    step,
-                    scalars=gradient_statistics)
+            # Maybe perform gradient clipping
+            if promonet.GRADIENT_CLIP_GENERATOR is not None:
 
-                # Maybe perform gradient clipping
-                if promonet.GRADIENT_CLIP_GENERATOR is not None:
+                # Compare maximum gradient to threshold
+                max_grad = max(
+                    gradient_statistics['gradients/max'],
+                    math.abs(gradient_statistics['gradients/min']))
+                if max_grad > promonet.GRADIENT_CLIP_GENERATOR:
 
-                    # Compare maximum gradient to threshold
-                    max_grad = max(
-                        gradient_statistics['gradients/max'],
-                        math.abs(gradient_statistics['gradients/min']))
-                    if max_grad > promonet.GRADIENT_CLIP_GENERATOR:
+                    # Unscale gradients
+                    scaler.unscale_(generator_optimizer)
 
-                        # Unscale gradients
-                        scaler.unscale_(generator_optimizer)
+                    # Clip
+                    torch.nn.utils.clip_grad_norm_(
+                        generator.parameters(),
+                        promonet.GRADIENT_CLIP_GENERATOR,
+                        norm_type='inf')
 
-                        # Clip
-                        torch.nn.utils.clip_grad_norm_(
-                            generator.parameters(),
-                            promonet.GRADIENT_CLIP_GENERATOR,
-                            norm_type='inf')
+            # Update weights
+            scaler.step(generator_optimizer)
 
-                # Update weights
-                scaler.step(generator_optimizer)
-
-                # Update gradient scaler
-                scaler.update()
+            # Update gradient scaler
+            scaler.update()
 
             ###########
             # Logging #
