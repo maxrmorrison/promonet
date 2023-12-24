@@ -23,11 +23,7 @@ class Discriminator(torch.nn.Module):
             discriminators.append(DiscriminatorCMB())
         self.discriminators = torch.nn.ModuleList(discriminators)
 
-    def forward(
-        self,
-        y,
-        y_hat,
-        **kwargs):
+    def forward(self, y, y_hat, **kwargs):
         logits_real = []
         logits_fake = []
         feature_maps_real = []
@@ -35,9 +31,6 @@ class Discriminator(torch.nn.Module):
         for discriminator in self.discriminators:
             logit_real, feature_map_real = discriminator(y, **kwargs)
             logit_fake, feature_map_fake = discriminator(y_hat, **kwargs)
-            if any(real.shape != fake.shape for real, fake in zip(feature_map_real, feature_map_fake)):
-                import pdb; pdb.set_trace()
-                pass
             logits_real.append(logit_real)
             logits_fake.append(logit_fake)
             feature_maps_real.append(feature_map_real)

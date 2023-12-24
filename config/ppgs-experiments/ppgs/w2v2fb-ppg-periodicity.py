@@ -1,5 +1,0 @@
-MODULE = 'ppgs'
-
-CONFIG = 'w2v2fb'
-
-MAX_TRAINING_FRAMES = 10000

@@ -81,7 +81,11 @@ def from_file(
     pitch = torch.load(pitch_file, map_location=device)
     periodicity = torch.load(periodicity_file, map_location=device)
     loudness = torch.load(loudness_file, map_location=device)
-    ppg = promonet.load.ppg(ppg_file, resample_length = pitch.shape[-1], device=device)[None]
+    ppg = promonet.load.ppg(
+        ppg_file,
+        resample_length=pitch.shape[-1],
+        device=device
+    )[None]
 
     # Generate
     return from_features(
