@@ -64,7 +64,6 @@ def datasets(datasets, checkpoint=None, gpu=None):
         else:
             train_partitions = [None]
             test_partitions = ['test']
-            # test_partitions = ['train']
 
         # Per-dataset metrics
         dataset_metrics = default_metrics()
@@ -338,198 +337,191 @@ def speaker(
 
     # TODO - baselines
 
-    # Perform speech editing only on speech editors
-    if promonet.MODEL in ['hifigan', 'vits']:
+    for ratio in promonet.EVALUATION_RATIOS:
 
-        results = {}
+        ##################
+        # Pitch shifting #
+        ##################
 
-    else:
-
-        for ratio in promonet.EVALUATION_RATIOS:
-
-            ##################
-            # Pitch shifting #
-            ##################
-
-            key = f'shifted-{int(ratio * 100):03d}'
-            for stem in test_stems:
-                prefix = f'{dataset}-{stem.replace("/", "-")}'
-                file = (
-                    original_objective_directory /
-                    f'{prefix}-original-100-pitch.pt')
-
-                # Shift original pitch and save to disk
-                output_prefix = \
-                    original_objective_directory / f'{prefix}-{key}'
-                output_prefix.parent.mkdir(exist_ok=True, parents=True)
-                promonet.edit.from_file_to_file(
-                    file,
-                    file.parent / file.name.replace('pitch', 'periodicity'),
-                    file.parent / file.name.replace('pitch', 'loudness'),
-                    file.parent / file.name.replace('pitch', 'ppg'),
-                    output_prefix,
-                    pitch_shift_cents=promonet.convert.ratio_to_cents(ratio))
-
-                # Copy text
-                shutil.copyfile(
-                    original_objective_directory /
-                    f'{prefix}-original-100-text.txt',
-                    f'{output_prefix}-text.txt')
-
-            # Generate
-            files[key] = [
-                subjective_directory /
-                f'{dataset}-{stem.replace("/", "-")}-{key}.wav'
-                for stem in test_stems]
-            pitch_files = [
+        key = f'shifted-{int(ratio * 100):03d}'
+        for stem in test_stems:
+            prefix = f'{dataset}-{stem.replace("/", "-")}'
+            file = (
                 original_objective_directory /
-                f'{dataset}-{stem.replace("/", "-")}-{key}-pitch.pt'
-                for stem in test_stems]
-            promonet.synthesize.from_files_to_files(
-                pitch_files,
-                [
-                    file.parent / file.name.replace('pitch', 'periodicity')
-                    for file in pitch_files
-                ],
-                [
-                    file.parent / file.name.replace('pitch', 'loudness')
-                    for file in pitch_files
-                ],
-                [
-                    file.parent / file.name.replace('pitch', 'ppg')
-                    for file in pitch_files
-                ],
-                files[key],
-                checkpoint=checkpoint,
-                speakers=(
-                    [0] * len(test_stems) if promonet.ADAPTATION else speakers
-                ),
-                gpu=gpu)
+                f'{prefix}-original-100-pitch.pt')
 
-            # TODO - baselines
+            # Shift original pitch and save to disk
+            output_prefix = \
+                original_objective_directory / f'{prefix}-{key}'
+            output_prefix.parent.mkdir(exist_ok=True, parents=True)
+            promonet.edit.from_file_to_file(
+                file,
+                file.parent / file.name.replace('pitch', 'periodicity'),
+                file.parent / file.name.replace('pitch', 'loudness'),
+                file.parent / file.name.replace('pitch', 'ppg'),
+                output_prefix,
+                pitch_shift_cents=promonet.convert.ratio_to_cents(ratio))
 
-            ###################
-            # Time stretching #
-            ###################
+            # Copy text
+            shutil.copyfile(
+                original_objective_directory /
+                f'{prefix}-original-100-text.txt',
+                f'{output_prefix}-text.txt')
 
-            # key = f'stretched-{int(ratio * 100):03d}'
-            # for stem in test_stems:
-            #     prefix = f'{dataset}-{stem.replace("/", "-")}'
-            #     file = (
-            #         original_objective_directory /
-            #         f'{prefix}-original-100{ppgs.representation_file_extension()}')
+        # Generate
+        files[key] = [
+            subjective_directory /
+            f'{dataset}-{stem.replace("/", "-")}-{key}.wav'
+            for stem in test_stems]
+        pitch_files = [
+            original_objective_directory /
+            f'{dataset}-{stem.replace("/", "-")}-{key}-pitch.pt'
+            for stem in test_stems]
+        promonet.synthesize.from_files_to_files(
+            pitch_files,
+            [
+                file.parent / file.name.replace('pitch', 'periodicity')
+                for file in pitch_files
+            ],
+            [
+                file.parent / file.name.replace('pitch', 'loudness')
+                for file in pitch_files
+            ],
+            [
+                file.parent / file.name.replace('pitch', 'ppg')
+                for file in pitch_files
+            ],
+            files[key],
+            checkpoint=checkpoint,
+            speakers=(
+                [0] * len(test_stems) if promonet.ADAPTATION else speakers
+            ),
+            gpu=gpu)
 
-            #     # Stretch features and save to disk
-            #     output_prefix = \
-            #         original_objective_directory / f'{prefix}-{key}'
-            #     output_prefix.parent.mkdir(exist_ok=True, parents=True)
-            #     promonet.edit.from_file_to_file(
-            #         file.parent / file.name.replace('ppg', 'pitch'),
-            #         file.parent / file.name.replace('ppg', 'periodicity'),
-            #         file.parent / file.name.replace('ppg', 'loudness'),
-            #         file,
-            #         output_prefix,
-            #         time_stretch_ratio=ratio,
-            #         stretch_unvoiced=False)
+        # TODO - baselines
 
-            #     # Copy text
-            #     shutil.copyfile(
-            #         original_objective_directory /
-            #         f'{prefix}-original-100-text.txt',
-            #         f'{output_prefix}-text.txt')
+        ###################
+        # Time stretching #
+        ###################
 
-            # # Generate
-            # files[key] = [
-            #     subjective_directory /
-            #     f'{dataset}-{stem.replace("/", "-")}-{key}.wav'
-            #     for stem in test_stems]
-            # pitch_files = [
-            #     original_objective_directory /
-            #     f'{dataset}-{stem.replace("/", "-")}-{key}-pitch.pt'
-            #     for stem in test_stems]
-            # promonet.synthesize.from_files_to_files(
-            #     pitch_files,
-            #     [
-            #         file.parent / file.name.replace('pitch', 'periodicity')
-            #         for file in pitch_files
-            #     ],
-            #     [
-            #         file.parent / file.name.replace('pitch', 'loudness')
-            #         for file in pitch_files
-            #     ],
-            #     [
-            #         file.parent / file.name.replace('pitch', 'ppg') #TODO use ppg extension
-            #         for file in pitch_files
-            #     ],
-            #     files[key],
-            #     checkpoint=checkpoint,
-            #     speakers=(
-            #         [0] * len(test_stems) if promonet.ADAPTATION else speakers
-            #     ),
-            #     gpu=gpu)
+        key = f'stretched-{int(ratio * 100):03d}'
+        for stem in test_stems:
+            prefix = f'{dataset}-{stem.replace("/", "-")}'
+            file = (
+                original_objective_directory /
+                f'{prefix}-original-100{ppgs.representation_file_extension()}')
 
-            # TODO - baselines
+            # Stretch features and save to disk
+            output_prefix = \
+                original_objective_directory / f'{prefix}-{key}'
+            output_prefix.parent.mkdir(exist_ok=True, parents=True)
+            promonet.edit.from_file_to_file(
+                file.parent / file.name.replace('ppg', 'pitch'),
+                file.parent / file.name.replace('ppg', 'periodicity'),
+                file.parent / file.name.replace('ppg', 'loudness'),
+                file,
+                output_prefix,
+                time_stretch_ratio=ratio,
+                stretch_unvoiced=False)
 
-            ####################
-            # Loudness scaling #
-            ####################
+            # Copy text
+            shutil.copyfile(
+                original_objective_directory /
+                f'{prefix}-original-100-text.txt',
+                f'{output_prefix}-text.txt')
 
-            # key = f'scaled-{int(ratio * 100):03d}'
-            # for stem in test_stems:
-            #     prefix = f'{dataset}-{stem.replace("/", "-")}'
-            #     file = (
-            #         original_objective_directory /
-            #         f'{prefix}-original-100-loudness.pt')
+        # Generate
+        files[key] = [
+            subjective_directory /
+            f'{dataset}-{stem.replace("/", "-")}-{key}.wav'
+            for stem in test_stems]
+        pitch_files = [
+            original_objective_directory /
+            f'{dataset}-{stem.replace("/", "-")}-{key}-pitch.pt'
+            for stem in test_stems]
+        promonet.synthesize.from_files_to_files(
+            pitch_files,
+            [
+                file.parent / file.name.replace('pitch', 'periodicity')
+                for file in pitch_files
+            ],
+            [
+                file.parent / file.name.replace('pitch', 'loudness')
+                for file in pitch_files
+            ],
+            [
+                file.parent / file.name.replace('pitch', 'ppg') #TODO use ppg extension
+                for file in pitch_files
+            ],
+            files[key],
+            checkpoint=checkpoint,
+            speakers=(
+                [0] * len(test_stems) if promonet.ADAPTATION else speakers
+            ),
+            gpu=gpu)
 
-            #     # Scale original loudness and save to disk
-            #     output_prefix = (
-            #         original_objective_directory /
-            #         f'{prefix}-{key}')
-            #     promonet.edit.from_file_to_file(
-            #         file.parent / file.name.replace('loudness', 'pitch'),
-            #         file.parent / file.name.replace('loudness', 'periodicity'),
-            #         file,
-            #         file.parent / file.name.replace('loudness', 'ppg'),
-            #         output_prefix,
-            #         loudness_scale_db=promonet.convert.ratio_to_db(ratio))
+        # TODO - baselines
 
-            #     # Copy text
-            #     shutil.copyfile(
-            #         original_objective_directory /
-            #         f'{prefix}-original-100-text.txt',
-            #         f'{output_prefix}-text.txt')
+        ####################
+        # Loudness scaling #
+        ####################
 
-            # # Generate
-            # files[key] = [
-            #     subjective_directory /
-            #     f'{dataset}-{stem.replace("/", "-")}-{key}.wav'
-            #     for stem in test_stems]
-            # pitch_files = [
-            #     original_objective_directory /
-            #     f'{dataset}-{stem.replace("/", "-")}-{key}-pitch.pt'
-            #     for stem in test_stems]
-            # promonet.synthesize.from_files_to_files(
-            #     pitch_files,
-            #     [
-            #         file.parent / file.name.replace('pitch', 'periodicity')
-            #         for file in pitch_files
-            #     ],
-            #     [
-            #         file.parent / file.name.replace('pitch', 'loudness')
-            #         for file in pitch_files
-            #     ],
-            #     [
-            #         file.parent / file.name.replace('pitch', 'ppg')
-            #         for file in pitch_files
-            #     ],
-            #     files[key],
-            #     checkpoint=checkpoint,
-            #     speakers=(
-            #         [0] * len(test_stems) if promonet.ADAPTATION else speakers
-            #     ),
-            #     gpu=gpu)
+        key = f'scaled-{int(ratio * 100):03d}'
+        for stem in test_stems:
+            prefix = f'{dataset}-{stem.replace("/", "-")}'
+            file = (
+                original_objective_directory /
+                f'{prefix}-original-100-loudness.pt')
 
-            # TODO - baselines
+            # Scale original loudness and save to disk
+            output_prefix = (
+                original_objective_directory /
+                f'{prefix}-{key}')
+            promonet.edit.from_file_to_file(
+                file.parent / file.name.replace('loudness', 'pitch'),
+                file.parent / file.name.replace('loudness', 'periodicity'),
+                file,
+                file.parent / file.name.replace('loudness', 'ppg'),
+                output_prefix,
+                loudness_scale_db=promonet.convert.ratio_to_db(ratio))
+
+            # Copy text
+            shutil.copyfile(
+                original_objective_directory /
+                f'{prefix}-original-100-text.txt',
+                f'{output_prefix}-text.txt')
+
+        # Generate
+        files[key] = [
+            subjective_directory /
+            f'{dataset}-{stem.replace("/", "-")}-{key}.wav'
+            for stem in test_stems]
+        pitch_files = [
+            original_objective_directory /
+            f'{dataset}-{stem.replace("/", "-")}-{key}-pitch.pt'
+            for stem in test_stems]
+        promonet.synthesize.from_files_to_files(
+            pitch_files,
+            [
+                file.parent / file.name.replace('pitch', 'periodicity')
+                for file in pitch_files
+            ],
+            [
+                file.parent / file.name.replace('pitch', 'loudness')
+                for file in pitch_files
+            ],
+            [
+                file.parent / file.name.replace('pitch', 'ppg')
+                for file in pitch_files
+            ],
+            files[key],
+            checkpoint=checkpoint,
+            speakers=(
+                [0] * len(test_stems) if promonet.ADAPTATION else speakers
+            ),
+            gpu=gpu)
+
+        # TODO - baselines
 
     ############################
     # Speech -> representation #
@@ -578,72 +570,70 @@ def speaker(
     # Evaluate prosody editing #
     ############################
 
-    if promonet.MODEL != 'vits':
+    # Setup speaker metrics
+    speaker_metrics = default_metrics()
 
-        # Setup speaker metrics
-        speaker_metrics = default_metrics()
+    # Iterate over edit conditions
+    results = {'objective': {'raw': {}}}
+    for key, value in files.items():
+        results['objective']['raw'][key] = []
+        for file in value:
 
-        # Iterate over edit conditions
-        results = {'objective': {'raw': {}}}
-        for key, value in files.items():
-            results['objective']['raw'][key] = []
-            for file in value:
+            # Get prosody metrics
+            file_metrics = promonet.evaluate.Metrics()
 
-                # Get prosody metrics
-                file_metrics = promonet.evaluate.Metrics()
+            # Get target filepath
+            target_prefix = original_objective_directory / file.stem
 
-                # Get target filepath
-                target_prefix = original_objective_directory / file.stem
+            # Get predicted filepath
+            predicted_prefix = objective_directory / file.stem
 
-                # Get predicted filepath
-                predicted_prefix = objective_directory / file.stem
+            # Update metrics
+            prosody_args = (
+                torch.load(f'{predicted_prefix}-pitch.pt').to(device),
+                torch.load(f'{predicted_prefix}-periodicity.pt').to(device),
+                torch.load(f'{predicted_prefix}-loudness.pt').to(device),
+                torch.load(f'{predicted_prefix}-ppg.pt').to(device),
+                torch.load(f'{target_prefix}-pitch.pt').to(device),
+                torch.load(f'{target_prefix}-periodicity.pt').to(device),
+                torch.load(f'{target_prefix}-loudness.pt').to(device),
+                torch.load(f'{target_prefix}-ppg.pt').to(device))
 
-                # Update metrics
-                prosody_args = (
-                    torch.load(f'{predicted_prefix}-pitch.pt').to(device),
-                    torch.load(f'{predicted_prefix}-periodicity.pt').to(device),
-                    torch.load(f'{predicted_prefix}-loudness.pt').to(device),
-                    torch.load(f'{predicted_prefix}-ppg.pt').to(device),
-                    torch.load(f'{target_prefix}-pitch.pt').to(device),
-                    torch.load(f'{target_prefix}-periodicity.pt').to(device),
-                    torch.load(f'{target_prefix}-loudness.pt').to(device),
-                    torch.load(f'{target_prefix}-ppg.pt').to(device))
+            # Get target text and audio for WER
+            text = promonet.load.text(f'{target_prefix}-text.txt')
+            predicted_text = promonet.load.text(f'{predicted_prefix}-whisper.txt')
+            audio = promonet.load.audio(file).to(device)
 
-                # Get target text and audio for WER
-                text = promonet.load.text(f'{target_prefix}-text.txt')
-                predicted_text = promonet.load.text(f'{predicted_prefix}-whisper.txt')
-                audio = promonet.load.audio(file).to(device)
+            with torchutil.time.context('normalize text'):
+                normalized_text = promonet.evaluate.metrics.normalize_text(text)
 
-                with torchutil.time.context('normalize text'):
-                    normalized_text = promonet.evaluate.metrics.normalize_text(text)
+            wer_args = (
+                normalized_text,
+                predicted_text
+            )
+            # wer_args = (text, audio)
 
-                wer_args = (
-                    normalized_text,
-                    predicted_text
-                )
-                # wer_args = (text, audio)
+            # Get speaker embeddings
+            # embedding = torch.load(f'{predicted_prefix}-speaker.pt').to(
+            #     speaker_embedding.device)
+            # speaker_sim_args = (speaker_embedding, embedding)
 
-                # Get speaker embeddings
-                # embedding = torch.load(f'{predicted_prefix}-speaker.pt').to(
-                #     speaker_embedding.device)
-                # speaker_sim_args = (speaker_embedding, embedding)
+            # Update metrics
+            condition = '-'.join(target_prefix.stem.split('-')[3:5])
+            # args = (*prosody_args, wer_args, speaker_sim_args)
+            args = (*prosody_args, wer_args, None)
+            aggregate_metrics[condition].update(*args)
+            dataset_metrics[condition].update(*args)
+            speaker_metrics[condition].update(*args)
+            file_metrics.update(*args)
 
-                # Update metrics
-                condition = '-'.join(target_prefix.stem.split('-')[3:5])
-                # args = (*prosody_args, wer_args, speaker_sim_args)
-                args = (*prosody_args, wer_args, None)
-                aggregate_metrics[condition].update(*args)
-                dataset_metrics[condition].update(*args)
-                speaker_metrics[condition].update(*args)
-                file_metrics.update(*args)
+            # Get results for this file
+            results['objective']['raw'][key].append(
+                (file.stem, file_metrics()))
 
-                # Get results for this file
-                results['objective']['raw'][key].append(
-                    (file.stem, file_metrics()))
-
-        # Get results for this speaker
-        results['objective']['average'] = {
-            key: value() for key, value in speaker_metrics.items()}
+    # Get results for this speaker
+    results['objective']['average'] = {
+        key: value() for key, value in speaker_metrics.items()}
 
     # Get the total number of samples we have generated
     files = subjective_directory.glob(f'{dataset}-{index}-*.wav')
@@ -670,15 +660,12 @@ def speaker(
 
 def default_metrics():
     """Construct the default metrics dictionary for each condition"""
-
-    # Reconstruction metrics
     metrics = {'original-100': promonet.evaluate.Metrics()}
 
     if promonet.MODEL not in ['hifigan', 'vits']:
 
         # Prosody editing metrics
-        # for condition in ['scaled', 'shifted', 'stretched']:
-        for condition in ['shifted']:
+        for condition in ['scaled', 'shifted', 'stretched']:
             for ratio in promonet.EVALUATION_RATIOS:
                 metrics[f'{condition}-{int(ratio * 100):03d}'] = \
                     promonet.evaluate.Metrics()

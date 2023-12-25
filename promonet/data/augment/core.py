@@ -40,51 +40,45 @@ def from_files_to_files(audio_files, name):
     """Perform data augmentation on audio files"""
     torch.manual_seed(promonet.RANDOM_SEED)
 
-    # Pitch-shifting data augmentation
-    if promonet.AUGMENT_PITCH:
+    # Get augmentation ratios
+    ratios = sample(len(audio_files))
 
-        # Get augmentation ratios
-        ratios = sample(len(audio_files))
+    # Get locations to save output
+    output_files = [
+        file.parent /
+        f'{file.stem.split("-")[0]}-p{int(ratio * 100):03d}.wav'
+        for file, ratio in zip(audio_files, ratios)]
 
-        # Get locations to save output
-        output_files = [
-            file.parent /
-            f'{file.stem.split("-")[0]}-p{int(ratio * 100):03d}.wav'
-            for file, ratio in zip(audio_files, ratios)]
+    # Augment
+    promonet.data.augment.pitch.from_files_to_files(
+        audio_files,
+        output_files,
+        ratios)
 
-        # Augment
-        promonet.data.augment.pitch.from_files_to_files(
-            audio_files,
-            output_files,
-            ratios)
+    # Save augmentation ratios
+    save(promonet.AUGMENT_DIR / f'{name}-pitch.json', audio_files, ratios)
 
-        # Save augmentation ratios
-        save(promonet.AUGMENT_DIR / f'{name}-pitch.json', audio_files, ratios)
+    # Get augmentation ratios
+    ratios = sample(len(audio_files))
 
-    # Loudness-scaling data augmentation
-    if promonet.AUGMENT_LOUDNESS:
+    # Get locations to save output
+    output_files = [
+        file.parent /
+        f'{file.stem.split("-")[0]}-l{int(ratio * 100):03d}.wav'
+        for file, ratio in zip(audio_files, ratios)]
 
-        # Get augmentation ratios
-        ratios = sample(len(audio_files))
+    # Augment
+    # N.B. Ratios that cause clipping will be resampled
+    ratios = promonet.data.augment.loudness.from_files_to_files(
+        audio_files,
+        output_files,
+        ratios)
 
-        # Get locations to save output
-        output_files = [
-            file.parent /
-            f'{file.stem.split("-")[0]}-l{int(ratio * 100):03d}.wav'
-            for file, ratio in zip(audio_files, ratios)]
-
-        # Augment
-        # N.B. Ratios that cause clipping will be resampled
-        ratios = promonet.data.augment.loudness.from_files_to_files(
-            audio_files,
-            output_files,
-            ratios)
-
-        # Save augmentation ratios
-        save(
-            promonet.AUGMENT_DIR / f'{name}-loudness.json',
-            audio_files,
-            ratios)
+    # Save augmentation ratios
+    save(
+        promonet.AUGMENT_DIR / f'{name}-loudness.json',
+        audio_files,
+        ratios)
 
 
 ###############################################################################
