@@ -32,11 +32,18 @@ def from_file_to_file(audio_file, output_file, ratio):
 
 def from_files_to_files(audio_files, output_files, ratios):
     """Perform pitch-shifting data augmentation on audio files and save"""
-    def wrapper(item):
-        from_file_to_file(*item)
     torchutil.multiprocess_iterator(
         wrapper,
         zip(audio_files, output_files, ratios),
         'Augmenting pitch',
         total=len(audio_files),
         num_workers=promonet.NUM_WORKERS)
+
+
+###############################################################################
+# Utilities
+###############################################################################
+
+
+def wrapper(item):
+    from_file_to_file(*item)

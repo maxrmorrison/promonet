@@ -50,11 +50,18 @@ def from_file_to_file(audio_file, output_file, ratio):
 
 def from_files_to_files(audio_files, output_files, ratios):
     """Perform volume data augmentation on audio files and save"""
-    def wrapper(item):
-        from_file_to_file(*item)
     return torchutil.multiprocess_iterator(
         wrapper,
         zip(audio_files, output_files, ratios),
         'Augmenting loudness',
         total=len(audio_files),
         num_workers=promonet.NUM_WORKERS)
+
+
+###############################################################################
+# Loudness data augmentation
+###############################################################################
+
+
+def wrapper(item):
+    from_file_to_file(*item)
