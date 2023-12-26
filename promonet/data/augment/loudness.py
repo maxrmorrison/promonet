@@ -18,7 +18,7 @@ def from_audio(audio, sample_rate, ratio):
         promonet.convert.ratio_to_db(ratio))
 
     # Resample ratio if the audio clips
-    while (augmented >= -1. & augmented <= 1.).all():
+    while ((augmented <= -1.) | (augmented >= 1.)).any():
         ratio = promonet.data.augment.sample(1)[0]
         augmented = promonet.loudness.shift(
             audio,
@@ -64,4 +64,4 @@ def from_files_to_files(audio_files, output_files, ratios):
 
 
 def wrapper(item):
-    from_file_to_file(*item)
+    return from_file_to_file(*item)

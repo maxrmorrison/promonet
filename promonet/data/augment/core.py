@@ -106,4 +106,4 @@ def save(json_file, audio_files, ratios):
         key = f'{audio_file.parent.name}/{audio_file.stem.split("-")[0]}'
         ratio_dict[key] = f'{int(ratio * 100):03d}'
     with open(json_file, 'w') as file:
-        json.dump(ratios, file, indent=4)
+        json.dump(ratio_dict, file, indent=4)
