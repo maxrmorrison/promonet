@@ -137,11 +137,12 @@ def shift(audio, value):
     gain = promonet.convert.db_to_ratio(value)
 
     # Linearly interpolate to the audio resolution
-    gain = torch.nn.functional.interpolate(
-        gain[None],
-        size=audio.shape[1],
-        mode='linear',
-        align_corners=False)[0]
+    if isinstance(gain, torch.Tensor) and gain.numel() > 1:
+        gain = torch.nn.functional.interpolate(
+            gain[None],
+            size=audio.shape[1],
+            mode='linear',
+            align_corners=False)[0]
 
     # Scale
     return gain * audio
