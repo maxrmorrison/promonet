@@ -202,7 +202,11 @@ def generate(
     with torchutil.time.context('load'):
 
         # Cache model
-        if not hasattr(generate, 'model') or generate.device != device:
+        if (
+            not hasattr(generate, 'model') or
+            generate.checkpoint != checkpoint or
+            generate.device != device
+        ):
             model = promonet.model.Generator().to(device)
             if type(checkpoint) is str:
                 checkpoint = Path(checkpoint)
@@ -212,6 +216,7 @@ def generate(
                     'generator-*.pt')
             model, *_ = torchutil.checkpoint.load(checkpoint, model)
             generate.model = model
+            generate.checkpoint = checkpoint
             generate.device = device
 
     with torchutil.time.context('generate'):

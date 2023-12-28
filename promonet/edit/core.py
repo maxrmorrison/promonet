@@ -22,8 +22,12 @@ def from_features(
     time_stretch_ratio: Optional[float] = None,
     loudness_scale_db: Optional[float] = None,
     stretch_unvoiced: bool = True,
-    stretch_silence: bool = True
-) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+    stretch_silence: bool = True,
+    return_grid: bool = False
+) -> Union[
+    Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor],
+    Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]
+]:
     """Edit speech representation
 
     Arguments
@@ -36,6 +40,7 @@ def from_features(
         loudness_scale_db: Amount of loudness scaling in dB
         stretch_unvoiced: If true, applies time-stretching to unvoiced frames
         stretch_silence: If true, applies time-stretching to silent frames
+        return_grid: If true, also returns the time-stretch grid
 
     Returns
         edited_pitch, edited_periodicity, edited_loudness, edited_ppg
@@ -103,6 +108,8 @@ def from_features(
     if loudness_scale_db is not None:
         loudness += loudness_scale_db
 
+    if return_grid:
+        return pitch, periodicity, loudness, ppg, grid
     return pitch, periodicity, loudness, ppg
 
 
@@ -115,8 +122,12 @@ def from_file(
     time_stretch_ratio: Optional[float] = None,
     loudness_scale_db: Optional[float] = None,
     stretch_unvoiced: bool = True,
-    stretch_silence: bool = True
-) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+    stretch_silence: bool = True,
+    return_grid: bool = False
+) -> Union[
+    Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor],
+    Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]
+]:
     """Edit speech representation on disk
 
     Arguments
@@ -129,6 +140,7 @@ def from_file(
         loudness_scale_db: Amount of loudness scaling in dB
         stretch_unvoiced: If true, applies time-stretching to unvoiced frames
         stretch_silence: If true, applies time-stretching to silent frames
+        return_grid: If true, also returns the time-stretch grid
 
     Returns
         edited_pitch, edited_periodicity, edited_loudness, edited_ppg
@@ -142,7 +154,8 @@ def from_file(
         time_stretch_ratio,
         loudness_scale_db,
         stretch_unvoiced,
-        stretch_silence)
+        stretch_silence,
+        return_grid)
 
 
 def from_file_to_file(
@@ -155,7 +168,8 @@ def from_file_to_file(
     time_stretch_ratio: Optional[float] = None,
     loudness_scale_db: Optional[float] = None,
     stretch_unvoiced: bool = True,
-    stretch_silence: bool = True
+    stretch_silence: bool = True,
+    save_grid: bool = False
 ) -> None:
     """Edit speech representation on disk and save to disk
 
@@ -170,9 +184,10 @@ def from_file_to_file(
         loudness_scale_db: Amount of loudness scaling in dB
         stretch_unvoiced: If true, applies time-stretching to unvoiced frames
         stretch_silence: If true, applies time-stretching to silent frames
+        save_grid: If true, also saves the time-stretch grid
     """
     # Edit
-    pitch, periodicity, loudness, ppg = from_file(
+    results = from_file(
         pitch_file,
         periodicity_file,
         loudness_file,
@@ -181,13 +196,16 @@ def from_file_to_file(
         time_stretch_ratio,
         loudness_scale_db,
         stretch_unvoiced,
-        stretch_silence)
+        stretch_silence,
+        save_grid)
 
     # Save
-    torch.save(pitch, f'{output_prefix}-pitch.pt')
-    torch.save(periodicity, f'{output_prefix}-periodicity.pt')
-    torch.save(loudness, f'{output_prefix}-loudness.pt')
-    torch.save(ppg, f'{output_prefix}{ppgs.representation_file_extension()}')
+    torch.save(results[0], f'{output_prefix}-pitch.pt')
+    torch.save(results[1], f'{output_prefix}-periodicity.pt')
+    torch.save(results[2], f'{output_prefix}-loudness.pt')
+    torch.save(results[3], f'{output_prefix}{ppgs.representation_file_extension()}')
+    if save_grid:
+        torch.save(results[4], f'{output_prefix}-grid.pt')
 
 
 def from_files_to_files(
@@ -200,7 +218,8 @@ def from_files_to_files(
     time_stretch_ratio: Optional[float] = None,
     loudness_scale_db: Optional[float] = None,
     stretch_unvoiced: bool = True,
-    stretch_silence: bool = True
+    stretch_silence: bool = True,
+    save_grid: bool = False
 ) -> None:
     """Edit speech representations on disk and save to disk
 
@@ -215,6 +234,7 @@ def from_files_to_files(
         loudness_scale_db: Amount of loudness scaling in dB
         stretch_unvoiced: If true, applies time-stretching to unvoiced frames
         stretch_silence: If true, applies time-stretching to silent frames
+        save_grid: If true, also saves the time-stretch grid
     """
     for pitch_file, periodicity_file, loudness_file, ppg_file, prefix in zip(
         pitch_files,
@@ -233,4 +253,5 @@ def from_files_to_files(
             time_stretch_ratio,
             loudness_scale_db,
             stretch_unvoiced,
-            stretch_silence)
+            stretch_silence,
+            save_grid)

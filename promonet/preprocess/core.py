@@ -19,7 +19,10 @@ def from_audio(
     sample_rate: int = promonet.SAMPLE_RATE,
     gpu: Optional[int] = None,
     text: bool = False
-) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+) -> Union[
+    Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor],
+    Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, str]
+]:
     """Preprocess audio
 
     Arguments
@@ -56,22 +59,26 @@ def from_audio(
 
     # Infer transcript
     if text:
-        # text = promonet.preprocess.text.from_audio(audio, sample_rate, gpu=gpu)
-        # return pitch, periodicity, loudness, ppg, text
-        return pitch, periodicity, loudness, ppg, None
+        text = promonet.preprocess.text.from_audio(audio, sample_rate, gpu=gpu)
+        return pitch, periodicity, loudness, ppg, text
 
     return pitch, periodicity, loudness, ppg
 
 
 def from_file(
     file: Union[str, bytes, os.PathLike],
-    gpu: Optional[int] = None
-) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+    gpu: Optional[int] = None,
+    text: bool = False
+) -> Union[
+    Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor],
+    Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, str]
+]:
     """Preprocess audio on disk
 
     Arguments
         file: Audio file to preprocess
         gpu: The GPU index
+        text: Whether to perform ASR
 
     Returns
         pitch: The pitch contour
@@ -79,13 +86,14 @@ def from_file(
         loudness: The loudness contour
         ppg: The phonetic posteriorgram
     """
-    return from_audio(promonet.load.audio(file), gpu=gpu)
+    return from_audio(promonet.load.audio(file), gpu=gpu, text=text)
 
 
 def from_file_to_file(
     file: Union[str, bytes, os.PathLike],
     output_prefix: Optional[Union[str, os.PathLike]] = None,
-    gpu: Optional[int] = None
+    gpu: Optional[int] = None,
+    text: bool = False
 ) -> None:
     """Preprocess audio on disk and save
 
@@ -93,9 +101,10 @@ def from_file_to_file(
         file: Audio file to preprocess
         output_prefix: File to save features, minus extension
         gpu: The GPU index
+        text: Whether to perform ASR
     """
     # Preprocess
-    pitch, periodicity, loudness, ppg = from_file(file, gpu)
+    pitch, periodicity, loudness, ppg = from_file(file, gpu, text)
 
     # Save
     if output_prefix is None:
@@ -118,7 +127,7 @@ def from_files_to_files(
         files: Audio files to preprocess
         output_prefixes: Files to save features, minus extension
         gpu: The GPU index
-        text: Preprocess text using whisper
+        text: Whether to perform ASR
     """
     if output_prefixes is None:
         output_prefixes = [file.parent / file.stem for file in files]
@@ -148,3 +157,11 @@ def from_files_to_files(
     promonet.loudness.from_files_to_files(
         files,
         [f'{prefix}-loudness.pt' for prefix in output_prefixes])
+
+    # Infer transcript
+    if text:
+        promonet.preprocess.text.from_files_to_files(
+            files,
+            [f'{prefix}.txt' for prefix in output_prefixes],
+            gpu)
+
