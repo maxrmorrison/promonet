@@ -62,6 +62,10 @@ def parse_args():
         '--stretch_silence',
         action='store_true',
         help='If provided, applies time-stretching to silence frames')
+    parser.add_argument(
+        '--save_grid',
+        action='store_true',
+        help='If provided, also saves the time-stretch grid')
     return parser.parse_known_args()[0]
 
 
