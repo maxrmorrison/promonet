@@ -274,22 +274,29 @@ def train(
                 # Mel spectrogram loss
                 if promonet.MULTI_MEL_LOSS:
                     mel_loss = promonet.loss.multimel(audio, generated)
-                    generator_losses += promonet.MEL_LOSS_WEIGHT / len(promonet.MULTI_MEL_LOSS_WINDOWS) * mel_loss
+                    generator_losses += (
+                        promonet.MEL_LOSS_WEIGHT /
+                        len(promonet.MULTI_MEL_LOSS_WINDOWS) * mel_loss)
                 else:
-                    mel_loss = torch.nn.functional.l1_loss(mel_slices, generated_mels)
+                    mel_loss = torch.nn.functional.l1_loss(
+                        mel_slices,
+                        generated_mels)
                     generator_losses +=  promonet.MEL_LOSS_WEIGHT * mel_loss
 
                 # Get feature matching loss
                 feature_matching_loss = promonet.loss.feature_matching(
                     real_feature_maps,
                     fake_feature_maps)
-                generator_losses += promonet.FEATURE_MATCHING_LOSS_WEIGHT * feature_matching_loss
+                generator_losses += (
+                    promonet.FEATURE_MATCHING_LOSS_WEIGHT *
+                    feature_matching_loss)
 
                 # Get adversarial loss
                 adversarial_loss, adversarial_losses = \
                     promonet.loss.generator(
                         [logit.float() for logit in fake_logits])
-                generator_losses += promonet.ADVERSARIAL_LOSS_WEIGHT * adversarial_loss
+                generator_losses += \
+                    promonet.ADVERSARIAL_LOSS_WEIGHT * adversarial_loss
 
             # Zero gradients
             generator_optimizer.zero_grad()
@@ -400,7 +407,8 @@ def train(
 
             # Raise if GPU tempurature exceeds 80 C
             if any(gpu.temperature > 80. for gpu in GPUtil.getGPUs()):
-                raise RuntimeError(f'GPU is overheating. Terminating training.')
+                raise RuntimeError(
+                    f'GPU is overheating. Terminating training.')
 
             ###########
             # Updates #
@@ -464,7 +472,7 @@ def evaluate(directory, step, generator, loader, gpu, evaluation_steps=None):
 
         # Unpack
         (
-            text,
+            _,
             phonemes,
             pitch,
             periodicity,
@@ -477,7 +485,6 @@ def evaluate(directory, step, generator, loader, gpu, evaluation_steps=None):
             audio,
             _
         ) = batch
-        text = text[0]
 
         # Copy to device
         (
@@ -534,9 +541,8 @@ def evaluate(directory, step, generator, loader, gpu, evaluation_steps=None):
             predicted_pitch,
             predicted_periodicity,
             predicted_loudness,
-            predicted_phonemes,
-            predicted_text
-        ) = promonet.preprocess.from_audio(generated[0], gpu=gpu, text=True)
+            predicted_phonemes
+        ) = promonet.preprocess.from_audio(generated[0], gpu=gpu)
 
         # Plot target and generated prosody
         if i < promonet.PLOT_EXAMPLES:
@@ -560,8 +566,7 @@ def evaluate(directory, step, generator, loader, gpu, evaluation_steps=None):
             predicted_pitch,
             predicted_periodicity,
             predicted_loudness,
-            predicted_phonemes,
-            (text, predicted_text))
+            predicted_phonemes)
 
         ##################
         # Pitch shifting #
@@ -587,9 +592,8 @@ def evaluate(directory, step, generator, loader, gpu, evaluation_steps=None):
                     predicted_pitch,
                     predicted_periodicity,
                     predicted_loudness,
-                    predicted_phonemes,
-                    predicted_text
-                ) = promonet.preprocess.from_audio(shifted[0], gpu=gpu, text=True)
+                    predicted_phonemes
+                ) = promonet.preprocess.from_audio(shifted[0], gpu=gpu)
 
                 # Log pitch-shifted audio
                 key = f'shifted-{int(100 * ratio):03d}/{i:02d}'
@@ -617,8 +621,7 @@ def evaluate(directory, step, generator, loader, gpu, evaluation_steps=None):
                     predicted_pitch,
                     predicted_periodicity,
                     predicted_loudness,
-                    predicted_phonemes,
-                    (text, predicted_text))
+                    predicted_phonemes)
 
         ###################
         # Time stretching #
@@ -660,9 +663,8 @@ def evaluate(directory, step, generator, loader, gpu, evaluation_steps=None):
                     predicted_pitch,
                     predicted_periodicity,
                     predicted_loudness,
-                    predicted_phonemes,
-                    predicted_text
-                ) = promonet.preprocess.from_audio(stretched[0], gpu=gpu, text=True)
+                    predicted_phonemes
+                ) = promonet.preprocess.from_audio(stretched[0], gpu=gpu)
 
                 # Log time-stretched audio
                 key = f'stretched-{int(ratio * 100):03d}/{i:02d}'
@@ -690,8 +692,7 @@ def evaluate(directory, step, generator, loader, gpu, evaluation_steps=None):
                     predicted_pitch,
                     predicted_periodicity,
                     predicted_loudness,
-                    predicted_phonemes,
-                    (text, predicted_text))
+                    predicted_phonemes)
 
         ####################
         # Loudness scaling #
@@ -718,9 +719,8 @@ def evaluate(directory, step, generator, loader, gpu, evaluation_steps=None):
                     predicted_pitch,
                     predicted_periodicity,
                     predicted_loudness,
-                    predicted_phonemes,
-                    predicted_text
-                ) = promonet.preprocess.from_audio(scaled[0], gpu=gpu, text=True)
+                    predicted_phonemes
+                ) = promonet.preprocess.from_audio(scaled[0], gpu=gpu)
 
                 # Log loudness-scaled audio
                 key = f'scaled-{int(ratio * 100):03d}/{i:02d}'
@@ -748,8 +748,7 @@ def evaluate(directory, step, generator, loader, gpu, evaluation_steps=None):
                     predicted_pitch,
                     predicted_periodicity,
                     predicted_loudness,
-                    predicted_phonemes,
-                    (text, predicted_text))
+                    predicted_phonemes)
 
         # Stop when we exceed some number of batches
         if evaluation_steps is not None and i + 1 == evaluation_steps:

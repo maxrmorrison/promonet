@@ -9,15 +9,18 @@ from parselmouth import Data, praat
 import promonet
 
 
+###############################################################################
+# PSOLA speech editing
+###############################################################################
+
+
 def from_audio(
     audio,
     sample_rate=promonet.SAMPLE_RATE,
-    text=None,
     grid=None,
-    target_loudness=None,
-    target_pitch=None,
-    checkpoint=promonet.DEFAULT_CHECKPOINT,
-    gpu=None):
+    loudness=None,
+    pitch=None
+):
     """Performs pitch vocoding using Praat"""
     audio = audio.squeeze().numpy()
 
@@ -29,17 +32,15 @@ def from_audio(
             audio = time_stretch(audio, sample_rate, grid, tmpdir)
 
         # Pitch-shift
-        if target_pitch is not None:
+        if pitch is not None:
 
             # Maybe stretch pitch
             if grid is not None:
-                target_pitch = 2 ** promonet.edit.grid.sample(
-                    torch.log2(target_pitch),
-                    grid)
+                pitch = 2 ** promonet.edit.grid.sample(torch.log2(pitch), grid)
 
             audio = psola.core.pitch_shift(
                 audio,
-                target_pitch.squeeze().numpy(),
+                pitch.squeeze().numpy(),
                 promonet.FMIN,
                 promonet.FMAX,
                 sample_rate,
@@ -49,10 +50,60 @@ def from_audio(
         audio = torch.from_numpy(audio)[None].to(torch.float32)
 
         # Scale loudness
-        if target_loudness is not None:
-            audio = promonet.loudness.scale(audio, target_loudness)
+        if loudness is not None:
+            audio = promonet.loudness.scale(audio, loudness)
 
         return audio
+
+
+def from_file(audio_file, grid_file=None, loudness_file=None, pitch_file=None):
+    """Perform World vocoding on an audio file"""
+    audio = promonet.load.audio(audio_file)
+    return from_audio(
+        audio,
+        promonet.SAMPLE_RATE,
+        grid_file,
+        loudness_file,
+        pitch_file)
+
+
+def from_file_to_file(
+    audio_file,
+    output_file,
+    grid_file=None,
+    loudness_file=None,
+    pitch_file=None
+):
+    """Perform World vocoding on an audio file and save"""
+    vocoded = from_file(audio_file, grid_file, loudness_file, pitch_file)
+    torch.save(vocoded, output_file)
+
+
+def from_files_to_files(
+    audio_files,
+    output_files,
+    grid_files=None,
+    loudness_files=None,
+    pitch_files=None
+):
+    """Perform World vocoding on multiple files and save"""
+    torchutil.multiprocess_iterator(
+        wrapper,
+        zip(
+            audio_files,
+            output_files,
+            grid_files,
+            loudness_files,
+            pitch_files
+        ),
+        'psola',
+        total=len(audio_files),
+        num_workers=promonet.NUM_WORKERS)
+
+
+###############################################################################
+# Utilities
+###############################################################################
 
 
 def time_stretch(audio, sample_rate, grid, tmpdir):
@@ -100,3 +151,8 @@ def time_stretch(audio, sample_rate, grid, tmpdir):
         "Get resynthesis (overlap-add)").values[0]
 
     return stretched[:promonet.convert.frames_to_samples(len(rates))]
+
+
+def wrapper(item):
+    """Multiprocessing wrapper"""
+    return from_file_to_file(*item)
