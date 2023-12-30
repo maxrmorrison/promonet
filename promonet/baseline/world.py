@@ -7,7 +7,7 @@ import promonet
 
 
 ###############################################################################
-# WORLD constants
+# Constants
 ###############################################################################
 
 
@@ -15,19 +15,17 @@ ALLOWED_RANGE = .8
 
 
 ###############################################################################
-# Pitch-shifting and time-stretching with WORLD
+# World speech editing
 ###############################################################################
 
 
 def from_audio(
     audio,
     sample_rate=promonet.SAMPLE_RATE,
-    text=None,
     grid=None,
-    target_loudness=None,
-    target_pitch=None,
-    checkpoint=None,
-    gpu=None):
+    loudness=None,
+    pitch=None
+):
     # Maybe resample
     if sample_rate != promonet.SAMPLE_RATE:
         resampler = torch.transforms.Resample(
@@ -45,9 +43,9 @@ def from_audio(
             pitch, spectrogram, aperiodicity, grid.numpy())
 
     # Maybe pitch-shift
-    if target_pitch is not None:
-        pitch = target_pitch.squeeze().numpy().astype(np.float64)
-        # pitch[pitch != 0.] = target_pitch[pitch != 0.]
+    if pitch is not None:
+        pitch = pitch.squeeze().numpy().astype(np.float64)
+        # pitch[pitch != 0.] = pitch[pitch != 0.]
 
     # Synthesize using modified parameters
     vocoded = pyworld.synthesize(
@@ -61,8 +59,8 @@ def from_audio(
     vocoded = torch.from_numpy(vocoded)[None]
 
     # Maybe scale loudness
-    if target_loudness is not None:
-        vocoded = promonet.loudness.scale(vocoded, target_loudness)
+    if loudness is not None:
+        vocoded = promonet.loudness.scale(vocoded, loudness)
 
     # Ensure correct length
     length = promonet.convert.frames_to_samples(len(pitch))
@@ -75,8 +73,53 @@ def from_audio(
     return vocoded.to(torch.float32)
 
 
+def from_file(audio_file, grid_file=None, loudness_file=None, pitch_file=None):
+    """Perform World vocoding on an audio file"""
+    audio = promonet.load.audio(audio_file)
+    return from_audio(
+        audio,
+        promonet.SAMPLE_RATE,
+        grid_file,
+        loudness_file,
+        pitch_file)
+
+
+def from_file_to_file(
+    audio_file,
+    output_file,
+    grid_file=None,
+    loudness_file=None,
+    pitch_file=None
+):
+    """Perform World vocoding on an audio file and save"""
+    vocoded = from_file(audio_file, grid_file, loudness_file, pitch_file)
+    torch.save(vocoded, output_file)
+
+
+def from_files_to_files(
+    audio_files,
+    output_files,
+    grid_files=None,
+    loudness_files=None,
+    pitch_files=None
+):
+    """Perform World vocoding on multiple files and save"""
+    torchutil.multiprocess_iterator(
+        wrapper,
+        zip(
+            audio_files,
+            output_files,
+            grid_files,
+            loudness_files,
+            pitch_files
+        ),
+        'world',
+        total=len(audio_files),
+        num_workers=promonet.NUM_WORKERS)
+
+
 ###############################################################################
-# Vocoding utilities
+# Utilities
 ###############################################################################
 
 
@@ -189,3 +232,8 @@ def linear_time_stretch_pitch(pitch, prev_grid, grid, next_frames):
     pitch[unvoiced > .5] = 0.
 
     return pitch
+
+
+def wrapper(item):
+    """Multiprocessing wrapper"""
+    return from_file_to_file(*item)

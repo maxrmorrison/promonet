@@ -5,7 +5,6 @@ import ppgs
 import torch
 import torchutil
 import whisper
-from whisper.normalizers import EnglishTextNormalizer
 
 import promonet
 
@@ -77,11 +76,6 @@ class Metrics:
         self.speaker_sim.reset()
 
 
-###############################################################################
-# Prosody metrics
-###############################################################################
-
-
 class Pitch(torchutil.metrics.L1):
     """Evaluates differences in voiced pitch via average error in cents"""
 
@@ -131,11 +125,6 @@ class Pitch(torchutil.metrics.L1):
         super().update(torch.log2(predicted), torch.log2(target))
 
 
-###############################################################################
-# PPG distance metric
-###############################################################################
-
-
 class PPG(torchutil.metrics.Average):
     """PPG distance"""
 
@@ -153,54 +142,12 @@ class PPG(torchutil.metrics.Average):
             predicted.shape[-1])
 
 
-###############################################################################
-# Word error rate metric
-###############################################################################
-
-
 class WER(torchutil.metrics.Average):
     """Word error rate"""
-    def update(self, normalized_text, text_from_speech):
+    def update(self, predicted, target):
         with torchutil.time.context('jiwer'):
-            wer = jiwer.wer(normalized_text, text_from_speech)
+            wer = jiwer.wer(target, predicted)
             super().update(torch.tensor(wer), 1)
-
-
-def speech_to_text(audio):
-    """Perform speech-to-text using Whisper"""
-    # Cache Whisper model
-    if (
-        not hasattr(speech_to_text, 'model') or
-        speech_to_text.device != audio.device
-    ):
-        model = whisper.load_model('base.en', device=audio.device)
-        speech_to_text.model = model
-        speech_to_text.device = audio.device
-
-    # Resample audio tensor
-    transcribe_input = promonet.resample(
-        audio.squeeze(),
-        promonet.SAMPLE_RATE,
-        16000)
-
-    # Infer text
-    text = speech_to_text.model.transcribe(transcribe_input)['text']
-
-    # Normalize
-    return normalize_text(text)
-
-
-def normalize_text(text):
-    """Formats text to only words for use in WER"""
-    if not hasattr(normalize_text, 'normalizer'):
-        normalizer = EnglishTextNormalizer()
-        normalize_text.normalizer = normalizer
-    return normalize_text.normalizer(text)
-
-
-###############################################################################
-# Speaker similarity metric
-###############################################################################
 
 
 class SpeakerSimilarity(torchutil.metrics.Average):
