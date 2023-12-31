@@ -1,7 +1,7 @@
 MODULE = 'promonet'
 
 # Configuration name
-CONFIG = 'mel-ppg'
+CONFIG = 'mel'
 
 # Whether to perform speaker adaptation (instead of multi-speaker)
 ADAPTATION = False
@@ -12,4 +12,5 @@ INPUT_FEATURES = ['pitch', 'ppg']
 # Number of training steps
 NUM_STEPS = 500000
 
-EVALUATION_RATIOS = [0.891, 1.122]
+# Evaluation ratios for pitch-shifting, time-stretching, and loudness-scaling
+EVALUATION_RATIOS = [.891, 1.12]

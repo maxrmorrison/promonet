@@ -108,9 +108,6 @@ SPARSE_PPG_METHOD = None
 # In [0, 1] for 'contant' and 'percentile'; integer > 0 for 'topk'.
 SPARSE_PPG_THRESHOLD = 0.8
 
-# Number of top bins to take in ppg sparsification
-SPARSE_PPG_THRESHOLD = 3
-
 # Seed for all random number generators
 RANDOM_SEED = 1234
 

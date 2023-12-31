@@ -15,4 +15,5 @@ NUM_STEPS = 500000
 # Number of channels in the phonetic posteriorgram features
 PPG_CHANNELS = 144
 
-EVALUATION_RATIOS = [0.891, 1.122]
+# Evaluation ratios for pitch-shifting, time-stretching, and loudness-scaling
+EVALUATION_RATIOS = [.891, 1.12]
