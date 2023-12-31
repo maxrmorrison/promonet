@@ -269,10 +269,6 @@ RESBLOCK_KERNEL_SIZES = [3, 7, 11]
 # Dilation rates of residual block
 RESBLOCK_DILATION_SIZES = [[1, 3, 5], [1, 3, 5], [1, 3, 5]]
 
-# Whether to use snake activation in the audio generator
-# TODO
-SNAKE = False
-
 # Speaker embedding size
 SPEAKER_CHANNELS = 256
 
@@ -326,7 +322,6 @@ ADAPTATION_STEPS = 10000
 NUM_WORKERS = 8
 
 # Training optimizer
-# TODO
 OPTIMIZER = functools.partial(
     torch.optim.AdamW,
     lr=2e-4,

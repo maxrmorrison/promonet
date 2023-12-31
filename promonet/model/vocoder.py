@@ -112,8 +112,6 @@ class HiFiGAN(torch.nn.Module):
 
             # Activations
             self.activations.append(
-                promonet.model.Snake(input_channels)
-                if promonet.SNAKE else
                 torch.nn.LeakyReLU(promonet.LRELU_SLOPE))
 
             # Upsampling layer
@@ -135,8 +133,6 @@ class HiFiGAN(torch.nn.Module):
 
         # Final activation
         self.activations.append(
-            promonet.model.Snake(output_channels)
-            if promonet.SNAKE else
             torch.nn.LeakyReLU(promonet.LRELU_SLOPE))
 
         # Final conv
@@ -225,14 +221,9 @@ class Block(torch.nn.Module):
         self.convs2.apply(init_weights)
 
         # Activations
-        if promonet.SNAKE:
-            activation_fn = functools.partial(
-                promonet.model.Snake,
-                channels)
-        else:
-            activation_fn = functools.partial(
-                torch.nn.LeakyReLU,
-                negative_slope=promonet.LRELU_SLOPE)
+        activation_fn = functools.partial(
+            torch.nn.LeakyReLU,
+            negative_slope=promonet.LRELU_SLOPE)
         self.activations1 = torch.nn.ModuleList([
             activation_fn(),
             activation_fn(),

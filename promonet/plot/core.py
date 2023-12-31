@@ -132,8 +132,6 @@ def from_features(
         axes[i].set_axis_off()
         i += 1
 
-    # TODO - plot PPG
-
     return figure
 
 
