@@ -130,7 +130,7 @@ def train(
                 loudness,
                 lengths,
                 speakers,
-                pitch_ratios,
+                formant_ratios,
                 loudness_ratios,
                 spectrograms,
                 audio,
@@ -150,7 +150,7 @@ def train(
                 loudness,
                 lengths,
                 speakers,
-                pitch_ratios,
+                formant_ratios,
                 loudness_ratios,
                 spectrograms,
                 audio
@@ -163,7 +163,7 @@ def train(
                     loudness,
                     lengths,
                     speakers,
-                    pitch_ratios,
+                    formant_ratios,
                     loudness_ratios,
                     spectrograms,
                     audio
@@ -178,7 +178,7 @@ def train(
                 loudness,
                 lengths,
                 speakers,
-                pitch_ratios,
+                formant_ratios,
                 loudness_ratios,
                 spectrograms)
 
@@ -367,7 +367,7 @@ def train(
                 torchutil.tensorboard.update(directory, step, scalars=scalars)
 
                 # Evaluate on validation data
-                with promonet.generation_context(generator):
+                with torchutil.inference.context(generator):
                     evaluation_steps = (
                         None if step == steps
                         else promonet.DEFAULT_EVALUATION_STEPS)

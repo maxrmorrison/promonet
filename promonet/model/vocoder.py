@@ -61,8 +61,8 @@ class Vocos(torch.nn.Module):
         # Speaker conditioning
         if g is not None:
             g = self.cond(g)
-        if not promonet.FILM_CONDITIONING:
-            x += g
+            if not promonet.FILM_CONDITIONING:
+                x += g
 
         # Infer complex STFT
         if promonet.VOCOS_ARCHITECTURE == 'convnext':

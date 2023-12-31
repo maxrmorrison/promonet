@@ -147,8 +147,18 @@ alvin = promonet.synthesize.from_features(
     checkpoint=checkpoint,
     gpu=gpu)
 
-# TODO - pronunciation editing
+# Edit perceptual loudness (> 1 for louder; < 1 quieter)
+louder = promonet.synthesize.from_features(
+    pitch,
+    periodicity,
+    loudness,
+    ppg,
+    loudness_ratio=ratio,
+    checkpoint=checkpoint,
+    gpu=gpu)
 ```
+
+See the [`ppgs.edit`](https://github.com/interactiveaudiolab/ppgs#ppgsedit) submodule documentation for the pronunciation (PPG) editing API.
 
 
 ## Application programming interface (API)

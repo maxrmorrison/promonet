@@ -21,6 +21,7 @@ def from_features(
     ppg: torch.Tensor,
     speaker: Optional[Union[int, torch.Tensor]] = 0,
     formant_ratio: float = 1.,
+    loudness_ratio: float = 1.,
     checkpoint: Union[str, os.PathLike] = promonet.DEFAULT_CHECKPOINT,
     gpu: Optional[int] = None
 ) -> torch.Tensor:
@@ -33,6 +34,7 @@ def from_features(
         ppg: The phonetic posteriorgram
         speaker: The speaker index
         formant_ratio: > 1 for Alvin and the Chipmunks; < 1 for Patrick Star
+        loudness_ratio: > 1 for louder; < 1 for quieter
         checkpoint: The generator checkpoint
         gpu: The GPU index
 
@@ -47,6 +49,7 @@ def from_features(
         ppg.to(device),
         speaker,
         formant_ratio,
+        loudness_ratio,
         checkpoint)
 
 
@@ -57,6 +60,7 @@ def from_file(
     ppg_file: Union[str, os.PathLike],
     speaker: Optional[Union[int, torch.Tensor]] = 0,
     formant_ratio: float = 1.,
+    loudness_ratio: float = 1.,
     checkpoint: Union[str, os.PathLike] = promonet.DEFAULT_CHECKPOINT,
     gpu: Optional[int] = None
 ) -> torch.Tensor:
@@ -69,6 +73,7 @@ def from_file(
         ppg_file: The phonetic posteriorgram file
         speaker: The speaker index
         formant_ratio: > 1 for Alvin and the Chipmunks; < 1 for Patrick Star
+        loudness_ratio: > 1 for louder; < 1 for quieter
         checkpoint: The generator checkpoint
         gpu: The GPU index
 
@@ -78,23 +83,20 @@ def from_file(
     device = torch.device('cpu' if gpu is None else f'cuda:{gpu}')
 
     # Load features
-    pitch = torch.load(pitch_file, map_location=device)
-    periodicity = torch.load(periodicity_file, map_location=device)
-    loudness = torch.load(loudness_file, map_location=device)
-    ppg = promonet.load.ppg(
-        ppg_file,
-        resample_length=pitch.shape[-1],
-        device=device
-    )[None]
+    pitch = torch.load(pitch_file)
+    periodicity = torch.load(periodicity_file)
+    loudness = torch.load(loudness_file)
+    ppg = promonet.load.ppg(ppg_file, resample_length=pitch.shape[-1])[None]
 
     # Generate
     return from_features(
-        pitch,
-        periodicity,
-        loudness,
-        ppg,
+        pitch.to(device),
+        periodicity.to(device),
+        loudness.to(device),
+        ppg.to(device),
         speaker,
         formant_ratio,
+        loudness_ratio,
         checkpoint,
         gpu)
 
@@ -107,6 +109,7 @@ def from_file_to_file(
     output_file: Union[str, os.PathLike],
     speaker: Optional[Union[int, torch.Tensor]] = 0,
     formant_ratio: float = 1.,
+    loudness_ratio: float = 1.,
     checkpoint: Union[str, os.PathLike] = promonet.DEFAULT_CHECKPOINT,
     gpu: Optional[int] = None
 ) -> None:
@@ -120,6 +123,7 @@ def from_file_to_file(
         output_file: The file to save generated speech audio
         speaker: The speaker index
         formant_ratio: > 1 for Alvin and the Chipmunks; < 1 for Patrick Star
+        loudness_ratio: > 1 for louder; < 1 for quieter
         checkpoint: The generator checkpoint
         gpu: The GPU index
     """
@@ -131,9 +135,10 @@ def from_file_to_file(
         ppg_file,
         speaker,
         formant_ratio,
+        loudness_ratio,
         checkpoint,
         gpu
-    ).to(device='cpu', dtype=torch.float32)
+    ).to('cpu')
 
     # Save
     output_file.parent.mkdir(exist_ok=True, parents=True)
@@ -148,6 +153,7 @@ def from_files_to_files(
     output_files: List[Union[str, os.PathLike]],
     speakers: Optional[Union[List[int], torch.Tensor]] = None,
     formant_ratio: float = 1.,
+    loudness_ratio: float = 1.,
     checkpoint: Union[str, os.PathLike] = promonet.DEFAULT_CHECKPOINT,
     gpu: Optional[int] = None
 ) -> None:
@@ -161,6 +167,7 @@ def from_files_to_files(
         output_files: The files to save generated speech audio
         speakers: The speaker indices
         formant_ratio: > 1 for Alvin and the Chipmunks; < 1 for Patrick Star
+        loudness_ratio: > 1 for louder; < 1 for quieter
         checkpoint: The generator checkpoint
         gpu: The GPU index
     """
@@ -179,6 +186,7 @@ def from_files_to_files(
         from_file_to_file(
             *item,
             formant_ratio=formant_ratio,
+            loudness_ratio=loudness_ratio,
             checkpoint=checkpoint,
             gpu=gpu)
 
@@ -195,7 +203,9 @@ def generate(
     ppg,
     speaker=0,
     formant_ratio: float = 1.,
-    checkpoint=promonet.DEFAULT_CHECKPOINT):
+    loudness_ratio: float = 1.,
+    checkpoint=promonet.DEFAULT_CHECKPOINT
+) -> torch.Tensor:
     """Generate speech from phoneme and prosody features"""
     device = pitch.device
 
@@ -230,14 +240,20 @@ def generate(
         # Specify speaker
         speakers = torch.full((1,), speaker, dtype=torch.long, device=device)
 
-        # Format formant ratio
+        # Format ratio
         formant_ratio = torch.tensor(
             [formant_ratio],
             dtype=torch.float,
             device=device)
 
+        # Loudness ratio
+        loudness_ratio = torch.tensor(
+            [loudness_ratio],
+            dtype=torch.float,
+            device=device)
+
         # Generate
-        with promonet.generation_context(generate.model):
+        with torchutil.inference.context(generate.model):
             return generate.model(
                 ppg,
                 pitch,
@@ -245,4 +261,6 @@ def generate(
                 loudness,
                 lengths,
                 speakers,
-                formant_ratio)[0][0].cpu()
+                formant_ratio,
+                loudness_ratio
+            )[0]

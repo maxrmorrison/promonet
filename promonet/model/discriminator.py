@@ -68,8 +68,9 @@ class DiscriminatorP(torch.nn.Module):
         periodicity=None,
         loudness=None,
         phonemes=None):
-        # Pitch conditioning
         if promonet.CONDITION_DISCRIM:
+
+            # Pitch conditioning
             pitch = torch.nn.functional.interpolate(
                 torch.log2(pitch)[:, None],
                 scale_factor=promonet.HOPSIZE,
@@ -77,8 +78,7 @@ class DiscriminatorP(torch.nn.Module):
                 align_corners=False)
             x = torch.cat((x, pitch), dim=1)
 
-        # Periodicity conditioning
-        if promonet.CONDITION_DISCRIM:
+            # Periodicity conditioning
             periodicity = torch.nn.functional.interpolate(
                 periodicity[:, None],
                 scale_factor=promonet.HOPSIZE,
@@ -86,8 +86,7 @@ class DiscriminatorP(torch.nn.Module):
                 align_corners=False)
             x = torch.cat((x, periodicity), dim=1)
 
-        # Maybe add loudness conditioning
-        if promonet.CONDITION_DISCRIM:
+            # Loudness conditioning
             loudness = promonet.loudness.normalize(loudness)
             loudness = torch.nn.functional.interpolate(
                 loudness[:, None],
@@ -96,8 +95,7 @@ class DiscriminatorP(torch.nn.Module):
                 align_corners=False)
             x = torch.cat((x, loudness), dim=1)
 
-        # Ppg conditioning
-        if promonet.CONDITION_DISCRIM:
+            # Ppg conditioning
             phonemes = torch.nn.functional.interpolate(
                 phonemes,
                 scale_factor=promonet.HOPSIZE,
@@ -156,36 +154,17 @@ class DiscriminatorR(torch.nn.Module):
         if promonet.CONDITION_DISCRIM:
 
             # Pitch conditioning
-            pitch = torch.nn.functional.interpolate(
-                torch.log2(pitch)[:, None],
-                size=features.shape[-1],
-                mode='linear',
-                align_corners=False)
-            features = torch.cat((features, pitch[:, None]), dim=2)
+            features = torch.cat((features, torch.log2(pitch)[:, None]), dim=2)
 
             # Periodicity conditioning
-            periodicity = torch.nn.functional.interpolate(
-                periodicity[:, None],
-                size=features.shape[-1],
-                mode='linear',
-                align_corners=False)
             features = torch.cat((features, periodicity[:, None]), dim=2)
 
             # Loudness conditioning
-            loudness = promonet.loudness.normalize(loudness)
-            loudness = torch.nn.functional.interpolate(
-                loudness[:, None],
-                size=features.shape[-1],
-                mode='linear',
-                align_corners=False)
-            features = torch.cat((features, loudness[:, None]), dim=2)
+            features = torch.cat(
+                (features, promonet.loudness.normalize(loudness)[:, None]),
+                dim=2)
 
             # Phoneme conditioning
-            phonemes = torch.nn.functional.interpolate(
-                phonemes,
-                size=features.shape[-1],
-                mode='linear',
-                align_corners=False)
             features = torch.cat((features, phonemes[:, None]), dim=2)
 
         # Forward pass and save activations
@@ -295,36 +274,15 @@ class DiscriminatorCMB(torch.nn.Module):
         if promonet.CONDITION_DISCRIM:
 
             # Pitch conditioning
-            pitch = torch.nn.functional.interpolate(
-                torch.log2(pitch)[:, None],
-                scale_factor=promonet.HOPSIZE,
-                mode='linear',
-                align_corners=False)
-            x = torch.cat((x, pitch), dim=1)
+            x = torch.cat((x, torch.log2(pitch)), dim=1)
 
             # Periodicity conditioning
-            periodicity = torch.nn.functional.interpolate(
-                periodicity[:, None],
-                scale_factor=promonet.HOPSIZE,
-                mode='linear',
-                align_corners=False)
             x = torch.cat((x, periodicity), dim=1)
 
             # Loudness conditioning
-            loudness = promonet.loudness.normalize(loudness)
-            loudness = torch.nn.functional.interpolate(
-                loudness[:, None],
-                scale_factor=promonet.HOPSIZE,
-                mode='linear',
-                align_corners=False)
-            x = torch.cat((x, loudness), dim=1)
+            x = torch.cat((x, promonet.loudness.normalize(loudness)), dim=1)
 
             # Phoneme conditioning
-            phonemes = torch.nn.functional.interpolate(
-                phonemes,
-                scale_factor=promonet.HOPSIZE,
-                mode='linear',
-                align_corners=False)
             x = torch.cat((x, phonemes), dim=1)
 
         x = torch.cat(x, dim=-1)

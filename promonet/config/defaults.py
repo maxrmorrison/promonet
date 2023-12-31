@@ -75,7 +75,6 @@ AUGMENTATION_RATIO_MAX = 2.
 AUGMENTATION_RATIO_MIN = .5
 
 # Condition discriminators on speech representation
-# TODO
 CONDITION_DISCRIM = False
 
 # Names of all datasets
@@ -158,6 +157,9 @@ RUNS_DIR = ROOT_DIR / 'runs'
 # Evaluation parameters
 ###############################################################################
 
+
+# Features to plot
+DEFAULT_PLOT_FEATURES = ['audio', 'loudness', 'pitch', 'periodicity', 'ppg']
 
 # Error threshold beyond which a frame of loudness is considered incorrect
 ERROR_THRESHOLD_LOUDNESS = 6.  # decibels
