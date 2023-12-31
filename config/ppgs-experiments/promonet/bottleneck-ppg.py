@@ -1,7 +1,7 @@
 MODULE = 'promonet'
 
 # Configuration name
-CONFIG = 'encodec-latents'
+CONFIG = 'bottleneck-ppg'
 
 # Whether to perform speaker adaptation (instead of multi-speaker)
 ADAPTATION = False
@@ -10,9 +10,6 @@ ADAPTATION = False
 INPUT_FEATURES = ['pitch', 'ppg']
 
 # Number of training steps
-NUM_STEPS = 250000
-
-# Number of channels in the phonetic posteriorgram features
-PPG_CHANNELS = 128
+NUM_STEPS = 500000
 
 EVALUATION_RATIOS = [0.891, 1.122]
