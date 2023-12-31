@@ -47,7 +47,7 @@ class Metrics:
         target_periodicity,
         target_loudness,
         target_ppg,
-        wer_args,
+        wer_args=None,
         speaker_sim_args=None):
         self.loudness.update(predicted_loudness, target_loudness)
         with torchutil.time.context('update-periodicity'):
@@ -61,7 +61,7 @@ class Metrics:
         with torchutil.time.context('update-ppg'):
             for ppg_metric in self.ppg:
                 ppg_metric.update(predicted_ppg, target_ppg)
-        if None not in wer_args:
+        if wer_args:
             self.wer.update(*wer_args)
         if speaker_sim_args:
             self.speaker_sim.update(*speaker_sim_args)

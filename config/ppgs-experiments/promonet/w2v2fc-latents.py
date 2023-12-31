@@ -10,7 +10,7 @@ ADAPTATION = False
 INPUT_FEATURES = ['pitch', 'ppg']
 
 # Number of training steps
-NUM_STEPS = 250000
+NUM_STEPS = 500000
 
 # Number of channels in the phonetic posteriorgram features
 PPG_CHANNELS = 768
