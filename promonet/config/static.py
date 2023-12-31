@@ -29,15 +29,6 @@ DEFAULT_CHECKPOINT = promonet.ASSETS_DIR / 'checkpoints'
 
 
 ###############################################################################
-# Evaluation parameters
-###############################################################################
-
-
-# Features to plot
-DEFAULT_PLOT_FEATURES = ['audio'] + promonet.INPUT_FEATURES
-
-
-###############################################################################
 # Model parameters
 ###############################################################################
 
@@ -49,7 +40,7 @@ GLOBAL_CHANNELS = (
     promonet.AUGMENT_LOUDNESS)
 
 # Number of input features to the generator
-NUM_FEATURES = (
+NUM_FEATURES = promonet.NUM_MELS if promonet.SPECTROGRAM_ONLY else (
     promonet.PPG_CHANNELS +
     ('loudness' in promonet.INPUT_FEATURES) +
     ('periodicity' in promonet.INPUT_FEATURES) +

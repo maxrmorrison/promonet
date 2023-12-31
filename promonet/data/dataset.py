@@ -47,12 +47,12 @@ class Dataset(torch.utils.data.Dataset):
         # Data augmentation ratios
         augmentation = stem[-4:]
         if augmentation.startswith('-'):
-            pitch_ratio, loudness_ratio = 1., 1.
+            formant_ratio, loudness_ratio = 1., 1.
         elif augmentation.startswith('p'):
-            pitch_ratio = int(stem[-3:]) / 100.
+            formant_ratio = int(stem[-3:]) / 100.
             loudness_ratio = 1.
         elif augmentation.startswith('l'):
-            pitch_ratio = 1.
+            formant_ratio = 1.
             loudness_ratio = int(stem[-3:]) / 100.
         else:
             raise ValueError(
@@ -67,7 +67,7 @@ class Dataset(torch.utils.data.Dataset):
             spectrogram,
             audio,
             torch.tensor(speaker, dtype=torch.long),
-            pitch_ratio,
+            formant_ratio,
             loudness_ratio,
             stem)
 

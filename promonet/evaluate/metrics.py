@@ -50,17 +50,14 @@ class Metrics:
         wer_args=None,
         speaker_sim_args=None):
         self.loudness.update(predicted_loudness, target_loudness)
-        with torchutil.time.context('update-periodicity'):
-            self.periodicity.update(predicted_periodicity, target_periodicity)
-        with torchutil.time.context('update-pitch'):
-            self.pitch.update(
-                predicted_pitch,
-                predicted_periodicity,
-                target_pitch,
-                target_periodicity)
-        with torchutil.time.context('update-ppg'):
-            for ppg_metric in self.ppg:
-                ppg_metric.update(predicted_ppg, target_ppg)
+        self.periodicity.update(predicted_periodicity, target_periodicity)
+        self.pitch.update(
+            predicted_pitch,
+            predicted_periodicity,
+            target_pitch,
+            target_periodicity)
+        for ppg_metric in self.ppg:
+            ppg_metric.update(predicted_ppg, target_ppg)
         if wer_args:
             self.wer.update(*wer_args)
         if speaker_sim_args:
@@ -145,9 +142,8 @@ class PPG(torchutil.metrics.Average):
 class WER(torchutil.metrics.Average):
     """Word error rate"""
     def update(self, predicted, target):
-        with torchutil.time.context('jiwer'):
-            wer = jiwer.wer(target, predicted)
-            super().update(torch.tensor(wer), 1)
+        wer = jiwer.wer(target, predicted)
+        super().update(torch.tensor(wer), 1)
 
 
 class SpeakerSimilarity(torchutil.metrics.Average):
