@@ -4,6 +4,7 @@ from pathlib import Path
 
 import psola
 import torch
+import torchaudio
 import torchutil
 from parselmouth import Data, praat
 
@@ -76,7 +77,7 @@ def from_file_to_file(
 ):
     """Perform PSOLA vocoding on an audio file and save"""
     vocoded = from_file(audio_file, grid_file, loudness_file, pitch_file)
-    torch.save(vocoded, output_file)
+    torchaudio.save(output_file, vocoded, promonet.SAMPLE_RATE)
 
 
 def from_files_to_files(
@@ -116,8 +117,6 @@ def from_files_to_files(
 
 def time_stretch(audio, sample_rate, grid, tmpdir):
     """Perform praat time stretching on the manipulation"""
-    import pdb; pdb.set_trace()
-
     # Get times in seconds
     times = promonet.HOPSIZE / promonet.SAMPLE_RATE * grid
     times = times.squeeze().numpy()

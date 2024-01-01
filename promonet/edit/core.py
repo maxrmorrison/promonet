@@ -78,20 +78,22 @@ def from_features(
             selected = ppg[torch.tensor(indices)].sum(dim=0) > .5
 
             # Compute effective ratio on selected frames
-            target_frames = round(time_stretch_ratio * ppg.shape[-1])
+            target_frames = ppg.shape[-1] / time_stretch_ratio
             num_selected = selected.sum()
-            effective_ratio = (
-                target_frames - ppg.shape[-1] + num_selected) / num_selected
+            step_size = (
+                num_selected / (target_frames - ppg.shape[-1] + num_selected)
+            ).item()
+            target_frames = round(target_frames)
 
             # Create time-stretch grid
             grid = torch.zeros(target_frames)
             i = 0.
             for j in range(1, target_frames):
-                idx = int(round(i))
-                step = effective_ratio.item() if selected[idx] else 1.
+                idx = min(int(round(i)), ppg.shape[-1] - 1)
+                step = step_size if selected[idx] else 1.
                 grid[j] = grid[j - 1] + step
                 i += step
-            grid[-1] = torch.clip(grid[-1], max=len(ppg) - 1)
+            grid[-1] = torch.clip(grid[-1], max=ppg.shape[-1] - 1)
 
         # Time-stretch
         pitch = 2 ** promonet.edit.grid.sample(torch.log2(pitch), grid)
@@ -145,11 +147,12 @@ def from_file(
     Returns
         edited_pitch, edited_periodicity, edited_loudness, edited_ppg
     """
+    pitch = torch.load(pitch_file)
     return from_features(
-        torch.load(pitch_file),
+        pitch,
         torch.load(periodicity_file),
         torch.load(loudness_file),
-        torch.load(ppg_file),
+        promonet.load.ppg(ppg_file, pitch.shape[-1]),
         pitch_shift_cents,
         time_stretch_ratio,
         loudness_scale_db,

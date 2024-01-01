@@ -108,10 +108,10 @@ def pitch_distribution(dataset=promonet.TRAINING_DATASET, partition='train'):
     return pitch_distribution.distribution
 
 
-def ppg(file, resample_length=None, device='cpu'):
+def ppg(file, resample_length=None):
     """Load a PPG file, resample with a grid if need be, sparsify if needed"""
-    if issubclass(type(file), Path):
-        ppg_data = torch.load(file, map_location=device)
+    if isinstance(file, Path) or isinstance(file, str):
+        ppg_data = torch.load(file)
     else:
         ppg_data = file
 

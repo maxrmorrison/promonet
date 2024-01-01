@@ -91,18 +91,14 @@ def datasets(datasets, checkpoint=None, gpu=None):
                     promonet.EVAL_DIR /
                     'objective' /
                     promonet.CONFIG)
-                (objective_directory / index).mkdir(
-                    exist_ok=True,
-                    parents=True)
+                objective_directory.mkdir(exist_ok=True, parents=True)
 
                 # Output directory for subjective evaluation
                 subjective_directory = (
                     promonet.EVAL_DIR /
                     'subjective' /
                     promonet.CONFIG)
-                (subjective_directory / index).mkdir(
-                    exist_ok=True,
-                    parents=True)
+                subjective_directory.mkdir(exist_ok=True, parents=True)
 
                 # Evaluate a speaker
                 speaker(
@@ -330,8 +326,8 @@ def speaker(
             with torchutil.time.context('edit'):
                 key = f'shifted-{int(ratio * 100):03d}'
                 output_prefixes = [
-                    objective_directory /
-                    prefix.replace("original-100", key)
+                    original_objective_directory /
+                    prefix.replace('original-100', key)
                     for prefix in prefixes]
                 promonet.edit.from_files_to_files(
                     pitch_files,
@@ -375,8 +371,8 @@ def speaker(
             with torchutil.time.context('edit'):
                 key = f'stretched-{int(ratio * 100):03d}'
                 output_prefixes = [
-                    objective_directory /
-                    prefix.replace("original-100", key)
+                    original_objective_directory /
+                    prefix.replace('original-100', key)
                     for prefix in prefixes]
                 promonet.edit.from_files_to_files(
                     pitch_files,
@@ -422,8 +418,8 @@ def speaker(
             with torchutil.time.context('edit'):
                 key = f'scaled-{int(ratio * 100):03d}'
                 output_prefixes = [
-                    objective_directory /
-                    prefix.replace("original-100", key)
+                    original_objective_directory /
+                    prefix.replace('original-100', key)
                     for prefix in prefixes]
                 promonet.edit.from_files_to_files(
                     pitch_files,
@@ -519,25 +515,20 @@ def speaker(
                 # Get predicted filepath
                 predicted_prefix = objective_directory / file.stem
 
-                # Update metrics
-                prosody_args = (
-                    torch.load(f'{predicted_prefix}-pitch.pt').to(device),
+                # Load predicted and target features
+                pitch = torch.load(f'{predicted_prefix}-pitch.pt').to(device)
+                args = (
+                    pitch,
                     torch.load(f'{predicted_prefix}-periodicity.pt').to(device),
                     torch.load(f'{predicted_prefix}-loudness.pt').to(device),
-                    torch.load(f'{predicted_prefix}-ppg.pt').to(device),
+                    promonet.load.ppg(f'{predicted_prefix}-ppg.pt', pitch.shape[-1]).to(device),
                     torch.load(f'{target_prefix}-pitch.pt').to(device),
                     torch.load(f'{target_prefix}-periodicity.pt').to(device),
                     torch.load(f'{target_prefix}-loudness.pt').to(device),
-                    torch.load(f'{target_prefix}-ppg.pt').to(device))
-
-                # Get target text and audio for WER
-                text = promonet.load.text(f'{target_prefix}-text.txt')
-                predicted_text = promonet.load.text(
-                    f'{predicted_prefix}-whisper.txt')
-                audio = promonet.load.audio(file).to(device)
-
-                wer_args = (normalized_text, predicted_text)
-                # wer_args = (text, audio)
+                    promonet.load.ppg(f'{target_prefix}-ppg.pt', pitch.shape[-1]).to(device),
+                    promonet.load.text(f'{target_prefix.replace(key, "original-100")}.txt'),
+                    promonet.load.text(f'{predicted_prefix}.txt'),
+                    None)
 
                 # Get speaker embeddings
                 # embedding = torch.load(f'{predicted_prefix}-speaker.pt').to(
@@ -546,8 +537,6 @@ def speaker(
 
                 # Update metrics
                 condition = '-'.join(target_prefix.stem.split('-')[3:5])
-                # args = (*prosody_args, wer_args, speaker_sim_args)
-                args = (*prosody_args, wer_args, None)
                 aggregate_metrics[condition].update(*args)
                 dataset_metrics[condition].update(*args)
                 speaker_metrics[condition].update(*args)

@@ -201,16 +201,10 @@ class DiscriminatorCMB(torch.nn.Module):
 
     def __init__(
         self,
-        bands: list = [(0.0, 0.1), (0.1, 0.25), (0.25, 0.5), (0.5, 0.75), (0.75, 1.0)],
+        bands=[(0.0, 0.1), (0.1, 0.25), (0.25, 0.5), (0.5, 0.75), (0.75, 1.0)],
     ):
-        """Complex multi-band spectrogram discriminator.
-        Parameters
-        ----------
-        bands : list, optional
-            Bands to run discriminator over.
-        """
+        """Complex multi-band spectrogram discriminator"""
         super().__init__()
-
         self.window_length = promonet.WINDOW_SIZE
         self.hop_size = promonet.HOPSIZE
         self.sample_rate = promonet.SAMPLE_RATE
@@ -245,12 +239,11 @@ class DiscriminatorCMB(torch.nn.Module):
             center=False,
             return_complex=True)
         x = torch.view_as_real(x)
-        x = torch.norm(x, p=2, dim=-1).unsqueeze(1) # Unsqueeze generates the channels dimension
-        #x = rearrange(x, "b 1 f t c -> (b 1) c t f")
+        x = torch.norm(x, p=2, dim=-1).unsqueeze(1)
         x = torch.permute(x, (0, 1, 3, 2))
+
         # Split into bands
-        x_bands = [x[..., b[0] : b[1]] for b in self.bands]
-        return x_bands
+        return [x[..., b[0] : b[1]] for b in self.bands]
 
     def forward(
         self,
@@ -258,33 +251,34 @@ class DiscriminatorCMB(torch.nn.Module):
         pitch=None,
         periodicity=None,
         loudness=None,
-        phonemes=None):
-
+        phonemes=None
+    ):
+        # Compute complex spectrogram and split into bands
         x_bands = self.spectrogram(x)
-        fmap = []
 
-        x = []
+        # Maybe add conditioning
+        if promonet.CONDITION_DISCRIM:
+            for band in x_bands:
+                band = torch.cat(
+                    (band, torch.log2(pitch)[:, None, :, None]),
+                    dim=3)
+                band = torch.cat((band, periodicity[:, None, :, None]), dim=3)
+                band = torch.cat(
+                    (
+                        band,
+                        promonet.loudness.normalize(loudness)[:, None, :, None]
+                    ),
+                    dim=3)
+                band = torch.cat(
+                    (band, phonemes.permute(0, 2, 1)[:, None]),
+                    dim=3)
+
+        x, fmap = [], []
         for band, stack in zip(x_bands, self.band_convs):
             for layer in stack:
                 band = layer(band)
                 fmap.append(band)
             x.append(band)
-
-        # Maybe add conditioning
-        if promonet.CONDITION_DISCRIM:
-
-            # Pitch conditioning
-            x = torch.cat((x, torch.log2(pitch)), dim=1)
-
-            # Periodicity conditioning
-            x = torch.cat((x, periodicity), dim=1)
-
-            # Loudness conditioning
-            x = torch.cat((x, promonet.loudness.normalize(loudness)), dim=1)
-
-            # Phoneme conditioning
-            x = torch.cat((x, phonemes), dim=1)
-
         x = torch.cat(x, dim=-1)
         x = self.conv_post(x)
         fmap.append(x)
