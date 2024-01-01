@@ -2,6 +2,7 @@ import numpy as np
 import pyworld
 import scipy
 import torch
+import torchaudio
 import torchutil
 
 import promonet
@@ -94,7 +95,7 @@ def from_file_to_file(
 ):
     """Perform World vocoding on an audio file and save"""
     vocoded = from_file(audio_file, grid_file, loudness_file, pitch_file)
-    torch.save(vocoded, output_file)
+    torchaudio.save(output_file, vocoded, promonet.SAMPLE_RATE)
 
 
 def from_files_to_files(
@@ -160,19 +161,6 @@ def analyze(audio):
                               f0_floor=promonet.FMIN,
                               f0_ceil=promonet.FMAX,
                               allowed_range=ALLOWED_RANGE)
-
-    # Make sure number of frames is correct
-    if len(pitch) > frames:
-        difference = len(pitch) - frames
-        pitch = pitch[:-difference]
-        time = time[:-difference]
-
-    # if len(pitch) != frames:
-    #     import pdb; pdb.set_trace()
-    #     prev_grid = np.arange(len(pitch))
-    #     grid = np.linspace(0, len(pitch) - 1, frames)
-    #     pitch = linear_time_stretch_pitch(pitch, prev_grid, grid, frames)
-    #     time = scipy.interp(grid, prev_grid, time)
 
     # Postprocess pitch
     pitch = pyworld.stonemask(audio, pitch, time, promonet.SAMPLE_RATE)

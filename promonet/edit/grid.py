@@ -15,6 +15,12 @@ def sample(sequence, grid, method='linear'):
         x = grid
         fp = sequence
 
+        # Input indices
+        xp = torch.arange(fp.shape[-1], device=fp.device)
+
+        # Output indices
+        i = torch.searchsorted(xp, x, side='right')
+
         # Replicate final frame
         # "replication_pad1d_cpu" not implemented for 'Half'
         if fp.device.type == 'cpu' and fp.dtype == torch.float16:
@@ -25,12 +31,7 @@ def sample(sequence, grid, method='linear'):
             ).to(torch.float16)
         else:
             fp = torch.nn.functional.pad(fp, (0, 1), mode='replicate')
-
-        # Input indices
-        xp = torch.arange(fp.shape[-1], device=fp.device)
-
-        # Output indices
-        i = torch.searchsorted(xp, x, side='right')
+        xp = torch.cat((xp, xp[-1:]))
 
         # Interpolate
         return fp[..., i - 1] * (xp[i] - x) + fp[..., i] * (x - xp[i - 1])

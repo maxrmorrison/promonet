@@ -12,5 +12,8 @@ COMPLEX_MULTIBAND_DISCRIMINATOR = True
 # Condition discriminators on speech representation
 CONDITION_DISCRIM = True
 
+# Maximum number of frames in a batch
+MAX_TRAINING_FRAMES = 60000
+
 # Whether to use variable-width pitch bins
 VARIABLE_PITCH_BINS = True
