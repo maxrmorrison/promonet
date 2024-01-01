@@ -290,13 +290,13 @@ def speaker(
         for prefix in prefixes]
     periodicity_files = [
         original_objective_directory / f'{prefix}-periodicity.pt'
-        for file in pitch_files]
+        for prefix in prefixes]
     loudness_files = [
         original_objective_directory / f'{prefix}-loudness.pt'
-        for file in pitch_files]
+        for prefix in prefixes]
     ppg_files = [
         original_objective_directory / f'{prefix}-ppg.pt'
-        for file in pitch_files]
+        for prefix in prefixes]
     if promonet.MODEL == 'vocoder':
         promonet.synthesize.from_files_to_files(
             pitch_files,
@@ -309,9 +309,9 @@ def speaker(
             gpu=gpu)
     else:
         if promonet.MODEL == 'psola':
-            synthesis_fn = promonet.baselines.psola.from_files_to_files
+            synthesis_fn = promonet.baseline.psola.from_files_to_files
         elif promonet.MODEL == 'world':
-            synthesis_fn = promonet.baselines.world.from_files_to_files
+            synthesis_fn = promonet.baseline.world.from_files_to_files
         synthesis_fn(files['original'], files['reconstructed'])
 
     ###################
@@ -357,9 +357,9 @@ def speaker(
                     gpu=gpu)
             else:
                 if promonet.MODEL == 'psola':
-                    synthesis_fn = promonet.baselines.psola.from_files_to_files
+                    synthesis_fn = promonet.baseline.psola.from_files_to_files
                 elif promonet.MODEL == 'world':
-                    synthesis_fn = promonet.baselines.world.from_files_to_files
+                    synthesis_fn = promonet.baseline.world.from_files_to_files
                 synthesis_fn(
                     files['original'],
                     files[key],
@@ -404,9 +404,9 @@ def speaker(
                     gpu=gpu)
             else:
                 if promonet.MODEL == 'psola':
-                    synthesis_fn = promonet.baselines.psola.from_files_to_files
+                    synthesis_fn = promonet.baseline.psola.from_files_to_files
                 elif promonet.MODEL == 'world':
-                    synthesis_fn = promonet.baselines.world.from_files_to_files
+                    synthesis_fn = promonet.baseline.world.from_files_to_files
                 synthesis_fn(
                     files['original'],
                     files[key],
@@ -449,9 +449,9 @@ def speaker(
                     gpu=gpu)
             else:
                 if promonet.MODEL == 'psola':
-                    synthesis_fn = promonet.baselines.psola.from_files_to_files
+                    synthesis_fn = promonet.baseline.psola.from_files_to_files
                 elif promonet.MODEL == 'world':
-                    synthesis_fn = promonet.baselines.world.from_files_to_files
+                    synthesis_fn = promonet.baseline.world.from_files_to_files
                 synthesis_fn(
                     files['original'],
                     files[key],

@@ -173,8 +173,8 @@ class Metadata:
 
         # Maybe cache lengths
         if self.cache is not None:
-            with open(lengths_file, 'w+') as file:
-                json.dump(lengths, file)
+            with open(lengths_file, 'w') as file:
+                json.dump(lengths, file, indent=4)
 
     def __len__(self):
         return len(self.stems)
