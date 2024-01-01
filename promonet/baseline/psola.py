@@ -2,8 +2,9 @@
 import tempfile
 from pathlib import Path
 
-import torch
 import psola
+import torch
+import torchutil
 from parselmouth import Data, praat
 
 import promonet
@@ -21,7 +22,7 @@ def from_audio(
     loudness=None,
     pitch=None
 ):
-    """Performs pitch vocoding using Praat"""
+    """Performs speech editing using Praat"""
     audio = audio.squeeze().numpy()
 
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -57,14 +58,13 @@ def from_audio(
 
 
 def from_file(audio_file, grid_file=None, loudness_file=None, pitch_file=None):
-    """Perform World vocoding on an audio file"""
-    audio = promonet.load.audio(audio_file)
+    """Perform PSOLA vocoding on an audio file"""
     return from_audio(
-        audio,
+        promonet.load.audio(audio_file),
         promonet.SAMPLE_RATE,
-        grid_file,
-        loudness_file,
-        pitch_file)
+        None if grid_file is None else torch.load(grid_file),
+        None if loudness_file is None else torch.load(loudness_file),
+        None if pitch_file is None else torch.load(pitch_file))
 
 
 def from_file_to_file(
@@ -74,7 +74,7 @@ def from_file_to_file(
     loudness_file=None,
     pitch_file=None
 ):
-    """Perform World vocoding on an audio file and save"""
+    """Perform PSOLA vocoding on an audio file and save"""
     vocoded = from_file(audio_file, grid_file, loudness_file, pitch_file)
     torch.save(vocoded, output_file)
 
@@ -86,19 +86,27 @@ def from_files_to_files(
     loudness_files=None,
     pitch_files=None
 ):
-    """Perform World vocoding on multiple files and save"""
-    torchutil.multiprocess_iterator(
-        wrapper,
-        zip(
-            audio_files,
-            output_files,
-            grid_files,
-            loudness_files,
-            pitch_files
-        ),
-        'psola',
-        total=len(audio_files),
-        num_workers=promonet.NUM_WORKERS)
+    """Perform PSOLA vocoding on multiple files and save"""
+    if grid_files is None:
+        grid_files = [None] * len(audio_files)
+    if loudness_files is None:
+        loudness_files = [None] * len(audio_files)
+    if pitch_files is None:
+        pitch_files = [None] * len(audio_files)
+    iterator = zip(
+        audio_files,
+        output_files,
+        grid_files,
+        loudness_files,
+        pitch_files)
+    # torchutil.multiprocess_iterator(
+    #     wrapper,
+    #     iterator,
+    #     'psola',
+    #     total=len(audio_files),
+    #     num_workers=promonet.NUM_WORKERS)
+    for item in torchutil.iterator(iterator, 'psola', total=len(audio_files)):
+        from_file_to_file(*item)
 
 
 ###############################################################################
@@ -108,6 +116,8 @@ def from_files_to_files(
 
 def time_stretch(audio, sample_rate, grid, tmpdir):
     """Perform praat time stretching on the manipulation"""
+    import pdb; pdb.set_trace()
+
     # Get times in seconds
     times = promonet.HOPSIZE / promonet.SAMPLE_RATE * grid
     times = times.squeeze().numpy()

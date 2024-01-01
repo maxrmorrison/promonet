@@ -62,7 +62,7 @@ def from_files_to_files(audio_files, output_files, gpu=None):
     # Save
     for result, output_file in zip(results, output_files):
         with open(output_file, 'w', encoding='utf-8') as file:
-            file.write(result_text)
+            file.write(result)
 
 
 ###############################################################################

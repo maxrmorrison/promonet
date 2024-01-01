@@ -16,7 +16,15 @@ def sample(sequence, grid, method='linear'):
         fp = sequence
 
         # Replicate final frame
-        fp = torch.nn.functional.pad(fp, (0, 1), mode='replicate')
+        # "replication_pad1d_cpu" not implemented for 'Half'
+        if fp.device.type == 'cpu' and fp.dtype == torch.float16:
+            fp = torch.nn.functional.pad(
+                fp.to(torch.float32),
+                (0, 1),
+                mode='replicate'
+            ).to(torch.float16)
+        else:
+            fp = torch.nn.functional.pad(fp, (0, 1), mode='replicate')
 
         # Input indices
         xp = torch.arange(fp.shape[-1], device=fp.device)

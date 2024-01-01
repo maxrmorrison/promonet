@@ -2,6 +2,7 @@ import numpy as np
 import pyworld
 import scipy
 import torch
+import torchutil
 
 import promonet
 
@@ -26,6 +27,7 @@ def from_audio(
     loudness=None,
     pitch=None
 ):
+    """Perform World vocoding"""
     # Maybe resample
     if sample_rate != promonet.SAMPLE_RATE:
         resampler = torch.transforms.Resample(
@@ -75,13 +77,12 @@ def from_audio(
 
 def from_file(audio_file, grid_file=None, loudness_file=None, pitch_file=None):
     """Perform World vocoding on an audio file"""
-    audio = promonet.load.audio(audio_file)
     return from_audio(
-        audio,
+        promonet.load.audio(audio_file),
         promonet.SAMPLE_RATE,
-        grid_file,
-        loudness_file,
-        pitch_file)
+        None if grid_file is None else torch.load(grid_file),
+        None if loudness_file is None else torch.load(loudness_file),
+        None if pitch_file is None else torch.load(pitch_file))
 
 
 def from_file_to_file(
@@ -104,18 +105,26 @@ def from_files_to_files(
     pitch_files=None
 ):
     """Perform World vocoding on multiple files and save"""
-    torchutil.multiprocess_iterator(
-        wrapper,
-        zip(
-            audio_files,
-            output_files,
-            grid_files,
-            loudness_files,
-            pitch_files
-        ),
-        'world',
-        total=len(audio_files),
-        num_workers=promonet.NUM_WORKERS)
+    if grid_files is None:
+        grid_files = [None] * len(audio_files)
+    if loudness_files is None:
+        loudness_files = [None] * len(audio_files)
+    if pitch_files is None:
+        pitch_files = [None] * len(audio_files)
+    iterator = zip(
+        audio_files,
+        output_files,
+        grid_files,
+        loudness_files,
+        pitch_files)
+    # torchutil.multiprocess_iterator(
+    #     wrapper,
+    #     iterator,
+    #     'psola',
+    #     total=len(audio_files),
+    #     num_workers=promonet.NUM_WORKERS)
+    for item in torchutil.iterator(iterator, 'psola', total=len(audio_files)):
+        from_file_to_file(*item)
 
 
 ###############################################################################
