@@ -47,8 +47,10 @@ class Metrics:
         target_periodicity,
         target_loudness,
         target_ppg,
-        wer_args=None,
-        speaker_sim_args=None):
+        predicted_text=None,
+        target_text=None,
+        speaker_sim_args=None
+    ):
         self.loudness.update(predicted_loudness, target_loudness)
         self.periodicity.update(predicted_periodicity, target_periodicity)
         self.pitch.update(
@@ -58,8 +60,8 @@ class Metrics:
             target_periodicity)
         for ppg_metric in self.ppg:
             ppg_metric.update(predicted_ppg, target_ppg)
-        if wer_args:
-            self.wer.update(*wer_args)
+        if predicted_text is not None and target_text is not None:
+            self.wer.update(predicted_text, target_text)
         if speaker_sim_args:
             self.speaker_sim.update(*speaker_sim_args)
 

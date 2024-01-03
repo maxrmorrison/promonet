@@ -22,7 +22,10 @@ LOG_FMAX = math.log2(promonet.FMAX)
 AUGMENT_DIR = promonet.ASSETS_DIR / 'augmentations'
 
 # Location to save dataset partitions
-PARTITION_DIR = promonet.ASSETS_DIR / 'partitions'
+PARTITION_DIR = (
+    promonet.ASSETS_DIR /
+    'partitions' /
+    ('adaptation' if promonet.ADAPTATION else 'multispeaker'))
 
 # Default checkpoint for generation
 DEFAULT_CHECKPOINT = promonet.ASSETS_DIR / 'checkpoints'

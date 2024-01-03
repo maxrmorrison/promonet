@@ -48,7 +48,6 @@ def from_audio(
     # Maybe pitch-shift
     if pitch is not None:
         pitch = pitch.squeeze().numpy().astype(np.float64)
-        # pitch[pitch != 0.] = pitch[pitch != 0.]
 
     # Synthesize using modified parameters
     vocoded = pyworld.synthesize(
@@ -118,12 +117,6 @@ def from_files_to_files(
         grid_files,
         loudness_files,
         pitch_files)
-    # torchutil.multiprocess_iterator(
-    #     wrapper,
-    #     iterator,
-    #     'psola',
-    #     total=len(audio_files),
-    #     num_workers=promonet.NUM_WORKERS)
     for item in torchutil.iterator(iterator, 'psola', total=len(audio_files)):
         from_file_to_file(*item)
 
@@ -229,8 +222,3 @@ def linear_time_stretch_pitch(pitch, prev_grid, grid, next_frames):
     pitch[unvoiced > .5] = 0.
 
     return pitch
-
-
-def wrapper(item):
-    """Multiprocessing wrapper"""
-    return from_file_to_file(*item)
