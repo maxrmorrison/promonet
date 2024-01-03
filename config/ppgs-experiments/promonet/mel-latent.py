@@ -1,7 +1,7 @@
 MODULE = 'promonet'
 
 # Configuration name
-CONFIG = 'mel-latents'
+CONFIG = 'mel-latent'
 
 # Whether to perform speaker adaptation (instead of multi-speaker)
 ADAPTATION = False

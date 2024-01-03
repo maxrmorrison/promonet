@@ -1,7 +1,7 @@
 MODULE = 'ppgs'
 
 # Configuration name
-CONFIG = 'w2v2fc'
+CONFIG = 'w2v2fc-latent'
 
 # Network width
 HIDDEN_CHANNELS = 512

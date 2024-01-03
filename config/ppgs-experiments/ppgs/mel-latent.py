@@ -1,7 +1,7 @@
 MODULE = 'ppgs'
 
 # Configuration name
-CONFIG = 'mel'
+CONFIG = 'mel-latent'
 
 # Network width
 HIDDEN_CHANNELS = 256
