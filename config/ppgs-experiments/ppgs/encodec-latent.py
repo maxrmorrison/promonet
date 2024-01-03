@@ -3,7 +3,7 @@ from encodec import EncodecModel
 MODULE = 'ppgs'
 
 # Configuration name
-CONFIG = 'encodec'
+CONFIG = 'encodec-latent'
 
 def _frontend(device='cpu'):
     import torch

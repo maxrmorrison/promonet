@@ -1,7 +1,7 @@
 MODULE = 'promonet'
 
 # Configuration name
-CONFIG = 'w2v2fb-latents'
+CONFIG = 'bottleneck-latent'
 
 # Whether to perform speaker adaptation (instead of multi-speaker)
 ADAPTATION = False
@@ -13,7 +13,7 @@ INPUT_FEATURES = ['pitch', 'ppg']
 NUM_STEPS = 500000
 
 # Number of channels in the phonetic posteriorgram features
-PPG_CHANNELS = 768
+PPG_CHANNELS = 144
 
 # Evaluation ratios for pitch-shifting, time-stretching, and loudness-scaling
 EVALUATION_RATIOS = [.891, 1.12]
