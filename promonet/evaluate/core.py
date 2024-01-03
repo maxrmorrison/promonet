@@ -40,7 +40,7 @@ import promonet
 
 
 @torchutil.notify('evaluate')
-def datasets(datasets, checkpoint=None, gpu=None):
+def datasets(datasets, gpu=None):
     """Evaluate the performance of the model on datasets"""
     device = f'cuda:{gpu}' if gpu is not None else 'cpu'
 
@@ -105,7 +105,6 @@ def datasets(datasets, checkpoint=None, gpu=None):
                     dataset,
                     train_partition,
                     test_partition,
-                    checkpoint,
                     aggregate_metrics,
                     dataset_metrics,
                     adapt_directory,
@@ -188,7 +187,6 @@ def speaker(
     dataset,
     train_partition,
     test_partition,
-    checkpoint,
     aggregate_metrics,
     dataset_metrics,
     directory,
@@ -210,6 +208,8 @@ def speaker(
             'discriminator-*.pt')
         if generator_path and discriminator_path:
             checkpoint = directory
+        else:
+            checkpoint = promonet.RUNS_DIR / promonet.CONFIG
 
         # Perform speaker adaptation
         promonet.train(
@@ -236,12 +236,12 @@ def speaker(
     # Directory to save original audio files
     original_subjective_directory = \
         promonet.EVAL_DIR / 'subjective' / 'original'
-    (original_subjective_directory / index).mkdir(exist_ok=True, parents=True)
+    original_subjective_directory.mkdir(exist_ok=True, parents=True)
 
     # Directory to save original prosody files
     original_objective_directory = \
         promonet.EVAL_DIR / 'objective' / 'original'
-    (original_objective_directory / index).mkdir(exist_ok=True, parents=True)
+    original_objective_directory.mkdir(exist_ok=True, parents=True)
 
     # Copy original files
     audio_files = []
@@ -275,11 +275,11 @@ def speaker(
     # Reconstruction #
     ##################
 
+    original_audio_files = [
+        original_subjective_directory / f'{prefix}.wav'
+        for prefix in prefixes]
     files = {
-        'original': [
-            original_subjective_directory / f'{prefix}.wav'
-            for prefix in prefixes],
-        'reconstructed': [
+        'reconstructed-100': [
             subjective_directory / f'{prefix}.wav' for prefix in prefixes]}
     pitch_files = [
         original_objective_directory / f'{prefix}-pitch.pt'
@@ -299,7 +299,7 @@ def speaker(
             periodicity_files,
             loudness_files,
             ppg_files,
-            files['reconstructed'],
+            files['reconstructed-100'],
             checkpoint=checkpoint,
             speakers=speakers,
             gpu=gpu)
@@ -308,7 +308,7 @@ def speaker(
             synthesis_fn = promonet.baseline.psola.from_files_to_files
         elif promonet.MODEL == 'world':
             synthesis_fn = promonet.baseline.world.from_files_to_files
-        synthesis_fn(files['original'], files['reconstructed'])
+        synthesis_fn(original_audio_files, files['reconstructed-100'])
 
     ###################
     # Prosody editing #
@@ -357,7 +357,7 @@ def speaker(
                 elif promonet.MODEL == 'world':
                     synthesis_fn = promonet.baseline.world.from_files_to_files
                 synthesis_fn(
-                    files['original'],
+                    original_audio_files,
                     files[key],
                     pitch_files=[f'{prefix}-pitch.pt' for prefix in output_prefixes])
 
@@ -404,7 +404,7 @@ def speaker(
                 elif promonet.MODEL == 'world':
                     synthesis_fn = promonet.baseline.world.from_files_to_files
                 synthesis_fn(
-                    files['original'],
+                    original_audio_files,
                     files[key],
                     grid_files=[f'{prefix}-grid.pt' for prefix in output_prefixes])
 
@@ -449,7 +449,7 @@ def speaker(
                 elif promonet.MODEL == 'world':
                     synthesis_fn = promonet.baseline.world.from_files_to_files
                 synthesis_fn(
-                    files['original'],
+                    original_audio_files,
                     files[key],
                     loudness_files=[
                         f'{prefix}-loudness.pt' for prefix in output_prefixes])
@@ -459,10 +459,6 @@ def speaker(
     ############################
 
     for key, audio_files in files.items():
-
-        # We already preprocessed the original files
-        if key == 'original':
-            continue
 
         # Infer speech representation
         with torchutil.time.context('preprocess'):
@@ -503,6 +499,7 @@ def speaker(
         # Iterate over edit conditions
         results = {'objective': {'raw': {}}}
         for key, value in files.items():
+
             results['objective']['raw'][key] = []
             for file in value:
 
@@ -526,8 +523,8 @@ def speaker(
                     torch.load(f'{target_prefix}-periodicity.pt').to(device),
                     torch.load(f'{target_prefix}-loudness.pt').to(device),
                     promonet.load.ppg(f'{target_prefix}-ppg.pt', pitch.shape[-1]).to(device),
-                    promonet.load.text(f'{target_prefix.replace(key, "original-100")}.txt'),
                     promonet.load.text(f'{predicted_prefix}.txt'),
+                    promonet.load.text(f'{target_prefix}.txt'.replace(key, 'original-100')),
                     None)
 
                 # Get speaker embeddings
@@ -536,10 +533,9 @@ def speaker(
                 # speaker_sim_args = (speaker_embedding, embedding)
 
                 # Update metrics
-                condition = '-'.join(target_prefix.stem.split('-')[3:5])
-                aggregate_metrics[condition].update(*args)
-                dataset_metrics[condition].update(*args)
-                speaker_metrics[condition].update(*args)
+                aggregate_metrics[key].update(*args)
+                dataset_metrics[key].update(*args)
+                speaker_metrics[key].update(*args)
                 file_metrics.update(*args)
 
             # Get results for this file
@@ -558,11 +554,7 @@ def speaker(
         results['num_samples'])
 
     # Save to disk
-    file = (
-        promonet.RESULTS_DIR /
-        promonet.CONFIG /
-        dataset /
-        f'{index}.json')
+    file = promonet.RESULTS_DIR / promonet.CONFIG / dataset / f'{index}.json'
     file.parent.mkdir(exist_ok=True, parents=True)
     with open(file, 'w') as file:
         json.dump(results, file, indent=4, sort_keys=True)
@@ -576,12 +568,12 @@ def speaker(
 def default_metrics():
     """Construct the default metrics dictionary for each condition"""
     # Reconstruction metrics
-    metrics = {'original-100': promonet.evaluate.Metrics()}
+    metrics = {'reconstructed-100': promonet.evaluate.Metrics()}
 
     # Prosody editing metrics
     if 'loudness' in promonet.INPUT_FEATURES:
         for ratio in promonet.EVALUATION_RATIOS:
-            metrics[f'shifted-{int(ratio * 100):03d}'] = \
+            metrics[f'scaled-{int(ratio * 100):03d}'] = \
                 promonet.evaluate.Metrics()
     if 'pitch' in promonet.INPUT_FEATURES:
         for ratio in promonet.EVALUATION_RATIOS:

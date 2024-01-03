@@ -1,3 +1,4 @@
+import math
 import os
 from typing import List, Optional, Tuple, Union
 
@@ -74,26 +75,30 @@ def from_features(
                     )
                 )
 
-            # Get frames where sum of selected probabilities exceeds threshold
-            selected = ppg[torch.tensor(indices)].sum(dim=0) > .5
+            # Get selection probabilities
+            selected = ppg[torch.tensor(indices)].sum(dim=0)
 
-            # Compute effective ratio on selected frames
-            target_frames = ppg.shape[-1] / time_stretch_ratio
-            num_selected = selected.sum()
-            step_size = (
-                num_selected / (target_frames - ppg.shape[-1] + num_selected)
-            ).item()
-            target_frames = round(target_frames)
+            # Get number of output frames
+            target_frames = round(ppg.shape[-1] / time_stretch_ratio)
+
+            # Adjust ratio based on selection probabilities
+            total_selected = selected.sum()
+            total_unselected = ppg.shape[-1] - total_selected
+            effective_ratio = (target_frames - total_unselected) / total_selected
 
             # Create time-stretch grid
-            grid = torch.zeros(target_frames)
+            grid = torch.zeros(round(target_frames))
             i = 0.
             for j in range(1, target_frames):
-                idx = min(int(round(i)), ppg.shape[-1] - 1)
-                step = step_size if selected[idx] else 1.
+                left = math.floor(i)
+                offset = i - left
+                probability = (
+                    offset * selected[left + 1] +
+                    (1 - offset) * selected[left])
+                ratio = probability * effective_ratio + (1 - probability)
+                step = 1. / ratio
                 grid[j] = grid[j - 1] + step
                 i += step
-            grid[-1] = torch.clip(grid[-1], max=ppg.shape[-1] - 1)
 
         # Time-stretch
         pitch = 2 ** promonet.edit.grid.sample(torch.log2(pitch), grid)

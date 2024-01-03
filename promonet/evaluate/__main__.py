@@ -18,11 +18,6 @@ def parse_args():
         default=promonet.DATASETS,
         help='The datasets to evaluate')
     parser.add_argument(
-        '--checkpoint',
-        type=Path,
-        default=promonet.DEFAULT_CHECKPOINT,
-        help='The checkpoint to use')
-    parser.add_argument(
         '--gpu',
         type=int,
         help='The index of the gpu to use for evaluation')

@@ -119,6 +119,10 @@ def datasets(datasets):
     """Partition datasets and save to disk"""
     for name in datasets:
 
+        # Multispeaker is only implemented for VCTK for now
+        if name in ['daps', 'libritts'] and not promonet.ADAPTATION:
+            continue
+
         # Remove cached metadata that may become stale
         metadata_files = (promonet.CACHE_DIR / name).glob('*-lengths.json')
         for metadata_file in metadata_files:
@@ -254,7 +258,7 @@ def vctk():
 
         # Get validation stems
         filter_fn = functools.partial(meets_length_criteria, directory)
-        valid_stems = list(filter(filter_fn, residual))[:10]
+        valid_stems = list(filter(filter_fn, residual))[:64]
 
         # Get training stems
         train_stems = [stem for stem in residual if stem not in valid_stems]
