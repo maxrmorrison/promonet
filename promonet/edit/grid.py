@@ -23,7 +23,7 @@ def sample(sequence, grid, method='linear'):
 
         # Replicate final frame
         # "replication_pad1d_cpu" not implemented for 'Half'
-        if fp.device.type == 'cpu' and fp.dtype == torch.float16:
+        if fp.dtype == torch.float16:
             fp = torch.nn.functional.pad(
                 fp.to(torch.float32),
                 (0, 1),

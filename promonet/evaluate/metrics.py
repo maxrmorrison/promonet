@@ -1,3 +1,5 @@
+import math
+
 import jiwer
 import numpy as np
 import penn
@@ -131,14 +133,23 @@ class PPG(torchutil.metrics.Average):
         super().__init__()
         self.exponent = exponent
 
+    def __call__(self):
+        result = super().__call__()
+        if ppgs.REPRESENTATION_KIND == 'latents':
+            return math.sqrt(result)
+        return result
+
     def update(self, predicted, target):
-        super().update(
-            ppgs.distance(
+        if ppgs.REPRESENTATION_KIND == 'latents':
+            total = (
+                (predicted.squeeze(0) - target.squeeze(0)) ** 2).sum(dim=1)
+        else:
+            total = ppgs.distance(
                 predicted.squeeze(0),
                 target.squeeze(0),
                 reduction='sum',
-                exponent=self.exponent),
-            predicted.shape[-1])
+                exponent=self.exponent)
+        super().update(total, predicted.shape[-1])
 
 
 class WER(torchutil.metrics.Average):

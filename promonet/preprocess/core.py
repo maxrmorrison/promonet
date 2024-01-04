@@ -3,8 +3,8 @@ from typing import List, Optional, Tuple, Union
 
 import penn
 import ppgs
-import whisper
 import torch
+import whisper
 
 import promonet
 
@@ -18,7 +18,7 @@ def from_audio(
     audio: torch.Tensor,
     sample_rate: int = promonet.SAMPLE_RATE,
     gpu: Optional[int] = None,
-    text: bool = False
+    features: list = ['loudness', 'periodicity', 'pitch', 'ppg']
 ) -> Union[
     Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor],
     Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, str]
@@ -29,7 +29,8 @@ def from_audio(
         audio: Audio to preprocess
         sample_rate: Audio sample rate
         gpu: The GPU index
-        text: Infer text using Whisper
+        features: The features to preprocess.
+            Options: ['loudness', 'periodicity', 'pitch', 'ppg', 'text'].
 
     Returns
         pitch: The pitch contour
@@ -38,37 +39,45 @@ def from_audio(
         ppg: The phonetic posteriorgram
         text: The text transcript
     """
-    # Estimate pitch and periodicity
-    pitch, periodicity = penn.from_audio(
-        audio,
-        sample_rate=sample_rate,
-        hopsize=promonet.convert.samples_to_seconds(promonet.HOPSIZE),
-        fmin=promonet.FMIN,
-        fmax=promonet.FMAX,
-        batch_size=2048,
-        center='half-hop',
-        interp_unvoiced_at=promonet.VOICING_THRESOLD,
-        gpu=gpu)
+    result = []
 
     # Compute loudness
-    loudness = promonet.loudness.from_audio(audio).to(pitch.device)
+    if 'loudness' in features:
+        device = f'cuda:{gpu}' if gpu is not None else 'cpu'
+        result.append(promonet.loudness.from_audio(audio).to(device))
+
+    # Estimate pitch and periodicity
+    if 'pitch' in features or 'periodicity' in features:
+        pitch, periodicity = penn.from_audio(
+            audio,
+            sample_rate=sample_rate,
+            hopsize=promonet.convert.samples_to_seconds(promonet.HOPSIZE),
+            fmin=promonet.FMIN,
+            fmax=promonet.FMAX,
+            batch_size=2048,
+            center='half-hop',
+            interp_unvoiced_at=promonet.VOICING_THRESOLD,
+            gpu=gpu)
+        result.extend([periodicity, pitch])
 
     # Infer ppg
-    ppg = ppgs.from_audio(audio, sample_rate, gpu=gpu)
-    ppg = promonet.load.ppg(ppg, resample_length=pitch.shape[-1])
+    if 'ppg' in features:
+        ppg = ppgs.from_audio(audio, sample_rate, gpu=gpu)
+        ppg = promonet.load.ppg(ppg, resample_length=pitch.shape[-1])
+        result.append(ppg)
 
     # Infer transcript
-    if text:
+    if 'text' in features:
         text = promonet.preprocess.text.from_audio(audio, sample_rate, gpu=gpu)
-        return pitch, periodicity, loudness, ppg, text
+        result.append(text)
 
-    return pitch, periodicity, loudness, ppg
+    return (*result,)
 
 
 def from_file(
     file: Union[str, bytes, os.PathLike],
     gpu: Optional[int] = None,
-    text: bool = False
+    features: list = ['loudness', 'periodicity', 'pitch', 'ppg']
 ) -> Union[
     Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor],
     Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, str]
@@ -78,7 +87,8 @@ def from_file(
     Arguments
         file: Audio file to preprocess
         gpu: The GPU index
-        text: Whether to perform ASR
+        features: The features to preprocess.
+            Options: ['loudness', 'periodicity', 'pitch', 'ppg', 'text'].
 
     Returns
         pitch: The pitch contour
@@ -86,14 +96,14 @@ def from_file(
         loudness: The loudness contour
         ppg: The phonetic posteriorgram
     """
-    return from_audio(promonet.load.audio(file), gpu=gpu, text=text)
+    return from_audio(promonet.load.audio(file), gpu=gpu, features=features)
 
 
 def from_file_to_file(
     file: Union[str, bytes, os.PathLike],
     output_prefix: Optional[Union[str, os.PathLike]] = None,
     gpu: Optional[int] = None,
-    text: bool = False
+    features: list = ['loudness', 'periodicity', 'pitch', 'ppg']
 ) -> None:
     """Preprocess audio on disk and save
 
@@ -101,25 +111,39 @@ def from_file_to_file(
         file: Audio file to preprocess
         output_prefix: File to save features, minus extension
         gpu: The GPU index
-        text: Whether to perform ASR
+        features: The features to preprocess.
+            Options: ['loudness', 'periodicity', 'pitch', 'ppg', 'text'].
     """
     # Preprocess
-    pitch, periodicity, loudness, ppg = from_file(file, gpu, text)
+    features = from_file(file, gpu, features)
 
     # Save
     if output_prefix is None:
         output_prefix = file.parent / file.stem
-    torch.save(pitch, f'{output_prefix}-pitch.pt')
-    torch.save(periodicity, f'{output_prefix}-periodicity.pt')
-    torch.save(loudness, f'{output_prefix}-loudness.pt')
-    torch.save(ppg, f'{output_prefix}{ppgs.representation_output_extension()}')
+    if 'loudness' in features:
+        torch.save(features[0], f'{output_prefix}-loudness.pt')
+        del features[0]
+    if 'periodicity' in features:
+        torch.save(features[0], f'{output_prefix}-periodicity.pt')
+        del features[0]
+    if 'pitch' in features:
+        torch.save(features[0], f'{output_prefix}-pitch.pt')
+        del features[0]
+    if 'ppg' in features:
+        torch.save(
+            features[0],
+            f'{output_prefix}{ppgs.representation_output_extension()}')
+        del features[0]
+    if 'text' in features:
+        with open(f'{output_prefix}.txt', 'w') as file:
+            file.write(features[0])
 
 
 def from_files_to_files(
     files: List[Union[str, bytes, os.PathLike]],
     output_prefixes: Optional[List[Union[str, os.PathLike]]] = None,
     gpu: Optional[int] = None,
-    text: bool = False
+    features: list = ['loudness', 'periodicity', 'pitch', 'ppg']
 ) -> None:
     """Preprocess multiple audio files on disk and save
 
@@ -127,41 +151,44 @@ def from_files_to_files(
         files: Audio files to preprocess
         output_prefixes: Files to save features, minus extension
         gpu: The GPU index
-        text: Whether to perform ASR
+        features: The features to preprocess.
+            Options: ['loudness', 'periodicity', 'pitch', 'ppg', 'text'].
     """
     if output_prefixes is None:
         output_prefixes = [file.parent / file.stem for file in files]
 
     # Preprocess phonetic posteriorgrams
     extension = ppgs.representation_file_extension()
-    ppgs.from_files_to_files(
-        files,
-        [f'{prefix}{extension}' for prefix in output_prefixes],
-        num_workers=promonet.NUM_WORKERS,
-        max_frames=5000,
-        gpu=gpu)
+    if 'ppg' in features:
+        ppgs.from_files_to_files(
+            files,
+            [f'{prefix}{extension}' for prefix in output_prefixes],
+            num_workers=promonet.NUM_WORKERS,
+            max_frames=5000,
+            gpu=gpu)
 
     # Preprocess pitch and periodicity
-    penn.from_files_to_files(
-        files,
-        output_prefixes,
-        hopsize=promonet.convert.samples_to_seconds(promonet.HOPSIZE),
-        fmin=promonet.FMIN,
-        fmax=promonet.FMAX,
-        batch_size=2048,
-        center='half-hop',
-        interp_unvoiced_at=promonet.VOICING_THRESOLD,
-        gpu=gpu)
+    if 'pitch' in features or 'periodicity' in features:
+        penn.from_files_to_files(
+            files,
+            output_prefixes,
+            hopsize=promonet.convert.samples_to_seconds(promonet.HOPSIZE),
+            fmin=promonet.FMIN,
+            fmax=promonet.FMAX,
+            batch_size=2048,
+            center='half-hop',
+            interp_unvoiced_at=promonet.VOICING_THRESOLD,
+            gpu=gpu)
 
     # Preprocess loudness
-    promonet.loudness.from_files_to_files(
-        files,
-        [f'{prefix}-loudness.pt' for prefix in output_prefixes])
+    if 'loudness' in features:
+        promonet.loudness.from_files_to_files(
+            files,
+            [f'{prefix}-loudness.pt' for prefix in output_prefixes])
 
     # Infer transcript
-    if text:
+    if 'text' in features:
         promonet.preprocess.text.from_files_to_files(
             files,
             [f'{prefix}.txt' for prefix in output_prefixes],
             gpu)
-

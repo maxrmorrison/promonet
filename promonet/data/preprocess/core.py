@@ -27,7 +27,10 @@ def datasets(datasets, features=promonet.ALL_FEATURES, gpu=None):
             'pitch',
             'ppg'
         ]):
-            promonet.preprocess.from_files_to_files(audio_files, gpu=gpu)
+            promonet.preprocess.from_files_to_files(
+                audio_files,
+                gpu=gpu,
+                features=[f for f in features if f != 'spectrogram'])
 
         # Preprocess spectrograms
         if 'spectrogram' in features:
