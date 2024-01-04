@@ -122,26 +122,28 @@ def ppg(file, resample_length=None):
             promonet.edit.grid.of_length(ppg_data, resample_length),
             promonet.PPG_INTERP_METHOD)
 
-    # Threshold either a constant value or a percentile
-    if promonet.SPARSE_PPG_METHOD in ['constant', 'percentile']:
-        if promonet.SPARSE_PPG_METHOD == 'constant':
-            threshold = promonet.SPARSE_PPG_THRESHOLD
-        else:
-            threshold = torch.quantile(ppg_data, promonet.SPARSE_PPG_THRESHOLD)
-        ppg_data = torch.where(ppg_data > threshold, ppg_data, 0)
+    if ppgs.REPRESENTATION_KIND == 'ppg':
 
-    # Take the top n bins
-    elif promonet.SPARSE_PPG_METHOD == 'topk':
-        thresholds = torch.quantile(
-            ppg_data.T,
-            (ppg_data.shape[0] - promonet.SPARSE_PPG_THRESHOLD) / ppg_data.shape[0],
-            dim=1,
-            interpolation='lower'
-        ).unsqueeze(1)
-        ppg_data = torch.where(ppg_data.T > thresholds, ppg_data.T, 0).T
+        # Threshold either a constant value or a percentile
+        if promonet.SPARSE_PPG_METHOD in ['constant', 'percentile']:
+            if promonet.SPARSE_PPG_METHOD == 'constant':
+                threshold = promonet.SPARSE_PPG_THRESHOLD
+            else:
+                threshold = torch.quantile(ppg_data, promonet.SPARSE_PPG_THRESHOLD)
+            ppg_data = torch.where(ppg_data > threshold, ppg_data, 0)
 
-    # Renormalize after sparsification
-    ppg_data = torch.softmax(torch.log(ppg_data), -2)
+        # Take the top n bins
+        elif promonet.SPARSE_PPG_METHOD == 'topk':
+            thresholds = torch.quantile(
+                ppg_data.T,
+                (ppg_data.shape[0] - promonet.SPARSE_PPG_THRESHOLD) / ppg_data.shape[0],
+                dim=1,
+                interpolation='lower'
+            ).unsqueeze(1)
+            ppg_data = torch.where(ppg_data.T > thresholds, ppg_data.T, 0).T
+
+        # Renormalize after sparsification
+        ppg_data = torch.softmax(torch.log(ppg_data), -2)
 
     return ppg_data
 

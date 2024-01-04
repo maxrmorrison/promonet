@@ -269,7 +269,7 @@ def speaker(
             audio_files,
             [original_objective_directory / prefix for prefix in prefixes],
             gpu=gpu,
-            text=True)
+            features=['loudness', 'periodicity', 'pitch', 'ppg', 'text'])
 
     ##################
     # Reconstruction #
@@ -469,7 +469,7 @@ def speaker(
                     for file in audio_files
                 ],
                 gpu=gpu,
-                text=True)
+                features=['loudness', 'periodicity', 'pitch', 'ppg', 'text'])
 
         # Infer speaker embeddings
         # embedding_files = [
