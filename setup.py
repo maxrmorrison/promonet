@@ -1,7 +1,4 @@
-from Cython.Build import cythonize
-from setuptools import Extension, find_packages, setup
-
-import numpy as np
+from setuptools import find_packages, setup
 
 
 with open('README.md', encoding='utf8') as file:
@@ -15,16 +12,6 @@ setup(
     author='Interactive Audio Lab',
     author_email='interactiveaudiolab@gmail.com',
     url='https://github.com/maxrmorrison/promonet',
-    ext_modules=cythonize(
-        Extension(
-            'promonet.model.align.mas',
-            sources=['promonet/model/align/align.pyx'],
-            include_dirs=[np.get_include()]
-        ),
-        compiler_directives={'language_level': '3'}
-    ),
-    include_dirs=[np.get_include(), 'promonet/model/align'],
-    setup_requires=['numpy', 'cython'],
     install_requires=[
         'alias-free-torch',
         'GPUtil',
@@ -41,8 +28,8 @@ setup(
         'resemblyzer',
         'scipy',
         'torch<2.0.0',
-        'torchutil',
         'torchaudio<2.0.0',
+        'torchutil',
         'umap-learn',
         'vocos[train]',
         'yapecs',
