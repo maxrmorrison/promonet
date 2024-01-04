@@ -148,6 +148,7 @@ alvin = promonet.synthesize.from_features(
     gpu=gpu)
 
 # Edit perceptual loudness (> 1 for louder; < 1 quieter)
+# For more intuitive control in dB units, use promonet.convert.db_to_ratio(dB)
 louder = promonet.synthesize.from_features(
     pitch,
     periodicity,
