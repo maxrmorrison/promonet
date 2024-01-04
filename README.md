@@ -196,20 +196,27 @@ def speaker(
 def from_audio(
     audio: torch.Tensor,
     sample_rate: int = promonet.SAMPLE_RATE,
-    gpu: Optional[int] = None
-) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+    gpu: Optional[int] = None,
+    features: list = ['loudness', 'periodicity', 'pitch', 'ppg']
+) -> Union[
+    Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor],
+    Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, str]
+]:
     """Preprocess audio
 
     Arguments
         audio: Audio to preprocess
         sample_rate: Audio sample rate
         gpu: The GPU index
+        features: The features to preprocess.
+            Options: ['loudness', 'periodicity', 'pitch', 'ppg', 'text'].
 
     Returns
-        pitch: The pitch contour
-        periodicity: The periodicity contour
         loudness: The loudness contour
+        periodicity: The periodicity contour
+        pitch: The pitch contour
         ppg: The phonetic posteriorgram
+        text: The text transcript
     """
 ```
 
@@ -219,19 +226,26 @@ def from_audio(
 ```python
 def from_file(
     file: Union[str, bytes, os.PathLike],
-    gpu: Optional[int] = None
-) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+    gpu: Optional[int] = None,
+    features: list = ['loudness', 'periodicity', 'pitch', 'ppg']
+) -> Union[
+    Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor],
+    Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, str]
+]:
     """Preprocess audio on disk
 
     Arguments
         file: Audio file to preprocess
         gpu: The GPU index
+        features: The features to preprocess.
+            Options: ['loudness', 'periodicity', 'pitch', 'ppg', 'text'].
 
     Returns
-        pitch: The pitch contour
-        periodicity: The periodicity contour
         loudness: The loudness contour
+        periodicity: The periodicity contour
+        pitch: The pitch contour
         ppg: The phonetic posteriorgram
+        text: The text transcript
     """
 ```
 
@@ -242,7 +256,8 @@ def from_file(
 def from_file_to_file(
     file: Union[str, bytes, os.PathLike],
     output_prefix: Optional[Union[str, os.PathLike]] = None,
-    gpu: Optional[int] = None
+    gpu: Optional[int] = None,
+    features: list = ['loudness', 'periodicity', 'pitch', 'ppg']
 ) -> None:
     """Preprocess audio on disk and save
 
@@ -250,6 +265,8 @@ def from_file_to_file(
         file: Audio file to preprocess
         output_prefix: File to save features, minus extension
         gpu: The GPU index
+        features: The features to preprocess.
+            Options: ['loudness', 'periodicity', 'pitch', 'ppg', 'text'].
     """
 ```
 
@@ -260,16 +277,17 @@ def from_file_to_file(
 def from_files_to_files(
     files: List[Union[str, bytes, os.PathLike]],
     output_prefixes: Optional[List[Union[str, os.PathLike]]] = None,
-    features=promonet.INPUT_FEATURES,
-    gpu=None
+    gpu: Optional[int] = None,
+    features: list = ['loudness', 'periodicity', 'pitch', 'ppg']
 ) -> None:
     """Preprocess multiple audio files on disk and save
 
     Arguments
-        files: Audio file to preprocess
+        files: Audio files to preprocess
         output_prefixes: Files to save features, minus extension
-        features: The features to preprocess
         gpu: The GPU index
+        features: The features to preprocess.
+            Options: ['loudness', 'periodicity', 'pitch', 'ppg', 'text'].
     """
 ```
 

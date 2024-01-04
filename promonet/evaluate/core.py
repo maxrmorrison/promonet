@@ -21,12 +21,8 @@ results
     |   └── speaker.pdf     # Speaker cluster plot
     └── results.json        # Overall results across datasets
 """
-import functools
 import json
-import random
-import shutil
 
-import ppgs
 import torch
 import torchaudio
 import torchutil
@@ -42,8 +38,6 @@ import promonet
 @torchutil.notify('evaluate')
 def datasets(datasets, gpu=None):
     """Evaluate the performance of the model on datasets"""
-    device = f'cuda:{gpu}' if gpu is not None else 'cpu'
-
     aggregate_metrics = default_metrics()
 
     # Evaluate on each dataset
@@ -75,7 +69,7 @@ def datasets(datasets, gpu=None):
             # Iterate over speakers
             indices = list(set(
                 [stem.split('/')[0] for stem in partitions[test_partition]]))
-            for speaker_number, index in enumerate(indices):
+            for index in indices:
 
                 # Output directory for checkpoints and logs
                 adapt_directory = (
@@ -193,7 +187,8 @@ def speaker(
     objective_directory,
     subjective_directory,
     index,
-    gpu=None):
+    gpu=None
+):
     """Evaluate one adaptation speaker in a dataset"""
     device = f'cuda:{gpu}' if gpu is not None else 'cpu'
 
@@ -365,7 +360,7 @@ def speaker(
         # Time stretching #
         ###################
 
-        if 'loudness' in promonet.INPUT_FEATURES:
+        if 'ppg' in promonet.INPUT_FEATURES:
 
             # Edit features
             with torchutil.time.context('edit'):

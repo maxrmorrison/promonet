@@ -538,9 +538,9 @@ def evaluate(directory, step, generator, loader, gpu, evaluation_steps=None):
 
         # Get prosody features
         (
-            predicted_pitch,
-            predicted_periodicity,
             predicted_loudness,
+            predicted_periodicity,
+            predicted_pitch,
             predicted_phonemes
         ) = promonet.preprocess.from_audio(generated[0], gpu=gpu)
 
@@ -589,9 +589,9 @@ def evaluate(directory, step, generator, loader, gpu, evaluation_steps=None):
 
                 # Get prosody features
                 (
-                    predicted_pitch,
-                    predicted_periodicity,
                     predicted_loudness,
+                    predicted_periodicity,
+                    predicted_pitch,
                     predicted_phonemes
                 ) = promonet.preprocess.from_audio(shifted[0], gpu=gpu)
 
@@ -660,9 +660,9 @@ def evaluate(directory, step, generator, loader, gpu, evaluation_steps=None):
 
                 # Get prosody features
                 (
-                    predicted_pitch,
-                    predicted_periodicity,
                     predicted_loudness,
+                    predicted_periodicity,
+                    predicted_pitch,
                     predicted_phonemes
                 ) = promonet.preprocess.from_audio(stretched[0], gpu=gpu)
 
@@ -716,9 +716,9 @@ def evaluate(directory, step, generator, loader, gpu, evaluation_steps=None):
 
                 # Get prosody features
                 (
-                    predicted_pitch,
-                    predicted_periodicity,
                     predicted_loudness,
+                    predicted_periodicity,
+                    predicted_pitch,
                     predicted_phonemes
                 ) = promonet.preprocess.from_audio(scaled[0], gpu=gpu)
 

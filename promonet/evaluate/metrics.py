@@ -6,7 +6,6 @@ import penn
 import ppgs
 import torch
 import torchutil
-import whisper
 
 import promonet
 
