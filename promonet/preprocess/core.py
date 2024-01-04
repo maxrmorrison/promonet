@@ -33,9 +33,9 @@ def from_audio(
             Options: ['loudness', 'periodicity', 'pitch', 'ppg', 'text'].
 
     Returns
-        pitch: The pitch contour
-        periodicity: The periodicity contour
         loudness: The loudness contour
+        periodicity: The periodicity contour
+        pitch: The pitch contour
         ppg: The phonetic posteriorgram
         text: The text transcript
     """
@@ -91,10 +91,11 @@ def from_file(
             Options: ['loudness', 'periodicity', 'pitch', 'ppg', 'text'].
 
     Returns
-        pitch: The pitch contour
-        periodicity: The periodicity contour
         loudness: The loudness contour
+        periodicity: The periodicity contour
+        pitch: The pitch contour
         ppg: The phonetic posteriorgram
+        text: The text transcript
     """
     return from_audio(promonet.load.audio(file), gpu=gpu, features=features)
 

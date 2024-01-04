@@ -27,9 +27,9 @@ def from_audio(
         target_ppg = None
     else:
         (
-            target_pitch,
-            target_periodicity,
             target_loudness,
+            target_periodicity,
+            target_pitch,
             target_ppg
         ) = promonet.preprocess.from_audio(audio, gpu=gpu)
 
