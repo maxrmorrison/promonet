@@ -35,7 +35,7 @@ setup(
         'yapecs',
     ],
     packages=find_packages(),
-    package_data={'promonet': ['assets/*', 'assets/*/*']},
+    package_data={'promonet': ['assets/*', 'assets/*/*', 'assets/*/*/*']},
     long_description=long_description,
     long_description_content_type='text/markdown',
     keywords=['speech', 'prosody', 'editing', 'synthesis', 'pronunciation'],
