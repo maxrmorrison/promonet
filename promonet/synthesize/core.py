@@ -263,4 +263,4 @@ def generate(
                 speakers,
                 formant_ratio,
                 loudness_ratio
-            )[0]
+            )[0][0]

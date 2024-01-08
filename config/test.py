@@ -1,19 +1,19 @@
 MODULE = 'promonet'
 
 # Configuration name
-CONFIG = 'augment-multiband-varpitch-256-conddisc'
+CONFIG = 'test'
 
 # Whether to use pitch augmentation
 AUGMENT_PITCH = True
 
+# Batch size
+BATCH_SIZE = 64
+
 # Whether to use the complex multi-band discriminator from RVQGAN
 COMPLEX_MULTIBAND_DISCRIMINATOR = True
 
-# Condition discriminators on speech representation
-CONDITION_DISCRIM = True
-
-# Maximum number of frames in a batch
-MAX_TRAINING_FRAMES = 60000
+# The model to use. One of ['hifigan', 'psola', 'vits', 'vocos', 'world'].
+MODEL = 'vits'
 
 # Whether to use variable-width pitch bins
 VARIABLE_PITCH_BINS = True

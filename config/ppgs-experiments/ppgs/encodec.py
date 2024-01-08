@@ -35,4 +35,4 @@ REPRESENTATION = 'encodec'
 
 # Local checkpoint to use
 # If None, Huggingface will be used unless a checkpoint is given in the CLI
-LOCAL_CHECKPOINT = f'/repos/ppgs/runs/{CONFIG}/00150000.pt'
+LOCAL_CHECKPOINT = f'/repos/ppgs/runs/{CONFIG}/00200000.pt'

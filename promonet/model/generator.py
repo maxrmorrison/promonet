@@ -12,18 +12,26 @@ import promonet
 
 class Generator(torch.nn.Module):
 
-    def __init__(self, n_speakers=109):
+    def __init__(self):
         super().__init__()
-        self.n_speakers = n_speakers
-
-        # Vocoder
-        self.vocoder = promonet.model.get_vocoder(
-            promonet.NUM_FEATURES,
-            promonet.GLOBAL_CHANNELS)
+        # Model selection
+        if promonet.MODEL == 'hifigan':
+            self.vocoder = promonet.model.HiFiGAN(
+                promonet.NUM_FEATURES,
+                promonet.GLOBAL_CHANNELS)
+        elif promonet.MODEL == 'vits':
+            self.synthesizer = promonet.model.VITS()
+            self.vocoder = promonet.model.HiFiGAN(
+                promonet.VITS_CHANNELS,
+                promonet.GLOBAL_CHANNELS)
+        elif promonet.MODEL == 'vocos':
+            self.vocoder = promonet.model.HiFiGAN(
+                promonet.NUM_FEATURES,
+                promonet.GLOBAL_CHANNELS)
 
         # Speaker embedding
         self.speaker_embedding = torch.nn.Embedding(
-            n_speakers,
+            promonet.NUM_SPEAKERS,
             promonet.SPEAKER_CHANNELS)
 
         # Pitch embedding
@@ -55,10 +63,19 @@ class Generator(torch.nn.Module):
             loudness_ratios,
             spectrograms)
 
-        # Decode latent representation to waveform
-        generated = self.vocoder(features, lengths, global_features)
+        # Maybe encode representation to match spectrogram
+        if promonet.MODEL == 'vits':
+            features, *args = self.synthesizer(
+                features,
+                spectrograms,
+                global_features)
+        else:
+            args = None
 
-        return generated
+        # Decode representation to waveform
+        generated = self.vocoder(features, global_features)
+
+        return generated, args
 
     def prepare_features(
         self,
