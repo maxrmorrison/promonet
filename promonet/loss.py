@@ -45,6 +45,14 @@ def generator(discriminator_outputs):
     return sum(losses), losses
 
 
+def kl(prior, true_logstd, predicted_mean, predicted_logstd):
+    """KL-divergence loss"""
+    divergence = predicted_logstd - true_logstd - 0.5 + \
+        0.5 * ((prior - predicted_mean) ** 2) * \
+        torch.exp(-2. * predicted_logstd)
+    return torch.mean(divergence)
+
+
 def multimel(ground_truth, generated):
     #Cache hann windows
     if (

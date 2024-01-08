@@ -43,8 +43,7 @@ def train(
     # Create models #
     #################
 
-    num_speakers = promonet.NUM_SPEAKERS
-    generator = promonet.model.Generator(num_speakers).to(device)
+    generator = promonet.model.Generator().to(device)
     discriminators = promonet.model.Discriminator().to(device)
 
     #####################
@@ -53,6 +52,25 @@ def train(
 
     discriminator_optimizer = promonet.OPTIMIZER(discriminators.parameters())
     generator_optimizer = promonet.OPTIMIZER(generator.parameters())
+
+    #####################
+    # Create schedulers #
+    #####################
+
+    # Get total number of steps
+    if adapt_from:
+        steps = promonet.STEPS + promonet.ADAPTATION_STEPS
+    else:
+        steps = promonet.STEPS
+
+    # Initialize schedulers
+    if promonet.SCHEDULER:
+        discriminator_scheduler = promonet.SCHEDULER(
+            discriminator_optimizer,
+            num_training_steps=steps)
+        generator_scheduler = promonet.SCHEDULER(
+            generator_optimizer,
+            num_training_steps=steps)
 
     ##############################
     # Maybe load from checkpoint #
@@ -101,12 +119,6 @@ def train(
 
     # Automatic mixed precision (amp) gradient scaler
     scaler = torch.cuda.amp.GradScaler()
-
-    # Get total number of steps
-    if adapt_from:
-        steps = promonet.STEPS + promonet.ADAPTATION_STEPS
-    else:
-        steps = promonet.STEPS
 
     # Setup progress bar
     progress = torchutil.iterator(
@@ -189,49 +201,20 @@ def train(
             with torch.autocast(device.type):
 
                 # Forward pass through generator
-                generated = generator(*generator_input)
+                generated, args = generator(*generator_input)
 
                 # Convert to mels
                 mels = promonet.preprocess.spectrogram.linear_to_mel(
                     spectrograms)
 
-                # Slice segments for training discriminator
-                segment_size = promonet.convert.samples_to_frames(
-                    promonet.CHUNK_SIZE)
-                mel_slices, slice_indices = random_slice_segments(
-                    mels,
-                    lengths,
-                    segment_size)
-                slice_fn = functools.partial(
-                    promonet.model.slice_segments,
-                    start_indices=slice_indices,
-                    segment_size=segment_size)
-                pitch_slices = slice_fn(pitch, fill_value=pitch.mean())
-                periodicity_slices = slice_fn(periodicity)
-                loudness_slices = slice_fn(loudness, fill_value=loudness.min())
-                phoneme_slices = slice_fn(phonemes)
-                audio = promonet.model.slice_segments(
-                    audio,
-                    slice_indices * promonet.HOPSIZE,
-                    promonet.CHUNK_SIZE)
-                generated = promonet.model.slice_segments(
-                    generated,
-                    slice_indices * promonet.HOPSIZE,
-                    promonet.CHUNK_SIZE)
-
-                # Compute mels of sliced, generated audio
-                generated_mels = promonet.preprocess.spectrogram.from_audio(
-                    generated,
-                    True)
-
                 # Forward pass through discriminators
                 real_logits, fake_logits, _, _ = discriminators(
                     audio,
                     generated.detach(),
-                    pitch=pitch_slices,
-                    periodicity=periodicity_slices,
-                    loudness=loudness_slices,
-                    phonemes=phoneme_slices)
+                    pitch=pitch,
+                    periodicity=periodicity,
+                    loudness=loudness,
+                    phonemes=phonemes)
 
                 # Get discriminator loss
                 (
@@ -242,11 +225,12 @@ def train(
                     [logit.float() for logit in real_logits],
                     [logit.float() for logit in fake_logits])
 
-
             # Backward pass through discriminators
             discriminator_optimizer.zero_grad()
             scaler.scale(discriminator_losses).backward()
             scaler.step(discriminator_optimizer)
+            if promonet.SCHEDULER:
+                discriminator_scheduler.step()
 
             ###################
             # Train generator #
@@ -263,10 +247,10 @@ def train(
                 ) = discriminators(
                     audio,
                     generated,
-                    pitch=pitch_slices,
-                    periodicity=periodicity_slices,
-                    loudness=loudness_slices,
-                    phonemes=phoneme_slices)
+                    pitch=pitch,
+                    periodicity=periodicity,
+                    loudness=loudness,
+                    phonemes=phonemes)
 
                 # Compute generator losses
                 generator_losses = 0.
@@ -278,10 +262,19 @@ def train(
                         promonet.MEL_LOSS_WEIGHT /
                         len(promonet.MULTI_MEL_LOSS_WINDOWS) * mel_loss)
                 else:
+                    generated_mels = promonet.preprocess.spectrogram.from_audio(
+                        generated,
+                        True)
                     mel_loss = torch.nn.functional.l1_loss(
-                        mel_slices,
+                        mels,
                         generated_mels)
                     generator_losses +=  promonet.MEL_LOSS_WEIGHT * mel_loss
+
+                # Get KL divergence loss between features and prior
+                if promonet.MODEL == 'vits':
+                    kl_divergence_loss = promonet.loss.kl(
+                        *(arg.float() for arg in args))
+                    generator_losses += promonet.KL_DIVERGENCE_LOSS_WEIGHT * kl_divergence_loss
 
                 # Get feature matching loss
                 feature_matching_loss = promonet.loss.feature_matching(
@@ -331,6 +324,8 @@ def train(
 
             # Update weights
             scaler.step(generator_optimizer)
+            if promonet.SCHEDULER:
+                generator_scheduler.step()
 
             # Update gradient scaler
             scaler.update()
@@ -364,6 +359,8 @@ def train(
                 scalars.update(
                     {f'loss/discriminator/fake-{i:02d}': value
                     for i, value in enumerate(fake_discriminator_losses)})
+                if promonet.MODEL == 'vits':
+                    scalars['loss/generator/kl-divergence'] = kl_divergence_loss
                 torchutil.tensorboard.update(directory, step, scalars=scalars)
 
                 # Evaluate on validation data
@@ -523,7 +520,7 @@ def evaluate(directory, step, generator, loader, gpu, evaluation_steps=None):
         ##################
 
         # Generate
-        generated = generator(
+        generated, _ = generator(
             phonemes,
             pitch,
             periodicity,
@@ -579,7 +576,7 @@ def evaluate(directory, step, generator, loader, gpu, evaluation_steps=None):
                 shifted_pitch = ratio * pitch
 
                 # Generate pitch-shifted speech
-                shifted = generator(
+                shifted, _ = generator(
                     phonemes,
                     shifted_pitch,
                     periodicity,
@@ -650,7 +647,7 @@ def evaluate(directory, step, generator, loader, gpu, evaluation_steps=None):
                     device=device)
 
                 # Generate
-                stretched = generator(
+                stretched, _ = generator(
                     stretched_phonemes,
                     stretched_pitch,
                     stretched_periodicity,
@@ -706,7 +703,7 @@ def evaluate(directory, step, generator, loader, gpu, evaluation_steps=None):
                     loudness + promonet.convert.ratio_to_db(ratio)
 
                 # Generate loudness-scaled speech
-                scaled = generator(
+                scaled, _ = generator(
                     phonemes,
                     pitch,
                     periodicity,
