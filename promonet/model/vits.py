@@ -28,23 +28,36 @@ class VITS(torch.nn.Module):
             4,
             gin_channels=promonet.GLOBAL_CHANNELS)
 
-    def forward(self, features, spectrogram, global_features=None):
+    def forward(self, features, spectrogram, lengths, global_features=None):
+        mask = promonet.model.mask_from_lengths(
+            lengths
+        ).unsqueeze(1).to(features.dtype)
+
         # Encode text to text embedding and statistics for the flow model
         (
             embeddings,
             predicted_mean,
             predicted_logstd
-        ) = self.prior_encoder(features)
+        ) = self.prior_encoder(features, mask)
 
         if self.training:
 
             # Encode linear spectrogram to latent
             latents, _, true_logstd = self.posterior_encoder(
                 spectrogram,
+                mask,
                 g=global_features)
 
             # Compute corresponding prior to the latent variable
-            prior = self.flow(latents, g=global_features)
+            prior = self.flow(latents, mask, g=global_features)
+
+            # Slice
+            slice_size = promonet.convert.samples_to_frames(
+                promonet.CHUNK_SIZE)
+            latents, slice_indices = promonet.model.random_slice_segments(
+                latents,
+                lengths,
+                slice_size)
 
         else:
 
@@ -56,10 +69,18 @@ class VITS(torch.nn.Module):
                 .667)
 
             # Compute latent from the prior
-            latents = self.flow(prior, g=global_features, reverse=True)
-            true_logstd = None
+            latents = self.flow(prior, mask, g=global_features, reverse=True)
+            true_logstd, slice_indices = None, None
 
-        return latents, prior, predicted_mean, predicted_logstd, true_logstd
+        return (
+            latents,
+            (
+                slice_indices,
+                prior,
+                predicted_mean,
+                predicted_logstd,
+                true_logstd
+            ))
 
 
 ###############################################################################
@@ -88,15 +109,15 @@ class PriorEncoder(torch.nn.Module):
     # Speaker conditioning
     self.cond = torch.nn.Conv1d(promonet.GLOBAL_CHANNELS, channels, 1)
 
-  def forward(self, features):
+  def forward(self, features, mask):
     # Embed features
     embeddings = self.input_layer(features)
 
     # Encode features
-    embeddings = self.encoder(embeddings)
+    embeddings = self.encoder(embeddings * mask, mask)
 
     # Compute mean and variance used for constructing the prior distribution
-    stats = self.projection(embeddings)
+    stats = self.projection(embeddings) * mask
     mean, logstd = torch.split(stats, self.channels // 2, dim=1)
 
     return embeddings, mean, logstd
@@ -124,12 +145,12 @@ class PosteriorEncoder(torch.nn.Module):
             gin_channels=promonet.GLOBAL_CHANNELS)
         self.proj = torch.nn.Conv1d(self.channels, 2 * self.channels, 1)
 
-    def forward(self, x, g=None):
-        x = self.pre(x)
-        x = self.enc(x, g=g)
-        stats = self.proj(x)
+    def forward(self, x, mask, g=None):
+        x = self.pre(x) * mask
+        x = self.enc(x, mask, g=g)
+        stats = self.proj(x) * mask
         m, logs = torch.split(stats, self.channels, dim=1)
-        z = (m + torch.randn_like(m) * torch.exp(logs))
+        z = (m + torch.randn_like(m) * torch.exp(logs)) * mask
         return z, m, logs
 
 
@@ -163,13 +184,13 @@ class FlowBlock(torch.nn.Module):
                     mean_only=True))
             self.flows.append(Flip())
 
-    def forward(self, x, g=None, reverse=False):
+    def forward(self, x, mask, g=None, reverse=False):
         if not reverse:
             for flow in self.flows:
-                x, _ = flow(x, g=g, reverse=reverse)
+                x, _ = flow(x, mask, g=g, reverse=reverse)
         else:
             for flow in reversed(self.flows):
-                x = flow(x, g=g, reverse=reverse)
+                x = flow(x, mask, g=g, reverse=reverse)
         return x
 
 
@@ -207,11 +228,11 @@ class FlowLayer(torch.nn.Module):
         self.post.weight.data.zero_()
         self.post.bias.data.zero_()
 
-    def forward(self, x, g=None, reverse=False):
+    def forward(self, x, mask, g=None, reverse=False):
         x0, x1 = torch.split(x, [self.half_channels]*2, 1)
-        h = self.pre(x0)
-        h = self.enc(h, g=g)
-        stats = self.post(h)
+        h = self.pre(x0) * mask
+        h = self.enc(h, mask, g=g)
+        stats = self.post(h) * mask
         if not self.mean_only:
             m, logs = torch.split(stats, [self.half_channels]*2, 1)
         else:
@@ -219,18 +240,18 @@ class FlowLayer(torch.nn.Module):
             logs = torch.zeros_like(m)
 
         if not reverse:
-            x1 = m + x1 * torch.exp(logs)
+            x1 = m + x1 * torch.exp(logs) * mask
             x = torch.cat([x0, x1], 1)
             logdet = torch.sum(logs, [1, 2])
             return x, logdet
 
-        x1 = (x1 - m) * torch.exp(-logs)
+        x1 = (x1 - m) * torch.exp(-logs) * mask
         return torch.cat([x0, x1], 1)
 
 
 class Flip(torch.nn.Module):
 
-    def forward(self, x, g=None, reverse=False):
+    def forward(self, x, mask, g=None, reverse=False):
         x = torch.flip(x, [1])
         if not reverse:
             return x, torch.zeros(x.size(0)).to(dtype=x.dtype, device=x.device)
@@ -277,17 +298,20 @@ class Transformer(torch.nn.Module):
                     p_dropout=p_dropout))
             self.norm_layers_2.append(LayerNorm(hidden_channels))
 
-    def forward(self, x):
-        x = x
+    def forward(self, x, mask):
+        x = x * mask
         for i in range(len(self.attn_layers)):
-            y = self.attn_layers[i](x, x)
+            y = self.attn_layers[i](
+                x,
+                x,
+                mask.unsqueeze(2) * mask.unsqueeze(-1))
             y = self.dropout(y)
             x = self.norm_layers_1[i](x + y)
 
-            y = self.ffn_layers[i](x)
+            y = self.ffn_layers[i](x, mask)
             y = self.dropout(y)
             x = self.norm_layers_2[i](x + y)
-        return x
+        return x * mask
 
 
 class MultiHeadAttention(torch.nn.Module):
@@ -456,12 +480,12 @@ class FFN(torch.nn.Module):
             kernel_size)
         self.dropout = torch.nn.Dropout(p_dropout)
 
-    def forward(self, x):
-        x = self.conv_1(self.pad(x))
+    def forward(self, x, mask):
+        x = self.conv_1(self.pad(x * mask))
         x = torch.relu(x)
         x = self.dropout(x)
-        x = self.conv_2(self.pad(x))
-        return x
+        x = self.conv_2(self.pad(x * mask))
+        return x * mask
 
     def pad(self, x):
         if self.kernel_size == 1:
@@ -548,7 +572,7 @@ class WaveNet(torch.nn.Module):
                 name='weight')
             self.res_skip_layers.append(res_skip_layer)
 
-    def forward(self, x, g=None):
+    def forward(self, x, mask, g=None):
         output = torch.zeros_like(x)
         n_channels_tensor = torch.IntTensor([self.hidden_channels])
 
@@ -573,11 +597,11 @@ class WaveNet(torch.nn.Module):
             res_skip_acts = self.res_skip_layers[i](acts)
             if i < self.n_layers - 1:
                 res_acts = res_skip_acts[:, :self.hidden_channels, :]
-                x = (x + res_acts)
+                x = (x + res_acts) * mask
                 output = output + res_skip_acts[:, self.hidden_channels:, :]
             else:
                 output = output + res_skip_acts
-        return output
+        return output * mask
 
 
 @torch.jit.script

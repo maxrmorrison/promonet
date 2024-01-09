@@ -7,7 +7,10 @@ CONFIG = 'mel-latent'
 ADAPTATION = False
 
 # Batch size
-BATCH_SIZE = 64
+BATCH_SIZE = 32
+
+# Number of samples generated during training
+CHUNK_SIZE = 8192
 
 # Evaluation ratios for pitch-shifting, time-stretching, and loudness-scaling
 EVALUATION_RATIOS = [.891, 1.12]

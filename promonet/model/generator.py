@@ -65,17 +65,18 @@ class Generator(torch.nn.Module):
 
         # Maybe encode representation to match spectrogram
         if promonet.MODEL == 'vits':
-            features, *args = self.synthesizer(
+            features, *vits_args = self.synthesizer(
                 features,
                 spectrograms,
+                lengths,
                 global_features)
         else:
-            args = None
+            vits_args = None
 
         # Decode representation to waveform
         generated = self.vocoder(features, global_features)
 
-        return generated, args
+        return generated, vits_args
 
     def prepare_features(
         self,

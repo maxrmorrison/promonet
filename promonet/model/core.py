@@ -12,6 +12,21 @@ def get_padding(kernel_size, dilation=1, stride=1):
     return int((kernel_size * dilation - dilation - stride + 1) / 2)
 
 
+def mask_from_lengths(lengths):
+    """Create boolean mask from sequence lengths and offset to start"""
+    x = torch.arange(lengths.max(), dtype=lengths.dtype, device=lengths.device)
+    return x.unsqueeze(0) < lengths.unsqueeze(1)
+
+
+def random_slice_segments(segments, lengths, segment_size):
+    """Randomly slice segments along last dimension"""
+    max_start_indices = lengths - segment_size + 1
+    start_indices = torch.rand((len(segments),), device=segments.device)
+    start_indices = (start_indices * max_start_indices).to(dtype=torch.long)
+    segments = slice_segments(segments, start_indices, segment_size)
+    return segments, start_indices
+
+
 def slice_segments(segments, start_indices, segment_size, fill_value=0.):
     """Slice segments along last dimension"""
     slices = torch.full_like(segments[..., :segment_size], fill_value)
