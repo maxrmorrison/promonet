@@ -53,25 +53,6 @@ def train(
     discriminator_optimizer = promonet.OPTIMIZER(discriminators.parameters())
     generator_optimizer = promonet.OPTIMIZER(generator.parameters())
 
-    #####################
-    # Create schedulers #
-    #####################
-
-    # Get total number of steps
-    if adapt_from:
-        steps = promonet.STEPS + promonet.ADAPTATION_STEPS
-    else:
-        steps = promonet.STEPS
-
-    # Initialize schedulers
-    if promonet.SCHEDULER:
-        discriminator_scheduler = promonet.SCHEDULER(
-            discriminator_optimizer,
-            num_training_steps=steps)
-        generator_scheduler = promonet.SCHEDULER(
-            generator_optimizer,
-            num_training_steps=steps)
-
     ##############################
     # Maybe load from checkpoint #
     ##############################
@@ -116,6 +97,12 @@ def train(
     #########
     # Train #
     #########
+
+    # Get total number of steps
+    if adapt_from:
+        steps = promonet.STEPS + promonet.ADAPTATION_STEPS
+    else:
+        steps = promonet.STEPS
 
     # Automatic mixed precision (amp) gradient scaler
     scaler = torch.cuda.amp.GradScaler()
@@ -235,8 +222,6 @@ def train(
             discriminator_optimizer.zero_grad()
             scaler.scale(discriminator_losses).backward()
             scaler.step(discriminator_optimizer)
-            if promonet.SCHEDULER:
-                discriminator_scheduler.step()
 
             ###################
             # Train generator #
@@ -286,7 +271,8 @@ def train(
                         prior.float(),
                         predicted_mean.float(),
                         predicted_logstd.float(),
-                        true_logstd.float())
+                        true_logstd.float(),
+                        lengths)
                     generator_losses += promonet.KL_DIVERGENCE_LOSS_WEIGHT * kl_divergence_loss
 
                 # Get feature matching loss
@@ -337,8 +323,6 @@ def train(
 
             # Update weights
             scaler.step(generator_optimizer)
-            if promonet.SCHEDULER:
-                generator_scheduler.step()
 
             # Update gradient scaler
             scaler.update()
