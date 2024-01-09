@@ -201,20 +201,26 @@ def train(
             with torch.autocast(device.type):
 
                 # Forward pass through generator
-                generated, args = generator(*generator_input)
+                generated, *vits_args = generator(*generator_input)
+                if promonet.MODEL == 'vits':
+                    (
+                        slice_indices,
+                        prior,
+                        predicted_mean,
+                        predicted_logstd,
+                        true_logstd
+                    ) = vits_args[0][0]
 
-                # Convert to mels
-                mels = promonet.preprocess.spectrogram.linear_to_mel(
-                    spectrograms)
+                    # Slice ground truth audio
+                    audio = promonet.model.slice_segments(
+                        audio,
+                        slice_indices * promonet.HOPSIZE,
+                        promonet.CHUNK_SIZE)
 
                 # Forward pass through discriminators
                 real_logits, fake_logits, _, _ = discriminators(
                     audio,
-                    generated.detach(),
-                    pitch=pitch,
-                    periodicity=periodicity,
-                    loudness=loudness,
-                    phonemes=phonemes)
+                    generated.detach())
 
                 # Get discriminator loss
                 (
@@ -244,13 +250,7 @@ def train(
                     fake_logits,
                     real_feature_maps,
                     fake_feature_maps
-                ) = discriminators(
-                    audio,
-                    generated,
-                    pitch=pitch,
-                    periodicity=periodicity,
-                    loudness=loudness,
-                    phonemes=phonemes)
+                ) = discriminators(audio, generated)
 
                 # Compute generator losses
                 generator_losses = 0.
@@ -262,6 +262,16 @@ def train(
                         promonet.MEL_LOSS_WEIGHT /
                         len(promonet.MULTI_MEL_LOSS_WINDOWS) * mel_loss)
                 else:
+                    if promonet.MODEL == 'vits':
+                        mels = promonet.preprocess.spectrogram.linear_to_mel(
+                            promonet.model.slice_segments(
+                                spectrograms,
+                                start_indices=slice_indices,
+                                segment_size=promonet.convert.samples_to_frames(
+                                    promonet.CHUNK_SIZE)))
+                    else:
+                        mels = promonet.preprocess.spectrogram.linear_to_mel(
+                            spectrograms)
                     generated_mels = promonet.preprocess.spectrogram.from_audio(
                         generated,
                         True)
@@ -273,7 +283,10 @@ def train(
                 # Get KL divergence loss between features and prior
                 if promonet.MODEL == 'vits':
                     kl_divergence_loss = promonet.loss.kl(
-                        *(arg.float() for arg in args))
+                        prior.float(),
+                        predicted_mean.float(),
+                        predicted_logstd.float(),
+                        true_logstd.float())
                     generator_losses += promonet.KL_DIVERGENCE_LOSS_WEIGHT * kl_divergence_loss
 
                 # Get feature matching loss
@@ -520,7 +533,7 @@ def evaluate(directory, step, generator, loader, gpu, evaluation_steps=None):
         ##################
 
         # Generate
-        generated, _ = generator(
+        generated, *_ = generator(
             phonemes,
             pitch,
             periodicity,
@@ -576,7 +589,7 @@ def evaluate(directory, step, generator, loader, gpu, evaluation_steps=None):
                 shifted_pitch = ratio * pitch
 
                 # Generate pitch-shifted speech
-                shifted, _ = generator(
+                shifted, *_ = generator(
                     phonemes,
                     shifted_pitch,
                     periodicity,
@@ -647,7 +660,7 @@ def evaluate(directory, step, generator, loader, gpu, evaluation_steps=None):
                     device=device)
 
                 # Generate
-                stretched, _ = generator(
+                stretched, *_ = generator(
                     stretched_phonemes,
                     stretched_pitch,
                     stretched_periodicity,
@@ -703,7 +716,7 @@ def evaluate(directory, step, generator, loader, gpu, evaluation_steps=None):
                     loudness + promonet.convert.ratio_to_db(ratio)
 
                 # Generate loudness-scaled speech
-                scaled, _ = generator(
+                scaled, *_ = generator(
                     phonemes,
                     pitch,
                     periodicity,
@@ -764,20 +777,3 @@ def evaluate(directory, step, generator, loader, gpu, evaluation_steps=None):
         scalars=scalars,
         audio=waveforms,
         sample_rate=promonet.SAMPLE_RATE)
-
-
-###############################################################################
-# Utilities
-###############################################################################
-
-
-def random_slice_segments(segments, lengths, segment_size):
-    """Randomly slice segments along last dimension"""
-    max_start_indices = lengths - segment_size + 1
-    start_indices = torch.rand((len(segments),), device=segments.device)
-    start_indices = (start_indices * max_start_indices).to(dtype=torch.long)
-    segments = promonet.model.slice_segments(
-        segments,
-        start_indices,
-        segment_size)
-    return segments, start_indices

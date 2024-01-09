@@ -58,7 +58,7 @@ class Dataset(torch.utils.data.Dataset):
             resample_length=spectrogram.shape[-1]).to(torch.float32)
 
         # Chunk during training
-        if self.partition.startswith('train'):
+        if promonet.MODEL != 'vits' and self.partition.startswith('train'):
             frames = promonet.CHUNK_SIZE // promonet.HOPSIZE
             if audio.shape[1] < promonet.CHUNK_SIZE:
                 audio = torch.nn.functional.pad(
