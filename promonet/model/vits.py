@@ -196,15 +196,17 @@ class FlowBlock(torch.nn.Module):
 
 class FlowLayer(torch.nn.Module):
 
-    def __init__(self,
-                 channels,
-                 hidden_channels,
-                 kernel_size,
-                 dilation_rate,
-                 n_layers,
-                 p_dropout=0,
-                 gin_channels=0,
-                 mean_only=False):
+    def __init__(
+        self,
+        channels,
+        hidden_channels,
+        kernel_size,
+        dilation_rate,
+        n_layers,
+        p_dropout=0,
+        gin_channels=0,
+        mean_only=False
+    ):
         assert channels % 2 == 0, "channels should be divisible by 2"
         super().__init__()
         self.half_channels = channels // 2
