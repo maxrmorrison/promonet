@@ -51,12 +51,7 @@ NUM_FEATURES = promonet.NUM_MELS if promonet.SPECTROGRAM_ONLY else (
         promonet.PITCH_EMBEDDING_SIZE if promonet.PITCH_EMBEDDING else 1))
 
 # Number of input features to the discriminator
-NUM_FEATURES_DISCRIM = (
-    1 +
-    promonet.CONDITION_DISCRIM +
-    promonet.CONDITION_DISCRIM +
-    promonet.CONDITION_DISCRIM +
-    promonet.CONDITION_DISCRIM * promonet.PPG_CHANNELS)
+NUM_FEATURES_DISCRIM = 1
 
 # Number of speakers
 if promonet.TRAINING_DATASET == 'daps':

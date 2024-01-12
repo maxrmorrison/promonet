@@ -1,7 +1,7 @@
 MODULE = 'promonet'
 
 # Configuration name
-CONFIG = 'augment-pitch-loudness'
+CONFIG = 'ablate-augment'
 
 # Whether to use loudness augmentation
 AUGMENT_LOUDNESS = True

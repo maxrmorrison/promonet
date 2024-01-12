@@ -1,7 +1,10 @@
 MODULE = 'promonet'
 
 # Configuration name
-CONFIG = 'augment-multiband-varpitch-512-constant005'
+CONFIG = 'augment-multiband-varpitch-256-constant005-film-loudness-viterbi'
+
+# Whether to use loudness augmentation
+AUGMENT_LOUDNESS = True
 
 # Whether to use pitch augmentation
 AUGMENT_PITCH = True
@@ -9,8 +12,11 @@ AUGMENT_PITCH = True
 # Whether to use the complex multi-band discriminator from RVQGAN
 COMPLEX_MULTIBAND_DISCRIMINATOR = True
 
-# Number of pitch bins
-PITCH_BINS = 512
+# Whether to use FiLM for global conditioning
+FILM_CONDITIONING = True
+
+# Whether to use the multi-scale waveform discriminator from MelGAN
+MULTI_SCALE_DISCRIMINATOR = False
 
 # Type of sparsification used for ppgs
 # One of ['constant', 'percentile', 'topk', None]

@@ -239,6 +239,7 @@ def vctk():
 
     # Write audio to cache
     speaker_count = {}
+    correspondence = {}
     output_directory = promonet.CACHE_DIR / 'vctk'
     output_directory.mkdir(exist_ok=True, parents=True)
     with torchutil.paths.chdir(output_directory):
@@ -287,6 +288,11 @@ def vctk():
                 speaker_directory / f'{output_file.stem}-100.wav',
                 audio,
                 promonet.SAMPLE_RATE)
+
+            # Save file stem correpondence
+            correspondence[output_files.stem] = audio_file.stem
+        with open('correspondence.json', 'w') as file:
+            json.dump(correpondence)
 
 
 ###############################################################################

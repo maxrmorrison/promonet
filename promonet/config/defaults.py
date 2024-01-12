@@ -53,7 +53,7 @@ WINDOW_SIZE = 1024
 
 
 # Whether to perform speaker adaptation (instead of multi-speaker)
-ADAPTATION = True
+ADAPTATION = False
 
 # All features considered during preprocessing
 ALL_FEATURES = [
@@ -74,9 +74,6 @@ AUGMENTATION_RATIO_MAX = 2.
 
 # Minimum ratio for pitch augmentation
 AUGMENTATION_RATIO_MIN = .5
-
-# Condition discriminators on speech representation
-CONDITION_DISCRIM = False
 
 # Names of all datasets
 DATASETS = ['daps', 'libritts', 'vctk']
@@ -119,6 +116,9 @@ TRAINING_DATASET = 'vctk'
 
 # Whether to use variable-width pitch bins
 VARIABLE_PITCH_BINS = False
+
+# Whether to perform Viterbi decoding on pitch features
+VITERBI_DECODE_PITCH = False
 
 
 ###############################################################################

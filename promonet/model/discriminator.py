@@ -68,41 +68,6 @@ class DiscriminatorP(torch.nn.Module):
         periodicity=None,
         loudness=None,
         phonemes=None):
-        if promonet.CONDITION_DISCRIM:
-
-            # Pitch conditioning
-            pitch = torch.nn.functional.interpolate(
-                torch.log2(pitch)[:, None],
-                scale_factor=promonet.HOPSIZE,
-                mode='linear',
-                align_corners=False)
-            x = torch.cat((x, pitch), dim=1)
-
-            # Periodicity conditioning
-            periodicity = torch.nn.functional.interpolate(
-                periodicity[:, None],
-                scale_factor=promonet.HOPSIZE,
-                mode='linear',
-                align_corners=False)
-            x = torch.cat((x, periodicity), dim=1)
-
-            # Loudness conditioning
-            loudness = promonet.loudness.normalize(loudness)
-            loudness = torch.nn.functional.interpolate(
-                loudness[:, None],
-                scale_factor=promonet.HOPSIZE,
-                mode='linear',
-                align_corners=False)
-            x = torch.cat((x, loudness), dim=1)
-
-            # Ppg conditioning
-            phonemes = torch.nn.functional.interpolate(
-                phonemes,
-                scale_factor=promonet.HOPSIZE,
-                mode='linear',
-                align_corners=False)
-            x = torch.cat((x, phonemes), dim=1)
-
         feature_maps = []
 
         # 1d to 2d
@@ -149,23 +114,6 @@ class DiscriminatorR(torch.nn.Module):
         phonemes=None):
         # Compute spectral features
         features = self.spectrogram(audio)
-
-        # Maybe add conditioning
-        if promonet.CONDITION_DISCRIM:
-
-            # Pitch conditioning
-            features = torch.cat((features, torch.log2(pitch)[:, None]), dim=2)
-
-            # Periodicity conditioning
-            features = torch.cat((features, periodicity[:, None]), dim=2)
-
-            # Loudness conditioning
-            features = torch.cat(
-                (features, promonet.loudness.normalize(loudness)[:, None]),
-                dim=2)
-
-            # Phoneme conditioning
-            features = torch.cat((features, phonemes[:, None]), dim=2)
 
         # Forward pass and save activations
         fmap = []
@@ -256,23 +204,6 @@ class DiscriminatorCMB(torch.nn.Module):
         # Compute complex spectrogram and split into bands
         x_bands = self.spectrogram(x)
 
-        # Maybe add conditioning
-        if promonet.CONDITION_DISCRIM:
-            for band in x_bands:
-                band = torch.cat(
-                    (band, torch.log2(pitch)[:, None, :, None]),
-                    dim=3)
-                band = torch.cat((band, periodicity[:, None, :, None]), dim=3)
-                band = torch.cat(
-                    (
-                        band,
-                        promonet.loudness.normalize(loudness)[:, None, :, None]
-                    ),
-                    dim=3)
-                band = torch.cat(
-                    (band, phonemes.permute(0, 2, 1)[:, None]),
-                    dim=3)
-
         x, fmap = [], []
         for band, stack in zip(x_bands, self.band_convs):
             for layer in stack:
@@ -309,42 +240,6 @@ class DiscriminatorS(torch.nn.Module):
         periodicity=None,
         loudness=None,
         phonemes=None):
-        # Maybe add conditioning
-        if promonet.CONDITION_DISCRIM:
-
-            # Pitch conditioning
-            pitch = torch.nn.functional.interpolate(
-                torch.log2(pitch)[:, None],
-                scale_factor=promonet.HOPSIZE,
-                mode='linear',
-                align_corners=False)
-            x = torch.cat((x, pitch), dim=1)
-
-            # Periodicity conditioning
-            periodicity = torch.nn.functional.interpolate(
-                periodicity[:, None],
-                scale_factor=promonet.HOPSIZE,
-                mode='linear',
-                align_corners=False)
-            x = torch.cat((x, periodicity), dim=1)
-
-            # Loudness conditioning
-            loudness = promonet.loudness.normalize(loudness)
-            loudness = torch.nn.functional.interpolate(
-                loudness[:, None],
-                scale_factor=promonet.HOPSIZE,
-                mode='linear',
-                align_corners=False)
-            x = torch.cat((x, loudness), dim=1)
-
-            # Phoneme conditioning
-            phonemes = torch.nn.functional.interpolate(
-                phonemes,
-                scale_factor=promonet.HOPSIZE,
-                mode='linear',
-                align_corners=False)
-            x = torch.cat((x, phonemes), dim=1)
-
         # Forward pass and save activations
         feature_maps = []
         for layer in self.convs:

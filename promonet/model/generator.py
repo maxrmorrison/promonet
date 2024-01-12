@@ -92,31 +92,31 @@ class Generator(torch.nn.Module):
         """Prepare input features for training or inference"""
         # Standard vocoding from Mel spectrograms
         if promonet.SPECTROGRAM_ONLY:
-            mels = promonet.preprocess.spectrogram.linear_to_mel(
+            features = promonet.preprocess.spectrogram.linear_to_mel(
                 spectrograms)
-            return mels, None
+        else:
 
-        features = ppgs
+            features = ppgs
 
-        # Maybe add pitch features
-        if 'pitch' in promonet.INPUT_FEATURES:
-            if promonet.PITCH_EMBEDDING:
-                pitch = promonet.convert.hz_to_bins(pitch)
-                pitch_embeddings = self.pitch_embedding(pitch).permute(0, 2, 1)
-            else:
-                pitch_embeddings = (
-                    (torch.log2(pitch)[:, None] - promonet.LOG_FMIN) /
-                    (promonet.LOG_FMAX - promonet.LOG_FMIN))
-            features = torch.cat((features, pitch_embeddings), dim=1)
+            # Maybe add pitch features
+            if 'pitch' in promonet.INPUT_FEATURES:
+                if promonet.PITCH_EMBEDDING:
+                    pitch = promonet.convert.hz_to_bins(pitch)
+                    pitch_embeddings = self.pitch_embedding(pitch).permute(0, 2, 1)
+                else:
+                    pitch_embeddings = (
+                        (torch.log2(pitch)[:, None] - promonet.LOG_FMIN) /
+                        (promonet.LOG_FMAX - promonet.LOG_FMIN))
+                features = torch.cat((features, pitch_embeddings), dim=1)
 
-        # Maybe add loudness features
-        if 'loudness' in promonet.INPUT_FEATURES:
-            normalized = promonet.loudness.normalize(loudness)
-            features = torch.cat((features, normalized[:, None]), dim=1)
+            # Maybe add loudness features
+            if 'loudness' in promonet.INPUT_FEATURES:
+                normalized = promonet.loudness.normalize(loudness)
+                features = torch.cat((features, normalized[:, None]), dim=1)
 
-        # Maybe add periodicity features
-        if 'periodicity' in promonet.INPUT_FEATURES:
-            features = torch.cat((features, periodicity[:, None]), dim=1)
+            # Maybe add periodicity features
+            if 'periodicity' in promonet.INPUT_FEATURES:
+                features = torch.cat((features, periodicity[:, None]), dim=1)
 
         # Default augmentation ratio is 1
         if formant_ratios is None and promonet.AUGMENT_PITCH:
