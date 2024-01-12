@@ -133,7 +133,7 @@ def from_file_to_file(
     if 'ppg' in features:
         torch.save(
             features[0],
-            f'{output_prefix}{ppgs.representation_output_extension()}')
+            f'{output_prefix}{ppgs.representation_file_extension()}')
         del features[0]
     if 'text' in features:
         with open(f'{output_prefix}.txt', 'w') as file:

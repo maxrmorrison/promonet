@@ -4,7 +4,7 @@ MODULE = 'promonet'
 CONFIG = 'ablate-augment'
 
 # Whether to use loudness augmentation
-AUGMENT_LOUDNESS = True
+AUGMENT_LOUDNESS = False
 
 # Whether to use pitch augmentation
-AUGMENT_PITCH = True
+AUGMENT_PITCH = False

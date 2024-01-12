@@ -50,7 +50,8 @@ def from_features(
         speaker,
         formant_ratio,
         loudness_ratio,
-        checkpoint)
+        checkpoint
+    ).to(torch.float32)
 
 
 def from_file(

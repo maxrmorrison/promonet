@@ -23,6 +23,7 @@ results
 """
 import json
 
+import ppgs
 import torch
 import torchaudio
 import torchutil
@@ -72,13 +73,7 @@ def datasets(datasets, gpu=None):
             for index in indices:
 
                 # Output directory for checkpoints and logs
-                adapt_directory = (
-                    promonet.RUNS_DIR /
-                    promonet.CONFIG /
-                    'adapt' /
-                    dataset /
-                    index)
-                adapt_directory.mkdir(exist_ok=True, parents=True)
+                checkpoint_directory = promonet.RUNS_DIR / promonet.CONFIG
 
                 # Output directory for objective evaluation
                 objective_directory = (
@@ -101,7 +96,7 @@ def datasets(datasets, gpu=None):
                     test_partition,
                     aggregate_metrics,
                     dataset_metrics,
-                    adapt_directory,
+                    checkpoint_directory,
                     objective_directory,
                     subjective_directory,
                     index,
@@ -183,7 +178,7 @@ def speaker(
     test_partition,
     aggregate_metrics,
     dataset_metrics,
-    directory,
+    checkpoint_directory,
     objective_directory,
     subjective_directory,
     index,
@@ -193,32 +188,33 @@ def speaker(
     device = f'cuda:{gpu}' if gpu is not None else 'cpu'
 
     if promonet.MODEL not in ['psola', 'world'] and promonet.ADAPTATION:
+        adapt_directory = checkpoint_directory / 'adapt' / dataset / index
+        adapt_directory.mkdir(exist_ok=True, parents=True)
 
         # Maybe resume adaptation
         generator_path = torchutil.checkpoint.latest_path(
-            directory,
+            adapt_directory,
             'generator-*.pt')
         discriminator_path = torchutil.checkpoint.latest_path(
-            directory,
+            adapt_directory,
             'discriminator-*.pt')
         if generator_path and discriminator_path:
-            checkpoint = directory
-        else:
-            checkpoint = promonet.RUNS_DIR / promonet.CONFIG
+            checkpoint_directory = adapt_directory
 
         # Perform speaker adaptation
         promonet.train(
-            directory,
+            adapt_directory,
             dataset,
             train_partition,
             test_partition,
-            checkpoint,
+            checkpoint_directory,
             gpu)
+        checkpoint_directory = adapt_directory
 
-        # Get generator checkpoint
-        checkpoint = torchutil.checkpoint.latest_path(
-            directory,
-            'generator-*.pt')
+    # Get generator checkpoint
+    checkpoint = torchutil.checkpoint.latest_path(
+        checkpoint_directory,
+        'generator-*.pt')
 
     # Stems to use for evaluation
     test_stems = sorted(promonet.load.partition(dataset)[test_partition])
@@ -286,9 +282,15 @@ def speaker(
         original_objective_directory / f'{prefix}-loudness.pt'
         for prefix in prefixes]
     ppg_files = [
-        original_objective_directory / f'{prefix}-ppg.pt'
+        original_objective_directory / f'{prefix}{ppgs.representation_file_extension()}'
         for prefix in prefixes]
-    if promonet.MODEL == 'vocoder':
+    if promonet.MODEL in ['psola', 'world']:
+        if promonet.MODEL == 'psola':
+            synthesis_fn = promonet.baseline.psola.from_files_to_files
+        elif promonet.MODEL == 'world':
+            synthesis_fn = promonet.baseline.world.from_files_to_files
+        synthesis_fn(original_audio_files, files['reconstructed-100'])
+    else:
         promonet.synthesize.from_files_to_files(
             pitch_files,
             periodicity_files,
@@ -298,12 +300,6 @@ def speaker(
             checkpoint=checkpoint,
             speakers=speakers,
             gpu=gpu)
-    else:
-        if promonet.MODEL == 'psola':
-            synthesis_fn = promonet.baseline.psola.from_files_to_files
-        elif promonet.MODEL == 'world':
-            synthesis_fn = promonet.baseline.world.from_files_to_files
-        synthesis_fn(original_audio_files, files['reconstructed-100'])
 
     ###################
     # Prosody editing #
@@ -336,17 +332,7 @@ def speaker(
             files[key] = [
                 subjective_directory / f'{prefix.name}.wav'
                 for prefix in output_prefixes]
-            if promonet.MODEL == 'vocoder':
-                promonet.synthesize.from_files_to_files(
-                    [f'{prefix}-pitch.pt' for prefix in output_prefixes],
-                    [f'{prefix}-periodicity.pt' for prefix in output_prefixes],
-                    [f'{prefix}-loudness.pt' for prefix in output_prefixes],
-                    [f'{prefix}-ppg.pt' for prefix in output_prefixes],
-                    files[key],
-                    checkpoint=checkpoint,
-                    speakers=speakers,
-                    gpu=gpu)
-            else:
+            if promonet.MODEL in ['psola', 'world']:
                 if promonet.MODEL == 'psola':
                     synthesis_fn = promonet.baseline.psola.from_files_to_files
                 elif promonet.MODEL == 'world':
@@ -355,6 +341,16 @@ def speaker(
                     original_audio_files,
                     files[key],
                     pitch_files=[f'{prefix}-pitch.pt' for prefix in output_prefixes])
+            else:
+                promonet.synthesize.from_files_to_files(
+                    [f'{prefix}-pitch.pt' for prefix in output_prefixes],
+                    [f'{prefix}-periodicity.pt' for prefix in output_prefixes],
+                    [f'{prefix}-loudness.pt' for prefix in output_prefixes],
+                    [f'{prefix}{ppgs.representation_file_extension()}' for prefix in output_prefixes],
+                    files[key],
+                    checkpoint=checkpoint,
+                    speakers=speakers,
+                    gpu=gpu)
 
         ###################
         # Time stretching #
@@ -383,17 +379,7 @@ def speaker(
             files[key] = [
                 subjective_directory / f'{prefix.name}.wav'
                 for prefix in output_prefixes]
-            if promonet.MODEL == 'vocoder':
-                promonet.synthesize.from_files_to_files(
-                    [f'{prefix}-pitch.pt' for prefix in output_prefixes],
-                    [f'{prefix}-periodicity.pt' for prefix in output_prefixes],
-                    [f'{prefix}-loudness.pt' for prefix in output_prefixes],
-                    [f'{prefix}-ppg.pt' for prefix in output_prefixes],
-                    files[key],
-                    checkpoint=checkpoint,
-                    speakers=speakers,
-                    gpu=gpu)
-            else:
+            if promonet.MODEL in ['psola', 'world']:
                 if promonet.MODEL == 'psola':
                     synthesis_fn = promonet.baseline.psola.from_files_to_files
                 elif promonet.MODEL == 'world':
@@ -402,6 +388,16 @@ def speaker(
                     original_audio_files,
                     files[key],
                     grid_files=[f'{prefix}-grid.pt' for prefix in output_prefixes])
+            else:
+                promonet.synthesize.from_files_to_files(
+                    [f'{prefix}-pitch.pt' for prefix in output_prefixes],
+                    [f'{prefix}-periodicity.pt' for prefix in output_prefixes],
+                    [f'{prefix}-loudness.pt' for prefix in output_prefixes],
+                    [f'{prefix}{ppgs.representation_file_extension()}' for prefix in output_prefixes],
+                    files[key],
+                    checkpoint=checkpoint,
+                    speakers=speakers,
+                    gpu=gpu)
 
         ####################
         # Loudness scaling #
@@ -428,17 +424,7 @@ def speaker(
             files[key] = [
                 subjective_directory / f'{prefix.name}.wav'
                 for prefix in output_prefixes]
-            if promonet.MODEL == 'vocoder':
-                promonet.synthesize.from_files_to_files(
-                    [f'{prefix}-pitch.pt' for prefix in output_prefixes],
-                    [f'{prefix}-periodicity.pt' for prefix in output_prefixes],
-                    [f'{prefix}-loudness.pt' for prefix in output_prefixes],
-                    [f'{prefix}-ppg.pt' for prefix in output_prefixes],
-                    files[key],
-                    checkpoint=checkpoint,
-                    speakers=speakers,
-                    gpu=gpu)
-            else:
+            if promonet.MODEL in ['psola', 'world']:
                 if promonet.MODEL == 'psola':
                     synthesis_fn = promonet.baseline.psola.from_files_to_files
                 elif promonet.MODEL == 'world':
@@ -448,6 +434,16 @@ def speaker(
                     files[key],
                     loudness_files=[
                         f'{prefix}-loudness.pt' for prefix in output_prefixes])
+            else:
+                promonet.synthesize.from_files_to_files(
+                    [f'{prefix}-pitch.pt' for prefix in output_prefixes],
+                    [f'{prefix}-periodicity.pt' for prefix in output_prefixes],
+                    [f'{prefix}-loudness.pt' for prefix in output_prefixes],
+                    [f'{prefix}{ppgs.representation_file_extension()}' for prefix in output_prefixes],
+                    files[key],
+                    checkpoint=checkpoint,
+                    speakers=speakers,
+                    gpu=gpu)
 
     ############################
     # Speech -> representation #
@@ -513,11 +509,11 @@ def speaker(
                     pitch,
                     torch.load(f'{predicted_prefix}-periodicity.pt').to(device),
                     torch.load(f'{predicted_prefix}-loudness.pt').to(device),
-                    promonet.load.ppg(f'{predicted_prefix}-ppg.pt', pitch.shape[-1]).to(device),
+                    promonet.load.ppg(f'{predicted_prefix}{ppgs.representation_file_extension()}', pitch.shape[-1]).to(device),
                     torch.load(f'{target_prefix}-pitch.pt').to(device),
                     torch.load(f'{target_prefix}-periodicity.pt').to(device),
                     torch.load(f'{target_prefix}-loudness.pt').to(device),
-                    promonet.load.ppg(f'{target_prefix}-ppg.pt', pitch.shape[-1]).to(device),
+                    promonet.load.ppg(f'{target_prefix}{ppgs.representation_file_extension()}', pitch.shape[-1]).to(device),
                     promonet.load.text(f'{predicted_prefix}.txt'),
                     promonet.load.text(f'{target_prefix}.txt'.replace(key, 'original-100')),
                     None)
