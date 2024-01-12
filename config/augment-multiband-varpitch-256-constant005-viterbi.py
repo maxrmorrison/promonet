@@ -1,7 +1,7 @@
 MODULE = 'promonet'
 
 # Configuration name
-CONFIG = 'augment-transformer-multiband-varpitch-256-varbatch-bucket1-090000-constant005-film'
+CONFIG = 'augment-multiband-varpitch-256-constant005-viterbi'
 
 # Whether to use pitch augmentation
 AUGMENT_PITCH = True
@@ -9,11 +9,8 @@ AUGMENT_PITCH = True
 # Whether to use the complex multi-band discriminator from RVQGAN
 COMPLEX_MULTIBAND_DISCRIMINATOR = True
 
-# Whether to use FiLM for global conditioning
-FILM_CONDITIONING = False
-
-# Maximum number of frames in a batch
-MAX_TRAINING_FRAMES = 90000
+# Whether to use the multi-scale waveform discriminator from MelGAN
+MULTI_SCALE_DISCRIMINATOR = False
 
 # Type of sparsification used for ppgs
 # One of ['constant', 'percentile', 'topk', None]
@@ -26,6 +23,5 @@ SPARSE_PPG_THRESHOLD = 0.05
 # Whether to use variable-width pitch bins
 VARIABLE_PITCH_BINS = True
 
-# Model architecture to use for vocos vocoder.
-# One of ['convnext', 'transformer'].
-VOCOS_ARCHITECTURE = 'transformer'
+# Whether to perform Viterbi decoding on pitch features
+VITERBI_DECODE_PITCH = True

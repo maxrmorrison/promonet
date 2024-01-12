@@ -119,10 +119,6 @@ def datasets(datasets):
     """Partition datasets and save to disk"""
     for name in datasets:
 
-        # Multispeaker is only implemented for VCTK for now
-        if name in ['daps', 'libritts'] and not promonet.ADAPTATION:
-            continue
-
         # Remove cached metadata that may become stale
         metadata_files = (promonet.CACHE_DIR / name).glob('*-lengths.json')
         for metadata_file in metadata_files:
@@ -218,6 +214,10 @@ def vctk():
         f'{file.parent.name}/{file.stem}'
         for file in directory.rglob('*.txt')}
 
+    # Get file stem correspondence
+    with open(directory / 'correspondence.json') as file:
+        correspondence = json.load(file)
+
     # Create speaker adaptation partitions
     if promonet.ADAPTATION:
         adapt_partitions = adaptation_partitions(
@@ -228,9 +228,13 @@ def vctk():
         # Get test partition indices
         test_stems = list(
             itertools.chain.from_iterable(adapt_partitions.values()))
+        test_correspondence = [corresponence[stem][:-1] for stem in test_stems]
 
         # Get residual indices
-        residual = [stem for stem in stems if stem not in test_stems]
+        residual = [
+            stem for stem in stems
+            if stem not in test_stems and
+            correspondence[stem][:-1] not in test_correspondence]
         random.shuffle(residual)
 
         # Get validation stems
@@ -252,8 +256,12 @@ def vctk():
         for speaker, speaker_stems in test_speaker_stems.items():
             random.shuffle(speaker_stems)
             test_stems += list(filter(filter_fn, speaker_stems))[:10]
+        test_correspondence = [corresponence[stem][:-1] for stem in test_stems]
 
-        residual = [stem for stem in stems if stem not in test_stems]
+        residual = [
+            stem for stem in stems
+            if stem not in test_stems and
+            correspondence[stem][:-1] not in test_correspondence]
         random.shuffle(residual)
 
         # Get validation stems

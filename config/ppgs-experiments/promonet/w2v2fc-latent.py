@@ -3,9 +3,6 @@ MODULE = 'promonet'
 # Configuration name
 CONFIG = 'w2v2fc-latent'
 
-# Whether to perform speaker adaptation (instead of multi-speaker)
-ADAPTATION = False
-
 # Batch size
 BATCH_SIZE = 32
 

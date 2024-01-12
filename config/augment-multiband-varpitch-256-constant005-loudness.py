@@ -1,13 +1,19 @@
 MODULE = 'promonet'
 
 # Configuration name
-CONFIG = 'augment-multiband-varpitch-256-constant005-libritts'
+CONFIG = 'augment-multiband-varpitch-256-constant005-loudness'
+
+# Whether to use loudness augmentation
+AUGMENT_LOUDNESS = True
 
 # Whether to use pitch augmentation
 AUGMENT_PITCH = True
 
 # Whether to use the complex multi-band discriminator from RVQGAN
 COMPLEX_MULTIBAND_DISCRIMINATOR = True
+
+# Whether to use the multi-scale waveform discriminator from MelGAN
+MULTI_SCALE_DISCRIMINATOR = False
 
 # Type of sparsification used for ppgs
 # One of ['constant', 'percentile', 'topk', None]
@@ -16,9 +22,6 @@ SPARSE_PPG_METHOD = 'constant'
 # Threshold for ppg sparsification.
 # In [0, 1] for 'contant' and 'percentile'; integer > 0 for 'topk'.
 SPARSE_PPG_THRESHOLD = 0.05
-
-# Dataset to use for training
-TRAINING_DATASET = 'libritts'
 
 # Whether to use variable-width pitch bins
 VARIABLE_PITCH_BINS = True
