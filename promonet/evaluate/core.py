@@ -121,7 +121,7 @@ def datasets(datasets, gpu=None):
         # Parse benchmarking results
         results['benchmark'] = {'raw': torchutil.time.results()}
         results['benchmark']['rtf'] = {
-            key: value / (results['num_samples'] / promonet.SAMPLE_RATE)
+            key: (results['num_samples'] / promonet.SAMPLE_RATE) / value
             for key, value in results['benchmark']['raw'].items()}
 
         # Print results and save to disk
@@ -158,7 +158,7 @@ def datasets(datasets, gpu=None):
             for key, value in result['benchmark']['raw']:
                 results['benchmark']['raw']['key'] += value
     results['benchmark']['rtf'] = {
-        key: value / (results['num_samples'] / promonet.SAMPLE_RATE)
+        key: (results['num_samples'] / promonet.SAMPLE_RATE) / value
         for key, value in results['benchmark']['raw'].items()}
 
     # Print results and save to disk
@@ -491,11 +491,12 @@ def speaker(
         results = {'objective': {'raw': {}}}
         for key, value in files.items():
 
-            results['objective']['raw'][key] = []
             for file in value:
 
-                # Get prosody metrics
+                # Setup file metrics
                 file_metrics = promonet.evaluate.Metrics()
+                if file.stem not in results['objective']['raw']:
+                    results['objective']['raw'][file.stem] = {}
 
                 # Get target filepath
                 target_prefix = original_objective_directory / file.stem
@@ -529,9 +530,8 @@ def speaker(
                 speaker_metrics[key].update(*args)
                 file_metrics.update(*args)
 
-            # Get results for this file
-            results['objective']['raw'][key].append(
-                (file.stem, file_metrics()))
+                # Save file results
+                results['objective']['raw'][file.stem][key] = file_metrics()
 
     # Get results for this speaker
     results['objective']['average'] = {

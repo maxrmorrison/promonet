@@ -20,7 +20,6 @@ from .config.static import *
 ###############################################################################
 
 
-from .core import *
 from .train import train
 from . import adapt
 from . import baseline
