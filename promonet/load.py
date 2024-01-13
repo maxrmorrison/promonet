@@ -17,10 +17,14 @@ import promonet
 
 def audio(file):
     """Load audio from disk"""
+    # Load
     audio, sample_rate = torchaudio.load(file)
 
-    # Maybe resample
-    return promonet.resample(audio, sample_rate)
+    # Resample
+    return torchaudio.functional.resample(
+        audio,
+        sample_rate,
+        promonet.SAMPLE_RATE)
 
 
 def features(prefix):

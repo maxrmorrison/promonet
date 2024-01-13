@@ -118,7 +118,7 @@ def daps():
                 (speaker_directory / output_file).with_suffix('.txt'))
 
             # Save at system sample rate
-            audio = promonet.resample(audio, sample_rate)
+            audio = resample(audio, sample_rate)
             torchaudio.save(
                 speaker_directory / f'{output_file.stem}-100.wav',
                 audio,
@@ -200,7 +200,7 @@ def libritts():
                 (speaker_directory / output_file).with_suffix('.txt'))
 
             # Save at system sample rate
-            audio = promonet.resample(audio, sample_rate)
+            audio = resample(audio, sample_rate)
             torchaudio.save(
                 speaker_directory / f'{output_file.stem}-100.wav',
                 audio,
@@ -283,21 +283,35 @@ def vctk():
                 (speaker_directory / output_file).with_suffix('.txt'))
 
             # Save at system sample rate
-            audio = promonet.resample(audio, sample_rate)
+            audio = resample(audio, sample_rate)
             torchaudio.save(
                 speaker_directory / f'{output_file.stem}-100.wav',
                 audio,
                 promonet.SAMPLE_RATE)
 
             # Save file stem correpondence
-            correspondence[output_files.stem] = audio_file.stem
+            correspondence[output_file.stem] = audio_file.stem
         with open('correspondence.json', 'w') as file:
-            json.dump(correpondence)
+            json.dump(correspondence)
 
 
 ###############################################################################
 # Utilities
 ###############################################################################
+
+
+def resample(audio, sample_rate):
+    """Resample audio to ProMoNet sample rate"""
+    # Cache resampling filter
+    key = str(sample_rate)
+    if not hasattr(resample, key):
+        setattr(
+            resample,
+            key,
+            torchaudio.transforms.Resample(sample_rate, promonet.SAMPLE_RATE))
+
+    # Resample
+    return getattr(resample, key)(audio)
 
 
 def vctk_audio_file_to_text_file(audio_file):
