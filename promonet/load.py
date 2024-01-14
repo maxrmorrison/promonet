@@ -29,9 +29,13 @@ def audio(file):
 
 def features(prefix):
     """Load input features from file prefix"""
+    if promonet.VITERBI_DECODE_PITCH:
+        pitch_prefix = f'{prefix}-viterbi'
+    else:
+        pitch_prefix = prefix
     return (
-        torch.load(f'{prefix}-pitch.pt'),
-        torch.load(f'{prefix}-periodicity.pt'),
+        torch.load(f'{pitch_prefix}-pitch.pt'),
+        torch.load(f'{pitch_prefix}-periodicity.pt'),
         torch.load(f'{prefix}-loudness.pt'),
         torch.load(f'{prefix}-ppg.pt'))
 
@@ -83,9 +87,11 @@ def pitch_distribution(dataset=promonet.TRAINING_DATASET, partition='train'):
                 promonet.load.partition(dataset)[partition],
                 'promonet.load.pitch_distribution'
             ):
-                for pitch_file in (promonet.CACHE_DIR / dataset).glob(
-                    f'{stem}*-pitch.pt'
-                ):
+                if promonet.VITERBI_DECODE_PITCH:
+                    glob = f'{stem}*-viterbi-pitch.pt'
+                else:
+                    glob = f'{stem}*-pitch.pt'
+                for pitch_file in (promonet.CACHE_DIR / dataset).glob(glob):
                     pitch = torch.load(pitch_file)
                     periodicity = torch.load(
                         pitch_file.parent /

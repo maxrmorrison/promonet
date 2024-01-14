@@ -20,6 +20,7 @@ class Dataset(torch.utils.data.Dataset):
         super().__init__()
         self.cache = promonet.CACHE_DIR / dataset
         self.partition = partition
+        self.viterbi = '-viterbi' if promonet.VITERBI_DECODE_PITCH else ''
 
         # Get stems corresponding to partition
         partition_dict = promonet.load.partition(dataset)
@@ -48,11 +49,17 @@ class Dataset(torch.utils.data.Dataset):
     def __getitem__(self, index):
         stem = self.stems[index]
         text = promonet.load.text(self.cache / f'{stem.split("-")[0]}.txt')
-        audio = promonet.load.audio(self.cache / f'{stem}.wav').to(torch.float32)
-        pitch = torch.load(self.cache / f'{stem}-pitch.pt').to(torch.float32)
-        periodicity = torch.load(self.cache / f'{stem}-periodicity.pt').to(torch.float32)
-        loudness = torch.load(self.cache / f'{stem}-loudness.pt').to(torch.float32)
-        spectrogram = torch.load(self.cache / f'{stem}-spectrogram.pt').to(torch.float32)
+        audio = promonet.load.audio(
+            self.cache / f'{stem}.wav').to(torch.float32)
+        pitch = torch.load(
+            self.cache / f'{stem}{self.viterbi}-pitch.pt').to(torch.float32)
+        periodicity = torch.load(
+            self.cache / f'{stem}{self.viterbi}-periodicity.pt'
+        ).to(torch.float32)
+        loudness = torch.load(
+            self.cache / f'{stem}-loudness.pt').to(torch.float32)
+        spectrogram = torch.load(
+            self.cache / f'{stem}-spectrogram.pt').to(torch.float32)
         phonemes = promonet.load.ppg(
             self.cache / f'{stem}{ppgs.representation_file_extension()}',
             resample_length=spectrogram.shape[-1]).to(torch.float32)
