@@ -44,7 +44,10 @@ class Dataset(torch.utils.data.Dataset):
                     promonet.AUGMENT_DIR / f'{dataset}-loudness.json'
                 ) as file:
                     ratios = json.load(file)
-                self.stems.extend([f'{stem}-l{ratios[stem]}' for stem in stems])
+                # TEMPORARY - some loudness files aren't in the cache
+                self.stems.extend([
+                    f'{stem}-l{ratios[stem]}' for stem in stems
+                    if (self.cache / f'{stem}-l{ratios[stem]}.wav').exists()])
 
     def __getitem__(self, index):
         stem = self.stems[index]

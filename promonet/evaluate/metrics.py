@@ -114,10 +114,10 @@ class Pitch(torchutil.metrics.L1):
         voicing = (
             penn.voicing.threshold(
                 predicted_periodicity,
-                promonet.VOICING_THRESOLD) &
+                promonet.VOICING_THRESHOLD) &
             penn.voicing.threshold(
                 target_periodicity,
-                promonet.VOICING_THRESOLD))
+                promonet.VOICING_THRESHOLD))
         predicted = predicted_pitch[voicing]
         target = target_pitch[voicing]
 

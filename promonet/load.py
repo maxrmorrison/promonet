@@ -97,7 +97,7 @@ def pitch_distribution(dataset=promonet.TRAINING_DATASET, partition='train'):
                         pitch_file.parent /
                         pitch_file.name.replace('pitch', 'periodicity'))
                     allpitch.append(
-                        pitch[periodicity > promonet.VOICING_THRESOLD])
+                        pitch[periodicity > promonet.VOICING_THRESHOLD])
 
             # Sort
             pitch, _ = torch.sort(torch.cat(allpitch))

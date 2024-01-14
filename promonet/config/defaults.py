@@ -79,7 +79,7 @@ AUGMENTATION_RATIO_MIN = .5
 DATASETS = ['daps', 'libritts', 'vctk']
 
 # Default periodicity threshold of the voiced/unvoiced decision
-VOICING_THRESOLD = .1625
+VOICING_THRESHOLD = .1625
 
 # Whether to use an embedding layer for pitch
 PITCH_EMBEDDING = True
