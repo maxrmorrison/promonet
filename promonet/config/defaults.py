@@ -317,9 +317,3 @@ OPTIMIZER = functools.partial(
     lr=2e-4,
     betas=(.8, .99),
     eps=1e-9)
-
-# Learning rate scheduler
-# SCHEDULER = functools.partial(
-#     transformers.get_cosine_schedule_with_warmup,
-#     num_warmup_steps=0)
-SCHEDULER = None
