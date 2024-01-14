@@ -48,6 +48,12 @@ def from_audio(
 
     # Estimate pitch and periodicity
     if 'pitch' in features or 'periodicity' in features:
+        if promonet.VITERBI_DECODE_PITCH:
+            decoder = 'viterbi'
+            voicing_threshold = None
+        else:
+            decoder = 'argmax'
+            voicing_threshold = promonet.VOICING_THRESHOLD
         pitch, periodicity = penn.from_audio(
             audio,
             sample_rate=sample_rate,
@@ -56,7 +62,8 @@ def from_audio(
             fmax=promonet.FMAX,
             batch_size=2048,
             center='half-hop',
-            interp_unvoiced_at=promonet.VOICING_THRESOLD,
+            decoder=decoder,
+            interp_unvoiced_at=voicing_threshold,
             gpu=gpu)
         result.extend([periodicity, pitch])
 
@@ -170,6 +177,12 @@ def from_files_to_files(
 
     # Preprocess pitch and periodicity
     if 'pitch' in features or 'periodicity' in features:
+        if promonet.VITERBI_DECODE_PITCH:
+            decoder = 'viterbi'
+            voicing_threshold = None
+        else:
+            decoder = 'argmax'
+            voicing_threshold = promonet.VOICING_THRESHOLD
         penn.from_files_to_files(
             files,
             output_prefixes,
@@ -178,7 +191,8 @@ def from_files_to_files(
             fmax=promonet.FMAX,
             batch_size=2048,
             center='half-hop',
-            interp_unvoiced_at=promonet.VOICING_THRESOLD,
+            decoder=decoder,
+            interp_unvoiced_at=voicing_threshold,
             gpu=gpu)
 
     # Preprocess loudness

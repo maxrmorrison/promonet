@@ -214,15 +214,14 @@ def vctk():
     """Download vctk dataset"""
     directory = promonet.DATA_DIR / 'vctk'
     directory.mkdir(exist_ok=True, parents=True)
-    # TEMPORARY
-    # torchutil.download.zip(
-    #     'https://datashare.ed.ac.uk/download/DS_10283_3443.zip',
-    #     directory)
+    torchutil.download.zip(
+        'https://datashare.ed.ac.uk/download/DS_10283_3443.zip',
+        directory)
 
     # Unzip
-    # for file in directory.glob('*.zip'):
-    #     with zipfile.ZipFile(file) as zfile:
-    #         zfile.extractall(directory)
+    for file in directory.glob('*.zip'):
+        with zipfile.ZipFile(file) as zfile:
+            zfile.extractall(directory)
 
     # File locations
     audio_directory = directory / 'wav48_silence_trimmed'
