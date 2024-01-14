@@ -79,7 +79,7 @@ AUGMENTATION_RATIO_MIN = .5
 DATASETS = ['daps', 'libritts', 'vctk']
 
 # Default periodicity threshold of the voiced/unvoiced decision
-VOICING_THRESOLD = .1625
+VOICING_THRESHOLD = .1625
 
 # Whether to use an embedding layer for pitch
 PITCH_EMBEDDING = True
@@ -118,7 +118,7 @@ TRAINING_DATASET = 'vctk'
 VARIABLE_PITCH_BINS = False
 
 # Whether to perform Viterbi decoding on pitch features
-VITERBI_DECODE_PITCH = False
+VITERBI_DECODE_PITCH = True
 
 
 ###############################################################################
@@ -127,7 +127,8 @@ VITERBI_DECODE_PITCH = False
 
 
 # Root location for saving outputs
-ROOT_DIR = Path(__file__).parent.parent.parent
+# ROOT_DIR = Path(__file__).parent.parent.parent
+ROOT_DIR = Path('/hemera-storage1/pardo/max/repos/promonet')
 
 # Location to save assets to be bundled with pip release
 ASSETS_DIR = Path(__file__).parent.parent / 'assets'
