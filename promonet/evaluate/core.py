@@ -272,11 +272,12 @@ def speaker(
     files = {
         'reconstructed-100': [
             subjective_directory / f'{prefix}.wav' for prefix in prefixes]}
+    viterbi = '-viterbi' if promonet.VITERBI_DECODE_PITCH else ''
     pitch_files = [
-        original_objective_directory / f'{prefix}-pitch.pt'
+        original_objective_directory / f'{prefix}{viterbi}-pitch.pt'
         for prefix in prefixes]
     periodicity_files = [
-        original_objective_directory / f'{prefix}-periodicity.pt'
+        original_objective_directory / f'{prefix}{viterbi}-periodicity.pt'
         for prefix in prefixes]
     loudness_files = [
         original_objective_directory / f'{prefix}-loudness.pt'
@@ -340,11 +341,11 @@ def speaker(
                 synthesis_fn(
                     original_audio_files,
                     files[key],
-                    pitch_files=[f'{prefix}-pitch.pt' for prefix in output_prefixes])
+                    pitch_files=[f'{prefix}{viterbi}-pitch.pt' for prefix in output_prefixes])
             else:
                 promonet.synthesize.from_files_to_files(
-                    [f'{prefix}-pitch.pt' for prefix in output_prefixes],
-                    [f'{prefix}-periodicity.pt' for prefix in output_prefixes],
+                    [f'{prefix}{viterbi}-pitch.pt' for prefix in output_prefixes],
+                    [f'{prefix}{viterbi}-periodicity.pt' for prefix in output_prefixes],
                     [f'{prefix}-loudness.pt' for prefix in output_prefixes],
                     [f'{prefix}{ppgs.representation_file_extension()}' for prefix in output_prefixes],
                     files[key],
@@ -390,8 +391,8 @@ def speaker(
                     grid_files=[f'{prefix}-grid.pt' for prefix in output_prefixes])
             else:
                 promonet.synthesize.from_files_to_files(
-                    [f'{prefix}-pitch.pt' for prefix in output_prefixes],
-                    [f'{prefix}-periodicity.pt' for prefix in output_prefixes],
+                    [f'{prefix}{viterbi}-pitch.pt' for prefix in output_prefixes],
+                    [f'{prefix}{viterbi}-periodicity.pt' for prefix in output_prefixes],
                     [f'{prefix}-loudness.pt' for prefix in output_prefixes],
                     [f'{prefix}{ppgs.representation_file_extension()}' for prefix in output_prefixes],
                     files[key],
@@ -436,8 +437,8 @@ def speaker(
                         f'{prefix}-loudness.pt' for prefix in output_prefixes])
             else:
                 promonet.synthesize.from_files_to_files(
-                    [f'{prefix}-pitch.pt' for prefix in output_prefixes],
-                    [f'{prefix}-periodicity.pt' for prefix in output_prefixes],
+                    [f'{prefix}{viterbi}-pitch.pt' for prefix in output_prefixes],
+                    [f'{prefix}{viterbi}-periodicity.pt' for prefix in output_prefixes],
                     [f'{prefix}-loudness.pt' for prefix in output_prefixes],
                     [f'{prefix}{ppgs.representation_file_extension()}' for prefix in output_prefixes],
                     files[key],
@@ -505,14 +506,14 @@ def speaker(
                 predicted_prefix = objective_directory / file.stem
 
                 # Load predicted and target features
-                pitch = torch.load(f'{predicted_prefix}-pitch.pt').to(device)
+                pitch = torch.load(f'{predicted_prefix}{viterbi}-pitch.pt').to(device)
                 args = (
                     pitch,
-                    torch.load(f'{predicted_prefix}-periodicity.pt').to(device),
+                    torch.load(f'{predicted_prefix}{viterbi}-periodicity.pt').to(device),
                     torch.load(f'{predicted_prefix}-loudness.pt').to(device),
                     promonet.load.ppg(f'{predicted_prefix}{ppgs.representation_file_extension()}', pitch.shape[-1]).to(device),
-                    torch.load(f'{target_prefix}-pitch.pt').to(device),
-                    torch.load(f'{target_prefix}-periodicity.pt').to(device),
+                    torch.load(f'{target_prefix}{viterbi}-pitch.pt').to(device),
+                    torch.load(f'{target_prefix}{viterbi}-periodicity.pt').to(device),
                     torch.load(f'{target_prefix}-loudness.pt').to(device),
                     promonet.load.ppg(f'{target_prefix}{ppgs.representation_file_extension()}', pitch.shape[-1]).to(device),
                     promonet.load.text(f'{predicted_prefix}.txt'),
