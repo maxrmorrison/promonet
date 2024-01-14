@@ -6,16 +6,15 @@ these files are produced during augmentation, preprocessing, and training.
 data
 ├── cache
 |   └── <dataset>
-|       ├── <speaker>
-|       |   ├── <utterance>-<ratio>-loudness.pt
-|       |   ├── <utterance>-<ratio>-periodicity.pt
-|       |   ├── <utterance>-<ratio>-pitch.pt
-|       |   ├── <utterance>-<ratio>-ppg.pt
-|       |   ├── <utterance>-<ratio>-spectrogram.pt
-|       |   ├── <utterance>-<ratio>.wav
-|       |   ├── <utterance>.txt
-|       |   └── <utterance>.wav
-|       └── <partition>-lengths.json  # Cached utterance lengths
+|       └── <speaker>
+|           ├── <utterance>-<ratio>-loudness.pt
+|           ├── <utterance>-<ratio>-periodicity.pt
+|           ├── <utterance>-<ratio>-pitch.pt
+|           ├── <utterance>-<ratio>-ppg.pt
+|           ├── <utterance>-<ratio>-spectrogram.pt
+|           ├── <utterance>-<ratio>.wav
+|           ├── <utterance>.txt
+|           └── <utterance>.wav
 └── datasets
     └── <dataset>
         └── <original, uncompressed contents of the dataset>
@@ -215,14 +214,15 @@ def vctk():
     """Download vctk dataset"""
     directory = promonet.DATA_DIR / 'vctk'
     directory.mkdir(exist_ok=True, parents=True)
-    torchutil.download.zip(
-        'https://datashare.ed.ac.uk/download/DS_10283_3443.zip',
-        directory)
+    # TEMPORARY
+    # torchutil.download.zip(
+    #     'https://datashare.ed.ac.uk/download/DS_10283_3443.zip',
+    #     directory)
 
     # Unzip
-    for file in directory.glob('*.zip'):
-        with zipfile.ZipFile(file) as zfile:
-            zfile.extractall(directory)
+    # for file in directory.glob('*.zip'):
+    #     with zipfile.ZipFile(file) as zfile:
+    #         zfile.extractall(directory)
 
     # File locations
     audio_directory = directory / 'wav48_silence_trimmed'
@@ -290,9 +290,9 @@ def vctk():
                 promonet.SAMPLE_RATE)
 
             # Save file stem correpondence
-            correspondence[output_file.stem] = audio_file.stem
+            correspondence[f'{index:04d}/{output_file.stem}'] = audio_file.stem
         with open('correspondence.json', 'w') as file:
-            json.dump(correspondence)
+            json.dump(correspondence, file)
 
 
 ###############################################################################

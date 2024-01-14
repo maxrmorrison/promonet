@@ -228,12 +228,11 @@ VITS_CHANNELS = 192
 # Hidden dimension channel size
 VITS_PRIOR_CHANNELS = 768
 
-# Model architecture to use for vocos vocoder.
-# One of ['convnext', 'transformer'].
-VOCOS_ARCHITECTURE = 'convnext'
-
-# The size of intermediate feature activations in Vocos
+# The size of feature activations in Vocos
 VOCOS_CHANNELS = 512
+
+# The size of pointwise convolutions in Vocos
+VOCOS_POINTWISE_CHANNELS = 1536
 
 # Number of neural network layers in Vocos
 VOCOS_LAYERS = 5
@@ -290,7 +289,7 @@ MULTI_MEL_LOSS_WINDOWS = [32, 64, 128, 256, 512, 1024, 2048]
 
 
 # Batch size
-BATCH_SIZE = 192
+BATCH_SIZE = 64
 
 # Size in samples of discriminator inputs
 CHUNK_SIZE = 16384
@@ -299,7 +298,7 @@ CHUNK_SIZE = 16384
 GRADIENT_CLIP_GENERATOR = None
 
 # Number of training steps
-STEPS = 250000
+STEPS = 400000
 
 # Number of adaptation steps
 ADAPTATION_STEPS = 10000
