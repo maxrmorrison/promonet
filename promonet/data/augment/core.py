@@ -17,9 +17,6 @@ def datasets(datasets):
     for dataset in datasets:
 
         # Remove cached metadata that may become stale
-        metadata_files = (promonet.CACHE_DIR / dataset).glob('*-lengths.json')
-        for metadata_file in metadata_files:
-            metadata_file.unlink()
         for stats_file in (promonet.ASSETS_DIR / 'stats').glob('*.pt'):
             stats_file.unlink()
 

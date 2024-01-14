@@ -1,7 +1,7 @@
 MODULE = 'promonet'
 
 # Configuration name
-CONFIG = 'augment-multiband-varpitch-256-constant005-film-loudness-viterbi'
+CONFIG = 'augment-multiband-varpitch-256-constant005-film-loudness'
 
 # Whether to use loudness augmentation
 AUGMENT_LOUDNESS = True
@@ -28,6 +28,3 @@ SPARSE_PPG_THRESHOLD = 0.05
 
 # Whether to use variable-width pitch bins
 VARIABLE_PITCH_BINS = True
-
-# Whether to perform Viterbi decoding on pitch features
-VITERBI_DECODE_PITCH = True

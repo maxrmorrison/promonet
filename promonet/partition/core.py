@@ -119,10 +119,7 @@ def datasets(datasets):
     """Partition datasets and save to disk"""
     for name in datasets:
 
-        # Remove cached metadata that may become stale
-        metadata_files = (promonet.CACHE_DIR / name).glob('*-lengths.json')
-        for metadata_file in metadata_files:
-            metadata_file.unlink()
+        # Remove cached training statistics that may become stale
         for stats_file in (promonet.ASSETS_DIR / 'stats').glob('*.pt'):
             stats_file.unlink()
 
@@ -228,7 +225,7 @@ def vctk():
         # Get test partition indices
         test_stems = list(
             itertools.chain.from_iterable(adapt_partitions.values()))
-        test_correspondence = [corresponence[stem][:-1] for stem in test_stems]
+        test_correspondence = [correspondence[stem][:-1] for stem in test_stems]
 
         # Get residual indices
         residual = [
@@ -256,7 +253,7 @@ def vctk():
         for speaker, speaker_stems in test_speaker_stems.items():
             random.shuffle(speaker_stems)
             test_stems += list(filter(filter_fn, speaker_stems))[:10]
-        test_correspondence = [corresponence[stem][:-1] for stem in test_stems]
+        test_correspondence = [correspondence[stem][:-1] for stem in test_stems]
 
         residual = [
             stem for stem in stems
