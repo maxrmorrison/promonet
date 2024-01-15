@@ -8,6 +8,11 @@ import promonet
 ###############################################################################
 
 
+# Threshold to sparsify Mel spectrograms
+LOG_DYNAMIC_RANGE_COMPRESSION_THRESHOLD = (
+    None if promonet.DYNAMIC_RANGE_COMPRESSION_THRESHOLD is None else
+    math.log(promonet.DYNAMIC_RANGE_COMPRESSION_THRESHOLD))
+
 # Base-2 log of pitch range boundaries
 LOG_FMIN = math.log2(promonet.FMIN)
 LOG_FMAX = math.log2(promonet.FMAX)

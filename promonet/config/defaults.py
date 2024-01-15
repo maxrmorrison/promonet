@@ -21,6 +21,9 @@ CONFIG = 'promonet'
 ###############################################################################
 
 
+# Threshold to sparsify Mel spectrograms
+DYNAMIC_RANGE_COMPRESSION_THRESHOLD = None
+
 # Minimum and maximum frequency
 FMIN = 50.  # Hz
 FMAX = 550.  # Hz
@@ -78,9 +81,6 @@ AUGMENTATION_RATIO_MIN = .5
 # Names of all datasets
 DATASETS = ['daps', 'libritts', 'vctk']
 
-# Default periodicity threshold of the voiced/unvoiced decision
-VOICING_THRESHOLD = .1625
-
 # Whether to use an embedding layer for pitch
 PITCH_EMBEDDING = True
 
@@ -96,6 +96,9 @@ PPG_CHANNELS = 40
 # Type of interpolation method to use to scale PPG features
 # Available method are ['linear', 'nearest', 'slerp']
 PPG_INTERP_METHOD = 'slerp'
+
+# Whether to shift Mel inputs to have a minimum of zero
+SPARSE_MELS = False
 
 # Type of sparsification used for ppgs
 # One of ['constant', 'percentile', 'topk', None]
@@ -118,7 +121,10 @@ TRAINING_DATASET = 'vctk'
 VARIABLE_PITCH_BINS = False
 
 # Whether to perform Viterbi decoding on pitch features
-VITERBI_DECODE_PITCH = True
+VITERBI_DECODE_PITCH = False
+
+# Default periodicity threshold of the voiced/unvoiced decision
+VOICING_THRESHOLD = .1625
 
 
 ###############################################################################
@@ -127,6 +133,7 @@ VITERBI_DECODE_PITCH = True
 
 
 # Root location for saving outputs
+# TEMPORARY
 # ROOT_DIR = Path(__file__).parent.parent.parent
 ROOT_DIR = Path('/hemera-storage1/pardo/max/repos/promonet')
 
@@ -236,7 +243,7 @@ VOCOS_CHANNELS = 512
 VOCOS_POINTWISE_CHANNELS = 1536
 
 # Number of neural network layers in Vocos
-VOCOS_LAYERS = 5
+VOCOS_LAYERS = 6
 
 
 ###############################################################################
@@ -283,6 +290,8 @@ MULTI_MEL_LOSS = False
 # Window sizes to be used in the multi-scale mel loss
 MULTI_MEL_LOSS_WINDOWS = [32, 64, 128, 256, 512, 1024, 2048]
 
+# Whether to shift the Mels given to the Mel loss to have a minimum of zero
+SPARSE_MEL_LOSS = False
 
 ###############################################################################
 # Training parameters

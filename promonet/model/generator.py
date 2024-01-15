@@ -1,5 +1,3 @@
-import math
-
 import torch
 
 import promonet
@@ -14,6 +12,7 @@ class Generator(torch.nn.Module):
 
     def __init__(self):
         super().__init__()
+
         # Model selection
         if promonet.MODEL == 'hifigan':
             self.vocoder = promonet.model.HiFiGAN(
@@ -25,7 +24,7 @@ class Generator(torch.nn.Module):
                 promonet.VITS_CHANNELS,
                 promonet.GLOBAL_CHANNELS)
         elif promonet.MODEL == 'vocos':
-            self.vocoder = promonet.model.HiFiGAN(
+            self.vocoder = promonet.model.Vocos(
                 promonet.NUM_FEATURES,
                 promonet.GLOBAL_CHANNELS)
 
@@ -90,10 +89,16 @@ class Generator(torch.nn.Module):
         spectrograms
     ):
         """Prepare input features for training or inference"""
-        # Standard vocoding from Mel spectrograms
         if promonet.SPECTROGRAM_ONLY:
+
+            # Standard vocoding from Mel spectrograms
             features = promonet.preprocess.spectrogram.linear_to_mel(
                 spectrograms)
+
+            # Sparsify by adding the clipping threshold
+            if promonet.SPARSE_MELS:
+                features += promonet.LOG_DYNAMIC_RANGE_COMPRESSION_THRESHOLD
+
         else:
 
             features = ppgs
