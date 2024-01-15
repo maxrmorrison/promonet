@@ -1,10 +1,4 @@
-
-import math
-import functools
-from typing import Optional
-
 import torch
-import vocos
 
 import promonet
 
@@ -56,10 +50,10 @@ class Vocos(torch.nn.Module):
                 x += g
 
         # Infer complex STFT
-        x = self.backbone(x).transpose(1, 2)
+        x = self.backbone(x, g)
 
         # Perform iSTFT to get waveform
-        return self.head(x.transpose(1, 2)).unsqueeze(1)
+        return self.head(x)
 
 
 ###############################################################################
@@ -106,7 +100,7 @@ class VocosBackbone(torch.nn.Module):
         for conv_block in self.convnext:
             x = conv_block(x, g)
         x = self.final_layer_norm(x.transpose(1, 2))
-        return x
+        return x.transpose(1, 2)
 
 
 ###############################################################################
@@ -167,14 +161,14 @@ class ISTFTHead(torch.nn.Module):
             win_length=n_fft)
 
     def forward(self, x):
-        x = self.out(x).transpose(1, 2)
+        x = self.out(x.transpose(1, 2)).transpose(1, 2)
         mag, p = x.chunk(2, dim=1)
         mag = torch.exp(mag)
         mag = torch.clip(mag, max=1e2)
         x = torch.cos(p)
         y = torch.sin(p)
         S = mag * (x + 1j * y)
-        return self.istft(S)
+        return self.istft(S).unsqueeze(1)
 
 
 class ISTFT(torch.nn.Module):
@@ -225,12 +219,13 @@ class ISTFT(torch.nn.Module):
 class FiLM(torch.nn.Module):
 
     def __init__(self):
+        super().__init__()
         self.gamma = torch.nn.Conv1d(
-            promonet.VOCOS_CHANNELS,
+            promonet.GLOBAL_CHANNELS,
             promonet.VOCOS_CHANNELS,
             1)
         self.beta = torch.nn.Conv1d(
-            promonet.VOCOS_CHANNELS,
+            promonet.GLOBAL_CHANNELS,
             promonet.VOCOS_CHANNELS,
             1)
 

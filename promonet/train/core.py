@@ -240,30 +240,42 @@ def train(
                 # Compute generator losses
                 generator_losses = 0.
 
-                # Mel spectrogram loss
-                if promonet.MULTI_MEL_LOSS:
-                    mel_loss = promonet.loss.multimel(audio, generated)
-                    generator_losses += (
-                        promonet.MEL_LOSS_WEIGHT /
-                        len(promonet.MULTI_MEL_LOSS_WINDOWS) * mel_loss)
-                else:
-                    if promonet.MODEL == 'vits':
-                        mels = promonet.preprocess.spectrogram.linear_to_mel(
-                            promonet.model.slice_segments(
-                                spectrograms,
-                                start_indices=slice_indices,
-                                segment_size=promonet.convert.samples_to_frames(
-                                    promonet.CHUNK_SIZE)))
-                    else:
-                        mels = promonet.preprocess.spectrogram.linear_to_mel(
-                            spectrograms)
-                    generated_mels = promonet.preprocess.spectrogram.from_audio(
-                        generated,
-                        True)
-                    mel_loss = torch.nn.functional.l1_loss(
-                        mels,
-                        generated_mels)
-                    generator_losses +=  promonet.MEL_LOSS_WEIGHT * mel_loss
+                # Maybe use sparse Mel loss
+                log_dynamic_range_compression_threshold = (
+                    promonet.LOG_DYNAMIC_RANGE_COMPRESSION_THRESHOLD
+                    if promonet.SPARSE_MEL_LOSS else None)
+
+                if promonet.MODEL == 'vits':
+
+                    # Slice spectrograms
+                    spectrograms = promonet.model.slice_segments(
+                        spectrograms,
+                        start_indices=slice_indices,
+                        segment_size=promonet.convert.samples_to_frames(
+                            promonet.CHUNK_SIZE))
+
+                # Compute target Mels
+                mels = promonet.preprocess.spectrogram.linear_to_mel(
+                    spectrograms,
+                    log_dynamic_range_compression_threshold)
+
+                # Compute predicted Mels
+                generated_mels = promonet.preprocess.spectrogram.from_audio(
+                    generated,
+                    True,
+                    log_dynamic_range_compression_threshold)
+
+                # Maybe shift so clipping bound is zero
+                if promonet.SPARSE_MEL_LOSS:
+                    mels += promonet.LOG_DYNAMIC_RANGE_COMPRESSION_THRESHOLD
+                    generated_mels += \
+                        promonet.LOG_DYNAMIC_RANGE_COMPRESSION_THRESHOLD
+
+                # Mel loss
+                mel_loss = torch.nn.functional.l1_loss(
+                    mels,
+                    generated_mels)
+                generator_losses += promonet.MEL_LOSS_WEIGHT * mel_loss
 
                 # Get KL divergence loss between features and prior
                 if promonet.MODEL == 'vits':
