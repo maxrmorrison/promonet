@@ -139,13 +139,13 @@ class Generator(torch.nn.Module):
         global_features = self.speaker_embedding(speakers).unsqueeze(-1)
 
         # Maybe add augmentation ratios
-        if ('pitch' in promonet.INPUT_FEATURES) and promonet.AUGMENT_PITCH:
+        if promonet.AUGMENT_PITCH:
             global_features = torch.cat(
                 (global_features, formant_ratios[:, None, None]),
                 dim=1)
 
         # Maybe add augmentation ratios
-        if ('loudness' in promonet.INPUT_FEATURES) and promonet.AUGMENT_LOUDNESS:
+        if promonet.AUGMENT_LOUDNESS:
             global_features = torch.cat(
                 (global_features, loudness_ratios[:, None, None]),
                 dim=1)

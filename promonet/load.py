@@ -69,10 +69,17 @@ def pitch_distribution(dataset=promonet.TRAINING_DATASET, partition='train'):
     if not hasattr(pitch_distribution, 'distribution'):
 
         # Location on disk
+        key = ''
+        if promonet.AUGMENT_LOUDNESS:
+            key += '-loudness'
+        if promonet.AUGMENT_PITCH:
+            key += '-pitch'
+        if promonet.VITERBI_DECODE_PITCH:
+            key += '-viterbi'
         file = (
             promonet.ASSETS_DIR /
             'stats' /
-            f'{dataset}-{partition}-pitch-{promonet.PITCH_BINS}.pt')
+            f'{dataset}-{promonet.PITCH_BINS}{key}.pt')
 
         try:
 
@@ -83,21 +90,18 @@ def pitch_distribution(dataset=promonet.TRAINING_DATASET, partition='train'):
 
             # Get all voiced pitch frames
             allpitch = []
+            dataset = promonet.data.Dataset(dataset, 'train')
+            viterbi = '-viterbi' if promonet.VITERBI_DECODE_PITCH else ''
             for stem in torchutil.iterator(
-                promonet.load.partition(dataset)[partition],
+                dataset.stems,
                 'promonet.load.pitch_distribution'
             ):
-                if promonet.VITERBI_DECODE_PITCH:
-                    glob = f'{stem}*-viterbi-pitch.pt'
-                else:
-                    glob = f'{stem}*-pitch.pt'
-                for pitch_file in (promonet.CACHE_DIR / dataset).glob(glob):
-                    pitch = torch.load(pitch_file)
-                    periodicity = torch.load(
-                        pitch_file.parent /
-                        pitch_file.name.replace('pitch', 'periodicity'))
-                    allpitch.append(
-                        pitch[periodicity > promonet.VOICING_THRESHOLD])
+                pitch = torch.load(
+                    dataset.cache / f'{stem}{viterbi}-pitch.pt')
+                periodicity = torch.load(
+                    dataset.cache / f'{stem}{viterbi}-periodicity.pt')
+                allpitch.append(
+                    pitch[periodicity > promonet.VOICING_THRESHOLD])
 
             # Sort
             pitch, _ = torch.sort(torch.cat(allpitch))

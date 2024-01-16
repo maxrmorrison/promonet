@@ -32,16 +32,25 @@ def discriminator(real_outputs, fake_outputs):
     real_losses = []
     fake_losses = []
     for real_output, fake_output in zip(real_outputs, fake_outputs):
-        real_losses.append(torch.mean((1. - real_output) ** 2.))
-        fake_losses.append(torch.mean(fake_output ** 2.))
+        if promonet.ADVERSARIAL_HINGE_LOSS:
+            real_losses.append(torch.mean(torch.clamp(1. - real_output, min=0.)))
+            fake_losses.append(torch.mean(torch.clamp(1 + fake_output, min=0.)))
+        else:
+            real_losses.append(torch.mean((1. - real_output) ** 2.))
+            fake_losses.append(torch.mean(fake_output ** 2.))
     return sum(real_losses) + sum(fake_losses), real_losses, fake_losses
 
 
 def generator(discriminator_outputs):
     """Generator adversarial loss"""
-    losses = [
-        torch.mean((1. - output) ** 2.)
-        for output in discriminator_outputs]
+    if promonet.ADVERSARIAL_HINGE_LOSS:
+        losses = [
+            torch.mean(torch.clamp(1. - output, min=0.))
+            for output in discriminator_outputs]
+    else:
+        losses = [
+            torch.mean((1. - output) ** 2.)
+            for output in discriminator_outputs]
     return sum(losses), losses
 
 

@@ -269,6 +269,9 @@ PLOT_EXAMPLES = 10
 ###############################################################################
 
 
+# Whether to use hinge loss instead of L2
+ADVERSARIAL_HINGE_LOSS = False
+
 # Weight applied to the discriminator loss
 ADVERSARIAL_LOSS_WEIGHT = 1.
 
