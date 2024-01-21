@@ -1,16 +1,28 @@
 MODULE = 'promonet'
 
 # Configuration name
-CONFIG = 'augment-multiband-varpitch-256-constant005-6layer'
+CONFIG = 'augment-multiband-varpitch-256-constant005-hifigan-viterbi-loudness-sparseloss5e3'
 
 # Whether to use pitch augmentation
 AUGMENT_PITCH = True
 
+# Whether to use loudness augmentation
+AUGMENT_LOUDNESS = True
+
 # Whether to use the complex multi-band discriminator from RVQGAN
 COMPLEX_MULTIBAND_DISCRIMINATOR = True
 
+# Threshold to sparsify Mel spectrograms
+DYNAMIC_RANGE_COMPRESSION_THRESHOLD = 5e-3
+
+# The model to use. One of ['hifigan', 'psola', 'vits', 'vocos', 'world'].
+MODEL = 'hifigan'
+
 # Whether to use the multi-scale waveform discriminator from MelGAN
 MULTI_SCALE_DISCRIMINATOR = False
+
+# Whether to shift the Mels given to the Mel loss to have a minimum of zero
+SPARSE_MEL_LOSS = True
 
 # Type of sparsification used for ppgs
 # One of ['constant', 'percentile', 'topk', None]
@@ -23,5 +35,5 @@ SPARSE_PPG_THRESHOLD = 0.05
 # Whether to use variable-width pitch bins
 VARIABLE_PITCH_BINS = True
 
-# Number of neural network layers in Vocos
-VOCOS_LAYERS = 6
+# Whether to perform Viterbi decoding on pitch features
+VITERBI_DECODE_PITCH = True
