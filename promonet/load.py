@@ -101,7 +101,10 @@ def pitch_distribution(dataset=promonet.TRAINING_DATASET, partition='train'):
                 periodicity = torch.load(
                     dataset.cache / f'{stem}{viterbi}-periodicity.pt')
                 allpitch.append(
-                    pitch[periodicity > promonet.VOICING_THRESHOLD])
+                    pitch[
+                        torch.logical_and(
+                            ~torch.isnan(pitch),
+                            periodicity > promonet.VOICING_THRESHOLD)])
 
             # Sort
             pitch, _ = torch.sort(torch.cat(allpitch))

@@ -33,7 +33,7 @@ OPTIMIZER = functools.partial(
 SPECTROGRAM_ONLY = True
 
 # Number of training steps
-STEPS = 1000000
+STEPS = 400000
 
 # Number of neural network layers in Vocos
 VOCOS_LAYERS = 8
