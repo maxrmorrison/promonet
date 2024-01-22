@@ -111,13 +111,12 @@ def pitch_distribution(dataset=promonet.TRAINING_DATASET, partition='train'):
 
             # Bucket
             indices = torch.linspace(
-                0.,
+                len(pitch) / promonet.PITCH_BINS,
                 len(pitch) - 1,
                 promonet.PITCH_BINS,
                 dtype=torch.float64
             ).to(torch.long)
             pitch_distribution.distribution = pitch[indices]
-            pitch_distribution.distribution[0] = promonet.FMIN
 
             # Save
             torch.save(pitch_distribution.distribution, file)
@@ -151,16 +150,15 @@ def ppg(file, resample_length=None):
 
         # Take the top n bins
         elif promonet.SPARSE_PPG_METHOD == 'topk':
-            thresholds = torch.quantile(
-                ppg_data.T,
-                (ppg_data.shape[0] - promonet.SPARSE_PPG_THRESHOLD) / ppg_data.shape[0],
-                dim=1,
-                interpolation='lower'
-            ).unsqueeze(1)
-            ppg_data = torch.where(ppg_data.T > thresholds, ppg_data.T, 0).T
+            values, indices = ppg_data.topk(
+                promonet.SPARSE_PPG_THRESHOLD,
+                dim=-2)
+            ppg_data.zero_()
+            for t in range(ppg_data.shape[-1]):
+                ppg_data[..., indices[..., t], t] = values[..., t]
 
         # Renormalize after sparsification
-        ppg_data = torch.softmax(torch.log(ppg_data), -2)
+        ppg_data = torch.softmax(torch.log(ppg_data + 1e-8), -2)
 
     return ppg_data
 

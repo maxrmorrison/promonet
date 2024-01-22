@@ -67,10 +67,10 @@ ALL_FEATURES = [
     'spectrogram']
 
 # Whether to use loudness augmentation
-AUGMENT_LOUDNESS = False
+AUGMENT_LOUDNESS = True
 
 # Whether to use pitch augmentation
-AUGMENT_PITCH = False
+AUGMENT_PITCH = True
 
 # Maximum ratio for pitch augmentation
 AUGMENTATION_RATIO_MAX = 2.
@@ -102,11 +102,11 @@ SPARSE_MELS = False
 
 # Type of sparsification used for ppgs
 # One of ['constant', 'percentile', 'topk', None]
-SPARSE_PPG_METHOD = None
+SPARSE_PPG_METHOD = 'constant'
 
 # Threshold for ppg sparsification.
 # In [0, 1] for 'contant' and 'percentile'; integer > 0 for 'topk'.
-SPARSE_PPG_THRESHOLD = 0.8
+SPARSE_PPG_THRESHOLD = 0.05
 
 # Seed for all random number generators
 RANDOM_SEED = 1234
@@ -118,10 +118,10 @@ SPECTROGRAM_ONLY = False
 TRAINING_DATASET = 'vctk'
 
 # Whether to use variable-width pitch bins
-VARIABLE_PITCH_BINS = False
+VARIABLE_PITCH_BINS = True
 
 # Whether to perform Viterbi decoding on pitch features
-VITERBI_DECODE_PITCH = False
+VITERBI_DECODE_PITCH = True
 
 # Default periodicity threshold of the voiced/unvoiced decision
 VOICING_THRESHOLD = .1625
@@ -161,14 +161,14 @@ RUNS_DIR = ROOT_DIR / 'runs'
 ###############################################################################
 
 
+# Whether to use the complex multi-band discriminator from RVQGAN
+COMPLEX_MULTIBAND_DISCRIMINATOR = True
+
 # Whether to use the multi-resolution spectrogram discriminator from UnivNet
 MULTI_RESOLUTION_DISCRIMINATOR = False
 
 # Whether to use the multi-scale waveform discriminator from MelGAN
-MULTI_SCALE_DISCRIMINATOR = True
-
-# Whether to use the complex multi-band discriminator from RVQGAN
-COMPLEX_MULTIBAND_DISCRIMINATOR = False
+MULTI_SCALE_DISCRIMINATOR = False
 
 
 ###############################################################################
@@ -210,7 +210,7 @@ FILM_CONDITIONING = False
 LRELU_SLOPE = .1
 
 # The model to use. One of ['hifigan', 'psola', 'vits', 'vocos', 'world'].
-MODEL = 'vocos'
+MODEL = 'hifigan'
 
 # Kernel sizes of residual block
 HIFIGAN_RESBLOCK_KERNEL_SIZES = [3, 7, 11]
