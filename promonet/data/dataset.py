@@ -49,6 +49,15 @@ class Dataset(torch.utils.data.Dataset):
                     f'{stem}-l{ratios[stem]}' for stem in stems
                     if (self.cache / f'{stem}-l{ratios[stem]}.wav').exists()])
 
+        # Omit files where the 50 Hz hum dominates the pitch estimation
+        self.stems = [
+            stem for stem in self.stems
+            if (
+                2 ** torch.log2(
+                    torch.load(self.cache / f'{stem}{self.viterbi}-pitch.pt')
+                ).mean()
+            ) > 60.]
+
     def __getitem__(self, index):
         stem = self.stems[index]
         text = promonet.load.text(self.cache / f'{stem.split("-")[0]}.txt')

@@ -145,7 +145,7 @@ def ppg(file, resample_length=None):
             if promonet.SPARSE_PPG_METHOD == 'constant':
                 threshold = promonet.SPARSE_PPG_THRESHOLD
             else:
-                threshold = torch.quantile(ppg_data, promonet.SPARSE_PPG_THRESHOLD)
+                threshold = torch.quantile(ppg_data, promonet.SPARSE_PPG_THRESHOLD, dim=-2)
             ppg_data = torch.where(ppg_data > threshold, ppg_data, 0)
 
         # Take the top n bins

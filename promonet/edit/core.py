@@ -86,19 +86,27 @@ def from_features(
             total_unselected = ppg.shape[-1] - total_selected
             effective_ratio = (target_frames - total_unselected) / total_selected
 
-            # Create time-stretch grid
-            grid = torch.zeros(round(target_frames))
-            i = 0.
-            for j in range(1, target_frames):
-                left = math.floor(i)
-                offset = i - left
-                probability = (
-                    offset * selected[left + 1] +
-                    (1 - offset) * selected[left])
-                ratio = probability * effective_ratio + (1 - probability)
-                step = 1. / ratio
-                grid[j] = grid[j - 1] + step
-                i += step
+            # TEMPORARY
+            try:
+
+                # Create time-stretch grid
+                grid = torch.zeros(round(target_frames))
+                i = 0.
+                for j in range(1, target_frames):
+                    left = math.floor(i)
+                    offset = i - left
+                    probability = (
+                        offset * selected[left + 1] +
+                        (1 - offset) * selected[left])
+                    ratio = probability * effective_ratio + (1 - probability)
+                    step = 1. / ratio
+                    grid[j] = grid[j - 1] + step
+                    i += step
+
+            except IndexError as error:
+                print(error)
+                import pdb; pdb.set_trace()
+                pass
 
         # Time-stretch
         pitch = 2 ** promonet.edit.grid.sample(torch.log2(pitch), grid)
@@ -208,8 +216,9 @@ def from_file_to_file(
         save_grid)
 
     # Save
-    torch.save(results[0], f'{output_prefix}-pitch.pt')
-    torch.save(results[1], f'{output_prefix}-periodicity.pt')
+    viterbi = '-viterbi' if promonet.VITERBI_DECODE_PITCH else ''
+    torch.save(results[0], f'{output_prefix}{viterbi}-pitch.pt')
+    torch.save(results[1], f'{output_prefix}{viterbi}-periodicity.pt')
     torch.save(results[2], f'{output_prefix}-loudness.pt')
     torch.save(results[3], f'{output_prefix}{ppgs.representation_file_extension()}')
     if save_grid:

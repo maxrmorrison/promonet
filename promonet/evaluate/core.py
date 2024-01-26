@@ -511,11 +511,17 @@ def speaker(
                     pitch,
                     torch.load(f'{predicted_prefix}{viterbi}-periodicity.pt').to(device),
                     torch.load(f'{predicted_prefix}-loudness.pt').to(device),
-                    promonet.load.ppg(f'{predicted_prefix}{ppgs.representation_file_extension()}', pitch.shape[-1]).to(device),
+                    promonet.load.ppg(
+                        f'{predicted_prefix}{ppgs.representation_file_extension()}',
+                        pitch.shape[-1]
+                    ).to(device),
                     torch.load(f'{target_prefix}{viterbi}-pitch.pt').to(device),
                     torch.load(f'{target_prefix}{viterbi}-periodicity.pt').to(device),
                     torch.load(f'{target_prefix}-loudness.pt').to(device),
-                    promonet.load.ppg(f'{target_prefix}{ppgs.representation_file_extension()}', pitch.shape[-1]).to(device),
+                    promonet.load.ppg(
+                        f'{target_prefix}{ppgs.representation_file_extension()}',
+                        pitch.shape[-1]
+                    ).to(device),
                     promonet.load.text(f'{predicted_prefix}.txt'),
                     promonet.load.text(f'{target_prefix}.txt'.replace(key, 'original-100')),
                     None)

@@ -180,14 +180,14 @@ def from_files_to_files(
         if promonet.VITERBI_DECODE_PITCH:
             decoder = 'viterbi'
             voicing_threshold = None
-            output_prefixes = [
+            pitch_prefixes = [
                 f'{prefix}-viterbi' for prefix in output_prefixes]
         else:
             decoder = 'argmax'
             voicing_threshold = promonet.VOICING_THRESHOLD
         penn.from_files_to_files(
             files,
-            output_prefixes,
+            pitch_prefixes,
             hopsize=promonet.convert.samples_to_seconds(promonet.HOPSIZE),
             fmin=promonet.FMIN,
             fmax=promonet.FMAX,

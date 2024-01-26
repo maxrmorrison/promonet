@@ -36,22 +36,40 @@ def from_audio(
             promonet.SAMPLE_RATE)
         audio = resampler(audio)
 
+    # Get target number of frames
+    if grid is not None:
+        frames = grid.shape[-1]
+    elif loudness is not None:
+        frames = loudness.shape[-1]
+    elif pitch is not None:
+        frames = pitch.shape[-1]
+    else:
+        frames = promonet.convert.samples_to_frames(audio.shape[-1])
+
     # World parameterization
-    audio = audio.squeeze().numpy()
-    pitch, spectrogram, aperiodicity = analyze(audio)
+    target_pitch, spectrogram, aperiodicity = analyze(
+        audio.squeeze().numpy(), frames)
 
     # Maybe time-stretch
     if grid is not None:
-        pitch, spectrogram, aperiodicity = linear_time_stretch(
-            pitch, spectrogram, aperiodicity, grid.numpy())
+        (
+            target_pitch,
+            spectrogram,
+            aperiodicity
+        ) = linear_time_stretch(
+            target_pitch,
+            spectrogram,
+            aperiodicity,
+            grid.numpy()
+        )
 
     # Maybe pitch-shift
     if pitch is not None:
-        pitch = pitch.squeeze().numpy().astype(np.float64)
+        target_pitch = pitch.squeeze().numpy().astype(np.float64)
 
     # Synthesize using modified parameters
     vocoded = pyworld.synthesize(
-        pitch,
+        target_pitch,
         spectrogram,
         aperiodicity,
         promonet.SAMPLE_RATE,
@@ -60,17 +78,17 @@ def from_audio(
     # Convert to torch
     vocoded = torch.from_numpy(vocoded)[None]
 
-    # Maybe scale loudness
-    if loudness is not None:
-        vocoded = promonet.loudness.scale(vocoded, loudness)
-
     # Ensure correct length
-    length = promonet.convert.frames_to_samples(len(pitch))
+    length = promonet.convert.frames_to_samples(len(target_pitch))
     if vocoded.shape[1] != length:
         temp = torch.zeros((1, length))
         crop_point = min(length, vocoded.shape[1])
         temp[:, :crop_point] = vocoded[:, :crop_point]
         vocoded = temp
+
+    # Maybe scale loudness
+    if loudness is not None:
+        vocoded = promonet.loudness.scale(vocoded, loudness)
 
     return vocoded.to(torch.float32)
 
@@ -117,7 +135,7 @@ def from_files_to_files(
         grid_files,
         loudness_files,
         pitch_files)
-    for item in torchutil.iterator(iterator, 'psola', total=len(audio_files)):
+    for item in torchutil.iterator(iterator, 'world', total=len(audio_files)):
         from_file_to_file(*item)
 
 
@@ -126,7 +144,7 @@ def from_files_to_files(
 ###############################################################################
 
 
-def analyze(audio):
+def analyze(audio, frames):
     """Convert an audio signal to WORLD parameter representation
     Arguments
         audio : np.array(shape=(samples,))
@@ -146,14 +164,17 @@ def analyze(audio):
     frame_period = promonet.HOPSIZE / promonet.SAMPLE_RATE * 1000.
 
     # Extract pitch
-    frames = promonet.convert.samples_to_frames(len(audio))
+    # TODO - padding compensation for precise alignment
     samples = promonet.convert.frames_to_samples(frames)
-    pitch, time = pyworld.dio(audio[:samples],
-                              promonet.SAMPLE_RATE,
-                              frame_period=frame_period,
-                              f0_floor=promonet.FMIN,
-                              f0_ceil=promonet.FMAX,
-                              allowed_range=ALLOWED_RANGE)
+    pitch, time = pyworld.dio(
+        audio,
+        promonet.SAMPLE_RATE,
+        frame_period=frame_period,
+        f0_floor=promonet.FMIN,
+        f0_ceil=promonet.FMAX,
+        allowed_range=ALLOWED_RANGE)
+    pitch = pitch[:frames]
+    time = time[:frames]
 
     # Postprocess pitch
     pitch = pyworld.stonemask(audio, pitch, time, promonet.SAMPLE_RATE)
@@ -167,10 +188,12 @@ def analyze(audio):
     return pitch, spectrogram, aperiodicity
 
 
-def linear_time_stretch(prev_pitch,
-                        prev_spectrogram,
-                        prev_aperiodicity,
-                        grid):
+def linear_time_stretch(
+    prev_pitch,
+    prev_spectrogram,
+    prev_aperiodicity,
+    grid
+):
     """Apply time stretch in WORLD parameter space"""
     grid = grid[0] if grid.ndim == 2 else grid
 

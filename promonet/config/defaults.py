@@ -4,7 +4,6 @@ from pathlib import Path
 
 import GPUtil
 import torch
-import transformers
 
 
 ###############################################################################
@@ -102,11 +101,11 @@ SPARSE_MELS = False
 
 # Type of sparsification used for ppgs
 # One of ['constant', 'percentile', 'topk', None]
-SPARSE_PPG_METHOD = 'constant'
+SPARSE_PPG_METHOD = 'percentile'
 
 # Threshold for ppg sparsification.
 # In [0, 1] for 'contant' and 'percentile'; integer > 0 for 'topk'.
-SPARSE_PPG_THRESHOLD = 0.05
+SPARSE_PPG_THRESHOLD = 0.90
 
 # Seed for all random number generators
 RANDOM_SEED = 1234
