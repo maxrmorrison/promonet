@@ -164,7 +164,6 @@ def analyze(audio, frames):
     frame_period = promonet.HOPSIZE / promonet.SAMPLE_RATE * 1000.
 
     # Extract pitch
-    # TODO - padding compensation for precise alignment
     samples = promonet.convert.frames_to_samples(frames)
     pitch, time = pyworld.dio(
         audio,
