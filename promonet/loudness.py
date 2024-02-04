@@ -1,3 +1,4 @@
+import functools
 import multiprocessing as mp
 import warnings
 
@@ -13,7 +14,7 @@ import promonet
 ###############################################################################
 
 
-def from_audio(audio):
+def from_audio(audio, bands=promonet.LOUDNESS_BANDS):
     """Compute A-weighed loudness"""
     # Pad
     padding = (promonet.WINDOW_SIZE - promonet.HOPSIZE) // 2
@@ -47,24 +48,42 @@ def from_audio(audio):
     # Threshold
     weighted[weighted < promonet.MIN_DB] = promonet.MIN_DB
 
-    # Average over weighted frequencies
-    return torch.from_numpy(weighted.mean(axis=0)).float().to(device)[None]
+    if bands is not None:
+
+        if bands == 1:
+
+            # Average over all weighted frequencies
+            weighted = weighted.mean(axis=0, keepdims=True)
+
+        else:
+
+            # Average over weighted frequency bands
+            step = weighted.shape[-1] / bands
+            weighted = torch.stack(
+                [weighted[int(i * step):int((i + 1) * step)].mean(axis=0)])
+
+    return torch.from_numpy(weighted).float().to(device)
 
 
-def from_file(audio_file):
+def from_file(audio_file, bands=promonet.LOUDNESS_BANDS):
     """Compute A-weighed loudness from audio file"""
-    return from_audio(promonet.load.audio(audio_file))
+    return from_audio(promonet.load.audio(audio_file), bands)
 
 
-def from_file_to_file(audio_file, output_file):
+def from_file_to_file(audio_file, output_file, bands=promonet.LOUDNESS_BANDS):
     """Compute A-weighed loudness from audio file and save"""
-    torch.save(from_file(audio_file), output_file)
+    torch.save(from_file(audio_file, bands), output_file)
 
 
-def from_files_to_files(audio_files, output_files):
+def from_files_to_files(
+    audio_files,
+    output_files,
+    bands=promonet.LOUDNESS_BANDS
+):
     """Compute A-weighed loudness from audio files and save"""
+    loudness_fn = functools.partial(from_file_to_file, bands=bands)
     with mp.get_context('spawn').Pool(promonet.NUM_WORKERS) as pool:
-        pool.starmap(from_file_to_file, zip(audio_files, output_files))
+        pool.starmap(loudness_fn, zip(audio_files, output_files))
 
 
 ###############################################################################
@@ -122,7 +141,12 @@ def perceptual_weights():
 
 def scale(audio, target_loudness):
     """Scale the audio to the target loudness"""
-    loudness = from_audio(audio.to(torch.float64))
+    # Maybe average to get scalar loudness
+    if promonet.LOUDNESS_BANDS > 1:
+        target_loudness = target_loudness.mean(dim=-2, keepdim=True)
+
+    # Get current loudness
+    loudness = from_audio(audio.to(torch.float64), bands=1)
 
     # Take difference and convert from dB to ratio
     gain = promonet.convert.db_to_ratio(target_loudness - loudness)

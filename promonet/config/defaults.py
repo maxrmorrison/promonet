@@ -80,6 +80,9 @@ AUGMENTATION_RATIO_MIN = .5
 # Names of all datasets
 DATASETS = ['daps', 'libritts', 'vctk']
 
+# Number of bands of A-weighted loudness
+LOUDNESS_BANDS = 1
+
 # Whether to use an embedding layer for pitch
 PITCH_EMBEDDING = True
 

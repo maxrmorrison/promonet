@@ -15,7 +15,8 @@ def from_audio(
     audio,
     target_audio=None,
     features=promonet.DEFAULT_PLOT_FEATURES,
-    gpu=None):
+    gpu=None
+):
     """Plot speech representation from audio"""
     # Preprocess
     pitch, periodicity, loudness, ppg = promonet.preprocess.from_audio(
@@ -49,16 +50,17 @@ def from_audio(
 
 
 def from_features(
-        audio,
-        pitch,
-        periodicity,
-        loudness,
-        ppg,
-        target_pitch=None,
-        target_periodicity=None,
-        target_loudness=None,
-        target_ppg=None,
-        features=promonet.DEFAULT_PLOT_FEATURES):
+    audio,
+    pitch,
+    periodicity,
+    loudness,
+    ppg,
+    target_pitch=None,
+    target_periodicity=None,
+    target_loudness=None,
+    target_ppg=None,
+    features=promonet.DEFAULT_PLOT_FEATURES
+):
     """Plot speech representation"""
     height_ratios = [3 * (feature == 'ppg') + 1 for feature in features]
     figure, axes = plt.subplots(
@@ -72,8 +74,12 @@ def from_features(
     for feature in features:
         if feature == 'audio':
             axes[i].plot(audio.squeeze().cpu(), color='black', linewidth=.5)
-            axes[i].set_axis_off()
             axes[i].set_xmargin(0.)
+            axes[i].spines['top'].set_visible(False)
+            axes[i].spines['right'].set_visible(False)
+            axes[i].spines['bottom'].set_visible(False)
+            axes[i].spines['left'].set_visible(False)
+            axes[i].set_xticks([])
             axes[i].set_ylim([-1., 1.])
             axes[i].set_ylabel('Audio', fontsize=12)
             i += 1
@@ -185,7 +191,8 @@ def from_file(
     audio_file,
     target_file=None,
     features=promonet.DEFAULT_PLOT_FEATURES,
-    gpu=None):
+    gpu=None
+):
     """Plot speech representation from audio on disk"""
     return from_audio(
         promonet.load.audio(audio_file),
@@ -199,7 +206,8 @@ def from_file_to_file(
     output_file,
     target_file=None,
     features=promonet.DEFAULT_PLOT_FEATURES,
-    gpu=None):
+    gpu=None
+):
     """Plot speech representation from audio on disk and save to disk"""
     # Plot
     figure = from_file(audio_file, target_file, features, gpu)

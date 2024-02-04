@@ -46,24 +46,6 @@ def partition(dataset):
         return json.load(file)
 
 
-def phonemes(file, interleave=False):
-    """Load phonemes and interleave blanks"""
-    # Load phonemes
-    phonemes = torch.unique_consecutive(torch.load(file))[None]
-
-    if not interleave:
-        return phonemes
-
-    # Interleave blanks
-    interleaved = torch.full(
-        (1, phonemes.shape[1] * 2 + 1),
-        ppgs.PHONEME_TO_INDEX_MAPPING[pypar.SILENCE],
-        dtype=phonemes.dtype)
-    interleaved[:, 1::2] = phonemes
-
-    return interleaved
-
-
 def pitch_distribution(dataset=promonet.TRAINING_DATASET, partition='train'):
     """Load pitch distribution"""
     if not hasattr(pitch_distribution, 'distribution'):
@@ -126,41 +108,20 @@ def pitch_distribution(dataset=promonet.TRAINING_DATASET, partition='train'):
 
 def ppg(file, resample_length=None):
     """Load a PPG file, resample with a grid if need be, sparsify if needed"""
-    if isinstance(file, Path) or isinstance(file, str):
-        ppg_data = torch.load(file)
-    else:
-        ppg_data = file
+    # Load
+    result = torch.load(file)
 
-    # Maybe resample length
+    # Maybe resample
     if resample_length is not None:
-        ppg_data = promonet.edit.grid.sample(
-            ppg_data,
-            promonet.edit.grid.of_length(ppg_data, resample_length),
+        result = promonet.edit.grid.sample(
+            result,
+            promonet.edit.grid.of_length(result, resample_length),
             promonet.PPG_INTERP_METHOD)
 
-    if ppgs.REPRESENTATION_KIND == 'ppg':
+        # Preserve distribution
+        return torch.softmax(torch.log(result + 1e-8), -2)
 
-        # Threshold either a constant value or a percentile
-        if promonet.SPARSE_PPG_METHOD in ['constant', 'percentile']:
-            if promonet.SPARSE_PPG_METHOD == 'constant':
-                threshold = promonet.SPARSE_PPG_THRESHOLD
-            else:
-                threshold = torch.quantile(ppg_data, promonet.SPARSE_PPG_THRESHOLD, dim=-2)
-            ppg_data = torch.where(ppg_data > threshold, ppg_data, 0)
-
-        # Take the top n bins
-        elif promonet.SPARSE_PPG_METHOD == 'topk':
-            values, indices = ppg_data.topk(
-                promonet.SPARSE_PPG_THRESHOLD,
-                dim=-2)
-            ppg_data.zero_()
-            for t in range(ppg_data.shape[-1]):
-                ppg_data[..., indices[..., t], t] = values[..., t]
-
-        # Renormalize after sparsification
-        ppg_data = torch.softmax(torch.log(ppg_data + 1e-8), -2)
-
-    return ppg_data
+    return result
 
 
 def text(file):

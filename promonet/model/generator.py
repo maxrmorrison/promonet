@@ -1,3 +1,4 @@
+import ppgs
 import torch
 
 import promonet
@@ -41,7 +42,7 @@ class Generator(torch.nn.Module):
 
     def forward(
         self,
-        ppgs,
+        ppg,
         pitch,
         periodicity,
         loudness,
@@ -53,7 +54,7 @@ class Generator(torch.nn.Module):
     ):
         # Prepare input features
         features, global_features = self.prepare_features(
-            ppgs,
+            ppg,
             pitch,
             periodicity,
             loudness,
@@ -79,7 +80,7 @@ class Generator(torch.nn.Module):
 
     def prepare_features(
         self,
-        ppgs,
+        ppg,
         pitch,
         periodicity,
         loudness,
@@ -101,7 +102,17 @@ class Generator(torch.nn.Module):
 
         else:
 
-            features = ppgs
+            # Maybe sparsify PPGs
+            if (
+                 promonet.SPARSE_PPG_METHOD is not None and
+                 ppgs.REPRESENTATION_KIND == 'ppg'
+            ):
+                ppg = ppgs.sparsify(
+                    ppg,
+                    promonet.SPARSE_PPG_METHOD,
+                    promonet.SPARSE_PPG_THRESHOLD)
+
+            features = ppg
 
             # Maybe add pitch features
             if 'pitch' in promonet.INPUT_FEATURES:
@@ -126,14 +137,14 @@ class Generator(torch.nn.Module):
         # Default augmentation ratio is 1
         if formant_ratios is None and promonet.AUGMENT_PITCH:
             formant_ratios = torch.ones(
-                1 if ppgs.dim() == 2 else len(ppgs),
+                1 if ppg.dim() == 2 else len(ppg),
                 dtype=torch.float,
-                device=ppgs.device)
+                device=ppg.device)
         if loudness_ratios is None and promonet.AUGMENT_LOUDNESS:
             loudness_ratios = torch.ones(
-                1 if ppgs.dim() == 2 else len(ppgs),
+                1 if ppg.dim() == 2 else len(ppg),
                 dtype=torch.float,
-                device=ppgs.device)
+                device=ppg.device)
 
         # Encode speaker ID
         global_features = self.speaker_embedding(speakers).unsqueeze(-1)

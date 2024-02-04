@@ -44,7 +44,6 @@ class Dataset(torch.utils.data.Dataset):
                     promonet.AUGMENT_DIR / f'{dataset}-loudness.json'
                 ) as file:
                     ratios = json.load(file)
-                # TEMPORARY - some loudness files aren't in the cache
                 self.stems.extend([
                     f'{stem}-l{ratios[stem]}' for stem in stems
                     if (self.cache / f'{stem}-l{ratios[stem]}.wav').exists()])
@@ -74,7 +73,8 @@ class Dataset(torch.utils.data.Dataset):
             self.cache / f'{stem}-spectrogram.pt').to(torch.float32)
         phonemes = promonet.load.ppg(
             self.cache / f'{stem}{ppgs.representation_file_extension()}',
-            resample_length=spectrogram.shape[-1]).to(torch.float32)
+            resample_length=spectrogram.shape[-1]
+        ).to(torch.float32)
 
         # Chunk during training
         if promonet.MODEL != 'vits' and self.partition.startswith('train'):

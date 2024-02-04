@@ -50,7 +50,7 @@ GLOBAL_CHANNELS = (
 # Number of input features to the generator
 NUM_FEATURES = promonet.NUM_MELS if promonet.SPECTROGRAM_ONLY else (
     promonet.PPG_CHANNELS +
-    ('loudness' in promonet.INPUT_FEATURES) +
+    ('loudness' in promonet.INPUT_FEATURES) * promonet.LOUDNESS_BANDS +
     ('periodicity' in promonet.INPUT_FEATURES) +
     ('pitch' in promonet.INPUT_FEATURES) * (
         promonet.PITCH_EMBEDDING_SIZE if promonet.PITCH_EMBEDDING else 1))

@@ -4,6 +4,7 @@ from typing import List, Optional, Tuple, Union
 import penn
 import ppgs
 import torch
+import torchaudio
 import whisper
 
 import promonet
@@ -70,8 +71,20 @@ def from_audio(
     # Infer ppg
     if 'ppg' in features:
         ppg = ppgs.from_audio(audio, sample_rate, gpu=gpu)
-        ppg = promonet.load.ppg(ppg, resample_length=pitch.shape[-1])
-        result.append(ppg)
+
+        # Resample
+        length = promonet.convert.samples_to_frames(
+            torchaudio.functional.resample(
+                audio.shape[-1],
+                sample_rate,
+                promonet.SAMPLE_RATE))
+        ppg = promonet.edit.grid.sample(
+            ppg,
+            promonet.edit.grid.of_length(ppg, length),
+            promonet.PPG_INTERP_METHOD)
+
+        # Preserve distribution
+        result.append(torch.softmax(torch.log(ppg + 1e-8), -2))
 
     # Infer transcript
     if 'text' in features:
@@ -185,6 +198,7 @@ def from_files_to_files(
         else:
             decoder = 'argmax'
             voicing_threshold = promonet.VOICING_THRESHOLD
+            pitch_prefixes = output_prefixes
         penn.from_files_to_files(
             files,
             pitch_prefixes,
@@ -201,7 +215,8 @@ def from_files_to_files(
     if 'loudness' in features:
         promonet.loudness.from_files_to_files(
             files,
-            [f'{prefix}-loudness.pt' for prefix in output_prefixes])
+            [f'{prefix}-loudness.pt' for prefix in output_prefixes],
+            bands=None)
 
     # Infer transcript
     if 'text' in features:

@@ -86,27 +86,28 @@ def from_features(
             total_unselected = ppg.shape[-1] - total_selected
             effective_ratio = (target_frames - total_unselected) / total_selected
 
-            # TEMPORARY
-            try:
+            # Create time-stretch grid
+            grid = torch.zeros(round(target_frames))
+            i = 0.
+            for j in range(1, target_frames):
 
-                # Create time-stretch grid
-                grid = torch.zeros(round(target_frames))
-                i = 0.
-                for j in range(1, target_frames):
-                    left = math.floor(i)
+                # Get time-varying interpolation weight
+                left = math.floor(i)
+                if left + 1 < len(selected):
                     offset = i - left
                     probability = (
                         offset * selected[left + 1] +
                         (1 - offset) * selected[left])
-                    ratio = probability * effective_ratio + (1 - probability)
-                    step = 1. / ratio
-                    grid[j] = grid[j - 1] + step
-                    i += step
+                else:
+                    probability = selected[left]
 
-            except IndexError as error:
-                print(error)
-                import pdb; pdb.set_trace()
-                pass
+                # Get time-varying step size
+                ratio = probability * effective_ratio + (1 - probability)
+                step = 1. / ratio
+
+                # Take a step
+                grid[j] = grid[j - 1] + step
+                i += step
 
         # Time-stretch
         pitch = 2 ** promonet.edit.grid.sample(torch.log2(pitch), grid)
