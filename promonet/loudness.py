@@ -48,20 +48,6 @@ def from_audio(audio, bands=promonet.LOUDNESS_BANDS):
     # Threshold
     weighted[weighted < promonet.MIN_DB] = promonet.MIN_DB
 
-    if bands is not None:
-
-        if bands == 1:
-
-            # Average over all weighted frequencies
-            weighted = weighted.mean(axis=0, keepdims=True)
-
-        else:
-
-            # Average over weighted frequency bands
-            step = weighted.shape[-1] / bands
-            weighted = torch.stack(
-                [weighted[int(i * step):int((i + 1) * step)].mean(axis=0)])
-
     return torch.from_numpy(weighted).float().to(device)
 
 
@@ -89,6 +75,36 @@ def from_files_to_files(
 ###############################################################################
 # Loudness utilities
 ###############################################################################
+
+
+def band_average(loudness, bands=promonet.LOUDNESS_BANDS):
+    """Average over frequency bands"""
+    if bands is not None:
+
+        if bands == 1:
+
+            # Average over all weighted frequencies
+            loudness = loudness.mean(axis=-2, keepdims=True)
+
+        else:
+
+            # Average over loudness frequency bands
+            step = loudness.shape[-2] / bands
+            if loudness.ndim == 2:
+                loudness = torch.stack(
+                    [
+                        loudness[int(band * step):int((band + 1) * step)].mean(axis=-2)
+                        for band in range(bands)
+                    ])
+            else:
+                loudness = torch.stack(
+                    [
+                        loudness[:, int(band * step):int((band + 1) * step)].mean(axis=-2)
+                        for band in range(bands)
+                    ],
+                    dim=1)
+
+    return loudness
 
 
 def limit(audio, delay=40, attack_coef=.9, release_coef=.9995, threshold=.99):

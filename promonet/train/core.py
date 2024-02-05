@@ -556,22 +556,22 @@ def evaluate(directory, step, generator, loader, gpu, evaluation_steps=None):
                 generated,
                 predicted_pitch,
                 predicted_periodicity,
-                predicted_loudness,
+                promonet.loudness.band_average(predicted_loudness, 1),
                 predicted_phonemes,
                 pitch,
                 periodicity,
-                loudness,
+                promonet.loudness.band_average(loudness, 1),
                 phonemes)
 
         # Update metrics
         metrics[key.split('/')[0]].update(
             pitch,
             periodicity,
-            loudness,
+            promonet.loudness.band_average(loudness, 1),
             phonemes,
             predicted_pitch,
             predicted_periodicity,
-            predicted_loudness,
+            promonet.loudness.band_average(predicted_loudness, 1),
             predicted_phonemes)
 
         ##################
@@ -611,22 +611,22 @@ def evaluate(directory, step, generator, loader, gpu, evaluation_steps=None):
                         shifted,
                         predicted_pitch,
                         predicted_periodicity,
-                        predicted_loudness,
+                        promonet.loudness.band_average(predicted_loudness, 1),
                         predicted_phonemes,
                         shifted_pitch,
                         periodicity,
-                        loudness,
+                        promonet.loudness.band_average(loudness, 1),
                         phonemes)
 
                 # Update metrics
                 metrics[key.split('/')[0]].update(
                     shifted_pitch,
                     periodicity,
-                    loudness,
+                    promonet.loudness.band_average(loudness, 1),
                     phonemes,
                     predicted_pitch,
                     predicted_periodicity,
-                    predicted_loudness,
+                    promonet.loudness.band_average(predicted_loudness, 1),
                     predicted_phonemes)
 
         ###################
@@ -682,22 +682,22 @@ def evaluate(directory, step, generator, loader, gpu, evaluation_steps=None):
                         stretched,
                         predicted_pitch,
                         predicted_periodicity,
-                        predicted_loudness,
+                        promonet.loudness.band_average(predicted_loudness, 1),
                         predicted_phonemes,
                         stretched_pitch,
                         stretched_periodicity,
-                        stretched_loudness,
+                        promonet.loudness.band_average(stretched_loudness, 1),
                         stretched_phonemes)
 
                 # Update metrics
                 metrics[key.split('/')[0]].update(
                     stretched_pitch,
                     stretched_periodicity,
-                    stretched_loudness,
+                    promonet.loudness.band_average(stretched_loudness, 1),
                     stretched_phonemes,
                     predicted_pitch,
                     predicted_periodicity,
-                    predicted_loudness,
+                    promonet.loudness.band_average(predicted_loudness, 1),
                     predicted_phonemes)
 
         ####################
@@ -738,22 +738,22 @@ def evaluate(directory, step, generator, loader, gpu, evaluation_steps=None):
                         scaled,
                         predicted_pitch,
                         predicted_periodicity,
-                        predicted_loudness,
+                        promonet.loudness.band_average(predicted_loudness, 1),
                         predicted_phonemes,
                         pitch,
                         periodicity,
-                        scaled_loudness,
+                        promonet.loudness.band_average(scaled_loudness, 1),
                         phonemes)
 
                 # Update metrics
                 metrics[key.split('/')[0]].update(
                     pitch,
                     periodicity,
-                    scaled_loudness,
+                    promonet.loudness.band_average(scaled_loudness, 1),
                     phonemes,
                     predicted_pitch,
                     predicted_periodicity,
-                    predicted_loudness,
+                    promonet.loudness.band_average(predicted_loudness, 1),
                     predicted_phonemes)
 
         # Stop when we exceed some number of batches

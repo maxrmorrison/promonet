@@ -50,7 +50,7 @@ def collate(batch):
         (len(batch), max_length_frames),
         dtype=torch.float)
     padded_loudness = torch.zeros(
-        (len(batch), max_length_frames),
+        (len(batch), promonet.NUM_FFT // 2 + 1, max_length_frames),
         dtype=torch.float)
     padded_spectrograms = torch.zeros(
         (len(batch), promonet.NUM_FFT // 2 + 1, max_length_frames),
@@ -69,7 +69,7 @@ def collate(batch):
         # Prepare prosody features
         padded_pitch[i, :feature_lengths[i]] = pitch[index]
         padded_periodicity[i, :feature_lengths[i]] = periodicity[index]
-        padded_loudness[i, :feature_lengths[i]] = loudness[index]
+        padded_loudness[i, :, :feature_lengths[i]] = loudness[index]
 
         # Prepare spectrogram
         padded_spectrograms[i, :, :feature_lengths[i]] = \

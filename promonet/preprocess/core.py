@@ -19,7 +19,8 @@ def from_audio(
     audio: torch.Tensor,
     sample_rate: int = promonet.SAMPLE_RATE,
     gpu: Optional[int] = None,
-    features: list = ['loudness', 'periodicity', 'pitch', 'ppg']
+    features: list = ['loudness', 'periodicity', 'pitch', 'ppg'],
+    loudness_bands: Optional[int] = promonet.LOUDNESS_BANDS
 ) -> Union[
     Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor],
     Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, str]
@@ -45,7 +46,8 @@ def from_audio(
     # Compute loudness
     if 'loudness' in features:
         device = f'cuda:{gpu}' if gpu is not None else 'cpu'
-        result.append(promonet.loudness.from_audio(audio).to(device))
+        result.append(
+            promonet.loudness.from_audio(audio, loudness_bands).to(device))
 
     # Estimate pitch and periodicity
     if 'pitch' in features or 'periodicity' in features:
@@ -97,7 +99,8 @@ def from_audio(
 def from_file(
     file: Union[str, bytes, os.PathLike],
     gpu: Optional[int] = None,
-    features: list = ['loudness', 'periodicity', 'pitch', 'ppg']
+    features: list = ['loudness', 'periodicity', 'pitch', 'ppg'],
+    loudness_bands: Optional[int] = promonet.LOUDNESS_BANDS
 ) -> Union[
     Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor],
     Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, str]
@@ -117,14 +120,19 @@ def from_file(
         ppg: The phonetic posteriorgram
         text: The text transcript
     """
-    return from_audio(promonet.load.audio(file), gpu=gpu, features=features)
+    return from_audio(
+        promonet.load.audio(file),
+        gpu=gpu,
+        features=features,
+        loudness_bands=loudness_bands)
 
 
 def from_file_to_file(
     file: Union[str, bytes, os.PathLike],
     output_prefix: Optional[Union[str, os.PathLike]] = None,
     gpu: Optional[int] = None,
-    features: list = ['loudness', 'periodicity', 'pitch', 'ppg']
+    features: list = ['loudness', 'periodicity', 'pitch', 'ppg'],
+    loudness_bands: Optional[int] = promonet.LOUDNESS_BANDS
 ) -> None:
     """Preprocess audio on disk and save
 
@@ -136,7 +144,7 @@ def from_file_to_file(
             Options: ['loudness', 'periodicity', 'pitch', 'ppg', 'text'].
     """
     # Preprocess
-    features = from_file(file, gpu, features)
+    features = from_file(file, gpu, features, loudness_bands)
 
     # Save
     if output_prefix is None:
@@ -164,7 +172,8 @@ def from_files_to_files(
     files: List[Union[str, bytes, os.PathLike]],
     output_prefixes: Optional[List[Union[str, os.PathLike]]] = None,
     gpu: Optional[int] = None,
-    features: list = ['loudness', 'periodicity', 'pitch', 'ppg']
+    features: list = ['loudness', 'periodicity', 'pitch', 'ppg'],
+    loudness_bands: Optional[int] = promonet.LOUDNESS_BANDS
 ) -> None:
     """Preprocess multiple audio files on disk and save
 
@@ -216,7 +225,7 @@ def from_files_to_files(
         promonet.loudness.from_files_to_files(
             files,
             [f'{prefix}-loudness.pt' for prefix in output_prefixes],
-            bands=None)
+            bands=loudness_bands)
 
     # Infer transcript
     if 'text' in features:
