@@ -108,7 +108,7 @@ SPARSE_PPG_METHOD = 'percentile'
 
 # Threshold for ppg sparsification.
 # In [0, 1] for 'contant' and 'percentile'; integer > 0 for 'topk'.
-SPARSE_PPG_THRESHOLD = 0.90
+SPARSE_PPG_THRESHOLD = 0.85
 
 # Seed for all random number generators
 RANDOM_SEED = 1234
@@ -297,6 +297,7 @@ MULTI_MEL_LOSS_WINDOWS = [32, 64, 128, 256, 512, 1024, 2048]
 
 # Whether to shift the Mels given to the Mel loss to have a minimum of zero
 SPARSE_MEL_LOSS = False
+
 
 ###############################################################################
 # Training parameters
