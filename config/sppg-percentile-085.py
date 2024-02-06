@@ -1,7 +1,7 @@
 MODULE = 'promonet'
 
 # Configuration name
-CONFIG = 'adapt-sppg-percentile-085'
+CONFIG = 'sppg-percentile-085'
 
 # Whether to perform speaker adaptation (instead of multi-speaker)
 ADAPTATION = True

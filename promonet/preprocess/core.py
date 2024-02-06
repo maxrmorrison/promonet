@@ -68,7 +68,7 @@ def from_audio(
             decoder=decoder,
             interp_unvoiced_at=voicing_threshold,
             gpu=gpu)
-        result.extend([periodicity, pitch])
+        result.extend([pitch, periodicity])
 
     # Infer ppg
     if 'ppg' in features:

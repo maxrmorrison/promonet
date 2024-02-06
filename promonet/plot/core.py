@@ -19,8 +19,9 @@ def from_audio(
 ):
     """Plot speech representation from audio"""
     # Preprocess
-    pitch, periodicity, loudness, ppg = promonet.preprocess.from_audio(
+    loudness, pitch, periodicity, ppg = promonet.preprocess.from_audio(
         audio,
+        features=features,
         gpu=gpu)
     loudness = promonet.loudness.band_average(loudness, 1)
     if target_audio is None:
@@ -68,7 +69,7 @@ def from_features(
     figure, axes = plt.subplots(
         len(features),
         1,
-        figsize=(18, 2 * len(features)),
+        figsize=(8, 2 * len(features)),
         gridspec_kw={'height_ratios': height_ratios})
 
     # Plot audio
@@ -100,7 +101,7 @@ def from_features(
             axes[i].spines['right'].set_visible(False)
             axes[i].spines['bottom'].set_visible(False)
             axes[i].spines['left'].set_visible(False)
-            axes[i].set_ylabel('Phonetic posteriorgram', labelpad=-20, fontsize=12)
+            axes[i].set_ylabel('Phonetic posteriorgram', labelpad=-18, fontsize=12)
             axes[i].set_xticks([])
             axes[i].set_yticks(torch.arange(len(ppg)), [ppgs.PHONEMES[i] for i, u in enumerate(used) if u])
             i += 1
@@ -131,7 +132,7 @@ def from_features(
             axes[i].spines['bottom'].set_visible(False)
             axes[i].spines['left'].set_visible(False)
             axes[i].set_xticks([])
-            axes[i].set_ylabel('Pitch', fontsize=12)
+            axes[i].set_ylabel('Pitch', fontsize=12, labelpad=14 if pitch.max() < 100. else None)
             i += 1
 
         # Plot periodicity
