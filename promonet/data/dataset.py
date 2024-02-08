@@ -133,10 +133,10 @@ class Dataset(torch.utils.data.Dataset):
 
         return (
             text,
-            phonemes,
+            loudness,
             pitch,
             periodicity,
-            loudness,
+            phonemes,
             spectrogram,
             audio,
             torch.tensor(speaker, dtype=torch.long),

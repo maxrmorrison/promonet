@@ -260,7 +260,7 @@ def speaker(
             audio_files,
             [original_objective_directory / prefix for prefix in prefixes],
             gpu=gpu,
-            features=['loudness', 'periodicity', 'pitch', 'ppg', 'text'],
+            features=['loudness', 'pitch', 'periodicity', 'ppg', 'text'],
             loudness_bands=None)
 
     ##################
@@ -301,9 +301,9 @@ def speaker(
             gpu=gpu)
     else:
         promonet.synthesize.from_files_to_files(
+            loudness_files,
             pitch_files,
             periodicity_files,
-            loudness_files,
             ppg_files,
             files['reconstructed-100'],
             checkpoint=checkpoint,
@@ -330,9 +330,9 @@ def speaker(
                     prefix.replace('original-100', key)
                     for prefix in prefixes]
                 promonet.edit.from_files_to_files(
+                    loudness_files,
                     pitch_files,
                     periodicity_files,
-                    loudness_files,
                     ppg_files,
                     output_prefixes,
                     pitch_shift_cents=promonet.convert.ratio_to_cents(ratio))
@@ -352,9 +352,9 @@ def speaker(
                     pitch_files=[f'{prefix}{viterbi}-pitch.pt' for prefix in output_prefixes])
             else:
                 promonet.synthesize.from_files_to_files(
+                    [f'{prefix}-loudness.pt' for prefix in output_prefixes],
                     [f'{prefix}{viterbi}-pitch.pt' for prefix in output_prefixes],
                     [f'{prefix}{viterbi}-periodicity.pt' for prefix in output_prefixes],
-                    [f'{prefix}-loudness.pt' for prefix in output_prefixes],
                     [f'{prefix}{ppgs.representation_file_extension()}' for prefix in output_prefixes],
                     files[key],
                     checkpoint=checkpoint,
@@ -375,9 +375,9 @@ def speaker(
                     prefix.replace('original-100', key)
                     for prefix in prefixes]
                 promonet.edit.from_files_to_files(
+                    loudness_files,
                     pitch_files,
                     periodicity_files,
-                    loudness_files,
                     ppg_files,
                     output_prefixes,
                     time_stretch_ratio=ratio,
@@ -399,9 +399,9 @@ def speaker(
                     grid_files=[f'{prefix}-grid.pt' for prefix in output_prefixes])
             else:
                 promonet.synthesize.from_files_to_files(
+                    [f'{prefix}-loudness.pt' for prefix in output_prefixes],
                     [f'{prefix}{viterbi}-pitch.pt' for prefix in output_prefixes],
                     [f'{prefix}{viterbi}-periodicity.pt' for prefix in output_prefixes],
-                    [f'{prefix}-loudness.pt' for prefix in output_prefixes],
                     [f'{prefix}{ppgs.representation_file_extension()}' for prefix in output_prefixes],
                     files[key],
                     checkpoint=checkpoint,
@@ -422,9 +422,9 @@ def speaker(
                     prefix.replace('original-100', key)
                     for prefix in prefixes]
                 promonet.edit.from_files_to_files(
+                    loudness_files,
                     pitch_files,
                     periodicity_files,
-                    loudness_files,
                     ppg_files,
                     output_prefixes,
                     loudness_scale_db=promonet.convert.ratio_to_db(ratio))
@@ -445,9 +445,9 @@ def speaker(
                         f'{prefix}-loudness.pt' for prefix in output_prefixes])
             else:
                 promonet.synthesize.from_files_to_files(
+                    [f'{prefix}-loudness.pt' for prefix in output_prefixes],
                     [f'{prefix}{viterbi}-pitch.pt' for prefix in output_prefixes],
                     [f'{prefix}{viterbi}-periodicity.pt' for prefix in output_prefixes],
-                    [f'{prefix}-loudness.pt' for prefix in output_prefixes],
                     [f'{prefix}{ppgs.representation_file_extension()}' for prefix in output_prefixes],
                     files[key],
                     checkpoint=checkpoint,
@@ -469,7 +469,7 @@ def speaker(
                     for file in audio_files
                 ],
                 gpu=gpu,
-                features=['loudness', 'periodicity', 'pitch', 'ppg', 'text'],
+                features=['loudness', 'pitch', 'periodicity', 'ppg', 'text'],
                 loudness_bands=None)
 
         # Infer speaker embeddings
@@ -522,16 +522,16 @@ def speaker(
                     torch.load(f'{target_prefix}-loudness.pt').to(device),
                     1)
                 args = (
+                    loudness,
                     torch.load(f'{predicted_prefix}{viterbi}-pitch.pt').to(device),
                     torch.load(f'{predicted_prefix}{viterbi}-periodicity.pt').to(device),
-                    loudness,
                     promonet.load.ppg(
                         f'{predicted_prefix}{ppgs.representation_file_extension()}',
                         loudness.shape[-1]
                     ).to(device),
+                    target_loudness,
                     torch.load(f'{target_prefix}{viterbi}-pitch.pt').to(device),
                     torch.load(f'{target_prefix}{viterbi}-periodicity.pt').to(device),
-                    target_loudness,
                     promonet.load.ppg(
                         f'{target_prefix}{ppgs.representation_file_extension()}',
                         loudness.shape[-1]

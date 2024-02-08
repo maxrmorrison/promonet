@@ -61,13 +61,7 @@ class DiscriminatorP(torch.nn.Module):
             conv_fn(1024, 1024, (kernel_size, 1), 1, padding)])
         self.conv_post = conv_fn(1024, 1, (3, 1), 1, (1, 0))
 
-    def forward(
-        self,
-        x,
-        pitch=None,
-        periodicity=None,
-        loudness=None,
-        phonemes=None):
+    def forward(self, x):
         feature_maps = []
 
         # 1d to 2d
@@ -105,13 +99,7 @@ class DiscriminatorR(torch.nn.Module):
         ])
         self.conv_post = conv_fn(32, 1, (3, 3), padding=(1, 1))
 
-    def forward(
-        self,
-        audio,
-        pitch=None,
-        periodicity=None,
-        loudness=None,
-        phonemes=None):
+    def forward(self, audio):
         # Compute spectral features
         features = self.spectrogram(audio)
 
@@ -193,14 +181,7 @@ class DiscriminatorCMB(torch.nn.Module):
         # Split into bands
         return [x[..., b[0] : b[1]] for b in self.bands]
 
-    def forward(
-        self,
-        x,
-        pitch=None,
-        periodicity=None,
-        loudness=None,
-        phonemes=None
-    ):
+    def forward(self, x):
         # Compute complex spectrogram and split into bands
         x_bands = self.spectrogram(x)
 
@@ -233,13 +214,7 @@ class DiscriminatorS(torch.nn.Module):
             conv_fn(1024, 1024, 5, 1, padding=2), ])
         self.conv_post = conv_fn(1024, 1, 3, 1, padding=1)
 
-    def forward(
-        self,
-        x,
-        pitch=None,
-        periodicity=None,
-        loudness=None,
-        phonemes=None):
+    def forward(self, x):
         # Forward pass and save activations
         feature_maps = []
         for layer in self.convs:

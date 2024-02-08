@@ -123,10 +123,10 @@ def train(
             # Unpack batch
             (
                 _,
-                phonemes,
+                loudness,
                 pitch,
                 periodicity,
-                loudness,
+                phonemes,
                 lengths,
                 speakers,
                 formant_ratios,
@@ -143,10 +143,10 @@ def train(
 
             # Copy to device
             (
-                phonemes,
+                loudness,
                 pitch,
                 periodicity,
-                loudness,
+                phonemes,
                 lengths,
                 speakers,
                 formant_ratios,
@@ -156,10 +156,10 @@ def train(
             ) = (
                 item.to(device) for item in
                 (
-                    phonemes,
+                    loudness,
                     pitch,
                     periodicity,
-                    loudness,
+                    phonemes,
                     lengths,
                     speakers,
                     formant_ratios,
@@ -171,10 +171,10 @@ def train(
 
             # Bundle training input
             generator_input = (
-                phonemes,
+                loudness,
                 pitch,
                 periodicity,
-                loudness,
+                phonemes,
                 lengths,
                 speakers,
                 formant_ratios,
@@ -479,10 +479,10 @@ def evaluate(directory, step, generator, loader, gpu, evaluation_steps=None):
         # Unpack
         (
             _,
-            phonemes,
+            loudness,
             pitch,
             periodicity,
-            loudness,
+            phonemes,
             lengths,
             speakers,
             _,
@@ -494,20 +494,20 @@ def evaluate(directory, step, generator, loader, gpu, evaluation_steps=None):
 
         # Copy to device
         (
-            phonemes,
+            loudness,
             pitch,
             periodicity,
-            loudness,
+            phonemes,
             lengths,
             speakers,
             spectrogram,
             audio
         ) = (
             item.to(device) for item in (
-                phonemes,
+                loudness,
                 pitch,
                 periodicity,
-                loudness,
+                phonemes,
                 lengths,
                 speakers,
                 spectrogram,
@@ -530,10 +530,10 @@ def evaluate(directory, step, generator, loader, gpu, evaluation_steps=None):
 
         # Generate
         generated, *_ = generator(
-            phonemes,
+            loudness,
             pitch,
             periodicity,
-            loudness,
+            phonemes,
             lengths,
             speakers,
             spectrograms=spectrogram)
@@ -545,8 +545,8 @@ def evaluate(directory, step, generator, loader, gpu, evaluation_steps=None):
         # Get prosody features
         (
             predicted_loudness,
-            predicted_periodicity,
             predicted_pitch,
+            predicted_periodicity,
             predicted_phonemes
         ) = promonet.preprocess.from_audio(generated[0], gpu=gpu)
 
@@ -554,24 +554,24 @@ def evaluate(directory, step, generator, loader, gpu, evaluation_steps=None):
         if i < promonet.PLOT_EXAMPLES:
             figures[key] = promonet.plot.from_features(
                 generated,
+                promonet.loudness.band_average(predicted_loudness, 1),
                 predicted_pitch,
                 predicted_periodicity,
-                promonet.loudness.band_average(predicted_loudness, 1),
                 predicted_phonemes,
+                promonet.loudness.band_average(loudness, 1),
                 pitch,
                 periodicity,
-                promonet.loudness.band_average(loudness, 1),
                 phonemes)
 
         # Update metrics
         metrics[key.split('/')[0]].update(
+            promonet.loudness.band_average(loudness, 1),
             pitch,
             periodicity,
-            promonet.loudness.band_average(loudness, 1),
             phonemes,
+            promonet.loudness.band_average(predicted_loudness, 1),
             predicted_pitch,
             predicted_periodicity,
-            promonet.loudness.band_average(predicted_loudness, 1),
             predicted_phonemes)
 
         ##################
@@ -586,18 +586,18 @@ def evaluate(directory, step, generator, loader, gpu, evaluation_steps=None):
 
                 # Generate pitch-shifted speech
                 shifted, *_ = generator(
-                    phonemes,
+                    loudness,
                     shifted_pitch,
                     periodicity,
-                    loudness,
+                    phonemes,
                     lengths,
                     speakers)
 
                 # Get prosody features
                 (
                     predicted_loudness,
-                    predicted_periodicity,
                     predicted_pitch,
+                    predicted_periodicity,
                     predicted_phonemes
                 ) = promonet.preprocess.from_audio(shifted[0], gpu=gpu)
 
@@ -609,24 +609,24 @@ def evaluate(directory, step, generator, loader, gpu, evaluation_steps=None):
                 if i < promonet.PLOT_EXAMPLES:
                     figures[key] = promonet.plot.from_features(
                         shifted,
+                        promonet.loudness.band_average(predicted_loudness, 1),
                         predicted_pitch,
                         predicted_periodicity,
-                        promonet.loudness.band_average(predicted_loudness, 1),
                         predicted_phonemes,
+                        promonet.loudness.band_average(loudness, 1),
                         shifted_pitch,
                         periodicity,
-                        promonet.loudness.band_average(loudness, 1),
                         phonemes)
 
                 # Update metrics
                 metrics[key.split('/')[0]].update(
+                    promonet.loudness.band_average(loudness, 1),
                     shifted_pitch,
                     periodicity,
-                    promonet.loudness.band_average(loudness, 1),
                     phonemes,
+                    promonet.loudness.band_average(predicted_loudness, 1),
                     predicted_pitch,
                     predicted_periodicity,
-                    promonet.loudness.band_average(predicted_loudness, 1),
                     predicted_phonemes)
 
         ###################
@@ -638,14 +638,14 @@ def evaluate(directory, step, generator, loader, gpu, evaluation_steps=None):
 
                 # Stretch representation
                 (
+                    stretched_loudness,
                     stretched_pitch,
                     stretched_periodicity,
-                    stretched_loudness,
                     stretched_phonemes
                 ) = promonet.edit.from_features(
+                    loudness,
                     pitch,
                     periodicity,
-                    loudness,
                     phonemes,
                     time_stretch_ratio=ratio)
 
@@ -657,18 +657,18 @@ def evaluate(directory, step, generator, loader, gpu, evaluation_steps=None):
 
                 # Generate
                 stretched, *_ = generator(
-                    stretched_phonemes,
+                    stretched_loudness,
                     stretched_pitch,
                     stretched_periodicity,
-                    stretched_loudness,
+                    stretched_phonemes,
                     stretched_length,
                     speakers)
 
                 # Get prosody features
                 (
                     predicted_loudness,
-                    predicted_periodicity,
                     predicted_pitch,
+                    predicted_periodicity,
                     predicted_phonemes
                 ) = promonet.preprocess.from_audio(stretched[0], gpu=gpu)
 
@@ -680,24 +680,24 @@ def evaluate(directory, step, generator, loader, gpu, evaluation_steps=None):
                 if i < promonet.PLOT_EXAMPLES:
                     figures[key] = promonet.plot.from_features(
                         stretched,
+                        promonet.loudness.band_average(predicted_loudness, 1),
                         predicted_pitch,
                         predicted_periodicity,
-                        promonet.loudness.band_average(predicted_loudness, 1),
                         predicted_phonemes,
+                        promonet.loudness.band_average(stretched_loudness, 1),
                         stretched_pitch,
                         stretched_periodicity,
-                        promonet.loudness.band_average(stretched_loudness, 1),
                         stretched_phonemes)
 
                 # Update metrics
                 metrics[key.split('/')[0]].update(
+                    promonet.loudness.band_average(stretched_loudness, 1),
                     stretched_pitch,
                     stretched_periodicity,
-                    promonet.loudness.band_average(stretched_loudness, 1),
                     stretched_phonemes,
+                    promonet.loudness.band_average(predicted_loudness, 1),
                     predicted_pitch,
                     predicted_periodicity,
-                    promonet.loudness.band_average(predicted_loudness, 1),
                     predicted_phonemes)
 
         ####################
@@ -713,18 +713,18 @@ def evaluate(directory, step, generator, loader, gpu, evaluation_steps=None):
 
                 # Generate loudness-scaled speech
                 scaled, *_ = generator(
-                    phonemes,
+                    scaled_loudness,
                     pitch,
                     periodicity,
-                    scaled_loudness,
+                    phonemes,
                     lengths,
                     speakers)
 
                 # Get prosody features
                 (
                     predicted_loudness,
-                    predicted_periodicity,
                     predicted_pitch,
+                    predicted_periodicity,
                     predicted_phonemes
                 ) = promonet.preprocess.from_audio(scaled[0], gpu=gpu)
 
@@ -736,24 +736,24 @@ def evaluate(directory, step, generator, loader, gpu, evaluation_steps=None):
                 if i < promonet.PLOT_EXAMPLES:
                     figures[key] = promonet.plot.from_features(
                         scaled,
+                        promonet.loudness.band_average(predicted_loudness, 1),
                         predicted_pitch,
                         predicted_periodicity,
-                        promonet.loudness.band_average(predicted_loudness, 1),
                         predicted_phonemes,
+                        promonet.loudness.band_average(scaled_loudness, 1),
                         pitch,
                         periodicity,
-                        promonet.loudness.band_average(scaled_loudness, 1),
                         phonemes)
 
                 # Update metrics
                 metrics[key.split('/')[0]].update(
+                    promonet.loudness.band_average(scaled_loudness, 1),
                     pitch,
                     periodicity,
-                    promonet.loudness.band_average(scaled_loudness, 1),
                     phonemes,
+                    promonet.loudness.band_average(predicted_loudness, 1),
                     predicted_pitch,
                     predicted_periodicity,
-                    promonet.loudness.band_average(predicted_loudness, 1),
                     predicted_phonemes)
 
         # Stop when we exceed some number of batches

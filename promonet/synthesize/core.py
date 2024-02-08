@@ -15,9 +15,9 @@ import promonet
 
 
 def from_features(
+    loudness: torch.Tensor,
     pitch: torch.Tensor,
     periodicity: torch.Tensor,
-    loudness: torch.Tensor,
     ppg: torch.Tensor,
     speaker: Optional[Union[int, torch.Tensor]] = 0,
     formant_ratio: float = 1.,
@@ -28,9 +28,9 @@ def from_features(
     """Perform speech synthesis
 
     Args:
+        loudness: The loudness contour
         pitch: The pitch contour
         periodicity: The periodicity contour
-        loudness: The loudness contour
         ppg: The phonetic posteriorgram
         speaker: The speaker index
         formant_ratio: > 1 for Alvin and the Chipmunks; < 1 for Patrick Star
@@ -43,9 +43,9 @@ def from_features(
     """
     device = torch.device('cpu' if gpu is None else f'cuda:{gpu}')
     return generate(
+        loudness.to(device),
         pitch.to(device),
         periodicity.to(device),
-        loudness.to(device),
         ppg.to(device),
         speaker,
         formant_ratio,
@@ -55,9 +55,9 @@ def from_features(
 
 
 def from_file(
+    loudness_file: Union[str, os.PathLike],
     pitch_file: Union[str, os.PathLike],
     periodicity_file: Union[str, os.PathLike],
-    loudness_file: Union[str, os.PathLike],
     ppg_file: Union[str, os.PathLike],
     speaker: Optional[Union[int, torch.Tensor]] = 0,
     formant_ratio: float = 1.,
@@ -68,9 +68,9 @@ def from_file(
     """Perform speech synthesis from features on disk
 
     Args:
+        loudness_file: The loudness file
         pitch_file: The pitch file
         periodicity_file: The periodicity file
-        loudness_file: The loudness file
         ppg_file: The phonetic posteriorgram file
         speaker: The speaker index
         formant_ratio: > 1 for Alvin and the Chipmunks; < 1 for Patrick Star
@@ -84,16 +84,16 @@ def from_file(
     device = torch.device('cpu' if gpu is None else f'cuda:{gpu}')
 
     # Load features
+    loudness = torch.load(loudness_file)
     pitch = torch.load(pitch_file)
     periodicity = torch.load(periodicity_file)
-    loudness = torch.load(loudness_file)
     ppg = promonet.load.ppg(ppg_file, resample_length=pitch.shape[-1])[None]
 
     # Generate
     return from_features(
+        loudness.to(device),
         pitch.to(device),
         periodicity.to(device),
-        loudness.to(device),
         ppg.to(device),
         speaker,
         formant_ratio,
@@ -103,9 +103,9 @@ def from_file(
 
 
 def from_file_to_file(
+    loudness_file: Union[str, os.PathLike],
     pitch_file: Union[str, os.PathLike],
     periodicity_file: Union[str, os.PathLike],
-    loudness_file: Union[str, os.PathLike],
     ppg_file: Union[str, os.PathLike],
     output_file: Union[str, os.PathLike],
     speaker: Optional[Union[int, torch.Tensor]] = 0,
@@ -117,9 +117,9 @@ def from_file_to_file(
     """Perform speech synthesis from features on disk and save
 
     Args:
+        loudness_file: The loudness file
         pitch_file: The pitch file
         periodicity_file: The periodicity file
-        loudness_file: The loudness file
         ppg_file: The phonetic posteriorgram file
         output_file: The file to save generated speech audio
         speaker: The speaker index
@@ -130,9 +130,9 @@ def from_file_to_file(
     """
     # Generate
     generated = from_file(
+        loudness_file,
         pitch_file,
         periodicity_file,
-        loudness_file,
         ppg_file,
         speaker,
         formant_ratio,
@@ -147,9 +147,9 @@ def from_file_to_file(
 
 
 def from_files_to_files(
+    loudness_files: List[Union[str, os.PathLike]],
     pitch_files: List[Union[str, os.PathLike]],
     periodicity_files: List[Union[str, os.PathLike]],
-    loudness_files: List[Union[str, os.PathLike]],
     ppg_files: List[Union[str, os.PathLike]],
     output_files: List[Union[str, os.PathLike]],
     speakers: Optional[Union[List[int], torch.Tensor]] = None,
@@ -161,9 +161,9 @@ def from_files_to_files(
     """Perform batched speech synthesis from features on disk and save
 
     Args:
+        loudness_files: The loudness files
         pitch_files: The pitch files
         periodicity_files: The periodicity files
-        loudness_files: The loudness files
         ppg_files: The phonetic posteriorgram files
         output_files: The files to save generated speech audio
         speakers: The speaker indices
@@ -177,9 +177,9 @@ def from_files_to_files(
 
     # Generate
     iterator = zip(
+        loudness_files,
         pitch_files,
         periodicity_files,
-        loudness_files,
         ppg_files,
         output_files,
         speakers)
@@ -198,9 +198,9 @@ def from_files_to_files(
 
 
 def generate(
+    loudness,
     pitch,
     periodicity,
-    loudness,
     ppg,
     speaker=0,
     formant_ratio: float = 1.,
@@ -256,10 +256,10 @@ def generate(
         # Generate
         with torchutil.inference.context(generate.model):
             return generate.model(
-                ppg,
+                loudness,
                 pitch,
                 periodicity,
-                loudness,
+                ppg,
                 lengths,
                 speakers,
                 formant_ratio,

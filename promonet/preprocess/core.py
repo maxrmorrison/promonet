@@ -18,7 +18,7 @@ def from_audio(
     audio: torch.Tensor,
     sample_rate: int = promonet.SAMPLE_RATE,
     gpu: Optional[int] = None,
-    features: list = ['loudness', 'periodicity', 'pitch', 'ppg'],
+    features: list = ['loudness', 'pitch', 'periodicity', 'ppg'],
     loudness_bands: Optional[int] = promonet.LOUDNESS_BANDS
 ) -> Union[
     Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor],
@@ -31,12 +31,12 @@ def from_audio(
         sample_rate: Audio sample rate
         gpu: The GPU index
         features: The features to preprocess.
-            Options: ['loudness', 'periodicity', 'pitch', 'ppg', 'text'].
+            Options: ['loudness', 'pitch', 'periodicity', 'ppg', 'text'].
 
     Returns
         loudness: The loudness contour
-        periodicity: The periodicity contour
         pitch: The pitch contour
+        periodicity: The periodicity contour
         ppg: The phonetic posteriorgram
         text: The text transcript
     """
@@ -98,7 +98,7 @@ def from_audio(
 def from_file(
     file: Union[str, bytes, os.PathLike],
     gpu: Optional[int] = None,
-    features: list = ['loudness', 'periodicity', 'pitch', 'ppg'],
+    features: list = ['loudness', 'pitch', 'periodicity', 'ppg'],
     loudness_bands: Optional[int] = promonet.LOUDNESS_BANDS
 ) -> Union[
     Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor],
@@ -110,12 +110,12 @@ def from_file(
         file: Audio file to preprocess
         gpu: The GPU index
         features: The features to preprocess.
-            Options: ['loudness', 'periodicity', 'pitch', 'ppg', 'text'].
+            Options: ['loudness', 'pitch', 'periodicity', 'ppg', 'text'].
 
     Returns
         loudness: The loudness contour
-        periodicity: The periodicity contour
         pitch: The pitch contour
+        periodicity: The periodicity contour
         ppg: The phonetic posteriorgram
         text: The text transcript
     """
@@ -130,7 +130,7 @@ def from_file_to_file(
     file: Union[str, bytes, os.PathLike],
     output_prefix: Optional[Union[str, os.PathLike]] = None,
     gpu: Optional[int] = None,
-    features: list = ['loudness', 'periodicity', 'pitch', 'ppg'],
+    features: list = ['loudness', 'pitch', 'periodicity', 'ppg'],
     loudness_bands: Optional[int] = promonet.LOUDNESS_BANDS
 ) -> None:
     """Preprocess audio on disk and save
@@ -140,7 +140,7 @@ def from_file_to_file(
         output_prefix: File to save features, minus extension
         gpu: The GPU index
         features: The features to preprocess.
-            Options: ['loudness', 'periodicity', 'pitch', 'ppg', 'text'].
+            Options: ['loudness', 'pitch', 'periodicity', 'ppg', 'text'].
     """
     # Preprocess
     features = from_file(file, gpu, features, loudness_bands)
@@ -151,11 +151,11 @@ def from_file_to_file(
     if 'loudness' in features:
         torch.save(features[0], f'{output_prefix}-loudness.pt')
         del features[0]
-    if 'periodicity' in features:
-        torch.save(features[0], f'{output_prefix}-periodicity.pt')
-        del features[0]
     if 'pitch' in features:
         torch.save(features[0], f'{output_prefix}-pitch.pt')
+        del features[0]
+    if 'periodicity' in features:
+        torch.save(features[0], f'{output_prefix}-periodicity.pt')
         del features[0]
     if 'ppg' in features:
         torch.save(
@@ -171,7 +171,7 @@ def from_files_to_files(
     files: List[Union[str, bytes, os.PathLike]],
     output_prefixes: Optional[List[Union[str, os.PathLike]]] = None,
     gpu: Optional[int] = None,
-    features: list = ['loudness', 'periodicity', 'pitch', 'ppg'],
+    features: list = ['loudness', 'pitch', 'periodicity', 'ppg'],
     loudness_bands: Optional[int] = promonet.LOUDNESS_BANDS
 ) -> None:
     """Preprocess multiple audio files on disk and save
@@ -181,7 +181,7 @@ def from_files_to_files(
         output_prefixes: Files to save features, minus extension
         gpu: The GPU index
         features: The features to preprocess.
-            Options: ['loudness', 'periodicity', 'pitch', 'ppg', 'text'].
+            Options: ['loudness', 'pitch', 'periodicity', 'ppg', 'text'].
     """
     if output_prefixes is None:
         output_prefixes = [file.parent / file.stem for file in files]

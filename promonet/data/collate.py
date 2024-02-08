@@ -13,10 +13,10 @@ def collate(batch):
     # Unpack
     (
         text,
-        phonemes,
+        loudness,
         pitch,
         periodicity,
-        loudness,
+        phonemes,
         spectrograms,
         audio,
         speakers,
@@ -89,10 +89,10 @@ def collate(batch):
 
     return (
         text,
-        padded_phonemes,
+        padded_loudness,
         padded_pitch,
         padded_periodicity,
-        padded_loudness,
+        padded_phonemes,
         feature_lengths,
         speakers,
         formant_ratios,

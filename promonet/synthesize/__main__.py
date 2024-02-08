@@ -14,6 +14,12 @@ def parse_args():
     parser = yapecs.ArgumentParser(
         description='Synthesize speech from features')
     parser.add_argument(
+        '--loudness_files',
+        type=Path,
+        nargs='+',
+        required=True,
+        help='The loudness files')
+    parser.add_argument(
         '--pitch_files',
         type=Path,
         nargs='+',
@@ -25,12 +31,6 @@ def parse_args():
         nargs='+',
         required=True,
         help='The periodicity files')
-    parser.add_argument(
-        '--loudness_files',
-        type=Path,
-        nargs='+',
-        required=True,
-        help='The loudness files')
     parser.add_argument(
         '--ppg_files',
         type=Path,

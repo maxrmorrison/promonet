@@ -29,8 +29,8 @@ class Metrics:
     def __call__(self):
         result = {
             'loudness': self.loudness(),
-            'periodicity': self.periodicity(),
             'pitch': self.pitch(),
+            'periodicity': self.periodicity(),
             'ppg': self.ppg()}
         # result |= {f'ppg-{ppg.exponent}': ppg() for ppg in self.ppg}
         if self.speaker_sim.count:
@@ -41,13 +41,13 @@ class Metrics:
 
     def update(
         self,
+        predicted_loudness,
         predicted_pitch,
         predicted_periodicity,
-        predicted_loudness,
         predicted_ppg,
+        target_loudness,
         target_pitch,
         target_periodicity,
-        target_loudness,
         target_ppg,
         predicted_text=None,
         target_text=None,

@@ -42,10 +42,10 @@ class Generator(torch.nn.Module):
 
     def forward(
         self,
-        ppg,
+        loudness,
         pitch,
         periodicity,
-        loudness,
+        ppg,
         lengths,
         speakers,
         formant_ratios=None,
@@ -54,10 +54,10 @@ class Generator(torch.nn.Module):
     ):
         # Prepare input features
         features, global_features = self.prepare_features(
-            ppg,
+            loudness,
             pitch,
             periodicity,
-            loudness,
+            ppg,
             speakers,
             formant_ratios,
             loudness_ratios,
@@ -80,10 +80,10 @@ class Generator(torch.nn.Module):
 
     def prepare_features(
         self,
-        ppg,
+        loudness,
         pitch,
         periodicity,
-        loudness,
+        ppg,
         speakers,
         formant_ratios,
         loudness_ratios,

@@ -60,8 +60,8 @@ ADAPTATION = False
 # All features considered during preprocessing
 ALL_FEATURES = [
     'loudness',
-    'periodicity',
     'pitch',
+    'periodicity',
     'ppg',
     'spectrogram']
 
@@ -81,7 +81,7 @@ AUGMENTATION_RATIO_MIN = .5
 DATASETS = ['daps', 'libritts', 'vctk']
 
 # Number of bands of A-weighted loudness
-LOUDNESS_BANDS = 1
+LOUDNESS_BANDS = 8
 
 # Whether to use an embedding layer for pitch
 PITCH_EMBEDDING = True
@@ -203,7 +203,7 @@ EVALUATION_RATIOS = [.717, 1.414]
 
 
 # Input features
-INPUT_FEATURES = ['loudness', 'periodicity', 'pitch', 'ppg']
+INPUT_FEATURES = ['loudness', 'pitch', 'periodicity', 'ppg']
 
 # Whether to use FiLM for global conditioning
 FILM_CONDITIONING = False

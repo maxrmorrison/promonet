@@ -107,9 +107,9 @@ ratio = 2.0
 # Perform pitch-shifting
 shifted = promonet.synthesize.from_features(
     *promonet.edit.from_features(
+        loudness,
         pitch,
         periodicity,
-        loudness,
         ppg,
         pitch_shift_cents=promonet.convert.ratio_to_cents(ratio)),
     checkpoint=checkpoint,
@@ -118,9 +118,9 @@ shifted = promonet.synthesize.from_features(
 # Perform time-stretching
 stretched = promonet.synthesize.from_features(
     *promonet.edit.from_features(
+        loudness,
         pitch,
         periodicity,
-        loudness,
         ppg,
         time_stretch_ratio=ratio),
     checkpoint=checkpoint,
@@ -129,9 +129,9 @@ stretched = promonet.synthesize.from_features(
 # Perform loudness-scaling
 scaled = promonet.synthesize.from_features(
     *promonet.edit.from_features(
+        loudness,
         pitch,
         periodicity,
-        loudness,
         ppg,
         loudness_scale_db=promonet.convert.ratio_to_db(ratio)),
     checkpoint=checkpoint,
@@ -139,9 +139,9 @@ scaled = promonet.synthesize.from_features(
 
 # Edit formants (> 1 for Alvin and the Chipmunks; < 1 for Patrick Star)
 alvin = promonet.synthesize.from_features(
+    loudness,
     pitch,
     periodicity,
-    loudness,
     ppg,
     formant_ratio=ratio,
     checkpoint=checkpoint,
@@ -150,9 +150,9 @@ alvin = promonet.synthesize.from_features(
 # Edit perceptual loudness (> 1 for louder; < 1 quieter)
 # For more intuitive control in dB units, use promonet.convert.db_to_ratio(dB)
 louder = promonet.synthesize.from_features(
+    loudness,
     pitch,
     periodicity,
-    loudness,
     ppg,
     loudness_ratio=ratio,
     checkpoint=checkpoint,
@@ -198,7 +198,7 @@ def from_audio(
     audio: torch.Tensor,
     sample_rate: int = promonet.SAMPLE_RATE,
     gpu: Optional[int] = None,
-    features: list = ['loudness', 'periodicity', 'pitch', 'ppg']
+    features: list = ['loudness', 'pitch', 'periodicity', 'ppg']
 ) -> Union[
     Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor],
     Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, str]
@@ -210,7 +210,7 @@ def from_audio(
         sample_rate: Audio sample rate
         gpu: The GPU index
         features: The features to preprocess.
-            Options: ['loudness', 'periodicity', 'pitch', 'ppg', 'text'].
+            Options: ['loudness', 'pitch', 'periodicity', 'ppg', 'text'].
 
     Returns
         loudness: The loudness contour
@@ -228,7 +228,7 @@ def from_audio(
 def from_file(
     file: Union[str, bytes, os.PathLike],
     gpu: Optional[int] = None,
-    features: list = ['loudness', 'periodicity', 'pitch', 'ppg']
+    features: list = ['loudness', 'pitch', 'periodicity', 'ppg']
 ) -> Union[
     Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor],
     Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, str]
@@ -239,12 +239,12 @@ def from_file(
         file: Audio file to preprocess
         gpu: The GPU index
         features: The features to preprocess.
-            Options: ['loudness', 'periodicity', 'pitch', 'ppg', 'text'].
+            Options: ['loudness', 'pitch', 'periodicity', 'ppg', 'text'].
 
     Returns
         loudness: The loudness contour
-        periodicity: The periodicity contour
         pitch: The pitch contour
+        periodicity: The periodicity contour
         ppg: The phonetic posteriorgram
         text: The text transcript
     """
@@ -258,7 +258,7 @@ def from_file_to_file(
     file: Union[str, bytes, os.PathLike],
     output_prefix: Optional[Union[str, os.PathLike]] = None,
     gpu: Optional[int] = None,
-    features: list = ['loudness', 'periodicity', 'pitch', 'ppg']
+    features: list = ['loudness', 'pitch', 'periodicity', 'ppg']
 ) -> None:
     """Preprocess audio on disk and save
 
@@ -267,7 +267,7 @@ def from_file_to_file(
         output_prefix: File to save features, minus extension
         gpu: The GPU index
         features: The features to preprocess.
-            Options: ['loudness', 'periodicity', 'pitch', 'ppg', 'text'].
+            Options: ['loudness', 'pitch', 'periodicity', 'ppg', 'text'].
     """
 ```
 
@@ -279,7 +279,7 @@ def from_files_to_files(
     files: List[Union[str, bytes, os.PathLike]],
     output_prefixes: Optional[List[Union[str, os.PathLike]]] = None,
     gpu: Optional[int] = None,
-    features: list = ['loudness', 'periodicity', 'pitch', 'ppg']
+    features: list = ['loudness', 'pitch', 'periodicity', 'ppg']
 ) -> None:
     """Preprocess multiple audio files on disk and save
 
@@ -288,7 +288,7 @@ def from_files_to_files(
         output_prefixes: Files to save features, minus extension
         gpu: The GPU index
         features: The features to preprocess.
-            Options: ['loudness', 'periodicity', 'pitch', 'ppg', 'text'].
+            Options: ['loudness', 'pitch', 'periodicity', 'ppg', 'text'].
     """
 ```
 
@@ -299,9 +299,9 @@ def from_files_to_files(
 
 ```python
 def from_features(
+    loudness: torch.Tensor,
     pitch: torch.Tensor,
     periodicity: torch.Tensor,
-    loudness: torch.Tensor,
     ppg: torch.Tensor,
     pitch_shift_cents: Optional[float] = None,
     time_stretch_ratio: Optional[float] = None,
@@ -310,16 +310,16 @@ def from_features(
     """Edit speech representation
 
     Arguments
+        loudness: Loudness contour to edit
         pitch: Pitch contour to edit
         periodicity: Periodicity contour to edit
-        loudness: Loudness contour to edit
         ppg: PPG to edit
         pitch_shift_cents: Amount of pitch-shifting in cents
         time_stretch_ratio: Amount of time-stretching. Faster when above one.
         loudness_scale_db: Amount of loudness scaling in dB
 
     Returns
-        edited_pitch, edited_periodicity, edited_loudness, edited_ppg
+        edited_loudness, edited_pitch, edited_periodicity, edited_ppg
     """
 ```
 
@@ -328,9 +328,9 @@ def from_features(
 
 ```python
 def from_file(
+    loudness_file: Union[str, bytes, os.PathLike],
     pitch_file: Union[str, bytes, os.PathLike],
     periodicity_file: Union[str, bytes, os.PathLike],
-    loudness_file: Union[str, bytes, os.PathLike],
     ppg_file: Union[str, bytes, os.PathLike],
     pitch_shift_cents: Optional[float] = None,
     time_stretch_ratio: Optional[float] = None,
@@ -339,16 +339,16 @@ def from_file(
     """Edit speech representation on disk
 
     Arguments
+        loudness_file: Loudness file to edit
         pitch_file: Pitch file to edit
         periodicity_file: Periodicity file to edit
-        loudness_file: Loudness file to edit
         ppg_file: PPG file to edit
         pitch_shift_cents: Amount of pitch-shifting in cents
         time_stretch_ratio: Amount of time-stretching. Faster when above one.
         loudness_scale_db: Amount of loudness scaling in dB
 
     Returns
-        edited_pitch, edited_periodicity, edited_loudness, edited_ppg
+        edited_loudness, edited_pitch, edited_periodicity, edited_ppg
     """
 ```
 
@@ -357,9 +357,9 @@ def from_file(
 
 ```python
 def from_file_to_file(
+    loudness_file: Union[str, bytes, os.PathLike],
     pitch_file: Union[str, bytes, os.PathLike],
     periodicity_file: Union[str, bytes, os.PathLike],
-    loudness_file: Union[str, bytes, os.PathLike],
     ppg_file: Union[str, bytes, os.PathLike],
     output_prefix: Union[str, bytes, os.PathLike],
     pitch_shift_cents: Optional[float] = None,
@@ -369,9 +369,9 @@ def from_file_to_file(
     """Edit speech representation on disk and save to disk
 
     Arguments
+        loudness_file: Loudness file to edit
         pitch_file: Pitch file to edit
         periodicity_file: Periodicity file to edit
-        loudness_file: Loudness file to edit
         ppg_file: PPG file to edit
         output_prefix: File to save output, minus extension
         pitch_shift_cents: Amount of pitch-shifting in cents
@@ -385,9 +385,9 @@ def from_file_to_file(
 
 ```python
 def from_files_to_files(
+    loudness_files: List[Union[str, bytes, os.PathLike]],
     pitch_files: List[Union[str, bytes, os.PathLike]],
     periodicity_files: List[Union[str, bytes, os.PathLike]],
-    loudness_files: List[Union[str, bytes, os.PathLike]],
     ppg_files: List[Union[str, bytes, os.PathLike]],
     output_prefixes: List[Union[str, bytes, os.PathLike]],
     pitch_shift_cents: Optional[float] = None,
@@ -397,9 +397,9 @@ def from_files_to_files(
     """Edit speech representations on disk and save to disk
 
     Arguments
+        loudness_files: Loudness files to edit
         pitch_files: Pitch files to edit
         periodicity_files: Periodicity files to edit
-        loudness_files: Loudness files to edit
         ppg_files: Phonetic posteriorgram files to edit
         output_prefixes: Files to save output, minus extension
         pitch_shift_cents: Amount of pitch-shifting in cents
@@ -415,9 +415,9 @@ def from_files_to_files(
 
 ```python
 def from_features(
+    loudness: torch.Tensor,
     pitch: torch.Tensor,
     periodicity: torch.Tensor,
-    loudness: torch.Tensor,
     ppg: torch.Tensor,
     speaker: Optional[Union[int, torch.Tensor]] = 0,
     formant_ratio: float = 1.,
@@ -426,9 +426,9 @@ def from_features(
     """Perform speech synthesis
 
     Args:
+        loudness: The loudness contour
         pitch: The pitch contour
         periodicity: The periodicity contour
-        loudness: The loudness contour
         ppg: The phonetic posteriorgram
         speaker: The speaker index
         formant_ratio: > 1 for Alvin and the Chipmunks; < 1 for Patrick Star
@@ -445,9 +445,9 @@ def from_features(
 
 ```python
 def from_file(
+    loudness_file: Union[str, os.PathLike],
     pitch_file: Union[str, os.PathLike],
     periodicity_file: Union[str, os.PathLike],
-    loudness_file: Union[str, os.PathLike],
     ppg_file: Union[str, os.PathLike],
     speaker: Optional[Union[int, torch.Tensor]] = 0,
     checkpoint: Union[str, os.PathLike] = promonet.DEFAULT_CHECKPOINT,
@@ -456,9 +456,9 @@ def from_file(
     """Perform speech synthesis from features on disk
 
     Args:
+        loudness_file: The loudness file
         pitch_file: The pitch file
         periodicity_file: The periodicity file
-        loudness_file: The loudness file
         ppg_file: The phonetic posteriorgram file
         speaker: The speaker index
         checkpoint: The generator checkpoint
@@ -474,9 +474,9 @@ def from_file(
 
 ```python
 def from_file_to_file(
+    loudness_file: Union[str, os.PathLike],
     pitch_file: Union[str, os.PathLike],
     periodicity_file: Union[str, os.PathLike],
-    loudness_file: Union[str, os.PathLike],
     ppg_file: Union[str, os.PathLike],
     output_file: Union[str, os.PathLike],
     speaker: Optional[Union[int, torch.Tensor]] = 0,
@@ -486,9 +486,9 @@ def from_file_to_file(
     """Perform speech synthesis from features on disk and save
 
     Args:
+        loudness_file: The loudness file
         pitch_file: The pitch file
         periodicity_file: The periodicity file
-        loudness_file: The loudness file
         ppg_file: The phonetic posteriorgram file
         output_file: The file to save generated speech audio
         speaker: The speaker index
@@ -502,9 +502,9 @@ def from_file_to_file(
 
 ```python
 def from_files_to_files(
+    loudness_files: List[Union[str, os.PathLike]],
     pitch_files: List[Union[str, os.PathLike]],
     periodicity_files: List[Union[str, os.PathLike]],
-    loudness_files: List[Union[str, os.PathLike]],
     ppg_files: List[Union[str, os.PathLike]],
     output_files: List[Union[str, os.PathLike]],
     speakers: Optional[Union[List[int], torch.Tensor]] = None,
@@ -514,9 +514,9 @@ def from_files_to_files(
     """Perform batched speech synthesis from features on disk and save
 
     Args:
+        loudness_files: The loudness files
         pitch_files: The pitch files
         periodicity_files: The periodicity files
-        loudness_files: The loudness files
         ppg_files: The phonetic posteriorgram files
         output_files: The files to save generated speech audio
         speakers: The speaker indices
@@ -564,7 +564,7 @@ python -m promonet.preprocess \
     [-h] \
     --files FILES [FILES ...] \
     [--output_prefixes OUTPUT_PREFIXES [OUTPUT_PREFIXES ...]] \
-    [--features {loudness,periodicity,pitch,ppg} [{loudness,periodicity,pitch,ppg} ...]] \
+    [--features {loudness,pitch,periodicity,ppg} [{loudness,pitch,periodicity,ppg} ...]] \
     [--gpu GPU]
 
 Preprocess
@@ -578,7 +578,7 @@ optional arguments:
     show this help message and exit
   --output_prefixes OUTPUT_PREFIXES [OUTPUT_PREFIXES ...]
     Files to save features, minus extension
-  --features {loudness,periodicity,pitch,ppg} [{loudness,periodicity,pitch,ppg} ...]
+  --features {loudness,pitch,periodicity,ppg} [{loudness,pitch,periodicity,ppg} ...]
     The features to preprocess
   --gpu GPU
     The index of the gpu to use
@@ -592,9 +592,9 @@ optional arguments:
 ```
 python -m promonet.edit \
     [-h] \
+    --loudness_files LOUDNESS_FILES [LOUDNESS_FILES ...] \
     --pitch_files PITCH_FILES [PITCH_FILES ...] \
     --periodicity_files PERIODICITY_FILES [PERIODICITY_FILES ...] \
-    --loudness_files LOUDNESS_FILES [LOUDNESS_FILES ...] \
     --ppg_files PPG_FILES [PPG_FILES ...] \
     --output_prefixes OUTPUT_PREFIXES [OUTPUT_PREFIXES ...] \
     [--pitch_shift_cents PITCH_SHIFT_CENTS] \
@@ -604,12 +604,12 @@ python -m promonet.edit \
 Edit speech representation
 
 arguments:
+  --loudness_files LOUDNESS_FILES [LOUDNESS_FILES ...]
+    The loudness files to edit
   --pitch_files PITCH_FILES [PITCH_FILES ...]
     The pitch files to edit
   --periodicity_files PERIODICITY_FILES [PERIODICITY_FILES ...]
     The periodicity files to edit
-  --loudness_files LOUDNESS_FILES [LOUDNESS_FILES ...]
-    The loudness files to edit
   --ppg_files PPG_FILES [PPG_FILES ...]
     The ppg files to edit
   --output_prefixes OUTPUT_PREFIXES [OUTPUT_PREFIXES ...]
@@ -633,9 +633,9 @@ optional arguments:
 
 ```
 python -m promonet.synthesize \
+    --loudness_files LOUDNESS_FILES [LOUDNESS_FILES ...] \
     --pitch_files PITCH_FILES [PITCH_FILES ...] \
     --periodicity_files PERIODICITY_FILES [PERIODICITY_FILES ...] \
-    --loudness_files LOUDNESS_FILES [LOUDNESS_FILES ...] \
     --ppg_files PPG_FILES [PPG_FILES ...] \
     --output_files OUTPUT_FILES [OUTPUT_FILES ...] \
     [--speakers SPEAKERS [SPEAKERS ...]] \
@@ -645,12 +645,12 @@ python -m promonet.synthesize \
 Synthesize speech from features
 
 arguments:
+  --loudness_files LOUDNESS_FILES [LOUDNESS_FILES ...]
+    The loudness files
   --pitch_files PITCH_FILES [PITCH_FILES ...]
     The pitch files
   --periodicity_files PERIODICITY_FILES [PERIODICITY_FILES ...]
     The periodicity files
-  --loudness_files LOUDNESS_FILES [LOUDNESS_FILES ...]
-    The loudness files
   --ppg_files PPG_FILES [PPG_FILES ...]
     The phonetic posteriorgram files
   --output_files OUTPUT_FILES [OUTPUT_FILES ...]

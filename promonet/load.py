@@ -31,9 +31,9 @@ def features(prefix):
     else:
         pitch_prefix = prefix
     return (
+        torch.load(f'{prefix}-loudness.pt'),
         torch.load(f'{pitch_prefix}-pitch.pt'),
         torch.load(f'{pitch_prefix}-periodicity.pt'),
-        torch.load(f'{prefix}-loudness.pt'),
         torch.load(f'{prefix}-ppg.pt'))
 
 

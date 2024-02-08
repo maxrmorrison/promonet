@@ -26,15 +26,15 @@ def from_audio(
         gpu=gpu)
     loudness = promonet.loudness.band_average(loudness, 1)
     if target_audio is None:
+        target_loudness = None
         target_pitch = None
         target_periodicity = None
-        target_loudness = None
         target_ppg = None
     else:
         (
             target_loudness,
-            target_periodicity,
             target_pitch,
+            target_periodicity,
             target_ppg
         ) = promonet.preprocess.from_audio(audio, gpu=gpu)
         target_loudness = promonet.loudness.band_average(target_loudness, 1)
@@ -42,26 +42,26 @@ def from_audio(
     # Plot
     return from_features(
         audio,
+        loudness,
         pitch,
         periodicity,
-        loudness,
         ppg,
+        target_loudness,
         target_pitch,
         target_periodicity,
-        target_loudness,
         target_ppg,
         features=features)
 
 
 def from_features(
     audio,
+    loudness,
     pitch,
     periodicity,
-    loudness,
     ppg,
+    target_loudness=None,
     target_pitch=None,
     target_periodicity=None,
-    target_loudness=None,
     target_ppg=None,
     features=promonet.DEFAULT_PLOT_FEATURES
 ):

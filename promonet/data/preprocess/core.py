@@ -23,8 +23,8 @@ def datasets(datasets, features=promonet.ALL_FEATURES, gpu=None):
         # Preprocess input features
         if any(feature in features for feature in [
             'loudness',
-            'periodicity',
             'pitch',
+            'periodicity',
             'ppg'
         ]):
             promonet.preprocess.from_files_to_files(
