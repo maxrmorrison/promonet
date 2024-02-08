@@ -5,7 +5,6 @@ import penn
 import ppgs
 import torch
 import torchaudio
-import whisper
 
 import promonet
 

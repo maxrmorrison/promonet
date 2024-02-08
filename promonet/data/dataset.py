@@ -67,14 +67,19 @@ class Dataset(torch.utils.data.Dataset):
         periodicity = torch.load(
             self.cache / f'{stem}{self.viterbi}-periodicity.pt'
         ).to(torch.float32)
-        loudness = torch.load(
-            self.cache / f'{stem}-loudness.pt').to(torch.float32)
         spectrogram = torch.load(
             self.cache / f'{stem}-spectrogram.pt').to(torch.float32)
         phonemes = promonet.load.ppg(
             self.cache / f'{stem}{ppgs.representation_file_extension()}',
             resample_length=spectrogram.shape[-1]
         ).to(torch.float32)
+
+        # For loudness augmentation, use original loudness to disentangle
+        if stem.split('-')[-1].startswith('l'):
+            loudness_file = self.cache / f'{stem[:-4]}100-loudness.pt'
+        else:
+            loudness_file = self.cache / f'{stem}-loudness.pt'
+        loudness = torch.load(loudness_file).to(torch.float32)
 
         # Chunk during training
         if promonet.MODEL != 'vits' and self.partition.startswith('train'):
