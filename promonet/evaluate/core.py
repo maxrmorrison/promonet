@@ -292,6 +292,13 @@ def speaker(
         elif promonet.MODEL == 'world':
             synthesis_fn = promonet.baseline.world.from_files_to_files
         synthesis_fn(original_audio_files, files['reconstructed-100'])
+    elif promonet.SPECTROGRAM_ONLY:
+        promonet.baseline.mels.from_files_to_files(
+            original_audio_files,
+            files['reconstructed-100'],
+            checkpoint=checkpoint,
+            speakers=speakers,
+            gpu=gpu)
     else:
         promonet.synthesize.from_files_to_files(
             pitch_files,

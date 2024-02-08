@@ -1,3 +1,4 @@
+import matplotlib
 import matplotlib.pyplot as plt
 import penn
 import ppgs
@@ -84,18 +85,41 @@ def from_features(
             axes[i].spines['left'].set_visible(False)
             axes[i].set_xticks([])
             axes[i].set_ylim([-1., 1.])
-            axes[i].set_ylabel('Audio', fontsize=12)
+            axes[i].tick_params(axis=u'both', which=u'both', length=0)
+            # axes[i].set_ylabel('Audio', fontsize=12)
             i += 1
 
         # Plot PPGs
-        # TODO - overlay
         if feature == 'ppg':
             ppg = ppg.squeeze()
             probable = ppg > .05
+            if target_ppg is not None:
+                target_ppg = target_ppg.squeeze()
+                probable = probable | (target_ppg > .05)
             used = probable.sum(-1) > 0
             ppg = ppg[used]
             ppg[ppg < .05] = 0.
-            axes[i].imshow(ppg.cpu(), aspect='auto')
+
+            cmap = matplotlib.colors.LinearSegmentedColormap.from_list(
+                'cmap',
+                ['none', 'blue'],
+                256)
+            cmap._init()
+            alphas = torch.linspace(0, 1. if target_ppg is None else .5, cmap.N + 3)
+            cmap._lut[:, -1] = alphas
+
+            if target_ppg is not None:
+                target_ppg = target_ppg[used]
+                target_ppg[target_ppg < .05] = 0.
+                target_cmap = matplotlib.colors.LinearSegmentedColormap.from_list(
+                    'target_cmap',
+                    ['none', 'red'],
+                    256)
+                target_cmap._init()
+                target_cmap._lut[:, -1] = alphas
+                axes[i].imshow(target_ppg.cpu(), aspect='auto', interpolation='none', cmap=target_cmap)
+
+            axes[i].imshow(ppg.cpu(), aspect='auto', interpolation='none', cmap=cmap)
             axes[i].set_xmargin(0.)
             axes[i].spines['top'].set_visible(False)
             axes[i].spines['right'].set_visible(False)
@@ -103,14 +127,21 @@ def from_features(
             axes[i].spines['left'].set_visible(False)
             axes[i].set_ylabel('Phonetic posteriorgram', labelpad=-18, fontsize=12)
             axes[i].set_xticks([])
-            axes[i].set_yticks(torch.arange(len(ppg)), [ppgs.PHONEMES[i] for i, u in enumerate(used) if u])
+            axes[i].tick_params(axis=u'both', which=u'both', length=0)
+            yticks = torch.arange(len(ppg))
+            axes[i].set_yticks(yticks, [ppgs.PHONEMES[i] for i, u in enumerate(used) if u])
+            for tick in (yticks - .5).tolist() + [yticks[-1] + .5]:
+                axes[i].hlines(tick, xmin=0., xmax=ppg.shape[-1], color='#aaaa', linestyle='--')
             i += 1
 
         # Plot pitch
         if feature == 'pitch':
             axes[i].plot(pitch.squeeze().cpu(), color='black', linewidth=1.)
+            ymin, ymax = pitch.min(), pitch.max()
             if target_pitch is not None:
                 axes[i].plot(target_pitch.squeeze().cpu(), color='green', linewidth=1.)
+                ymin = min(target_pitch.min(), ymin)
+                ymax = max(target_pitch.max(), ymax)
                 if target_periodicity is not None:
                     voicing = penn.voicing.threshold(
                         periodicity,
@@ -132,13 +163,30 @@ def from_features(
             axes[i].spines['bottom'].set_visible(False)
             axes[i].spines['left'].set_visible(False)
             axes[i].set_xticks([])
+            axes[i].tick_params(axis=u'both', which=u'both', length=0)
+            ymin = ymin // 50 * 50
+            ymax = (ymax + 50) // 50 * 50
+            diff = ymax - ymin
+            if diff <= 100:
+                ystep = 25
+            elif diff <= 150:
+                ystep = 50
+            else:
+                ystep = 100
+            yticks = torch.arange(ymin, ymax + ystep, ystep)
+            axes[i].set_yticks(yticks)
+            for tick in yticks:
+                axes[i].hlines(tick, xmin=0., xmax=pitch.shape[-1], color='#aaaa', linestyle='--')
             axes[i].set_ylabel('Pitch', fontsize=12, labelpad=14 if pitch.max() < 100. else None)
             i += 1
 
         # Plot periodicity
         if feature == 'periodicity':
             axes[i].plot(periodicity.squeeze().cpu(), color='black', linewidth=1.)
+            ymin, ymax = periodicity.min(), periodicity.max()
             if target_periodicity is not None:
+                ymin = min(target_periodicity.min(), ymin)
+                ymax = max(target_periodicity.max(), ymax)
                 axes[i].plot(
                     target_periodicity.squeeze().cpu(),
                     color='green',
@@ -158,13 +206,24 @@ def from_features(
             axes[i].spines['bottom'].set_visible(False)
             axes[i].spines['left'].set_visible(False)
             axes[i].set_xticks([])
+            axes[i].tick_params(axis=u'both', which=u'both', length=0)
+            ymin = ymin // .25 * .25
+            ymax = (ymax + .25) // .25 * .25
+            ystep = .25
+            yticks = torch.arange(ymin, ymax + ystep, ystep)
+            axes[i].set_yticks(yticks)
+            for tick in yticks:
+                axes[i].hlines(tick, xmin=0., xmax=periodicity.shape[-1], color='#aaaa', linestyle='--')
             axes[i].set_ylabel('Periodicity', fontsize=12)
             i += 1
 
         # Plot loudness
         if feature == 'loudness':
             axes[i].plot(loudness.squeeze().cpu(), color='black', linewidth=1.)
+            ymin, ymax = loudness.min(), loudness.max()
             if target_loudness is not None:
+                ymin = min(target_loudness.min(), ymin)
+                ymax = max(target_loudness.max(), ymax)
                 axes[i].plot(
                     target_loudness.squeeze().cpu(),
                     color='green',
@@ -184,6 +243,14 @@ def from_features(
             axes[i].spines['bottom'].set_visible(False)
             axes[i].spines['left'].set_visible(False)
             axes[i].set_xticks([])
+            axes[i].tick_params(axis=u'both', which=u'both', length=0)
+            ymin = ymin // 5 * 5
+            ymax = (ymax + 5) // 5 * 5
+            ystep = 10 if (ymax - ymin <= 30) else 20
+            yticks = torch.arange(ymin, ymax + ystep, ystep)
+            axes[i].set_yticks(yticks)
+            for tick in yticks:
+                axes[i].hlines(tick, xmin=0., xmax=loudness.shape[-1], color='#aaaa', linestyle='--')
             axes[i].set_ylabel('Loudness', fontsize=12)
             i += 1
 

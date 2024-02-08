@@ -106,8 +106,66 @@ def pitch_distribution(dataset=promonet.TRAINING_DATASET, partition='train'):
     return pitch_distribution.distribution
 
 
+def per_speaker_averages(dataset=promonet.TRAINING_DATASET, partition='train'):
+    """Load the average pitch in voiced regions for each speaker"""
+    if not hasattr(per_speaker_averages, 'averages'):
+
+        # Location on disk
+        key = ''
+        if promonet.VITERBI_DECODE_PITCH:
+            key += '-viterbi'
+        file = (
+            promonet.ASSETS_DIR /
+            'stats' /
+            f'{dataset}-{partition}-speaker-averages{key}.json')
+
+        try:
+
+            # Load and cache averages
+            with open(file) as json_file:
+                per_speaker_averages.averages = json.load(json_file)
+
+        except FileNotFoundError:
+
+            # Get all voiced pitch frames
+            allpitch = {}
+            dataset = promonet.data.Dataset(dataset, partition)
+            viterbi = '-viterbi' if promonet.VITERBI_DECODE_PITCH else ''
+            for stem in torchutil.iterator(
+                dataset.stems,
+                'promonet.load.pitch_distribution'
+            ):
+                pitch = torch.load(
+                    dataset.cache / f'{stem}{viterbi}-pitch.pt')
+                periodicity = torch.load(
+                    dataset.cache / f'{stem}{viterbi}-periodicity.pt')
+                speaker = stem.split('/')[0]
+                if speaker not in allpitch:
+                    allpitch[speaker] = []
+                allpitch[speaker].append(
+                    pitch[
+                        torch.logical_and(
+                            ~torch.isnan(pitch),
+                            periodicity > promonet.VOICING_THRESHOLD)])
+
+            # Cache
+            per_speaker_averages.averages = {
+                speaker: 2 ** torch.log2(torch.cat(values)).mean().item()
+                for speaker, values in allpitch.items()}
+
+            # Save
+            with open(file, 'w') as json_file:
+                json.dump(
+                    per_speaker_averages.averages,
+                    json_file,
+                    indent=4,
+                    sort_keys=True)
+
+    return per_speaker_averages.averages
+
+
 def ppg(file, resample_length=None):
-    """Load a PPG file, resample with a grid if need be, sparsify if needed"""
+    """Load a PPG file and maybe resample"""
     # Load
     result = torch.load(file)
 

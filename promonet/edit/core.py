@@ -117,7 +117,8 @@ def from_features(
 
     # Maybe pitch-shift
     if pitch_shift_cents is not None:
-        pitch *= promonet.convert.cents_to_ratio(pitch_shift_cents)
+        pitch = pitch.clone() * promonet.convert.cents_to_ratio(
+            pitch_shift_cents)
         pitch = torch.clip(pitch, promonet.FMIN, promonet.FMAX)
 
     # Maybe loudness-scale

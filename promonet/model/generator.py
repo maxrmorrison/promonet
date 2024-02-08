@@ -129,6 +129,8 @@ class Generator(torch.nn.Module):
             if 'loudness' in promonet.INPUT_FEATURES:
                 averaged = promonet.loudness.band_average(loudness)
                 normalized = promonet.loudness.normalize(averaged)
+                if normalized.ndim == 2:
+                    normalized = normalized[None]
                 features = torch.cat((features, normalized), dim=1)
 
             # Maybe add periodicity features

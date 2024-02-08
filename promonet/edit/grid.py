@@ -31,7 +31,7 @@ def sample(sequence, grid, method='linear'):
             ).to(torch.float16)
         else:
             fp = torch.nn.functional.pad(fp, (0, 1), mode='replicate')
-        xp = torch.cat((xp, xp[-1:]))
+        xp = torch.cat((xp, xp[-1:] + 1))
 
         # Interpolate
         return fp[..., i - 1] * (xp[i] - x) + fp[..., i] * (x - xp[i - 1])
