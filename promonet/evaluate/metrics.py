@@ -21,7 +21,6 @@ class Metrics:
         self.loudness = Loudness()
         self.periodicity = torchutil.metrics.RMSE()
         self.pitch = Pitch()
-        # self.ppg = [PPG(exponent) for exponent in np.arange(0.0, 2.0, 0.05)]
         self.ppg = PPG()
         self.wer = WER()
         self.speaker_sim = SpeakerSimilarity()
@@ -32,7 +31,6 @@ class Metrics:
             'pitch': self.pitch(),
             'periodicity': self.periodicity(),
             'ppg': self.ppg()}
-        # result |= {f'ppg-{ppg.exponent}': ppg() for ppg in self.ppg}
         if self.speaker_sim.count:
             result['speaker_sim'] = self.speaker_sim()
         if self.wer.count > 0:
@@ -60,8 +58,6 @@ class Metrics:
             predicted_periodicity,
             target_pitch,
             target_periodicity)
-        # for ppg_metric in self.ppg:
-            # ppg_metric.update(predicted_ppg, target_ppg)
         self.ppg.update(predicted_ppg, target_ppg)
         if predicted_text is not None and target_text is not None:
             self.wer.update(predicted_text, target_text)
@@ -72,8 +68,6 @@ class Metrics:
         self.loudness.reset()
         self.periodicity.reset()
         self.pitch.reset()
-        # for ppg_metric in self.ppg:
-        #     ppg_metric.reset()
         self.ppg.reset()
         self.wer.reset()
         self.speaker_sim.reset()

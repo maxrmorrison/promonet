@@ -1,5 +1,6 @@
 import json
 
+import ppgs
 import torch
 import torchaudio
 import torchutil
@@ -174,7 +175,8 @@ def ppg(file, resample_length=None):
             promonet.PPG_INTERP_METHOD)
 
         # Preserve distribution
-        return torch.softmax(torch.log(result + 1e-8), -2)
+        if ppgs.REPRESENTATION_KIND == 'ppgs':
+            return torch.softmax(torch.log(result + 1e-8), -2)
 
     return result
 

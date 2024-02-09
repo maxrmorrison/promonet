@@ -365,7 +365,10 @@ def speaker(
         # Time stretching #
         ###################
 
-        if 'ppg' in promonet.INPUT_FEATURES:
+        if (
+            'ppg' in promonet.INPUT_FEATURES and
+            ppgs.REPRESENTATION_KIND == 'ppgs'
+        ):
 
             # Edit features
             with torchutil.time.context('edit'):
@@ -591,7 +594,10 @@ def default_metrics():
         for ratio in promonet.EVALUATION_RATIOS:
             metrics[f'shifted-{int(ratio * 100):03d}'] = \
                 promonet.evaluate.Metrics()
-    if 'ppg' in promonet.INPUT_FEATURES:
+    if (
+        'ppg' in promonet.INPUT_FEATURES and
+        ppgs.REPRESENTATION_KIND == 'ppgs'
+    ):
         for ratio in promonet.EVALUATION_RATIOS:
             metrics[f'stretched-{int(ratio * 100):03d}'] = \
                 promonet.evaluate.Metrics()
