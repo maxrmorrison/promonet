@@ -12,6 +12,9 @@ INPUT_CHANNELS = 80
 # Number of hidden layers
 NUM_HIDDEN_LAYERS = 5
 
+# Best representation
+BEST_REPRESENTATION = None
+
 # Input representation
 REPRESENTATION = 'mel'
 
