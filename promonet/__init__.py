@@ -34,5 +34,5 @@ from . import model
 from . import partition
 from . import plot
 from . import preprocess
-from . import resemblyzer
+from . import speaker
 from . import synthesize

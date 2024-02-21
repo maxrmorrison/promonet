@@ -38,9 +38,13 @@ def features(prefix):
         torch.load(f'{prefix}-ppg.pt'))
 
 
-def partition(dataset):
+def partition(dataset, adapt=promonet.ADAPTATION):
     """Load partitions for dataset"""
-    with open(promonet.PARTITION_DIR / f'{dataset}.json') as file:
+    partition_dir = (
+        promonet.ASSETS_DIR /
+        'partitions' /
+        ('adaptation' if adapt else 'multispeaker'))
+    with open(partition_dir / f'{dataset}.json') as file:
         return json.load(file)
 
 

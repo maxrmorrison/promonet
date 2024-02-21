@@ -37,7 +37,7 @@ import promonet
 
 
 @torchutil.notify('evaluate')
-def datasets(datasets, gpu=None):
+def datasets(datasets, adapt=promonet.ADAPTATION, gpu=None):
     """Evaluate the performance of the model on datasets"""
     aggregate_metrics = default_metrics()
 
@@ -48,8 +48,8 @@ def datasets(datasets, gpu=None):
         torchutil.time.reset()
 
         # Get adaptation partitions for this dataset
-        partitions = promonet.load.partition(dataset)
-        if promonet.ADAPTATION:
+        partitions = promonet.load.partition(dataset, adapt)
+        if adapt:
             train_partitions = sorted(list(
                 partition for partition in partitions.keys()
                 if 'train-adapt' in partition))
@@ -100,6 +100,7 @@ def datasets(datasets, gpu=None):
                     objective_directory,
                     subjective_directory,
                     index,
+                    adapt,
                     gpu)
 
         # Aggregate results
@@ -128,19 +129,6 @@ def datasets(datasets, gpu=None):
         with open(results_directory / f'results.json', 'w') as file:
             json.dump(results, file, indent=4, sort_keys=True)
 
-        # Plot speaker clusters
-        # centers = {
-        #     index: torch.load(
-        #         objective_directory / f'{dataset}-{index}-speaker.pt')
-        #     for index in indices}
-        # embeddings = {
-        #     index: [
-        #         torch.load(file) for file in objective_directory.glob(
-        #             f'{dataset}-{index}-*-original-100-speaker.pt')]
-        #     for index in indices}
-        # file = results_directory / f'speaker.pdf'
-        # promonet.plot.speaker.from_embeddings(centers, embeddings, file=file)
-
     # Get aggregate metrics
     results = {key: value() for key, value in aggregate_metrics.items()}
 
@@ -162,8 +150,8 @@ def datasets(datasets, gpu=None):
         for key, value in results['benchmark']['raw'].items()}
 
     # Print results and save to disk
-    print(results)
-    with open(results_directory / f'results.json', 'w') as file:
+    print(json.dumps(results, indent=4, sort_keys=True))
+    with open(results_directory / 'results.json', 'w') as file:
         json.dump(results, file, indent=4, sort_keys=True)
 
 
@@ -182,12 +170,13 @@ def speaker(
     objective_directory,
     subjective_directory,
     index,
+    adapt=promonet.ADAPTATION,
     gpu=None
 ):
     """Evaluate one adaptation speaker in a dataset"""
     device = f'cuda:{gpu}' if gpu is not None else 'cpu'
 
-    if promonet.MODEL not in ['psola', 'world'] and promonet.ADAPTATION:
+    if promonet.MODEL not in ['psola', 'world'] and adapt:
         adapt_directory = checkpoint_directory / 'adapt' / dataset / index
         adapt_directory.mkdir(exist_ok=True, parents=True)
 
@@ -219,7 +208,7 @@ def speaker(
     # Stems to use for evaluation
     test_stems = sorted(promonet.load.partition(dataset)[test_partition])
     test_stems = [stem for stem in test_stems if stem.split('/')[0] == index]
-    if promonet.ADAPTATION:
+    if adapt:
         speakers = [0] * len(test_stems)
     else:
         speakers = [int(stem.split('/')[0]) for stem in test_stems]
@@ -367,7 +356,7 @@ def speaker(
 
         if (
             'ppg' in promonet.INPUT_FEATURES and
-            ppgs.REPRESENTATION_KIND == 'ppgs'
+            ppgs.REPRESENTATION_KIND == 'ppg'
         ):
 
             # Edit features
@@ -476,20 +465,25 @@ def speaker(
                 loudness_bands=None)
 
         # Infer speaker embeddings
-        # embedding_files = [
-        #     objective_directory / f'{file.stem}-speaker.pt'
-        #     for file in audio_files]
-        # promonet.resemblyzer.from_files_to_files(
-        #     audio_files,
-        #     embedding_files,
-        #     gpu=gpu)
+        embedding_files = [
+            objective_directory / f'{file.stem}-speaker.pt'
+            for file in audio_files]
+        promonet.speaker.from_files_to_files(
+            audio_files,
+            embedding_files,
+            gpu=gpu)
 
-    # original_files = original_subjective_directory.glob(
-    #     f'{dataset}-{index}-*-original-100.wav')
-    # speaker_embedding = promonet.resemblyzer.from_files(original_files, gpu)
-    # torch.save(
-    #     speaker_embedding,
-    #     objective_directory / f'{dataset}-{index}-speaker.pt')
+    # Infer speaker embeddings of original audio
+    original_files = list(
+        original_subjective_directory.glob(
+            f'{dataset}-{index}-*-original-100.wav'))
+    original_embedding_files = [
+        original_objective_directory / f'{file.stem}-speaker.pt'
+        for file in original_files]
+    promonet.speaker.from_files_to_files(
+        original_files,
+        original_embedding_files,
+        gpu=gpu)
 
     ############################
     # Evaluate prosody editing #
@@ -540,13 +534,14 @@ def speaker(
                         loudness.shape[-1]
                     ).to(device),
                     promonet.load.text(f'{predicted_prefix}.txt'),
-                    promonet.load.text(f'{target_prefix}.txt'.replace(key, 'original-100')),
-                    None)
-
-                # Get speaker embeddings
-                # embedding = torch.load(f'{predicted_prefix}-speaker.pt').to(
-                #     speaker_embedding.device)
-                # speaker_sim_args = (speaker_embedding, embedding)
+                    promonet.load.text(
+                        f'{target_prefix}.txt'.replace(key, 'original-100')),
+                    (
+                        torch.load(f'{predicted_prefix}-speaker.pt').to(device),
+                        torch.load(
+                            f'{target_prefix}-speaker.pt'.replace(key, 'original-100')
+                        ).to(device)
+                    ))
 
                 # Update metrics
                 aggregate_metrics[key].update(*args)
@@ -596,7 +591,7 @@ def default_metrics():
                 promonet.evaluate.Metrics()
     if (
         'ppg' in promonet.INPUT_FEATURES and
-        ppgs.REPRESENTATION_KIND == 'ppgs'
+        ppgs.REPRESENTATION_KIND == 'ppg'
     ):
         for ratio in promonet.EVALUATION_RATIOS:
             metrics[f'stretched-{int(ratio * 100):03d}'] = \

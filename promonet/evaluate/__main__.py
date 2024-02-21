@@ -18,6 +18,10 @@ def parse_args():
         default=promonet.DATASETS,
         help='The datasets to evaluate')
     parser.add_argument(
+        '--adapt',
+        action='store_true',
+        help='Whether to perform speaker adaptation')
+    parser.add_argument(
         '--gpu',
         type=int,
         help='The index of the gpu to use for evaluation')

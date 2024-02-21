@@ -8,10 +8,10 @@ import promonet
 ###############################################################################
 
 
-def loader(dataset, partition, gpu=None):
+def loader(dataset, partition, adapt=promonet.ADAPTATION, gpu=None):
     """Setup data loader"""
     # Get dataset
-    dataset = promonet.data.Dataset(dataset, partition)
+    dataset = promonet.data.Dataset(dataset, partition, adapt)
 
     # Create loader
     return torch.utils.data.DataLoader(

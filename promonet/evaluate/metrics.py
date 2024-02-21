@@ -23,7 +23,7 @@ class Metrics:
         self.pitch = Pitch()
         self.ppg = PPG()
         self.wer = WER()
-        self.speaker_sim = SpeakerSimilarity()
+        self.speaker_similarity = SpeakerSimilarity()
 
     def __call__(self):
         result = {
@@ -31,10 +31,10 @@ class Metrics:
             'pitch': self.pitch(),
             'periodicity': self.periodicity(),
             'ppg': self.ppg()}
-        if self.speaker_sim.count:
-            result['speaker_sim'] = self.speaker_sim()
+        if self.speaker_similarity.count:
+            result['speaker_similarity'] = self.speaker_similarity()
         if self.wer.count > 0:
-            result |= {'wer': self.wer()}
+            result['wer'] = self.wer()
         return result
 
     def update(
@@ -49,7 +49,7 @@ class Metrics:
         target_ppg,
         predicted_text=None,
         target_text=None,
-        speaker_sim_args=None
+        speaker_similarity_args=None
     ):
         self.loudness.update(predicted_loudness, target_loudness)
         self.periodicity.update(predicted_periodicity, target_periodicity)
@@ -61,8 +61,8 @@ class Metrics:
         self.ppg.update(predicted_ppg, target_ppg)
         if predicted_text is not None and target_text is not None:
             self.wer.update(predicted_text, target_text)
-        if speaker_sim_args:
-            self.speaker_sim.update(*speaker_sim_args)
+        if speaker_similarity_args:
+            self.speaker_similarity.update(*speaker_similarity_args)
 
     def reset(self):
         self.loudness.reset()
@@ -70,7 +70,12 @@ class Metrics:
         self.pitch.reset()
         self.ppg.reset()
         self.wer.reset()
-        self.speaker_sim.reset()
+        self.speaker_similarity.reset()
+
+
+###############################################################################
+# Prosody metrics
+###############################################################################
 
 
 class Loudness(torchutil.metrics.RMSE):
@@ -132,6 +137,11 @@ class Pitch(torchutil.metrics.L1):
         super().update(torch.log2(predicted), torch.log2(target))
 
 
+###############################################################################
+# Pronunciation metrics
+###############################################################################
+
+
 class PPG(torchutil.metrics.Average):
     """PPG distance"""
 
@@ -165,7 +175,14 @@ class WER(torchutil.metrics.Average):
         super().update(torch.tensor(wer), 1)
 
 
+###############################################################################
+# Speaker metrics
+###############################################################################
+
+
 class SpeakerSimilarity(torchutil.metrics.Average):
     """Speaker similarity metric"""
-    def update(self, speaker_embed, utterance_embed):
-        super().update(torch.abs(speaker_embed - utterance_embed).sum(), 1)
+    def update(self, predicted, target):
+        super().update(
+            torch.nn.functional.cosine_similarity(predicted, target, 0),
+            1)

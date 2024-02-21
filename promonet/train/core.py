@@ -36,8 +36,16 @@ def train(
     #######################
 
     torch.manual_seed(promonet.RANDOM_SEED)
-    train_loader = promonet.data.loader(dataset, train_partition, gpu)
-    valid_loader = promonet.data.loader(dataset, valid_partition, gpu)
+    train_loader = promonet.data.loader(
+        dataset,
+        train_partition,
+        adapt_from is not None,
+        gpu)
+    valid_loader = promonet.data.loader(
+        dataset,
+        valid_partition,
+        adapt_from is not None,
+        gpu)
 
     #################
     # Create models #

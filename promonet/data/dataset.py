@@ -16,14 +16,14 @@ import ppgs
 
 class Dataset(torch.utils.data.Dataset):
 
-    def __init__(self, dataset, partition):
+    def __init__(self, dataset, partition, adapt=promonet.ADAPTATION):
         super().__init__()
         self.cache = promonet.CACHE_DIR / dataset
         self.partition = partition
         self.viterbi = '-viterbi' if promonet.VITERBI_DECODE_PITCH else ''
 
         # Get stems corresponding to partition
-        partition_dict = promonet.load.partition(dataset)
+        partition_dict = promonet.load.partition(dataset, adapt)
         if partition is not None:
             stems = partition_dict[partition]
         else:

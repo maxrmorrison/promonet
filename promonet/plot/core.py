@@ -70,8 +70,9 @@ def from_features(
     figure, axes = plt.subplots(
         len(features),
         1,
-        figsize=(8, 2 * len(features)),
+        figsize=(6, 1.5 * len(features)),
         gridspec_kw={'height_ratios': height_ratios})
+    figure.subplots_adjust(hspace=.5)
 
     # Plot audio
     i = 0
@@ -86,7 +87,9 @@ def from_features(
             axes[i].set_xticks([])
             axes[i].set_ylim([-1., 1.])
             axes[i].tick_params(axis=u'both', which=u'both', length=0)
-            # axes[i].set_ylabel('Audio', fontsize=12)
+            axes[i].set_xlabel('Audio', fontsize=12)
+            for tick in [-1., 1.]:
+                axes[i].hlines(tick, xmin=0., xmax=audio.shape[-1], color='#aaaa', linestyle='--')
             i += 1
 
         # Plot PPGs
@@ -125,7 +128,7 @@ def from_features(
             axes[i].spines['right'].set_visible(False)
             axes[i].spines['bottom'].set_visible(False)
             axes[i].spines['left'].set_visible(False)
-            axes[i].set_ylabel('Phonetic posteriorgram', labelpad=-18, fontsize=12)
+            axes[i].set_xlabel('Sparse phonetic posteriorgram (Section 2.1)', fontsize=12)
             axes[i].set_xticks([])
             axes[i].tick_params(axis=u'both', which=u'both', length=0)
             yticks = torch.arange(len(ppg))
@@ -177,7 +180,7 @@ def from_features(
             axes[i].set_yticks(yticks)
             for tick in yticks:
                 axes[i].hlines(tick, xmin=0., xmax=pitch.shape[-1], color='#aaaa', linestyle='--')
-            axes[i].set_ylabel('Pitch', fontsize=12, labelpad=14 if pitch.max() < 100. else None)
+            axes[i].set_xlabel('Viterbi-decoded pitch (Hz) (Section 2.2)', fontsize=12)
             i += 1
 
         # Plot periodicity
@@ -214,7 +217,7 @@ def from_features(
             axes[i].set_yticks(yticks)
             for tick in yticks:
                 axes[i].hlines(tick, xmin=0., xmax=periodicity.shape[-1], color='#aaaa', linestyle='--')
-            axes[i].set_ylabel('Periodicity', fontsize=12)
+            axes[i].set_xlabel('Entropy-based periodicity (Section 2.3)', fontsize=12)
             i += 1
 
         # Plot loudness
@@ -251,7 +254,7 @@ def from_features(
             axes[i].set_yticks(yticks)
             for tick in yticks:
                 axes[i].hlines(tick, xmin=0., xmax=loudness.shape[-1], color='#aaaa', linestyle='--')
-            axes[i].set_ylabel('Loudness', fontsize=12)
+            axes[i].set_xlabel('A-weighted loudness (dBA) (Section 2.4)', fontsize=12)
             i += 1
 
     return figure

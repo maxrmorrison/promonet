@@ -25,7 +25,6 @@ setup(
         'psola',  # TEMPORARY - GPL dependency
         'pypar',
         'pyworld',
-        'resemblyzer',
         'scipy',
         'torch<2.0.0',
         'torchaudio<2.0.0',
