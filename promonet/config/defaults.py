@@ -30,6 +30,9 @@ FMAX = 550.  # Hz
 # Audio hopsize
 HOPSIZE = 256  # samples
 
+# Maximum number of speech formants
+MAX_FORMANTS = 4
+
 # Minimum decibel level
 MIN_DB = -100.
 

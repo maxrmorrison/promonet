@@ -1,7 +1,6 @@
 import torch
 
 
-
 ###############################################################################
 # Shared model utilities
 ###############################################################################
@@ -10,12 +9,6 @@ import torch
 def get_padding(kernel_size, dilation=1, stride=1):
     """Compute the padding needed to perform same-size convolution"""
     return int((kernel_size * dilation - dilation - stride + 1) / 2)
-
-
-def mask_from_lengths(lengths):
-    """Create boolean mask from sequence lengths and offset to start"""
-    x = torch.arange(lengths.max(), dtype=lengths.dtype, device=lengths.device)
-    return x.unsqueeze(0) < lengths.unsqueeze(1)
 
 
 def random_slice_segments(segments, lengths, segment_size):

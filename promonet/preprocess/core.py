@@ -19,11 +19,9 @@ def from_audio(
     sample_rate: int = promonet.SAMPLE_RATE,
     gpu: Optional[int] = None,
     features: list = ['loudness', 'pitch', 'periodicity', 'ppg'],
-    loudness_bands: Optional[int] = promonet.LOUDNESS_BANDS
-) -> Union[
-    Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor],
-    Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, str]
-]:
+    loudness_bands: Optional[int] = promonet.LOUDNESS_BANDS,
+    max_formants=promonet.MAX_FORMANTS
+) -> Tuple:
     """Preprocess audio
 
     Arguments
@@ -31,7 +29,15 @@ def from_audio(
         sample_rate: Audio sample rate
         gpu: The GPU index
         features: The features to preprocess.
-            Options: ['loudness', 'pitch', 'periodicity', 'ppg', 'text'].
+            Options: [
+                'loudness',
+                'pitch',
+                'periodicity',
+                'ppg',
+                'text',
+                'formant']
+        loudness_bands: The number of A-weighted loudness bands
+        max_formants: The maximum number of speech formants
 
     Returns
         loudness: The loudness contour
@@ -39,6 +45,7 @@ def from_audio(
         periodicity: The periodicity contour
         ppg: The phonetic posteriorgram
         text: The text transcript
+        formants: The speech formant contours
     """
     result = []
 
@@ -92,6 +99,14 @@ def from_audio(
         text = promonet.preprocess.text.from_audio(audio, sample_rate, gpu=gpu)
         result.append(text)
 
+    # Compute formants
+    if 'formant' in features:
+        formant = promonet.formant.from_audio(
+            audio,
+            sample_rate,
+            max_formants=max_formants)
+        result.append(formant)
+
     return (*result,)
 
 
@@ -99,18 +114,24 @@ def from_file(
     file: Union[str, bytes, os.PathLike],
     gpu: Optional[int] = None,
     features: list = ['loudness', 'pitch', 'periodicity', 'ppg'],
-    loudness_bands: Optional[int] = promonet.LOUDNESS_BANDS
-) -> Union[
-    Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor],
-    Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, str]
-]:
+    loudness_bands: Optional[int] = promonet.LOUDNESS_BANDS,
+    max_formants=promonet.MAX_FORMANTS
+) -> Tuple:
     """Preprocess audio on disk
 
     Arguments
         file: Audio file to preprocess
         gpu: The GPU index
         features: The features to preprocess.
-            Options: ['loudness', 'pitch', 'periodicity', 'ppg', 'text'].
+            Options: [
+                'loudness',
+                'pitch',
+                'periodicity',
+                'ppg',
+                'text',
+                'formant']
+        loudness_bands: The number of A-weighted loudness bands
+        max_formants: The maximum number of speech formants
 
     Returns
         loudness: The loudness contour
@@ -118,12 +139,14 @@ def from_file(
         periodicity: The periodicity contour
         ppg: The phonetic posteriorgram
         text: The text transcript
+        formants: The speech formant contours
     """
     return from_audio(
         promonet.load.audio(file),
         gpu=gpu,
         features=features,
-        loudness_bands=loudness_bands)
+        loudness_bands=loudness_bands,
+        max_formants=max_formants)
 
 
 def from_file_to_file(
@@ -131,7 +154,8 @@ def from_file_to_file(
     output_prefix: Optional[Union[str, os.PathLike]] = None,
     gpu: Optional[int] = None,
     features: list = ['loudness', 'pitch', 'periodicity', 'ppg'],
-    loudness_bands: Optional[int] = promonet.LOUDNESS_BANDS
+    loudness_bands: Optional[int] = promonet.LOUDNESS_BANDS,
+    max_formants=promonet.MAX_FORMANTS
 ) -> None:
     """Preprocess audio on disk and save
 
@@ -140,10 +164,18 @@ def from_file_to_file(
         output_prefix: File to save features, minus extension
         gpu: The GPU index
         features: The features to preprocess.
-            Options: ['loudness', 'pitch', 'periodicity', 'ppg', 'text'].
+            Options: [
+                'loudness',
+                'pitch',
+                'periodicity',
+                'ppg',
+                'text',
+                'formant']
+        loudness_bands: The number of A-weighted loudness bands
+        max_formants: The maximum number of speech formants
     """
     # Preprocess
-    features = from_file(file, gpu, features, loudness_bands)
+    features = from_file(file, gpu, features, loudness_bands, max_formants)
 
     # Save
     if output_prefix is None:
@@ -165,6 +197,10 @@ def from_file_to_file(
     if 'text' in features:
         with open(f'{output_prefix}.txt', 'w') as file:
             file.write(features[0])
+        del features[0]
+    if 'formant' in featuers:
+        torch.save(features[0], f'{output_prefix}-formant.pt')
+        del features[0]
 
 
 def from_files_to_files(
@@ -172,7 +208,8 @@ def from_files_to_files(
     output_prefixes: Optional[List[Union[str, os.PathLike]]] = None,
     gpu: Optional[int] = None,
     features: list = ['loudness', 'pitch', 'periodicity', 'ppg'],
-    loudness_bands: Optional[int] = promonet.LOUDNESS_BANDS
+    loudness_bands: Optional[int] = promonet.LOUDNESS_BANDS,
+    max_formants=promonet.MAX_FORMANTS
 ) -> None:
     """Preprocess multiple audio files on disk and save
 
@@ -181,7 +218,15 @@ def from_files_to_files(
         output_prefixes: Files to save features, minus extension
         gpu: The GPU index
         features: The features to preprocess.
-            Options: ['loudness', 'pitch', 'periodicity', 'ppg', 'text'].
+            Options: [
+                'loudness',
+                'pitch',
+                'periodicity',
+                'ppg',
+                'text',
+                'formant']
+        loudness_bands: The number of A-weighted loudness bands
+        max_formants: The maximum number of speech formants
     """
     if output_prefixes is None:
         output_prefixes = [file.parent / file.stem for file in files]
@@ -232,3 +277,10 @@ def from_files_to_files(
             files,
             [f'{prefix}.txt' for prefix in output_prefixes],
             gpu)
+
+    # Compute formants
+    if 'formant' in features:
+        promonet.formants.from_files_to_files(
+            files,
+            [f'{prefix}-formant.pt' for prefix in output_prefixes],
+            max_formants)

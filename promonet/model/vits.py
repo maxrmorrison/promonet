@@ -1,5 +1,6 @@
 import math
 import torch
+import torchutil
 
 import promonet
 
@@ -29,7 +30,7 @@ class VITS(torch.nn.Module):
             gin_channels=promonet.GLOBAL_CHANNELS)
 
     def forward(self, features, spectrogram, lengths, global_features=None):
-        mask = promonet.model.mask_from_lengths(
+        mask = torchutil.mask.from_lengths(
             lengths
         ).unsqueeze(1).to(features.dtype)
 

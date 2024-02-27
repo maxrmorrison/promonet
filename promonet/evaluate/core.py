@@ -22,6 +22,7 @@ results
     └── results.json        # Overall results across datasets
 """
 import json
+import shutil
 
 import ppgs
 import torch
@@ -143,8 +144,14 @@ def datasets(datasets, adapt=promonet.ADAPTATION, gpu=None):
         if 'benchmark' not in results:
             results['benchmark'] = {'raw': result['benchmark']['raw']}
         else:
-            for key, value in result['benchmark']['raw']:
-                results['benchmark']['raw']['key'] += value
+            # TEMPORARY
+            try:
+                for key, value in result['benchmark']['raw']:
+                    results['benchmark']['raw']['key'] += value
+            except Exception as error:
+                print(error)
+                import pdb; pdb.set_trace()
+                pass
     results['benchmark']['rtf'] = {
         key: (results['num_samples'] / promonet.SAMPLE_RATE) / value
         for key, value in results['benchmark']['raw'].items()}
@@ -249,7 +256,7 @@ def speaker(
             audio_files,
             [original_objective_directory / prefix for prefix in prefixes],
             gpu=gpu,
-            features=['loudness', 'pitch', 'periodicity', 'ppg', 'text'],
+            features=['loudness', 'pitch', 'periodicity', 'ppg', 'text', 'formant'],
             loudness_bands=None)
 
     ##################
@@ -446,6 +453,71 @@ def speaker(
                     speakers=speakers,
                     gpu=gpu)
 
+        ####################
+        # Formant shifting #
+        ####################
+
+        if promonet.AUGMENT_PITCH and promonet.MODEL not in ['psola', 'world']:
+
+            # Copy features
+            key = f'formant-{int(ratio * 100):03d}'
+            output_prefixes = [
+                original_objective_directory /
+                prefix.replace('original-100', key)
+                for prefix in prefixes]
+            for (
+                loudness_file,
+                pitch_file,
+                periodicity_file,
+                ppg_file,
+                output_prefix
+            ) in zip(
+                loudness_files,
+                pitch_files,
+                periodicity_files,
+                ppg_files,
+                output_prefixes
+            ):
+                shutil.copyfile(loudness_file, f'{output_prefix}-loudness.pt')
+                shutil.copyfile(
+                    pitch_file,
+                    f'{output_prefix}{viterbi}-pitch.pt')
+                shutil.copyfile(
+                    periodicity_file,
+                    f'{output_prefix}{viterbi}-periodicity.pt')
+                shutil.copyfile(
+                    ppg_file,
+                    f'{output_prefix}{ppgs.representation_file_extension()}')
+
+                # TODO - change formants
+                shutil.copyfile(
+                    loudness_file.parent / loudness_file.name.replace('loudness', 'formant'),
+                    f'{output_prefix}-formant.pt')
+
+            # Generate
+            files[key] = [
+                subjective_directory / f'{prefix.name}.wav'
+                for prefix in output_prefixes]
+            if promonet.SPECTROGRAM_ONLY:
+                promonet.baseline.mels.from_files_to_files(
+                    original_audio_files,
+                    files[key],
+                    speakers=speakers,
+                    checkpoint=checkpoint,
+                    formant_ratio=ratio,
+                    gpu=gpu)
+            else:
+                promonet.synthesize.from_files_to_files(
+                    [f'{prefix}-loudness.pt' for prefix in output_prefixes],
+                    [f'{prefix}{viterbi}-pitch.pt' for prefix in output_prefixes],
+                    [f'{prefix}{viterbi}-periodicity.pt' for prefix in output_prefixes],
+                    [f'{prefix}{ppgs.representation_file_extension()}' for prefix in output_prefixes],
+                    files[key],
+                    speakers=speakers,
+                    formant_ratio=ratio,
+                    checkpoint=checkpoint,
+                    gpu=gpu)
+
     ############################
     # Speech -> representation #
     ############################
@@ -461,7 +533,7 @@ def speaker(
                     for file in audio_files
                 ],
                 gpu=gpu,
-                features=['loudness', 'pitch', 'periodicity', 'ppg', 'text'],
+                features=['loudness', 'pitch', 'periodicity', 'ppg', 'text', 'formant'],
                 loudness_bands=None)
 
         # Infer speaker embeddings
@@ -536,21 +608,33 @@ def speaker(
                     promonet.load.text(f'{predicted_prefix}.txt'),
                     promonet.load.text(
                         f'{target_prefix}.txt'.replace(key, 'original-100')),
-                    (
-                        torch.load(f'{predicted_prefix}-speaker.pt').to(device),
-                        torch.load(
-                            f'{target_prefix}-speaker.pt'.replace(key, 'original-100')
-                        ).to(device)
-                    ))
+                    torch.load(f'{predicted_prefix}-speaker.pt').to(device),
+                    torch.load(
+                        f'{target_prefix}-speaker.pt'.replace(key, 'original-100')
+                    ).to(device))
+
+                # Skip formant evaluation for prosody modification (for now)
+                condition = file.stem.split('-')[3]
+                if condition in ['original', 'formant']:
+                    formant_args = (
+                        torch.load(f'{predicted_prefix}-formant.pt').to(device),
+                        torch.load(f'{target_prefix}-formant.pt').to(device))
+                else:
+                    formant_args = ()
 
                 # Update metrics
-                aggregate_metrics[key].update(*args)
-                dataset_metrics[key].update(*args)
-                speaker_metrics[key].update(*args)
-                file_metrics.update(*args)
+                aggregate_metrics[key].update(*args, *formant_args)
+                dataset_metrics[key].update(*args, *formant_args)
+                speaker_metrics[key].update(*args, *formant_args)
+                file_metrics.update(*args, *formant_args)
 
                 # Save file results
                 results['objective']['raw'][file.stem][key] = file_metrics()
+
+                # TEMPORARY
+                import math
+                if math.isnan(results['objective']['raw'][file.stem][key]['ppg']):
+                    import pdb; pdb.set_trace()
 
     # Get results for this speaker
     results['objective']['average'] = {
@@ -595,6 +679,12 @@ def default_metrics():
     ):
         for ratio in promonet.EVALUATION_RATIOS:
             metrics[f'stretched-{int(ratio * 100):03d}'] = \
+                promonet.evaluate.Metrics()
+
+    # Formant editing metrics
+    if promonet.AUGMENT_PITCH and promonet.MODEL not in ['psola', 'world']:
+        for ratio in promonet.EVALUATION_RATIOS:
+            metrics[f'formant-{int(ratio * 100):03d}'] = \
                 promonet.evaluate.Metrics()
 
     return metrics

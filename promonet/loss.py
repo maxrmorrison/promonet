@@ -1,5 +1,6 @@
-import torch
 import librosa
+import torch
+import torchutil
 
 import promonet
 
@@ -59,7 +60,7 @@ def kl(prior, predicted_mean, predicted_logstd, true_logstd, lengths):
     divergence = predicted_logstd - true_logstd - 0.5 + \
         0.5 * ((prior - predicted_mean) ** 2) * \
         torch.exp(-2. * predicted_logstd)
-    mask = promonet.model.mask_from_lengths(
+    mask = torchutil.mask.from_lengths(
         lengths
     ).unsqueeze(1).to(divergence.dtype)
     return torch.sum(divergence * mask) / torch.sum(mask)
