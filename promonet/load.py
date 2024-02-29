@@ -172,7 +172,7 @@ def ppg(file, resample_length=None):
     result = torch.load(file)
 
     # Maybe resample
-    if resample_length is not None:
+    if resample_length is not None and result.shape[-1] != resample_length:
         result = promonet.edit.grid.sample(
             result,
             promonet.edit.grid.of_length(result, resample_length),

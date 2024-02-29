@@ -293,7 +293,8 @@ def train(
                         predicted_logstd.float(),
                         true_logstd.float(),
                         lengths)
-                    generator_losses += promonet.KL_DIVERGENCE_LOSS_WEIGHT * kl_divergence_loss
+                    generator_losses += \
+                        promonet.KL_DIVERGENCE_LOSS_WEIGHT * kl_divergence_loss
 
                 # Get feature matching loss
                 feature_matching_loss = promonet.loss.feature_matching(
@@ -562,22 +563,22 @@ def evaluate(directory, step, generator, loader, gpu, evaluation_steps=None):
         if i < promonet.PLOT_EXAMPLES:
             figures[key] = promonet.plot.from_features(
                 generated,
-                promonet.loudness.band_average(predicted_loudness, 1),
+                predicted_loudness,
                 predicted_pitch,
                 predicted_periodicity,
                 predicted_phonemes,
-                promonet.loudness.band_average(loudness, 1),
+                loudness,
                 pitch,
                 periodicity,
                 phonemes)
 
         # Update metrics
         metrics[key.split('/')[0]].update(
-            promonet.loudness.band_average(loudness, 1),
+            loudness,
             pitch,
             periodicity,
             phonemes,
-            promonet.loudness.band_average(predicted_loudness, 1),
+            predicted_loudness,
             predicted_pitch,
             predicted_periodicity,
             predicted_phonemes)
@@ -617,22 +618,22 @@ def evaluate(directory, step, generator, loader, gpu, evaluation_steps=None):
                 if i < promonet.PLOT_EXAMPLES:
                     figures[key] = promonet.plot.from_features(
                         shifted,
-                        promonet.loudness.band_average(predicted_loudness, 1),
+                        predicted_loudness,
                         predicted_pitch,
                         predicted_periodicity,
                         predicted_phonemes,
-                        promonet.loudness.band_average(loudness, 1),
+                        loudness,
                         shifted_pitch,
                         periodicity,
                         phonemes)
 
                 # Update metrics
                 metrics[key.split('/')[0]].update(
-                    promonet.loudness.band_average(loudness, 1),
+                    loudness,
                     shifted_pitch,
                     periodicity,
                     phonemes,
-                    promonet.loudness.band_average(predicted_loudness, 1),
+                    predicted_loudness,
                     predicted_pitch,
                     predicted_periodicity,
                     predicted_phonemes)
@@ -688,22 +689,22 @@ def evaluate(directory, step, generator, loader, gpu, evaluation_steps=None):
                 if i < promonet.PLOT_EXAMPLES:
                     figures[key] = promonet.plot.from_features(
                         stretched,
-                        promonet.loudness.band_average(predicted_loudness, 1),
+                        predicted_loudness,
                         predicted_pitch,
                         predicted_periodicity,
                         predicted_phonemes,
-                        promonet.loudness.band_average(stretched_loudness, 1),
+                        stretched_loudness,
                         stretched_pitch,
                         stretched_periodicity,
                         stretched_phonemes)
 
                 # Update metrics
                 metrics[key.split('/')[0]].update(
-                    promonet.loudness.band_average(stretched_loudness, 1),
+                    stretched_loudness,
                     stretched_pitch,
                     stretched_periodicity,
                     stretched_phonemes,
-                    promonet.loudness.band_average(predicted_loudness, 1),
+                    predicted_loudness,
                     predicted_pitch,
                     predicted_periodicity,
                     predicted_phonemes)
@@ -744,22 +745,22 @@ def evaluate(directory, step, generator, loader, gpu, evaluation_steps=None):
                 if i < promonet.PLOT_EXAMPLES:
                     figures[key] = promonet.plot.from_features(
                         scaled,
-                        promonet.loudness.band_average(predicted_loudness, 1),
+                        predicted_loudness,
                         predicted_pitch,
                         predicted_periodicity,
                         predicted_phonemes,
-                        promonet.loudness.band_average(scaled_loudness, 1),
+                        scaled_loudness,
                         pitch,
                         periodicity,
                         phonemes)
 
                 # Update metrics
                 metrics[key.split('/')[0]].update(
-                    promonet.loudness.band_average(scaled_loudness, 1),
+                    scaled_loudness,
                     pitch,
                     periodicity,
                     phonemes,
-                    promonet.loudness.band_average(predicted_loudness, 1),
+                    predicted_loudness,
                     predicted_pitch,
                     predicted_periodicity,
                     predicted_phonemes)

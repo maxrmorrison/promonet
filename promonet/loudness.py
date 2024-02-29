@@ -14,7 +14,7 @@ import promonet
 ###############################################################################
 
 
-def from_audio(audio, bands=promonet.LOUDNESS_BANDS):
+def from_audio(audio, bands=1):
     """Compute A-weighed loudness"""
     # Pad
     padding = (promonet.WINDOW_SIZE - promonet.HOPSIZE) // 2
@@ -48,7 +48,11 @@ def from_audio(audio, bands=promonet.LOUDNESS_BANDS):
     # Threshold
     weighted[weighted < promonet.MIN_DB] = promonet.MIN_DB
 
-    return torch.from_numpy(weighted).float().to(device)
+    # Multiband loudness
+    loudness = torch.from_numpy(weighted).float().to(device)
+
+    # Maybe average
+    return band_average(loudness, bands) if bands is not None else loudness
 
 
 def from_file(audio_file, bands=promonet.LOUDNESS_BANDS):
@@ -158,11 +162,11 @@ def perceptual_weights():
 def scale(audio, target_loudness):
     """Scale the audio to the target loudness"""
     # Maybe average to get scalar loudness
-    if promonet.LOUDNESS_BANDS > 1:
+    if target_loudness.shape[-2] > 1:
         target_loudness = target_loudness.mean(dim=-2, keepdim=True)
 
     # Get current loudness
-    loudness = from_audio(audio.to(torch.float64), bands=1)
+    loudness = from_audio(audio.to(torch.float64))
 
     # Take difference and convert from dB to ratio
     gain = promonet.convert.db_to_ratio(target_loudness - loudness)
