@@ -1,5 +1,5 @@
 # A name to give to this evaluation configuration
-name: naturalness-mushra
+name: stretching-quality-mushra
 
 # The type of test to run. One of [ab, abx, mos, mushra].
 test: mushra
@@ -10,11 +10,11 @@ datatype: audio
 # The location to store files used for evaluation. One of [aws].
 storage: aws
 
-# The third-party platform hosting the MySQL database. One of [aws, heroku].
-database: heroku
+# The third-party platform hosting the MySQL database. One of [heroku].
+database: aws
 
-# The third-party platform hosting the server. One of [aws, heroku].
-server: heroku
+# The third-party platform hosting the server. One of [heroku].
+server: aws
 
 # Crowdsourcing configuration
 crowdsource:
@@ -23,16 +23,15 @@ crowdsource:
   platform: mturk
 
   # The survey title shown to potential participants
-  title: Speech naturalness listening test
+  title: Audio Listening Test
 
   # The survey description shown to potential participants
-  description: "Audio listening test. Headphones required. Participants that complete the survey and correctly answer the attention-check questions will receive $3.00 through Amazon Mechanical Turk.
+  description: "Headphones required. Participants that complete the survey and correctly answer the attention-check questions will receive $3.50 ($0.50 on accept; $3.00 bonus) through Amazon Mechanical Turk. Estimated 15 minutes ($14 / hour).
 
-You are invited to take part in Northwestern University research study - STU00216820 Evaluation of the quality of audio generation and modification algorithms, headed by Principal Investigator Prof. Bryan Pardo.  The purpose of this study is to evaluate the quality of the output of computer algorithms designed to modify or generate speech or music. If you participate, you will be asked to complete a consent form and then take a survey. In the survey, you will listen to a series of audio examples and rate or compare them. A small number of questions in the survey are very easy attention checks with obvious correct answers. We expect it will take roughly 15 minutes to complete the survey. Participants that complete the survey and correctly answer the attention-check questions will receive $3.00 through Amazon Mechanical Turk.  To contact us about this study, please reach out to Max Morrison at maxrmorrison@gmail.com."
-
+You are invited to take part in Northwestern University research study - STU00216820 Evaluation of the quality of audio generation and modification algorithms, headed by Principal Investigator Prof. Bryan Pardo.  The purpose of this study is to evaluate the quality of the output of computer algorithms designed to modify or generate speech or music. If you participate, you will be asked to complete a consent form and then take a survey. In the survey, you will listen to a series of audio examples and rate or compare them. A small number of questions in the survey are very easy attention checks with obvious correct answers. We expect it will take roughly 15 minutes to complete the survey. Participants that complete the survey and correctly answer the attention-check questions will receive $3.50 through Amazon Mechanical Turk.  To contact us about this study, please reach out to Max Morrison at maxrmorrison@gmail.com."
 
   # Keywords that participants can use to find your survey
-  keywords: audio, headphones, listening, music
+  keywords: audio, speech, listening, headphones
 
   # Filter participants
   filter:
@@ -42,10 +41,10 @@ You are invited to take part in Northwestern University research study - STU0021
 
     # Only allow participants who have previously completed at least this
     # number of tasks
-    approved_tasks: 100
+    approved_tasks: 1000
 
     # Only allow participants who have a sufficiently high acceptance rating
-    approval_rating: 98
+    approval_rating: 99
 
   # How much you pay participants (in US dollars)
   # E.g., 2.00 is two dollars; 0.50 is fifty cents
@@ -55,26 +54,26 @@ You are invited to take part in Northwestern University research study - STU0021
     base: 0.50
 
     # The additional amount that you pay participants who complete evaluation
-    completion: 2.50
+    completion: 3.00
 
   # How long to wait for things (in seconds)
   duration:
 
     # Total lifespan of the evaluation, after which the evaluation is no
     # longer available for participants to take
-    total: 172800
+    total: 86400
 
     # The maximum time you will allow a participant to spend on your task
-    assignment: 3600
+    assignment: 5400
 
     # Duration after which payment is automatically made
-    autoapprove: 345600
+    autoapprove: 172800
 
 # The number of participants
-participants: 15
+participants: 50
 
 # The number of evaluations each participant performs
-samples_per_participant: 15
+samples_per_participant: 10
 
 # A seed to use for deterministic random sampling
 random_seed: 0
@@ -91,12 +90,12 @@ welcome_text: "
 \n* ##### We expect that it will take you roughly 15 minutes to complete this study.
 \n* ##### The primary potential risk of participation is boredom.
 \n* ##### There is no intrinsic benefit to you from completing this study.
-\n* ##### Participants that complete the study and that correctly answer the attention-check questions will receive $3.00.
+\n* ##### Participants that complete the study and that correctly answer the attention-check questions will receive $3.50.
 
 \n ##### **Why am I being asked to take part in this research study?**
 \n ##### We are asking you to take part in this research study because we are interested in the opinions of members of the general public about the sonic quality of the output of our algorithms. Any resident of the United States of America that is at least 18 years of age is eligible to take part.
 \n ##### **How many people will be in this study?**
-\n ##### We expect about 500 to 1000 people will be in this research study.
+\n ##### We expect about 30 people will be in this research study.
 \n ##### **What should I know about participating in a research study?**
 \n\n* ##### Whether or not you take part is up to you.
 \n* ##### You can choose not to take part.
@@ -122,7 +121,7 @@ There are reasons why information about you may be used or seen by other people 
 \n ##### **How might the information collected in this study be shared in the future?**
 \n ##### We will not have access to any personally identifiable information beyond your Amazon Mechanical Turk Worker ID. We will delete your worker ID from our records, once you have been paid. De-identified data from this study may be shared with the research community, with journals in which study results are published, and with databases and data repositories used for research.
 \n ##### **Will I be paid or given anything for taking part in this study?**
-\n ##### A small number of questions in the survey will be very easy attention-checks with obvious correct answers. You will receive $3 through Amazon Mechanical Turk for your participation in this study if you complete the survey and correctly answer the attention checks. You will not be paid if you do not complete the study. You will receive $.50 if you incorrectly answer the listening test or attention checks.
+\n ##### A small number of questions in the survey will be very easy attention-checks with obvious correct answers. You will receive $3.50 through Amazon Mechanical Turk for your participation in this study if you complete the survey and correctly answer the attention checks. You will receive $.50 if you incorrectly answer the listening test or attention checks.
 \n ##### **Who can I talk to?**
 \n ##### If you have questions, concerns, or complaints, you can contact the Principal Investigator Bryan Pardo by calling 847-491-7184 or by emailing  pardo@northwestern.edu. Please put “MTurk Study” in the subject line of the email to ensure a speedy reply.
 This research has been reviewed and approved by an Institutional Review Board (“IRB”)  an IRB is a committee that protects the rights of people who participate in research studies. You may contact the IRB by phone at (312) 503-9338 or by email at irb@northwestern.edu if:
@@ -136,7 +135,6 @@ This research has been reviewed and approved by an Institutional Review Board (�
 \n ##### If you cannot print the consent and would like a copy for your records, contact the Principal Investigator with the contact information above.
 \n ##### If you wish to participate, please click the “I Agree” button and you will be taken to the survey.
 \n ##### If you do not wish to participate in this study, please select “I Disagree” or select X in the corner of your browser.
-
   "
 
 # Questions that participants must answer before they are permitted to
@@ -162,22 +160,8 @@ listening_test:
 
 # Instructions presented to the participant during evaluation
 survey_instructions: "
-  ## **Instructions** \nListen to all audio files. Then, move the sliders to
-  rate the naturalness of each audio file from 0 (worst) to 100 (best).
-  The more natural audio files are the ones that sound more like they are
-  produced by a human rather than a computer."
-
-# Questions presented to the participant after evaluation
-followup_questions:
-
-  # Ask whether the listening environment has changed
-  - name: FollowUp
-
-    # The type of question. One of [free-response, multiple-choice].
-    type: free-response
-
-    # Question text
-    text: "Were there any issues that you encountered during the evaluation?"
-
-    # Placeholder text
-    placeholder: 'No'
+  ## **Instructions** \nListen to all recordings of a person speaking. Then, move the sliders
+  to **rate the quality of each audio file from 0 (worst) to 100 (best)**. The
+  higher-quality audio files are the ones that are more natural sounding, or
+  have fewer audio artifacts (e.g., clicks, pops, noise, or otherwise sound 'unnatural').
+  **Note** - Each slider cannot be moved until its corresponding audio file has been listened to in its entirety."
