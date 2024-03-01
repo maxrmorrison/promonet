@@ -143,11 +143,11 @@ def viterbi(
     frequencies,
     max_formants=promonet.MAX_FORMANTS,
     min_formant_width=14,
-    max_formant_width=32):
+    max_formant_width=30):
     """Decode formants via Viterbi decoding"""
     # Normalize
     x = torch.clone(frames)
-    x = torch.softmax(x + .6 * torch.arange(x.shape[-1], 0, -1), dim=1)
+    x = torch.softmax(x + .5 * torch.arange(x.shape[-1], 0, -1), dim=1)
 
     # Transition matrix
     logfreq = torch.log2(frequencies)
