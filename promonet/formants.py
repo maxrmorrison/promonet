@@ -7,6 +7,7 @@ import penn
 import scipy
 import torbi
 import torch
+import torchaudio
 
 import promonet
 
@@ -20,7 +21,7 @@ def from_audio(
     audio: torch.Tensor,
     sample_rate: int = promonet.SAMPLE_RATE,
     features: str = 'stft',
-    decoder: str = 'peak',
+    decoder: str = 'viterbi',
     max_formants: int = promonet.MAX_FORMANTS
 ) -> torch.Tensor:
     """Compute speech formant contours
@@ -141,17 +142,26 @@ def viterbi(
     frames,
     frequencies,
     max_formants=promonet.MAX_FORMANTS,
-    min_formant_width=2):
+    min_formant_width=14,
+    max_formant_width=32):
     """Decode formants via Viterbi decoding"""
     # Normalize
     x = torch.clone(frames)
-    x /= x.sum(dim=1, keepdims=True)
+    x = torch.softmax(x + .6 * torch.arange(x.shape[-1], 0, -1), dim=1)
 
     # Transition matrix
     logfreq = torch.log2(frequencies)
-    transition = 1. - torch.cdist(logfreq[None, :, None], logfreq[None, :, None], p=1.0)[0]
+    transition = 1. - 3.5 * torch.cdist(
+        logfreq[None, :, None],
+        logfreq[None, :, None],
+        p=1.0
+    )[0]
     transition[transition < 0.] = 0.
     transition /= transition.sum(dim=1)
+
+    # Initial matrix
+    initial = torch.linspace(1., 0., len(logfreq))
+    initial /= initial.sum()
 
     # Iteratively decode F0, F1, F2, ...
     formants = torch.full((max_formants, len(x)), float('nan'))
@@ -160,15 +170,18 @@ def viterbi(
         # Decode
         indices = torbi.from_probabilities(
             x[None],
-            transition=transition
+            transition=transition,
+            initial=initial,
+            log_probs=False
         )[0].to(torch.long)
         formants[i] = frequencies[indices]
 
         # Mask
         x = torch.clone(frames)
         for j, idx in enumerate(indices):
-            x[j, :idx + min_formant_width] = 0.
-        x /= x.sum(dim=1, keepdims=True)
+            x[j, :idx + min_formant_width] = -float('inf')
+            x[j, idx + min_formant_width + max_formant_width:] = -float('inf')
+        x = torch.softmax(x, dim=1)
 
     return formants
 
@@ -236,12 +249,59 @@ def pitch_posteriorgram(audio, sample_rate):
     return result, frequencies
 
 
-def stft(audio, sample_rate):
+def stft(audio, sample_rate=promonet.SAMPLE_RATE, fmin=promonet.FMIN, fmax=promonet.SAMPLE_RATE // 2):
     """Compute short-time Fourier transform"""
-    result = promonet.preprocess.spectrogram.from_audio(audio, mels=False)
-    frequencies = torch.abs(torch.fft.fftfreq(
-        promonet.NUM_FFT,
-        1 / promonet.SAMPLE_RATE
-    )[:promonet.NUM_FFT // 2 + 1])
+    frames = promonet.convert.samples_to_frames(audio.shape[-1])
 
-    return result[1:].T, frequencies[1:]
+    # Low-pass filter to remove low frequencies
+    audio = torchaudio.functional.highpass_biquad(
+        audio,
+        sample_rate,
+        1.33 * fmin)
+
+    # Resample to 4 kHz to remove upper harmonics
+    target_sample_rate = 2 * fmax
+    audio = torchaudio.functional.resample(
+        audio,
+        sample_rate,
+        target_sample_rate)
+
+    # Pad audio
+    num_fft = 4 * promonet.NUM_FFT
+    hopsize = int(promonet.HOPSIZE * target_sample_rate / sample_rate)
+    size = (
+        hopsize * (frames - (audio.shape[-1] // hopsize)) // 2 +
+        (num_fft - promonet.HOPSIZE) // 2)
+    audio = torch.nn.functional.pad(audio, (size, size), mode='reflect')
+
+    # Compute STFT
+    window = torch.hann_window(
+        num_fft,
+        dtype=audio.dtype,
+        device=audio.device)
+
+    # Compute stft
+    stft = torch.stft(
+        audio.squeeze(1),
+        num_fft,
+        hop_length=hopsize,
+        window=window,
+        center=False,
+        normalized=False,
+        onesided=True,
+        return_complex=True)
+    stft = torch.view_as_real(stft)
+
+    # Compute magnitude
+    spectrogram = torch.sqrt(stft.pow(2).sum(-1) + 1e-6)
+
+    # Compute STFT frequencies
+    frequencies = torch.abs(torch.fft.fftfreq(
+        num_fft,
+        1 / target_sample_rate
+    )[:num_fft // 2 + 1])
+
+    # Crop off frequencies below threshold
+    minidx = torch.searchsorted(frequencies, torch.tensor(fmin))
+
+    return spectrogram.squeeze(0)[minidx:].T, frequencies[minidx:]
