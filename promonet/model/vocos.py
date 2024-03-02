@@ -45,9 +45,8 @@ class Vocos(torch.nn.Module):
 
         # Speaker conditioning
         if g is not None:
-            if not promonet.FILM_CONDITIONING:
-                g = self.cond(g)
-                x += g
+            g = self.cond(g)
+            x += g
 
         # Infer complex STFT
         x = self.backbone(x, g)
@@ -126,14 +125,10 @@ class ConvNeXtBlock(torch.nn.Module):
             torch.nn.Parameter(
                 layer_scale_init_value * torch.ones(dim),
                 requires_grad=True))
-        if promonet.FILM_CONDITIONING:
-            self.film = FiLM()
 
     def forward(self, x, g):
         residual = x
         x = self.dwconv(x)
-        if promonet.FILM_CONDITIONING:
-            x = self.film(x, g)
         x = x.transpose(1, 2)
         x = self.norm(x)
         x = self.pwconv1(x)
@@ -209,25 +204,3 @@ class ISTFT(torch.nn.Module):
 
         # Normalize
         return y / window_envelope
-
-
-###############################################################################
-# Utilities
-###############################################################################
-
-
-class FiLM(torch.nn.Module):
-
-    def __init__(self):
-        super().__init__()
-        self.gamma = torch.nn.Conv1d(
-            promonet.GLOBAL_CHANNELS,
-            promonet.VOCOS_CHANNELS,
-            1)
-        self.beta = torch.nn.Conv1d(
-            promonet.GLOBAL_CHANNELS,
-            promonet.VOCOS_CHANNELS,
-            1)
-
-    def forward(self, x, z):
-        return self.gamma(z) * x + self.beta(z)

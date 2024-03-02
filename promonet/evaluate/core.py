@@ -21,6 +21,7 @@ results
     |   └── speaker.pdf     # Speaker cluster plot
     └── results.json        # Overall results across datasets
 """
+import functools
 import json
 import shutil
 
@@ -257,7 +258,14 @@ def speaker(
             audio_files,
             [original_objective_directory / prefix for prefix in prefixes],
             gpu=gpu,
-            features=['loudness', 'pitch', 'periodicity', 'ppg', 'text', 'formant'],
+            features=[
+                'loudness',
+                'pitch',
+                'periodicity',
+                'ppg',
+                'text',
+                'formant'
+            ],
             loudness_bands=None)
 
     ##################
@@ -287,7 +295,16 @@ def speaker(
         if promonet.MODEL == 'psola':
             synthesis_fn = promonet.baseline.psola.from_files_to_files
         elif promonet.MODEL == 'world':
-            synthesis_fn = promonet.baseline.world.from_files_to_files
+            synthesis_fn = functools.partial(
+                promonet.baseline.world.from_files_to_files,
+                pitch_files=[
+                    original_objective_directory /
+                    f'{prefix}{viterbi}-pitch.pt'
+                    for prefix in prefixes],
+                periodicity_files=[
+                    original_objective_directory /
+                    f'{prefix}{viterbi}-periodicity.pt'
+                    for prefix in prefixes])
         synthesis_fn(original_audio_files, files['reconstructed-100'])
     elif promonet.SPECTROGRAM_ONLY:
         promonet.baseline.mels.from_files_to_files(
@@ -342,7 +359,11 @@ def speaker(
                 if promonet.MODEL == 'psola':
                     synthesis_fn = promonet.baseline.psola.from_files_to_files
                 elif promonet.MODEL == 'world':
-                    synthesis_fn = promonet.baseline.world.from_files_to_files
+                    synthesis_fn = functools.partial(
+                        promonet.baseline.world.from_files_to_files,
+                        periodicity_files=[
+                            f'{prefix}{viterbi}-periodicity.pt'
+                            for prefix in output_prefixes])
                 synthesis_fn(
                     original_audio_files,
                     files[key],
@@ -392,7 +413,14 @@ def speaker(
                 if promonet.MODEL == 'psola':
                     synthesis_fn = promonet.baseline.psola.from_files_to_files
                 elif promonet.MODEL == 'world':
-                    synthesis_fn = promonet.baseline.world.from_files_to_files
+                    synthesis_fn = functools.partial(
+                        promonet.baseline.world.from_files_to_files,
+                        pitch_files=[
+                            f'{prefix}{viterbi}-pitch.pt'
+                            for prefix in output_prefixes],
+                        periodicity_files=[
+                            f'{prefix}{viterbi}-periodicity.pt'
+                            for prefix in output_prefixes])
                 synthesis_fn(
                     original_audio_files,
                     files[key],
@@ -437,7 +465,14 @@ def speaker(
                 if promonet.MODEL == 'psola':
                     synthesis_fn = promonet.baseline.psola.from_files_to_files
                 elif promonet.MODEL == 'world':
-                    synthesis_fn = promonet.baseline.world.from_files_to_files
+                    synthesis_fn = functools.partial(
+                        promonet.baseline.world.from_files_to_files,
+                        pitch_files=[
+                            f'{prefix}{viterbi}-pitch.pt'
+                            for prefix in output_prefixes],
+                        periodicity_files=[
+                            f'{prefix}{viterbi}-periodicity.pt'
+                            for prefix in output_prefixes])
                 synthesis_fn(
                     original_audio_files,
                     files[key],
@@ -534,7 +569,14 @@ def speaker(
                     for file in audio_files
                 ],
                 gpu=gpu,
-                features=['loudness', 'pitch', 'periodicity', 'ppg', 'text', 'formant'],
+                features=[
+                    'loudness',
+                    'pitch',
+                    'periodicity',
+                    'ppg',
+                    'text',
+                    'formant'
+                ],
                 loudness_bands=None)
 
         # Infer speaker embeddings

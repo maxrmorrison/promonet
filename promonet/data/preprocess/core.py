@@ -25,7 +25,9 @@ def datasets(datasets, features=promonet.ALL_FEATURES, gpu=None):
             'loudness',
             'pitch',
             'periodicity',
-            'ppg'
+            'ppg',
+            'text',
+            'formant'
         ]):
             promonet.preprocess.from_files_to_files(
                 audio_files,

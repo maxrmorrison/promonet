@@ -1,4 +1,4 @@
 MODULE = 'promonet'
 
 # Configuration name
-CONFIG = 'base'
+CONFIG = 'promonet'

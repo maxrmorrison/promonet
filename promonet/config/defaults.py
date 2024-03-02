@@ -208,9 +208,6 @@ EVALUATION_RATIOS = [.717, 1.414]
 # Input features
 INPUT_FEATURES = ['loudness', 'pitch', 'periodicity', 'ppg']
 
-# Whether to use FiLM for global conditioning
-FILM_CONDITIONING = False
-
 # (Negative) slope of leaky ReLU activations
 LRELU_SLOPE = .1
 

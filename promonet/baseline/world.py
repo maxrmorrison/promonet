@@ -26,7 +26,8 @@ def from_audio(
     sample_rate=promonet.SAMPLE_RATE,
     grid=None,
     loudness=None,
-    pitch=None
+    pitch=None,
+    periodicity=None
 ):
     """Perform World vocoding"""
     # Maybe resample
@@ -67,6 +68,12 @@ def from_audio(
     if pitch is not None:
         target_pitch = pitch.squeeze().numpy().astype(np.float64)
 
+        # In WORLD, unvoiced frames are masked with zeros
+        if periodicity is not None:
+            unvoiced = \
+                periodicity.squeeze().numpy() < promonet.VOICING_THRESHOLD
+            target_pitch[unvoiced] = 0.
+
     # Synthesize using modified parameters
     vocoded = pyworld.synthesize(
         target_pitch,
@@ -95,14 +102,21 @@ def from_audio(
     return vocoded.to(torch.float32)
 
 
-def from_file(audio_file, grid_file=None, loudness_file=None, pitch_file=None):
+def from_file(
+    audio_file,
+    grid_file=None,
+    loudness_file=None,
+    pitch_file=None,
+    periodicity_file=None
+):
     """Perform World vocoding on an audio file"""
     return from_audio(
         promonet.load.audio(audio_file),
         promonet.SAMPLE_RATE,
         None if grid_file is None else torch.load(grid_file),
         None if loudness_file is None else torch.load(loudness_file),
-        None if pitch_file is None else torch.load(pitch_file))
+        None if pitch_file is None else torch.load(pitch_file),
+        None if periodicity_file is None else torch.load(periodicity_file))
 
 
 def from_file_to_file(
@@ -110,10 +124,16 @@ def from_file_to_file(
     output_file,
     grid_file=None,
     loudness_file=None,
-    pitch_file=None
+    pitch_file=None,
+    periodicity_file=None
 ):
     """Perform World vocoding on an audio file and save"""
-    vocoded = from_file(audio_file, grid_file, loudness_file, pitch_file)
+    vocoded = from_file(
+        audio_file,
+        grid_file,
+        loudness_file,
+        pitch_file,
+        periodicity_file)
     torchaudio.save(output_file, vocoded, promonet.SAMPLE_RATE)
 
 
@@ -122,7 +142,8 @@ def from_files_to_files(
     output_files,
     grid_files=None,
     loudness_files=None,
-    pitch_files=None
+    pitch_files=None,
+    periodicity_files=None
 ):
     """Perform World vocoding on multiple files and save"""
     if grid_files is None:
@@ -131,12 +152,15 @@ def from_files_to_files(
         loudness_files = [None] * len(audio_files)
     if pitch_files is None:
         pitch_files = [None] * len(audio_files)
+    if periodicity_files is None:
+        periodicity_files = [None] * len(audio_files)
     iterator = zip(
         audio_files,
         output_files,
         grid_files,
         loudness_files,
-        pitch_files)
+        pitch_files,
+        periodicity_files)
     for item in torchutil.iterator(iterator, 'world', total=len(audio_files)):
         from_file_to_file(*item)
 
