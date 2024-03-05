@@ -93,7 +93,7 @@ class Metrics:
 
 class Formant:
 
-    def __init__(self, max_formants=4):
+    def __init__(self, max_formants=promonet.MAX_FORMANTS):
         self.l1 = [torchutil.metrics.L1() for _ in range(max_formants)]
 
     def __call__(self):

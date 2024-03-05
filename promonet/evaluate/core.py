@@ -132,37 +132,6 @@ def datasets(datasets, adapt=promonet.ADAPTATION, gpu=None):
         with open(results_directory / f'results.json', 'w') as file:
             json.dump(results, file, indent=4, sort_keys=True)
 
-    # # Get aggregate metrics
-    # results = {key: value() for key, value in aggregate_metrics.items()}
-
-    # # Compute aggregate benchmark
-    # results |= {'num_samples': 0, 'num_frames': 0}
-    # results_directory = promonet.RESULTS_DIR / promonet.CONFIG
-    # for file in results_directory.glob(f'*/results.json'):
-    #     with open(file) as file:
-    #         result = json.load(file)
-    #     results['num_samples'] += result['num_samples']
-    #     results['num_frames'] += result['num_frames']
-    #     if 'benchmark' not in results:
-    #         results['benchmark'] = {'raw': result['benchmark']['raw']}
-    #     else:
-    #         # TEMPORARY
-    #         try:
-    #             for key, value in result['benchmark']['raw']:
-    #                 results['benchmark']['raw']['key'] += value
-    #         except Exception as error:
-    #             print(error)
-    #             import pdb; pdb.set_trace()
-    #             pass
-    # results['benchmark']['rtf'] = {
-    #     key: (results['num_samples'] / promonet.SAMPLE_RATE) / value
-    #     for key, value in results['benchmark']['raw'].items()}
-
-    # # Print results and save to disk
-    # print(json.dumps(results, indent=4, sort_keys=True))
-    # with open(results_directory / 'results.json', 'w') as file:
-    #     json.dump(results, file, indent=4, sort_keys=True)
-
 
 ###############################################################################
 # Evaluate one speaker
@@ -673,11 +642,6 @@ def speaker(
 
                 # Save file results
                 results['objective']['raw'][file.stem][key] = file_metrics()
-
-                # TEMPORARY
-                import math
-                if math.isnan(results['objective']['raw'][file.stem][key]['ppg']):
-                    import pdb; pdb.set_trace()
 
     # Get results for this speaker
     results['objective']['average'] = {

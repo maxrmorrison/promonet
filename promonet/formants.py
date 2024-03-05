@@ -1,5 +1,5 @@
 import os
-from typing import List, Union
+from typing import List, Optional, Union
 
 import librosa
 import numpy as np
@@ -20,6 +20,7 @@ import promonet
 def from_audio(
     audio: torch.Tensor,
     sample_rate: int = promonet.SAMPLE_RATE,
+    pitch: Optional[torch.Tensor] = None,
     features: str = 'stft',
     decoder: str = 'viterbi',
     max_formants: int = promonet.MAX_FORMANTS
@@ -32,6 +33,8 @@ def from_audio(
             shape=(1, samples)
         sample_rate
             The audio sampling rate
+        pitch
+            Optional pitch contour prior
         features
             The features to use for formant analysis.
             One of ['lpc', 'posteriorgram', 'stft'].
@@ -56,11 +59,16 @@ def from_audio(
     if decoder == 'peak':
         return peak_pick(frames, frequencies, max_formants)
     elif decoder == 'viterbi':
-        return viterbi(frames, frequencies, max_formants)
+        return viterbi(
+            frames,
+            frequencies,
+            pitch=pitch,
+            max_formants=max_formants)
 
 
 def from_file(
     file: Union[str, bytes, os.PathLike],
+    pitch_file: Optional[Union[str, bytes, os.PathLike]] = None,
     max_formants: int = promonet.MAX_FORMANTS
 ) -> torch.Tensor:
     """Compute speech formant contours from audio file
@@ -69,6 +77,8 @@ def from_file(
     Arguments
         file
             The speech audio file
+        pitch_file
+            Optional pitch contour prior
         max_formants
             The number of formants to compute
 
@@ -76,12 +86,17 @@ def from_file(
         Speech formants; NaNs indicate number of formants < max_formants
         shape=(max_formants, promonet.convert.samples_to_frames(samples))
     """
-    return from_audio(promonet.load.audio(file), max_formants=max_formants)
+    pitch = None if pitch_file is None else torch.load(pitch_file)
+    return from_audio(
+        promonet.load.audio(file),
+        pitch=pitch,
+        max_formants=max_formants)
 
 
 def from_file_to_file(
     file: Union[str, bytes, os.PathLike],
     output_file: Union[str, bytes, os.PathLike],
+    pitch_file: Optional[Union[str, bytes, os.PathLike]] = None,
     max_formants: int = promonet.MAX_FORMANTS
 ) -> None:
     """Compute speech formant contours from audio file and save
@@ -92,15 +107,18 @@ def from_file_to_file(
             The speech audio file
         output_file
             PyTorch file to save results
+        pitch_file
+            Optional pitch contour prior
         max_formants
             The number of formants to compute
     """
-    torch.save(from_file(file, max_formants), output_file)
+    torch.save(from_file(file, pitch_file, max_formants), output_file)
 
 
 def from_files_to_files(
     files: List[Union[str, bytes, os.PathLike]],
     output_files: List[Union[str, bytes, os.PathLike]],
+    pitch_files: Optional[List[Union[str, bytes, os.PathLike]]] = None,
     max_formants: int = promonet.MAX_FORMANTS
 ) -> None:
     """Compute speech formant contours from audio files and save
@@ -110,11 +128,15 @@ def from_files_to_files(
             The speech audio files
         output_files
             PyTorch files to save results
+        pitch_files
+            Optional pitch contour priors
         max_formants
             The number of formants to compute
     """
-    for file, output_file in zip(files, output_files):
-        from_file_to_file(file, output_file, max_formants)
+    if pitch_files is None:
+        pitch_files = [None] * len(files)
+    for file, output_file, pitch_file in zip(files, output_files, pitch_files):
+        from_file_to_file(file, output_file, pitch_file, max_formants)
 
 
 ###############################################################################
@@ -141,9 +163,9 @@ def peak_pick(frames, frequencies, max_formants=promonet.MAX_FORMANTS):
 def viterbi(
     frames,
     frequencies,
+    pitch=None,
     max_formants=promonet.MAX_FORMANTS,
-    min_formant_width=14,
-    max_formant_width=30):
+    formant_width_ratio=0.8):
     """Decode formants via Viterbi decoding"""
     # Normalize
     x = torch.clone(frames)
@@ -163,9 +185,31 @@ def viterbi(
     initial = torch.linspace(1., 0., len(logfreq))
     initial /= initial.sum()
 
-    # Iteratively decode F0, F1, F2, ...
+    # Maybe use more accurate external pitch esitimator for F0
+    i = 0
     formants = torch.full((max_formants, len(x)), float('nan'))
-    for i in range(len(formants)):
+    stages = []
+    if pitch is not None:
+        formants[0] = pitch.squeeze(0)
+        i += 1
+
+        # Mask
+        x = torch.clone(frames)
+        indices = torch.searchsorted(frequencies, formants[0])
+        min_formant_idxs = torch.searchsorted(
+            frequencies,
+            formants[0] * (1. + formant_width_ratio))
+        max_formant_idxs = torch.searchsorted(
+            frequencies,
+            formants[0] * (1. + 1. / formant_width_ratio))
+        for j in range(len(indices)):
+            x[j, :min_formant_idxs[j]] = -float('inf')
+            x[j, max_formant_idxs[j]:] = -float('inf')
+        x = torch.softmax(x, dim=1)
+        stages.append(torch.clone(x))
+
+    # Iteratively decode F1, F2, ...
+    while i < max_formants:
 
         # Decode
         indices = torbi.from_probabilities(
@@ -176,12 +220,25 @@ def viterbi(
         )[0].to(torch.long)
         formants[i] = frequencies[indices]
 
+        i += 1
+
+        if i == max_formants:
+            break
+
         # Mask
         x = torch.clone(frames)
-        for j, idx in enumerate(indices):
-            x[j, :idx + min_formant_width] = -float('inf')
-            x[j, idx + min_formant_width + max_formant_width:] = -float('inf')
+        min_formant_idxs = torch.searchsorted(
+            frequencies,
+            formants[0] * (i + formant_width_ratio))
+        max_formant_idxs = torch.searchsorted(
+            frequencies,
+            formants[0] * (i + 1. / formant_width_ratio))
+        print(min_formant_idxs)
+        for j in range(len(indices)):
+            x[j, :min_formant_idxs[j]] = -float('inf')
+            x[j, max_formant_idxs[j]:] = -float('inf')
         x = torch.softmax(x, dim=1)
+        stages.append(torch.clone(x))
 
     return formants
 

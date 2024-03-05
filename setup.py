@@ -21,7 +21,7 @@ setup(
         'numpy',
         'openai-whisper',
         'penn',
-        # 'ppgs',  # TEMPORARY - install manually until release
+        'ppgs',
         'psola',  # TEMPORARY - GPL dependency
         'pypar',
         'pyworld',
