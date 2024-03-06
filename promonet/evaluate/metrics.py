@@ -55,7 +55,9 @@ class Metrics:
         predicted_speaker=None,
         target_speaker=None,
         predicted_formant=None,
-        target_formant=None
+        target_formant=None,
+        predicted_spectrogram=None,
+        target_spectrogram=None,
     ):
         self.loudness.update(predicted_loudness, target_loudness)
         self.periodicity.update(predicted_periodicity, target_periodicity)
@@ -73,8 +75,10 @@ class Metrics:
             self.formant.update(
                 predicted_formant,
                 predicted_periodicity,
+                predicted_spectrogram,
                 target_formant,
-                target_periodicity)
+                target_periodicity,
+                target_spectrogram)
 
     def reset(self):
         self.formant.reset()
@@ -93,26 +97,24 @@ class Metrics:
 
 class Formant:
 
-    def __init__(self, max_formants=promonet.MAX_FORMANTS):
-        self.l1 = [torchutil.metrics.L1() for _ in range(max_formants)]
+    def __init__(self, include_fundamental=False):
+        self.include_fundamental = include_fundamental
+        self.pitch = torchutil.metrics.L1()
+        self.loudness = torchutil.metrics.RMSE()
 
     def __call__(self):
-        formants = {f'formant-{i}': self.l1[i]() for i in range(len(self.l1))}
-        total = sum(self.l1[i].total for i in range(1, len(self.l1)))
-        count = sum(self.l1[i].count for i in range(1, len(self.l1)))
-        average = {
-            'formant-average': (total / count).item(),
-            'pitch-formant-average': (
-                (total + self.l1[0].total) / (count + self.l1[0].count)
-            ).item()}
-        return average | formants
+        return {
+            'formant-pitch': self.pitch(),
+            'formant-loudness': self.loudness()}
 
     def update(
         self,
         predicted_formants,
         predicted_periodicity,
+        predicted_spectrogram,
         target_formants,
-        target_periodicity
+        target_periodicity,
+        target_spectrogram
     ):
         # Only evaluate when both predicted and target contain pitch.
         # Otherwise, the magnitude of the error can be arbitrarily large.
@@ -124,24 +126,32 @@ class Formant:
                 target_periodicity,
                 promonet.VOICING_THRESHOLD))
 
+        # Compute STFT frequencies
+        frequencies = torch.abs(torch.fft.fftfreq(
+            2 * (predicted_spectrogram.shape[0] - 1),
+            1 / promonet.SAMPLE_RATE
+        )[:predicted_spectrogram.shape[0]])
+
+        # Get energy at each formant
+        f_x = torch.clone(predicted_formants)
+        f_y = torch.clone(target_formants)
+        l_x = predicted_spectrogram[torch.searchsorted(frequencies, f_x)]
+        l_y = target_spectrogram[torch.searchsorted(frequencies, f_y)]
+
+        # Maybe include fundamental
+        if self.include_fundamental:
+            iterable = zip(f_x, f_y, l_x, l_y)
+        else:
+            iterable = zip(f_x[1:], f_y[1:], l_x[1:], l_y[1:])
+
         # Update metric
-        for predicted, target, metric in zip(
-            predicted_formants,
-            target_formants,
-            self.l1
-        ):
-            valid = torch.logical_and(
-                voicing,
-                torch.logical_and(
-                    ~torch.isnan(predicted),
-                    ~torch.isnan(target)
-                )
-            ).squeeze(0)
-            metric.update(predicted[valid], target[valid])
+        for f_p, f_t, l_p, l_t in iterable:
+            self.pitch.update(f_p[voicing], f_t[voicing])
+            self.loudness.update(l_p, l_t)
 
     def reset(self):
-        for metric in self.l1:
-            metric.reset()
+        self.pitch.reset()
+        self.loudness.reset()
 
 
 ###############################################################################

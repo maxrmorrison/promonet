@@ -283,4 +283,5 @@ def from_files_to_files(
         promonet.formants.from_files_to_files(
             files,
             [f'{prefix}-formant.pt' for prefix in output_prefixes],
-            max_formants)
+            pitch_files=[f'{prefix}-pitch.pt' for prefix in pitch_prefixes],
+            output_feature_files=[f'{prefix}-formantfeatures.pt' for prefix in output_prefixes])

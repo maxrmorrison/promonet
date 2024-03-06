@@ -630,7 +630,9 @@ def speaker(
                 if condition in ['original', 'formant']:
                     formant_args = (
                         torch.load(f'{predicted_prefix}-formant.pt').to(device),
-                        torch.load(f'{target_prefix}-formant.pt').to(device))
+                        torch.load(f'{target_prefix}-formant.pt').to(device),
+                        torch.load(f'{predicted_prefix}-formantfeatures.pt').to(device),
+                        torch.load(f'{target_prefix}-formantfeatures.pt').to(device))
                 else:
                     formant_args = ()
 

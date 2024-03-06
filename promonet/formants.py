@@ -23,7 +23,8 @@ def from_audio(
     pitch: Optional[torch.Tensor] = None,
     features: str = 'stft',
     decoder: str = 'viterbi',
-    max_formants: int = promonet.MAX_FORMANTS
+    max_formants: int = promonet.MAX_FORMANTS,
+    return_features: bool = False
 ) -> torch.Tensor:
     """Compute speech formant contours
 
@@ -42,6 +43,8 @@ def from_audio(
             The decoding method. One of ['peak', 'viterbi'].
         max_formants
             The number of formants to compute
+        return_features
+            Whether to return the features used for analysis
 
     Returns
         Speech formants; NaNs indicate number of formants < max_formants
@@ -57,19 +60,24 @@ def from_audio(
 
     # Decode
     if decoder == 'peak':
-        return peak_pick(frames, frequencies, max_formants)
+        formants = peak_pick(frames, frequencies, max_formants)
     elif decoder == 'viterbi':
-        return viterbi(
+        formants = viterbi(
             frames,
             frequencies,
             pitch=pitch,
             max_formants=max_formants)
 
+    if return_features:
+        return formants, frames.T
+    return formants
+
 
 def from_file(
     file: Union[str, bytes, os.PathLike],
     pitch_file: Optional[Union[str, bytes, os.PathLike]] = None,
-    max_formants: int = promonet.MAX_FORMANTS
+    max_formants: int = promonet.MAX_FORMANTS,
+    return_features: bool = False
 ) -> torch.Tensor:
     """Compute speech formant contours from audio file
 
@@ -81,6 +89,8 @@ def from_file(
             Optional pitch contour prior
         max_formants
             The number of formants to compute
+        return_features
+            Whether to return the features used for analysis
 
     Returns
         Speech formants; NaNs indicate number of formants < max_formants
@@ -90,13 +100,15 @@ def from_file(
     return from_audio(
         promonet.load.audio(file),
         pitch=pitch,
-        max_formants=max_formants)
+        max_formants=max_formants,
+        return_features=return_features)
 
 
 def from_file_to_file(
     file: Union[str, bytes, os.PathLike],
     output_file: Union[str, bytes, os.PathLike],
     pitch_file: Optional[Union[str, bytes, os.PathLike]] = None,
+    output_feature_file: Optional[Union[str, bytes, os.PathLike]] = None,
     max_formants: int = promonet.MAX_FORMANTS
 ) -> None:
     """Compute speech formant contours from audio file and save
@@ -109,16 +121,26 @@ def from_file_to_file(
             PyTorch file to save results
         pitch_file
             Optional pitch contour prior
+        output_feature_file
+            Optional location to save the features used for analysis
         max_formants
             The number of formants to compute
     """
-    torch.save(from_file(file, pitch_file, max_formants), output_file)
+    result = from_file(
+        file,
+        pitch_file=pitch_file,
+        max_formants=max_formants,
+        return_features=output_feature_file is not None)
+    if output_feature_file is not None:
+        torch.save(result[-1], output_feature_file)
+    torch.save(result[-0], output_file)
 
 
 def from_files_to_files(
     files: List[Union[str, bytes, os.PathLike]],
     output_files: List[Union[str, bytes, os.PathLike]],
     pitch_files: Optional[List[Union[str, bytes, os.PathLike]]] = None,
+    output_feature_files: Optional[List[Union[str, bytes, os.PathLike]]] = None,
     max_formants: int = promonet.MAX_FORMANTS
 ) -> None:
     """Compute speech formant contours from audio files and save
@@ -130,13 +152,27 @@ def from_files_to_files(
             PyTorch files to save results
         pitch_files
             Optional pitch contour priors
+        output_feature_files
+            Optional locations to save the features used for analysis
         max_formants
             The number of formants to compute
     """
     if pitch_files is None:
         pitch_files = [None] * len(files)
-    for file, output_file, pitch_file in zip(files, output_files, pitch_files):
-        from_file_to_file(file, output_file, pitch_file, max_formants)
+    if output_feature_files is None:
+        output_feature_files = [None] * len(files)
+    for file, output_file, pitch_file, output_feature_file in zip(
+        files,
+        output_files,
+        pitch_files,
+        output_feature_files
+    ):
+        from_file_to_file(
+            file,
+            output_file,
+            pitch_file,
+            output_feature_file,
+            max_formants)
 
 
 ###############################################################################
@@ -233,7 +269,6 @@ def viterbi(
         max_formant_idxs = torch.searchsorted(
             frequencies,
             formants[0] * (i + 1. / formant_width_ratio))
-        print(min_formant_idxs)
         for j in range(len(indices)):
             x[j, :min_formant_idxs[j]] = -float('inf')
             x[j, max_formant_idxs[j]:] = -float('inf')
