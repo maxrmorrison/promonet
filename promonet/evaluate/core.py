@@ -498,6 +498,9 @@ def speaker(
                 shutil.copyfile(
                     loudness_file.parent / loudness_file.name.replace('loudness', 'formant'),
                     f'{output_prefix}-formant.pt')
+                shutil.copyfile(
+                    loudness_file.parent / loudness_file.name.replace('loudness', 'formantfeatures'),
+                    f'{output_prefix}-formantfeatures.pt')
 
             # Generate
             files[key] = [
@@ -625,22 +628,11 @@ def speaker(
                         f'{target_prefix}-speaker.pt'.replace(key, 'original-100')
                     ).to(device))
 
-                # Skip formant evaluation for prosody modification (for now)
-                condition = file.stem.split('-')[3]
-                if condition in ['original', 'formant']:
-                    formant_args = (
-                        torch.load(f'{predicted_prefix}-formant.pt').to(device),
-                        torch.load(f'{target_prefix}-formant.pt').to(device),
-                        torch.load(f'{predicted_prefix}-formantfeatures.pt').to(device),
-                        torch.load(f'{target_prefix}-formantfeatures.pt').to(device))
-                else:
-                    formant_args = ()
-
                 # Update metrics
-                aggregate_metrics[key].update(*args, *formant_args)
-                dataset_metrics[key].update(*args, *formant_args)
-                speaker_metrics[key].update(*args, *formant_args)
-                file_metrics.update(*args, *formant_args)
+                aggregate_metrics[key].update(*args)
+                dataset_metrics[key].update(*args)
+                speaker_metrics[key].update(*args)
+                file_metrics.update(*args)
 
                 # Save file results
                 results['objective']['raw'][file.stem][key] = file_metrics()

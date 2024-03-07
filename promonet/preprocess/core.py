@@ -198,7 +198,7 @@ def from_file_to_file(
         with open(f'{output_prefix}.txt', 'w') as file:
             file.write(features[0])
         del features[0]
-    if 'formant' in featuers:
+    if 'formant' in features:
         torch.save(features[0], f'{output_prefix}-formant.pt')
         del features[0]
 
@@ -284,4 +284,5 @@ def from_files_to_files(
             files,
             [f'{prefix}-formant.pt' for prefix in output_prefixes],
             pitch_files=[f'{prefix}-pitch.pt' for prefix in pitch_prefixes],
-            output_feature_files=[f'{prefix}-formantfeatures.pt' for prefix in output_prefixes])
+            output_feature_files=[f'{prefix}-formantfeatures.pt' for prefix in output_prefixes],
+            gpu=gpu)

@@ -24,7 +24,7 @@ class Metrics:
         self.ppg = PPG()
         self.wer = WER()
         self.speaker_similarity = SpeakerSimilarity()
-        self.formant = Formant()
+        # self.formant = Formant()
 
     def __call__(self):
         result = {
@@ -32,8 +32,8 @@ class Metrics:
             'pitch': self.pitch(),
             'periodicity': self.periodicity(),
             'ppg': self.ppg()}
-        if self.formant.l1[0].count:
-            result |= self.formant()
+        # if self.formant.pitch.count:
+        #     result |= self.formant()
         if self.speaker_similarity.count:
             result['speaker_similarity'] = self.speaker_similarity()
         if self.wer.count:
@@ -54,10 +54,10 @@ class Metrics:
         target_text=None,
         predicted_speaker=None,
         target_speaker=None,
-        predicted_formant=None,
-        target_formant=None,
-        predicted_spectrogram=None,
-        target_spectrogram=None,
+        # predicted_formant=None,
+        # target_formant=None,
+        # predicted_spectrogram=None,
+        # target_spectrogram=None,
     ):
         self.loudness.update(predicted_loudness, target_loudness)
         self.periodicity.update(predicted_periodicity, target_periodicity)
@@ -71,17 +71,17 @@ class Metrics:
             self.wer.update(predicted_text, target_text)
         if predicted_speaker is not None and target_speaker is not None:
             self.speaker_similarity.update(predicted_speaker, target_speaker)
-        if predicted_formant is not None and target_formant is not None:
-            self.formant.update(
-                predicted_formant,
-                predicted_periodicity,
-                predicted_spectrogram,
-                target_formant,
-                target_periodicity,
-                target_spectrogram)
+        # if predicted_formant is not None and target_formant is not None:
+        #     self.formant.update(
+        #         predicted_formant,
+        #         predicted_periodicity,
+        #         predicted_spectrogram,
+        #         target_formant,
+        #         target_periodicity,
+        #         target_spectrogram)
 
     def reset(self):
-        self.formant.reset()
+        # self.formant.reset()
         self.loudness.reset()
         self.periodicity.reset()
         self.pitch.reset()
@@ -97,15 +97,22 @@ class Metrics:
 
 class Formant:
 
-    def __init__(self, include_fundamental=False):
+    def __init__(
+        self,
+        predicted_stats,
+        target_stats,
+        include_fundamental=False
+    ):
         self.include_fundamental = include_fundamental
-        self.pitch = torchutil.metrics.L1()
-        self.loudness = torchutil.metrics.RMSE()
+        self.displacement = torchutil.metrics.L1()
+        self.correlation = torchutil.metrics.PearsonCorrelation(
+            *predicted_stats(),
+            *target_stats())
 
     def __call__(self):
         return {
-            'formant-pitch': self.pitch(),
-            'formant-loudness': self.loudness()}
+            'formant-pitch': self.displacement(),
+            'formant-loudness': self.correlation()}
 
     def update(
         self,
@@ -114,7 +121,8 @@ class Formant:
         predicted_spectrogram,
         target_formants,
         target_periodicity,
-        target_spectrogram
+        target_spectrogram,
+        formant_ratio
     ):
         # Only evaluate when both predicted and target contain pitch.
         # Otherwise, the magnitude of the error can be arbitrarily large.
@@ -124,34 +132,43 @@ class Formant:
                 promonet.VOICING_THRESHOLD) &
             penn.voicing.threshold(
                 target_periodicity,
-                promonet.VOICING_THRESHOLD))
+                promonet.VOICING_THRESHOLD)
+        ).squeeze(0)
 
-        # Compute STFT frequencies
-        frequencies = torch.abs(torch.fft.fftfreq(
-            2 * (predicted_spectrogram.shape[0] - 1),
-            1 / promonet.SAMPLE_RATE
-        )[:predicted_spectrogram.shape[0]])
-
-        # Get energy at each formant
-        f_x = torch.clone(predicted_formants)
-        f_y = torch.clone(target_formants)
-        l_x = predicted_spectrogram[torch.searchsorted(frequencies, f_x)]
-        l_y = target_spectrogram[torch.searchsorted(frequencies, f_y)]
+        # Get framewise spectral centroid
+        predicted_centroid = spectral_centroid(predicted_spectrogram)
+        target_centroid = spectral_centroid(target_spectrogram)
 
         # Maybe include fundamental
         if self.include_fundamental:
-            iterable = zip(f_x, f_y, l_x, l_y)
+            iterable = zip(predicted_formants, target_formants)
         else:
-            iterable = zip(f_x[1:], f_y[1:], l_x[1:], l_y[1:])
+            iterable = zip(predicted_formants[1:], target_formants[1:])
 
-        # Update metric
-        for f_p, f_t, l_p, l_t in iterable:
-            self.pitch.update(f_p[voicing], f_t[voicing])
-            self.loudness.update(l_p, l_t)
+        # Update metrics
+        for f_x, f_y in iterable:
+            self.displacement.update(f_x[voicing], f_y[voicing])
+        self.correlation.update(
+            predicted_centroid[voicing] / target_centroid[voicing],
+            formant_ratio)
 
     def reset(self):
-        self.pitch.reset()
-        self.loudness.reset()
+        self.displacement.reset()
+        self.correlation.reset()
+
+
+def spectral_centroid(spectrogram):
+    # Compute STFT frequencies
+    frequencies = torch.abs(torch.fft.fftfreq(
+        2 * (spectrogram.shape[0] - 1),
+        1 / promonet.SAMPLE_RATE,
+        device=spectrogram.device
+    )[:spectrogram.shape[0]])
+
+    # Compute centroid
+    return (
+        frequencies * spectrogram.T
+    ).sum(dim=1) / spectrogram.sum(dim=0).squeeze()
 
 
 ###############################################################################
@@ -160,6 +177,7 @@ class Formant:
 
 
 class Loudness(torchutil.metrics.RMSE):
+
     """Evaluates the average difference in framewise A-weighted loudness"""
 
     def update(self, predicted_loudness, target_loudness):

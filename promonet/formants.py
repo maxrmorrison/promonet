@@ -24,7 +24,8 @@ def from_audio(
     features: str = 'stft',
     decoder: str = 'viterbi',
     max_formants: int = promonet.MAX_FORMANTS,
-    return_features: bool = False
+    return_features: bool = False,
+    gpu=None
 ) -> torch.Tensor:
     """Compute speech formant contours
 
@@ -45,6 +46,8 @@ def from_audio(
             The number of formants to compute
         return_features
             Whether to return the features used for analysis
+        gpu
+            The GPU index; defaults to CPU
 
     Returns
         Speech formants; NaNs indicate number of formants < max_formants
@@ -54,9 +57,9 @@ def from_audio(
     if features == 'lpc':
         frames, frequencies = lpc_coefficients(audio, sample_rate)
     elif features == 'posteriorgram':
-        frames, frequencies = pitch_posteriorgram(audio, sample_rate)
+        frames, frequencies = pitch_posteriorgram(audio, sample_rate, gpu=gpu)
     elif features == 'stft':
-        frames, frequencies = stft(audio, sample_rate)
+        frames, frequencies = stft(audio, sample_rate, gpu=gpu)
 
     # Decode
     if decoder == 'peak':
@@ -66,7 +69,8 @@ def from_audio(
             frames,
             frequencies,
             pitch=pitch,
-            max_formants=max_formants)
+            max_formants=max_formants,
+            gpu=gpu)
 
     if return_features:
         return formants, frames.T
@@ -77,7 +81,8 @@ def from_file(
     file: Union[str, bytes, os.PathLike],
     pitch_file: Optional[Union[str, bytes, os.PathLike]] = None,
     max_formants: int = promonet.MAX_FORMANTS,
-    return_features: bool = False
+    return_features: bool = False,
+    gpu=None
 ) -> torch.Tensor:
     """Compute speech formant contours from audio file
 
@@ -91,6 +96,8 @@ def from_file(
             The number of formants to compute
         return_features
             Whether to return the features used for analysis
+        gpu
+            The GPU index; defaults to CPU
 
     Returns
         Speech formants; NaNs indicate number of formants < max_formants
@@ -101,7 +108,8 @@ def from_file(
         promonet.load.audio(file),
         pitch=pitch,
         max_formants=max_formants,
-        return_features=return_features)
+        return_features=return_features,
+        gpu=gpu)
 
 
 def from_file_to_file(
@@ -109,7 +117,8 @@ def from_file_to_file(
     output_file: Union[str, bytes, os.PathLike],
     pitch_file: Optional[Union[str, bytes, os.PathLike]] = None,
     output_feature_file: Optional[Union[str, bytes, os.PathLike]] = None,
-    max_formants: int = promonet.MAX_FORMANTS
+    max_formants: int = promonet.MAX_FORMANTS,
+    gpu=None
 ) -> None:
     """Compute speech formant contours from audio file and save
 
@@ -125,15 +134,18 @@ def from_file_to_file(
             Optional location to save the features used for analysis
         max_formants
             The number of formants to compute
+        gpu
+            The GPU index; defaults to CPU
     """
     result = from_file(
         file,
         pitch_file=pitch_file,
         max_formants=max_formants,
-        return_features=output_feature_file is not None)
+        return_features=output_feature_file is not None,
+        gpu=gpu)
     if output_feature_file is not None:
-        torch.save(result[-1], output_feature_file)
-    torch.save(result[-0], output_file)
+        torch.save(result[-1].cpu(), output_feature_file)
+    torch.save(result[0].cpu(), output_file)
 
 
 def from_files_to_files(
@@ -141,7 +153,8 @@ def from_files_to_files(
     output_files: List[Union[str, bytes, os.PathLike]],
     pitch_files: Optional[List[Union[str, bytes, os.PathLike]]] = None,
     output_feature_files: Optional[List[Union[str, bytes, os.PathLike]]] = None,
-    max_formants: int = promonet.MAX_FORMANTS
+    max_formants: int = promonet.MAX_FORMANTS,
+    gpu=None
 ) -> None:
     """Compute speech formant contours from audio files and save
 
@@ -156,6 +169,8 @@ def from_files_to_files(
             Optional locations to save the features used for analysis
         max_formants
             The number of formants to compute
+        gpu
+            The GPU index; defaults to CPU
     """
     if pitch_files is None:
         pitch_files = [None] * len(files)
@@ -172,7 +187,8 @@ def from_files_to_files(
             output_file,
             pitch_file,
             output_feature_file,
-            max_formants)
+            max_formants,
+            gpu=gpu)
 
 
 ###############################################################################
@@ -201,11 +217,16 @@ def viterbi(
     frequencies,
     pitch=None,
     max_formants=promonet.MAX_FORMANTS,
-    formant_width_ratio=0.8):
+    formant_width_ratio=0.8,
+    gpu=None):
     """Decode formants via Viterbi decoding"""
+    device = 'cpu' if gpu is None else f'cuda:{gpu}'
+
     # Normalize
+    frames = frames.to(device)
+    frequencies = frequencies.to(device)
     x = torch.clone(frames)
-    x = torch.softmax(x + .5 * torch.arange(x.shape[-1], 0, -1), dim=1)
+    x = torch.softmax(x + .5 * torch.arange(x.shape[-1], 0, -1, device=device), dim=1)
 
     # Transition matrix
     logfreq = torch.log2(frequencies)
@@ -218,13 +239,12 @@ def viterbi(
     transition /= transition.sum(dim=1)
 
     # Initial matrix
-    initial = torch.linspace(1., 0., len(logfreq))
+    initial = torch.linspace(1., 0., len(logfreq), device=device)
     initial /= initial.sum()
 
     # Maybe use more accurate external pitch esitimator for F0
     i = 0
-    formants = torch.full((max_formants, len(x)), float('nan'))
-    stages = []
+    formants = torch.full((max_formants, len(x)), float('nan'), device=device)
     if pitch is not None:
         formants[0] = pitch.squeeze(0)
         i += 1
@@ -242,7 +262,6 @@ def viterbi(
             x[j, :min_formant_idxs[j]] = -float('inf')
             x[j, max_formant_idxs[j]:] = -float('inf')
         x = torch.softmax(x, dim=1)
-        stages.append(torch.clone(x))
 
     # Iteratively decode F1, F2, ...
     while i < max_formants:
@@ -252,7 +271,8 @@ def viterbi(
             x[None],
             transition=transition,
             initial=initial,
-            log_probs=False
+            log_probs=False,
+            gpu=gpu
         )[0].to(torch.long)
         formants[i] = frequencies[indices]
 
@@ -273,7 +293,6 @@ def viterbi(
             x[j, :min_formant_idxs[j]] = -float('inf')
             x[j, max_formant_idxs[j]:] = -float('inf')
         x = torch.softmax(x, dim=1)
-        stages.append(torch.clone(x))
 
     return formants
 
@@ -311,7 +330,7 @@ def lpc_coefficients(audio, sample_rate):
     return torch.stack(result, dim=0), frequencies
 
 
-def pitch_posteriorgram(audio, sample_rate):
+def pitch_posteriorgram(audio, sample_rate, gpu=None):
     """Compute pitch posteriorgram"""
     result = []
 
@@ -341,9 +360,19 @@ def pitch_posteriorgram(audio, sample_rate):
     return result, frequencies
 
 
-def stft(audio, sample_rate=promonet.SAMPLE_RATE, fmin=promonet.FMIN, fmax=promonet.SAMPLE_RATE // 2):
+def stft(
+    audio,
+    sample_rate=promonet.SAMPLE_RATE,
+    fmin=promonet.FMIN,
+    fmax=promonet.SAMPLE_RATE // 2,
+    gpu=None
+):
     """Compute short-time Fourier transform"""
     frames = promonet.convert.samples_to_frames(audio.shape[-1])
+
+    # Device placement
+    device = 'cpu' if gpu is None else f'cuda:{gpu}'
+    audio = audio.to(device)
 
     # Low-pass filter to remove low frequencies
     audio = torchaudio.functional.highpass_biquad(
