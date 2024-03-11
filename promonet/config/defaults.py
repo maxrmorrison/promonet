@@ -197,7 +197,7 @@ ERROR_THRESHOLD_PITCH = 50.  # cents
 ERROR_THRESHOLD_PPG = .1  # JSD
 
 # Evaluation ratios for pitch-shifting, time-stretching, and loudness-scaling
-EVALUATION_RATIOS = [.717, 1.414]
+EVALUATION_RATIOS = [.5, .717, 1.414, 2.]
 
 
 ###############################################################################

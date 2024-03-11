@@ -15,7 +15,7 @@ import promonet
 
 
 def from_audio(audio, bands=1):
-    """Compute A-weighed loudness"""
+    """Compute A-weighted loudness"""
     # Pad
     padding = (promonet.WINDOW_SIZE - promonet.HOPSIZE) // 2
     audio = torch.nn.functional.pad(
@@ -56,12 +56,12 @@ def from_audio(audio, bands=1):
 
 
 def from_file(audio_file, bands=promonet.LOUDNESS_BANDS):
-    """Compute A-weighed loudness from audio file"""
+    """Compute A-weighted loudness from audio file"""
     return from_audio(promonet.load.audio(audio_file), bands)
 
 
 def from_file_to_file(audio_file, output_file, bands=promonet.LOUDNESS_BANDS):
-    """Compute A-weighed loudness from audio file and save"""
+    """Compute A-weighted loudness from audio file and save"""
     torch.save(from_file(audio_file, bands), output_file)
 
 
@@ -70,7 +70,7 @@ def from_files_to_files(
     output_files,
     bands=promonet.LOUDNESS_BANDS
 ):
-    """Compute A-weighed loudness from audio files and save"""
+    """Compute A-weighted loudness from audio files and save"""
     loudness_fn = functools.partial(from_file_to_file, bands=bands)
     with mp.get_context('spawn').Pool(promonet.NUM_WORKERS) as pool:
         pool.starmap(loudness_fn, zip(audio_files, output_files))

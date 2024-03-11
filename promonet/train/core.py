@@ -563,11 +563,11 @@ def evaluate(directory, step, generator, loader, gpu, evaluation_steps=None):
         if i < promonet.PLOT_EXAMPLES:
             figures[key] = promonet.plot.from_features(
                 generated,
-                predicted_loudness,
+                promonet.loudness.band_average(predicted_loudness, 1),
                 predicted_pitch,
                 predicted_periodicity,
                 predicted_phonemes,
-                loudness,
+                promonet.loudness.band_average(loudness, 1),
                 pitch,
                 periodicity,
                 phonemes)
@@ -618,11 +618,11 @@ def evaluate(directory, step, generator, loader, gpu, evaluation_steps=None):
                 if i < promonet.PLOT_EXAMPLES:
                     figures[key] = promonet.plot.from_features(
                         shifted,
-                        predicted_loudness,
+                        promonet.loudness.band_average(predicted_loudness, 1),
                         predicted_pitch,
                         predicted_periodicity,
                         predicted_phonemes,
-                        loudness,
+                        promonet.loudness.band_average(loudness, 1),
                         shifted_pitch,
                         periodicity,
                         phonemes)
@@ -689,11 +689,11 @@ def evaluate(directory, step, generator, loader, gpu, evaluation_steps=None):
                 if i < promonet.PLOT_EXAMPLES:
                     figures[key] = promonet.plot.from_features(
                         stretched,
-                        predicted_loudness,
+                        promonet.loudness.band_average(predicted_loudness, 1),
                         predicted_pitch,
                         predicted_periodicity,
                         predicted_phonemes,
-                        stretched_loudness,
+                        promonet.loudness.band_average(stretched_loudness, 1),
                         stretched_pitch,
                         stretched_periodicity,
                         stretched_phonemes)
@@ -745,11 +745,11 @@ def evaluate(directory, step, generator, loader, gpu, evaluation_steps=None):
                 if i < promonet.PLOT_EXAMPLES:
                     figures[key] = promonet.plot.from_features(
                         scaled,
-                        predicted_loudness,
+                        promonet.loudness.band_average(predicted_loudness, 1),
                         predicted_pitch,
                         predicted_periodicity,
                         predicted_phonemes,
-                        scaled_loudness,
+                        promonet.loudness.band_average(scaled_loudness, 1),
                         pitch,
                         periodicity,
                         phonemes)
