@@ -114,6 +114,8 @@ def from_features(
         periodicity = promonet.edit.grid.sample(periodicity, grid)
         loudness = promonet.edit.grid.sample(loudness, grid)
         ppg = promonet.edit.grid.sample(ppg, grid, promonet.PPG_INTERP_METHOD)
+    elif return_grid:
+        grid = None
 
     # Maybe pitch-shift
     if pitch_shift_cents is not None:

@@ -66,17 +66,19 @@ def from_audio(
 
     # Maybe pitch-shift
     if pitch is not None:
-        target_pitch = pitch.squeeze().numpy().astype(np.float64)
+        pitch = pitch.squeeze().numpy().astype(np.float64)
 
         # In WORLD, unvoiced frames are masked with zeros
         if periodicity is not None:
             unvoiced = \
                 periodicity.squeeze().numpy() < promonet.VOICING_THRESHOLD
-            target_pitch[unvoiced] = 0.
+            pitch[unvoiced] = 0.
+    else:
+        pitch = target_pitch
 
     # Synthesize using modified parameters
     vocoded = pyworld.synthesize(
-        target_pitch,
+        pitch,
         spectrogram,
         aperiodicity,
         promonet.SAMPLE_RATE,
@@ -86,7 +88,7 @@ def from_audio(
     vocoded = torch.from_numpy(vocoded)[None]
 
     # Ensure correct length
-    length = promonet.convert.frames_to_samples(len(target_pitch))
+    length = promonet.convert.frames_to_samples(len(pitch))
     if vocoded.shape[1] != length:
         temp = torch.zeros((1, length))
         crop_point = min(length, vocoded.shape[1])

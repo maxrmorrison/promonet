@@ -14,5 +14,7 @@ results/*
 !results/.gitkeep
 runs/*
 !runs/.gitkeep
+notebooks/*
+!notebooks/*.ipynb
 
 .vscode/

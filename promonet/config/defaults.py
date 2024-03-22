@@ -138,9 +138,7 @@ VOICING_THRESHOLD = .1625
 
 
 # Root location for saving outputs
-# TEMPORARY
-# ROOT_DIR = Path(__file__).parent.parent.parent
-ROOT_DIR = Path('/hemera-storage1/pardo/max/repos/promonet')
+ROOT_DIR = Path(__file__).parent.parent.parent
 
 # Location to save assets to be bundled with pip release
 ASSETS_DIR = Path(__file__).parent.parent / 'assets'
@@ -197,7 +195,7 @@ ERROR_THRESHOLD_PITCH = 50.  # cents
 ERROR_THRESHOLD_PPG = .1  # JSD
 
 # Evaluation ratios for pitch-shifting, time-stretching, and loudness-scaling
-EVALUATION_RATIOS = [.5, .717, 1.414, 2.]
+EVALUATION_RATIOS = [.717, 1.414]
 
 
 ###############################################################################
