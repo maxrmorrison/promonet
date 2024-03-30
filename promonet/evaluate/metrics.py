@@ -28,10 +28,10 @@ class Metrics:
 
     def __call__(self):
         result = {
-            'loudness': self.loudness(),
             'pitch': self.pitch(),
             'periodicity': self.periodicity(),
-            'ppg': self.ppg()}
+            'ppg': self.ppg()
+        } | self.loudness()
         # if self.formant.pitch.count:
         #     result |= self.formant()
         if self.speaker_similarity.count:
@@ -176,15 +176,39 @@ def spectral_centroid(spectrogram):
 ###############################################################################
 
 
-class Loudness(torchutil.metrics.RMSE):
-
+class Loudness:
     """Evaluates the average difference in framewise A-weighted loudness"""
 
+    def __init__(self, threshold=-60.):
+        self.threshold = threshold
+        self.loud = torchutil.metrics.RMSE()
+        self.quiet = torchutil.metrics.RMSE()
+        self.both = torchutil.metrics.RMSE()
+
+    def __call__(self):
+        return {
+            'loudness': self.both(),
+            'loudness-loud': self.loud(),
+            'loudness-quiet': self.quiet()}
+
     def update(self, predicted_loudness, target_loudness):
+        # Maybe average
         if promonet.LOUDNESS_BANDS > 1:
             predicted_loudness = predicted_loudness.mean(dim=-2, keepdim=True)
             target_loudness = target_loudness.mean(dim=-2, keepdim=True)
-        super().update(predicted_loudness, target_loudness)
+
+        # Update
+        loud = torch.logical_and(
+            predicted_loudness > self.threshold,
+            target_loudness > self.threshold)
+        self.loud.update(predicted_loudness[loud], target_loudness[loud])
+        self.quiet.update(predicted_loudness[~loud], target_loudness[~loud])
+        self.both.update(predicted_loudness, target_loudness)
+
+    def reset(self):
+        self.loud.reset()
+        self.quiet.reset()
+        self.both.reset()
 
 
 class Pitch(torchutil.metrics.L1):

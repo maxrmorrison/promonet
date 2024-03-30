@@ -388,7 +388,7 @@ def stft(
         target_sample_rate)
 
     # Pad audio
-    num_fft = 4 * promonet.NUM_FFT
+    num_fft = 4096
     hopsize = int(promonet.HOPSIZE * target_sample_rate / sample_rate)
     size = (
         hopsize * (frames - (audio.shape[-1] // hopsize)) // 2 +
