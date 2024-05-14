@@ -19,10 +19,13 @@ def audio(file):
     audio, sample_rate = torchaudio.load(file)
 
     # Resample
-    return torchaudio.functional.resample(
+    audio = torchaudio.functional.resample(
         audio,
         sample_rate,
         promonet.SAMPLE_RATE)
+
+    # Ensure mono
+    return audio.mean(dim=0, keepdims=True)
 
 
 def features(prefix):
