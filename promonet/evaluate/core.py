@@ -457,14 +457,14 @@ def speaker(
                     speakers=speakers,
                     gpu=gpu)
 
-        ###################
-        # Formant editing #
-        ###################
+        ############################
+        # Spectral balance editing #
+        ############################
 
         if promonet.AUGMENT_PITCH and promonet.MODEL not in ['psola', 'world']:
 
             # Copy features
-            key = f'formant-{int(ratio * 100):03d}'
+            key = f'balance-{int(ratio * 100):03d}'
             output_prefixes = [
                 original_objective_directory /
                 prefix.replace('original-100', key)
@@ -503,7 +503,7 @@ def speaker(
                     files[key],
                     speakers=speakers,
                     checkpoint=checkpoint,
-                    formant_ratio=ratio,
+                    spectral_balance_ratio=ratio,
                     gpu=gpu)
             else:
                 promonet.synthesize.from_files_to_files(
@@ -513,7 +513,7 @@ def speaker(
                     [f'{prefix}{ppgs.representation_file_extension()}' for prefix in output_prefixes],
                     files[key],
                     speakers=speakers,
-                    formant_ratio=ratio,
+                    spectral_balance_ratio=ratio,
                     checkpoint=checkpoint,
                     gpu=gpu)
 
@@ -601,15 +601,6 @@ def speaker(
                 ],
                 loudness_bands=None)
 
-        # Infer speaker embeddings
-        embedding_files = [
-            objective_directory / f'{file.stem}-speaker.pt'
-            for file in audio_files]
-        promonet.speaker.from_files_to_files(
-            audio_files,
-            embedding_files,
-            gpu=gpu)
-
     # Infer speaker embeddings of original audio
     original_files = list(
         original_subjective_directory.glob(
@@ -617,10 +608,6 @@ def speaker(
     original_embedding_files = [
         original_objective_directory / f'{file.stem}-speaker.pt'
         for file in original_files]
-    promonet.speaker.from_files_to_files(
-        original_files,
-        original_embedding_files,
-        gpu=gpu)
 
     ############################
     # Evaluate prosody editing #
@@ -732,10 +719,10 @@ def default_metrics():
             metrics[f'stretched-{int(ratio * 100):03d}'] = \
                 promonet.evaluate.Metrics()
 
-    # Formant editing metrics
+    # Spectral balance editing metrics
     if promonet.AUGMENT_PITCH and promonet.MODEL not in ['psola', 'world']:
         for ratio in promonet.EVALUATION_RATIOS:
-            metrics[f'formant-{int(ratio * 100):03d}'] = \
+            metrics[f'balance-{int(ratio * 100):03d}'] = \
                 promonet.evaluate.Metrics()
 
     # Loudness editing metrics

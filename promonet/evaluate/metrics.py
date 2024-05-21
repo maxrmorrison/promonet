@@ -24,7 +24,7 @@ class Metrics:
         self.ppg = PPG()
         self.wer = WER()
         self.speaker_similarity = SpeakerSimilarity()
-        # self.formant = Formant()
+        # self.balance = SpectralBalance()
 
     def __call__(self):
         result = {
@@ -32,8 +32,8 @@ class Metrics:
             'periodicity': self.periodicity(),
             'ppg': self.ppg()
         } | self.loudness()
-        # if self.formant.pitch.count:
-        #     result |= self.formant()
+        # if self.balance.pitch.count:
+        #     result |= self.balance()
         if self.speaker_similarity.count:
             result['speaker_similarity'] = self.speaker_similarity()
         if self.wer.count:
@@ -54,8 +54,8 @@ class Metrics:
         target_text=None,
         predicted_speaker=None,
         target_speaker=None,
-        # predicted_formant=None,
-        # target_formant=None,
+        # predicted_harmonics=None,
+        # target_harmonics=None,
         # predicted_spectrogram=None,
         # target_spectrogram=None,
     ):
@@ -71,17 +71,17 @@ class Metrics:
             self.wer.update(predicted_text, target_text)
         if predicted_speaker is not None and target_speaker is not None:
             self.speaker_similarity.update(predicted_speaker, target_speaker)
-        # if predicted_formant is not None and target_formant is not None:
-        #     self.formant.update(
-        #         predicted_formant,
+        # if predicted_harmonics is not None and target_harmonics is not None:
+        #     self.balance.update(
+        #         predicted_harmonics,
         #         predicted_periodicity,
         #         predicted_spectrogram,
-        #         target_formant,
+        #         target_harmonics,
         #         target_periodicity,
         #         target_spectrogram)
 
     def reset(self):
-        # self.formant.reset()
+        # self.balance.reset()
         self.loudness.reset()
         self.periodicity.reset()
         self.pitch.reset()
@@ -91,11 +91,11 @@ class Metrics:
 
 
 ###############################################################################
-# Formant metric
+# Spectral balance metrics
 ###############################################################################
 
 
-class Formant:
+class SpectralBalance:
 
     def __init__(
         self,
@@ -111,18 +111,18 @@ class Formant:
 
     def __call__(self):
         return {
-            'formant-pitch': self.displacement(),
-            'formant-loudness': self.correlation()}
+            'balance-pitch': self.displacement(),
+            'balance-loudness': self.correlation()}
 
     def update(
         self,
-        predicted_formants,
+        predicted_harmonics,
         predicted_periodicity,
         predicted_spectrogram,
-        target_formants,
+        target_harmonics,
         target_periodicity,
         target_spectrogram,
-        formant_ratio
+        spectral_balance_ratio
     ):
         # Only evaluate when both predicted and target contain pitch.
         # Otherwise, the magnitude of the error can be arbitrarily large.
@@ -141,16 +141,16 @@ class Formant:
 
         # Maybe include fundamental
         if self.include_fundamental:
-            iterable = zip(predicted_formants, target_formants)
+            iterable = zip(predicted_harmonics, target_harmonics)
         else:
-            iterable = zip(predicted_formants[1:], target_formants[1:])
+            iterable = zip(predicted_harmonics[1:], target_harmonics[1:])
 
         # Update metrics
         for f_x, f_y in iterable:
             self.displacement.update(f_x[voicing], f_y[voicing])
         self.correlation.update(
             predicted_centroid[voicing] / target_centroid[voicing],
-            formant_ratio)
+            spectral_balance_ratio)
 
     def reset(self):
         self.displacement.reset()

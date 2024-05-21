@@ -48,7 +48,7 @@ class Generator(torch.nn.Module):
         ppg,
         lengths,
         speakers,
-        formant_ratios=None,
+        spectral_balance_ratios=None,
         loudness_ratios=None,
         spectrograms=None
     ):
@@ -59,7 +59,7 @@ class Generator(torch.nn.Module):
             periodicity,
             ppg,
             speakers,
-            formant_ratios,
+            spectral_balance_ratios,
             loudness_ratios,
             spectrograms)
 
@@ -85,7 +85,7 @@ class Generator(torch.nn.Module):
         periodicity,
         ppg,
         speakers,
-        formant_ratios,
+        spectral_balance_ratios,
         loudness_ratios,
         spectrograms
     ):
@@ -138,8 +138,8 @@ class Generator(torch.nn.Module):
                 features = torch.cat((features, periodicity[:, None]), dim=1)
 
         # Default augmentation ratio is 1
-        if formant_ratios is None and promonet.AUGMENT_PITCH:
-            formant_ratios = torch.ones(
+        if spectral_balance_ratios is None and promonet.AUGMENT_PITCH:
+            spectral_balance_ratios = torch.ones(
                 1 if ppg.dim() == 2 else len(ppg),
                 dtype=torch.float,
                 device=ppg.device)
@@ -155,7 +155,7 @@ class Generator(torch.nn.Module):
         # Maybe add augmentation ratios
         if promonet.AUGMENT_PITCH:
             global_features = torch.cat(
-                (global_features, formant_ratios[:, None, None]),
+                (global_features, spectral_balance_ratios[:, None, None]),
                 dim=1)
 
         # Maybe add augmentation ratios

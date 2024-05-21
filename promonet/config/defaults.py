@@ -30,8 +30,8 @@ FMAX = 550.  # Hz
 # Audio hopsize
 HOPSIZE = 256  # samples
 
-# Maximum number of speech formants
-MAX_FORMANTS = 3
+# Maximum number of speech harmonics
+MAX_HARMONICS = 3
 
 # Minimum decibel level
 MIN_DB = -100.
@@ -62,6 +62,7 @@ ADAPTATION = False
 
 # All features considered during preprocessing
 ALL_FEATURES = [
+    'harmonics',
     'loudness',
     'pitch',
     'periodicity',

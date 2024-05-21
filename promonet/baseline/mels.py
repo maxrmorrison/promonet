@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import torch
 import torchaudio
 import torchutil
@@ -14,7 +16,7 @@ def from_audio(
     audio,
     sample_rate=promonet.SAMPLE_RATE,
     speaker=0,
-    formant_ratio: float = 1.,
+    spectral_balance_ratio: float = 1.,
     loudness_ratio: float = 1.,
     checkpoint=promonet.DEFAULT_CHECKPOINT,
     gpu=None
@@ -32,7 +34,7 @@ def from_audio(
     return from_features(
         spectrogram,
         speaker,
-        formant_ratio,
+        spectral_balance_ratio,
         loudness_ratio,
         checkpoint)
 
@@ -40,7 +42,7 @@ def from_audio(
 def from_features(
     spectrogram,
     speaker=0,
-    formant_ratio: float = 1.,
+    spectral_balance_ratio: float = 1.,
     loudness_ratio: float = 1.,
     checkpoint=promonet.DEFAULT_CHECKPOINT
 ):
@@ -79,8 +81,8 @@ def from_features(
         speakers = torch.full((1,), speaker, dtype=torch.long, device=device)
 
         # Format ratio
-        formant_ratio = torch.tensor(
-            [formant_ratio],
+        spectral_balance_ratio = torch.tensor(
+            [spectral_balance_ratio],
             dtype=torch.float,
             device=device)
 
@@ -99,7 +101,7 @@ def from_features(
                 None,
                 lengths,
                 speakers,
-                formant_ratio,
+                spectral_balance_ratio,
                 loudness_ratio,
                 spectrograms=spectrogram[None]
             )[0][0].to(torch.float32)
@@ -108,7 +110,7 @@ def from_features(
 def from_file(
     audio_file,
     speaker=0,
-    formant_ratio: float = 1.,
+    spectral_balance_ratio: float = 1.,
     loudness_ratio: float = 1.,
     checkpoint=promonet.DEFAULT_CHECKPOINT,
     gpu=None
@@ -117,7 +119,7 @@ def from_file(
     return from_audio(
         promonet.load.audio(audio_file),
         speaker=speaker,
-        formant_ratio=formant_ratio,
+        spectral_balance_ratio=spectral_balance_ratio,
         loudness_ratio=loudness_ratio,
         checkpoint=checkpoint,
         gpu=gpu)
@@ -127,7 +129,7 @@ def from_file_to_file(
     audio_file,
     output_file,
     speaker=0,
-    formant_ratio: float = 1.,
+    spectral_balance_ratio: float = 1.,
     loudness_ratio: float = 1.,
     checkpoint=promonet.DEFAULT_CHECKPOINT,
     gpu=None
@@ -137,7 +139,7 @@ def from_file_to_file(
     reconstructed = from_file(
         audio_file,
         speaker,
-        formant_ratio,
+        spectral_balance_ratio,
         loudness_ratio,
         checkpoint,
         gpu)
@@ -150,20 +152,20 @@ def from_files_to_files(
     audio_files,
     output_files,
     speakers=None,
-    formant_ratio: float = 1.,
+    spectral_balance_ratio: float = 1.,
     loudness_ratio: float = 1.,
     checkpoint=promonet.DEFAULT_CHECKPOINT,
     gpu=None
 ):
     """Perform Mel reconstruction from audio files and save"""
     if speakers is None:
-        speakers = [0] * len(pitch_files)
+        speakers = [0] * len(audio_files)
 
     # Generate
     for item in zip(audio_files, output_files, speakers):
         from_file_to_file(
             *item,
-            formant_ratio=formant_ratio,
+            spectral_balance_ratio=spectral_balance_ratio,
             loudness_ratio=loudness_ratio,
             checkpoint=checkpoint,
             gpu=gpu)

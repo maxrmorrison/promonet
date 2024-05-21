@@ -137,13 +137,13 @@ scaled = promonet.synthesize.from_features(
     checkpoint=checkpoint,
     gpu=gpu)
 
-# Edit formants (> 1 for Alvin and the Chipmunks; < 1 for Patrick Star)
+# Edit spectral balance (> 1 for Alvin and the Chipmunks; < 1 for Patrick Star)
 alvin = promonet.synthesize.from_features(
     loudness,
     pitch,
     periodicity,
     ppg,
-    formant_ratio=ratio,
+    spectral_balance_ratio=ratio,
     checkpoint=checkpoint,
     gpu=gpu)
 
@@ -420,7 +420,7 @@ def from_features(
     periodicity: torch.Tensor,
     ppg: torch.Tensor,
     speaker: Optional[Union[int, torch.Tensor]] = 0,
-    formant_ratio: float = 1.,
+    spectral_balance_ratio: float = 1.,
     checkpoint: Union[str, os.PathLike] = promonet.DEFAULT_CHECKPOINT,
     gpu: Optional[int] = None) -> torch.Tensor:
     """Perform speech synthesis
@@ -431,7 +431,7 @@ def from_features(
         periodicity: The periodicity contour
         ppg: The phonetic posteriorgram
         speaker: The speaker index
-        formant_ratio: > 1 for Alvin and the Chipmunks; < 1 for Patrick Star
+        spectral_balance_ratio: > 1 for Alvin and the Chipmunks; < 1 for Patrick Star
         checkpoint: The generator checkpoint
         gpu: The GPU index
 

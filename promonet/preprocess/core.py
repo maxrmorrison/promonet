@@ -20,7 +20,7 @@ def from_audio(
     gpu: Optional[int] = None,
     features: list = ['loudness', 'pitch', 'periodicity', 'ppg'],
     loudness_bands: Optional[int] = promonet.LOUDNESS_BANDS,
-    max_formants=promonet.MAX_FORMANTS
+    max_harmonics=promonet.MAX_HARMONICS
 ) -> Tuple:
     """Preprocess audio
 
@@ -35,9 +35,9 @@ def from_audio(
                 'periodicity',
                 'ppg',
                 'text',
-                'formant']
+                'harmonics']
         loudness_bands: The number of A-weighted loudness bands
-        max_formants: The maximum number of speech formants
+        max_harmonics: The maximum number of speech harmonics
 
     Returns
         loudness: The loudness contour
@@ -45,7 +45,7 @@ def from_audio(
         periodicity: The periodicity contour
         ppg: The phonetic posteriorgram
         text: The text transcript
-        formants: The speech formant contours
+        harmonics: The speech harmonic contours
     """
     result = []
 
@@ -99,13 +99,13 @@ def from_audio(
         text = promonet.preprocess.text.from_audio(audio, sample_rate, gpu=gpu)
         result.append(text)
 
-    # Compute formants
-    if 'formant' in features:
-        formant = promonet.formant.from_audio(
+    # Compute harmonics
+    if 'harmonics' in features:
+        harmonics = promonet.harmonics.from_audio(
             audio,
             sample_rate,
-            max_formants=max_formants)
-        result.append(formant)
+            max_harmonics=max_harmonics)
+        result.append(harmonics)
 
     return (*result,)
 
@@ -115,7 +115,7 @@ def from_file(
     gpu: Optional[int] = None,
     features: list = ['loudness', 'pitch', 'periodicity', 'ppg'],
     loudness_bands: Optional[int] = promonet.LOUDNESS_BANDS,
-    max_formants=promonet.MAX_FORMANTS
+    max_harmonics=promonet.MAX_HARMONICS
 ) -> Tuple:
     """Preprocess audio on disk
 
@@ -129,9 +129,9 @@ def from_file(
                 'periodicity',
                 'ppg',
                 'text',
-                'formant']
+                'harmonics']
         loudness_bands: The number of A-weighted loudness bands
-        max_formants: The maximum number of speech formants
+        max_harmonics: The maximum number of speech harmonics
 
     Returns
         loudness: The loudness contour
@@ -139,14 +139,14 @@ def from_file(
         periodicity: The periodicity contour
         ppg: The phonetic posteriorgram
         text: The text transcript
-        formants: The speech formant contours
+        harmonics: The speech harmonic contours
     """
     return from_audio(
         promonet.load.audio(file),
         gpu=gpu,
         features=features,
         loudness_bands=loudness_bands,
-        max_formants=max_formants)
+        max_harmonics=max_harmonics)
 
 
 def from_file_to_file(
@@ -155,7 +155,7 @@ def from_file_to_file(
     gpu: Optional[int] = None,
     features: list = ['loudness', 'pitch', 'periodicity', 'ppg'],
     loudness_bands: Optional[int] = promonet.LOUDNESS_BANDS,
-    max_formants=promonet.MAX_FORMANTS
+    max_harmonics=promonet.MAX_HARMONICS
 ) -> None:
     """Preprocess audio on disk and save
 
@@ -170,12 +170,12 @@ def from_file_to_file(
                 'periodicity',
                 'ppg',
                 'text',
-                'formant']
+                'harmonic']
         loudness_bands: The number of A-weighted loudness bands
-        max_formants: The maximum number of speech formants
+        max_harmonics: The maximum number of speech harmonics
     """
     # Preprocess
-    features = from_file(file, gpu, features, loudness_bands, max_formants)
+    features = from_file(file, gpu, features, loudness_bands, max_harmonics)
 
     # Save
     if output_prefix is None:
@@ -198,8 +198,8 @@ def from_file_to_file(
         with open(f'{output_prefix}.txt', 'w') as file:
             file.write(features[0])
         del features[0]
-    if 'formant' in features:
-        torch.save(features[0], f'{output_prefix}-formant.pt')
+    if 'harmonics' in features:
+        torch.save(features[0], f'{output_prefix}-harmonics.pt')
         del features[0]
 
 
@@ -209,7 +209,7 @@ def from_files_to_files(
     gpu: Optional[int] = None,
     features: list = ['loudness', 'pitch', 'periodicity', 'ppg'],
     loudness_bands: Optional[int] = promonet.LOUDNESS_BANDS,
-    max_formants=promonet.MAX_FORMANTS
+    max_harmonics=promonet.MAX_HARMONICS
 ) -> None:
     """Preprocess multiple audio files on disk and save
 
@@ -224,9 +224,9 @@ def from_files_to_files(
                 'periodicity',
                 'ppg',
                 'text',
-                'formant']
+                'harmonics']
         loudness_bands: The number of A-weighted loudness bands
-        max_formants: The maximum number of speech formants
+        max_harmonics: The maximum number of speech harmonics
     """
     if output_prefixes is None:
         output_prefixes = [file.parent / file.stem for file in files]
@@ -278,11 +278,11 @@ def from_files_to_files(
             [f'{prefix}.txt' for prefix in output_prefixes],
             gpu)
 
-    # Compute formants
-    if 'formant' in features:
-        promonet.formants.from_files_to_files(
+    # Compute harmonics
+    if 'harmonics' in features:
+        promonet.harmonics.from_files_to_files(
             files,
-            [f'{prefix}-formant.pt' for prefix in output_prefixes],
+            [f'{prefix}-harmonics.pt' for prefix in output_prefixes],
             pitch_files=[f'{prefix}-pitch.pt' for prefix in pitch_prefixes],
-            output_feature_files=[f'{prefix}-formantfeatures.pt' for prefix in output_prefixes],
+            output_feature_files=[f'{prefix}-harmonicfeatures.pt' for prefix in output_prefixes],
             gpu=gpu)

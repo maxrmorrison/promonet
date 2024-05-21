@@ -13,9 +13,9 @@ python -m promonet.data.preprocess --gpu $1
 python -m promonet.partition
 
 # First pass experiments trainings and evaluations
-python -m promonet.train --config config/augment-multiband-varpitch-256.py --gpu $1
-python -m promonet.evaluate --config config/augment-multiband-varpitch-256.py --gpu $1
+python -m promonet.train --gpu $1
+python -m promonet.evaluate --gpu $1
 
 # DSP-based baseline evaluations
-# python -m promonet.evaluate --config config/baselines/psola.py --gpu $1
-# python -m promonet.evaluate --config config/baselines/world.py --gpu $1
+python -m promonet.evaluate --config config/baselines/psola.py --gpu $1
+python -m promonet.evaluate --config config/baselines/world.py --gpu $1

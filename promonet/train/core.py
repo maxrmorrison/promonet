@@ -137,7 +137,7 @@ def train(
                 phonemes,
                 lengths,
                 speakers,
-                formant_ratios,
+                spectral_balance_ratios,
                 loudness_ratios,
                 spectrograms,
                 audio,
@@ -157,7 +157,7 @@ def train(
                 phonemes,
                 lengths,
                 speakers,
-                formant_ratios,
+                spectral_balance_ratios,
                 loudness_ratios,
                 spectrograms,
                 audio
@@ -170,7 +170,7 @@ def train(
                     phonemes,
                     lengths,
                     speakers,
-                    formant_ratios,
+                    spectral_balance_ratios,
                     loudness_ratios,
                     spectrograms,
                     audio
@@ -185,7 +185,7 @@ def train(
                 phonemes,
                 lengths,
                 speakers,
-                formant_ratios,
+                spectral_balance_ratios,
                 loudness_ratios,
                 spectrograms)
 
