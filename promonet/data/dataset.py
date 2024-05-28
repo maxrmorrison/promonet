@@ -1,9 +1,7 @@
 import functools
 import json
 
-import numpy as np
 import torch
-import torchaudio
 
 import promonet
 import ppgs

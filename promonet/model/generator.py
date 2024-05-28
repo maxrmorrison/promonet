@@ -15,6 +15,10 @@ class Generator(torch.nn.Module):
         super().__init__()
 
         # Model selection
+        if promonet.MODEL == 'fargan':
+            self.vocoder = promonet.model.FARGAN(
+                promonet.NUM_FEATURES,
+                promonet.GLOBAL_CHANNELS)
         if promonet.MODEL == 'hifigan':
             self.vocoder = promonet.model.HiFiGAN(
                 promonet.NUM_FEATURES,

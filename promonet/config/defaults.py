@@ -62,12 +62,12 @@ ADAPTATION = False
 
 # All features considered during preprocessing
 ALL_FEATURES = [
-    'harmonics',
     'loudness',
     'pitch',
     'periodicity',
     'ppg',
-    'spectrogram']
+    'spectrogram',
+    'text']
 
 # Whether to use loudness augmentation
 AUGMENT_LOUDNESS = True
@@ -210,8 +210,15 @@ INPUT_FEATURES = ['loudness', 'pitch', 'periodicity', 'ppg']
 # (Negative) slope of leaky ReLU activations
 LRELU_SLOPE = .1
 
-# The model to use. One of ['hifigan', 'psola', 'vits', 'vocos', 'world'].
+# The model to use.
+# One of ['fargan', 'hifigan', 'psola', 'vits', 'vocos', 'world'].
 MODEL = 'hifigan'
+
+# Number of samples per subframe
+FARGAN_SUBFRAME_SIZE = 64  # samples
+
+# Number of subframes per frame
+FARGAN_SUBFRAMES = 4  # subframes
 
 # Kernel sizes of residual block
 HIFIGAN_RESBLOCK_KERNEL_SIZES = [3, 7, 11]

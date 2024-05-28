@@ -285,4 +285,5 @@ def from_files_to_files(
             [f'{prefix}-harmonics.pt' for prefix in output_prefixes],
             pitch_files=[f'{prefix}-pitch.pt' for prefix in pitch_prefixes],
             output_feature_files=[f'{prefix}-harmonicfeatures.pt' for prefix in output_prefixes],
-            gpu=gpu)
+            gpu=gpu,
+            max_harmonics=max_harmonics)

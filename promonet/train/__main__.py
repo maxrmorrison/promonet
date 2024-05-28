@@ -19,11 +19,12 @@ def main(
     gpu=None
 ):
     # Create output directory
-    directory = promonet.RUNS_DIR / config.stem
+    directory = promonet.RUNS_DIR / promonet.CONFIG
     directory.mkdir(parents=True, exist_ok=True)
 
     # Save configuration
-    shutil.copyfile(config, directory / config.name)
+    if config is not None:
+        shutil.copyfile(config, directory / config.name)
 
     # Train
     promonet.train(
@@ -66,7 +67,8 @@ def parse_args():
 
     # Delete config files
     args = parser.parse_args()
-    args.config = args.config[0]
+    if args.config is not None:
+        args.config = args.config[0]
     return args
 
 

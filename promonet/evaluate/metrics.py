@@ -192,6 +192,11 @@ class Loudness:
             'loudness-quiet': self.quiet()}
 
     def update(self, predicted_loudness, target_loudness):
+        if predicted_loudness.ndim == 3:
+            predicted_loudness = predicted_loudness.squeeze(0)
+        if target_loudness.ndim == 3:
+            target_loudness = target_loudness.squeeze(0)
+
         # Maybe average
         if promonet.LOUDNESS_BANDS > 1:
             predicted_loudness = predicted_loudness.mean(dim=-2, keepdim=True)
