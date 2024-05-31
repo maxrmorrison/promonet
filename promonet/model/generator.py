@@ -9,7 +9,7 @@ import promonet
 ###############################################################################
 
 
-class Generator(torch.nn.Module):
+class Generator(promonet.model.export.ExportableModule):
 
     def __init__(self):
         super().__init__()
@@ -44,6 +44,20 @@ class Generator(torch.nn.Module):
                 promonet.PITCH_BINS,
                 promonet.PITCH_EMBEDDING_SIZE)
 
+    @torch.jit.export
+    def export(self, x):
+        """Export function
+
+        Arguments
+            x
+                Frame-resolution input features
+
+        Returns
+            audio
+                Synthesized speech
+        """
+        return self(*self.unpack_features(x))
+
     def forward(
         self,
         loudness,
@@ -54,7 +68,8 @@ class Generator(torch.nn.Module):
         speakers,
         spectral_balance_ratios=None,
         loudness_ratios=None,
-        spectrograms=None
+        spectrograms=None,
+        previous_samples=None
     ):
         # Prepare input features
         features, global_features = self.prepare_features(
@@ -78,7 +93,13 @@ class Generator(torch.nn.Module):
             vits_args = None
 
         # Decode representation to waveform
-        generated = self.vocoder(features, global_features)
+        if promonet.MODEL == 'cargan':
+            generated = self.vocoder(
+                features,
+                global_features,
+                previous_samples)
+        else:
+            generated = self.vocoder(features, global_features)
 
         return generated, vits_args
 
@@ -108,8 +129,8 @@ class Generator(torch.nn.Module):
 
             # Maybe sparsify PPGs
             if (
-                 promonet.SPARSE_PPG_METHOD is not None and
-                 ppgs.REPRESENTATION_KIND == 'ppg'
+                promonet.SPARSE_PPG_METHOD is not None and
+                ppgs.REPRESENTATION_KIND == 'ppg'
             ):
                 ppg = ppgs.sparsify(
                     ppg,
@@ -169,3 +190,131 @@ class Generator(torch.nn.Module):
                 dim=1)
 
         return features, global_features
+
+    def pack_features(
+        self,
+        loudness,
+        pitch,
+        periodicity,
+        ppg,
+        speakers,
+        spectral_balance_ratios,
+        loudness_ratios,
+        spectrograms,
+        previous_samples=None
+    ):
+        """Pack features into a single frame-resolution tensor"""
+        if promonet.SPECTROGRAM_ONLY:
+
+            # Standard vocoding from Mel spectrograms
+            features = promonet.preprocess.spectrogram.linear_to_mel(
+                spectrograms)
+
+            # Sparsify by adding the clipping threshold
+            if promonet.SPARSE_MELS:
+                features += promonet.LOG_DYNAMIC_RANGE_COMPRESSION_THRESHOLD
+
+        else:
+
+            # Maybe sparsify PPGs
+            if (
+                 promonet.SPARSE_PPG_METHOD is not None and
+                 ppgs.REPRESENTATION_KIND == 'ppg'
+            ):
+                ppg = ppgs.sparsify(
+                    ppg,
+                    promonet.SPARSE_PPG_METHOD,
+                    promonet.SPARSE_PPG_THRESHOLD)
+
+            features = ppg
+
+        # Pitch
+        if 'pitch' in promonet.INPUT_FEATURES:
+            features = torch.cat((features, pitch), dim=1)
+
+        # Loudness
+        if 'loudness' in promonet.INPUT_FEATURES:
+            averaged = promonet.loudness.band_average(loudness)
+            features = torch.cat((features, averaged), dim=1)
+
+        # Periodicity
+        if 'periodicity' in promonet.INPUT_FEATURES:
+            features = torch.cat((features, periodicity), dim=1)
+
+        # Speaker
+        speaker = speaker[:, None, None].repeat(1, 1, features.shape[-1])
+        features = torch.cat((features, speaker.to(torch.float)))
+
+        # Spectral balance
+        if promonet.AUGMENT_PITCH:
+            spectral_balance_ratios = \
+                spectral_balance_ratios[:, None, None].repeat(
+                    1, 1, features.shape[-1])
+            features = torch.cat((features, spectral_balance_ratios), dim=1)
+
+        # Loudness ratio
+        if promonet.AUGMENT_LOUDNESS:
+            loudness_ratios = loudness_ratios[:, None, None].repeat(
+                1, 1, features.shape[-1])
+            features = torch.cat((features, loudness_ratios), dim=1)
+
+        return features
+
+    def unpack_features(self, x):
+        """Unpack frame-resolution features
+
+        Features:
+            ppg or mels
+            pitch
+            loudness
+            periodicity
+            speaker
+            spectral balance
+            loudness ratio
+            previous samples
+        """
+        i = 0
+        features = []
+
+        # Mels or PPG
+        if promonet.SPECTROGRAM_ONLY:
+            features.append(x[:, i:promonet.NUM_MELS])
+            i += promonet.NUM_MELS
+        else:
+            features.append(x[:, i:promonet.PPG_CHANNELS])
+            i += promonet.PPG_CHANNELS
+
+        # Pitch
+        if 'pitch' in promonet.INPUT_FEATURES:
+            features.append(x[:, i:i + 1])
+            i += 1
+
+        # Loudness
+        if 'loudness' in promonet.INPUT_FEATURES:
+            features.append(x[:, i:i + 1])
+            i += 1
+
+        # Periodicity
+        if 'periodicity' in promonet.INPUT_FEATURES:
+            features.append(x[:, i:i + 1])
+            i += 1
+
+        # Speaker
+        features.append(x[0, i:i + 1].to(torch.long))
+        i += 1
+
+        # Spectral balance
+        if promonet.AUGMENT_PITCH:
+            features.append(x[0, i:i + 1])
+            i += 1
+
+        # Loudness ratio
+        if promonet.AUGMENT_LOUDNESS:
+            features.append(x[0, i:i + 1])
+            i += 1
+
+        # Previous samples
+        if promonet.MODEL == 'cargan':
+            features.append(x[:, i:])
+
+        return features

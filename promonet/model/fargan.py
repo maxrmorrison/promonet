@@ -190,14 +190,6 @@ def additive_noise(x):
         max=1.)
 
 
-def sig_loss(y_true, y_pred):
-    """FARGAN loss function"""
-    # TODO - move to loss or train
-    t = y_true / (1e-15 + torch.norm(y_true, dim=-1, p=2, keepdim=True))
-    p = y_pred / (1e-15 + torch.norm(y_pred, dim=-1, p=2, keepdim=True))
-    return torch.mean(1. - torch.sum(p * t, dim=-1))
-
-
 def initialize_recurrent_state(batch_size, device):
     """Initialize tensors for causal inference"""
     return (

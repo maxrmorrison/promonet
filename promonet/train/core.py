@@ -115,6 +115,10 @@ def train(
     # Automatic mixed precision (amp) gradient scaler
     scaler = torch.cuda.amp.GradScaler()
 
+    # Maybe setup spectral convergence loss
+    if promonet.SPECTRAL_CONVERGENCE_LOSS:
+        spectral_convergence = promonet.loss.MultiResolutionSTFTLoss(device)
+
     # Setup progress bar
     progress = torchutil.iterator(
         range(step, steps),
@@ -178,16 +182,23 @@ def train(
             )
 
             # Bundle training input
+            if promonet.MODEL == 'cargan':
+                previous_samples = audio[..., :promonet.CARGAN_INPUT_SIZE]
+                previous_frames = promonet.CARGAN_INPUT_SIZE // promonet.HOPSIZE
+            else:
+                previous_samples = None
+                previous_frames = 0
             generator_input = (
-                loudness,
-                pitch,
-                periodicity,
-                phonemes,
-                lengths,
+                loudness[..., previous_frames:],
+                pitch[..., previous_frames:],
+                periodicity[..., previous_frames:],
+                phonemes[..., previous_frames:],
+                lengths - previous_frames,
                 speakers,
                 spectral_balance_ratios,
                 loudness_ratios,
-                spectrograms)
+                spectrograms[..., previous_frames:],
+                previous_samples)
 
             #######################
             # Train discriminator #
@@ -197,39 +208,46 @@ def train(
 
                 # Forward pass through generator
                 generated, *vits_args = generator(*generator_input)
-                if promonet.MODEL == 'vits':
-                    (
-                        slice_indices,
-                        prior,
-                        predicted_mean,
-                        predicted_logstd,
-                        true_logstd
-                    ) = vits_args[0][0]
 
-                    # Slice ground truth audio
-                    audio = promonet.model.slice_segments(
+                if previous_samples is not None:
+                    generated = torch.cat((previous_samples, generated), dim=1)
+
+                if step >= promonet.ADVERSARIAL_LOSS_START_STEP:
+
+                    if promonet.MODEL == 'vits':
+                        (
+                            slice_indices,
+                            prior,
+                            predicted_mean,
+                            predicted_logstd,
+                            true_logstd
+                        ) = vits_args[0][0]
+
+                        # Slice ground truth audio
+                        audio = promonet.model.slice_segments(
+                            audio,
+                            slice_indices * promonet.HOPSIZE,
+                            promonet.CHUNK_SIZE)
+
+                    # Forward pass through discriminators
+                    real_logits, fake_logits, _, _ = discriminators(
                         audio,
-                        slice_indices * promonet.HOPSIZE,
-                        promonet.CHUNK_SIZE)
+                        generated.detach())
 
-                # Forward pass through discriminators
-                real_logits, fake_logits, _, _ = discriminators(
-                    audio,
-                    generated.detach())
-
-                # Get discriminator loss
-                (
-                    discriminator_losses,
-                    real_discriminator_losses,
-                    fake_discriminator_losses
-                ) = promonet.loss.discriminator(
-                    [logit.float() for logit in real_logits],
-                    [logit.float() for logit in fake_logits])
+                    # Get discriminator loss
+                    (
+                        discriminator_losses,
+                        real_discriminator_losses,
+                        fake_discriminator_losses
+                    ) = promonet.loss.discriminator(
+                        [logit.float() for logit in real_logits],
+                        [logit.float() for logit in fake_logits])
 
             # Backward pass through discriminators
-            discriminator_optimizer.zero_grad()
-            scaler.scale(discriminator_losses).backward()
-            scaler.step(discriminator_optimizer)
+            if step >= promonet.ADVERSARIAL_LOSS_START_STEP:
+                discriminator_optimizer.zero_grad()
+                scaler.scale(discriminator_losses).backward()
+                scaler.step(discriminator_optimizer)
 
             ###################
             # Train generator #
@@ -237,21 +255,18 @@ def train(
 
             with torch.autocast(device.type):
 
-                # Forward pass through discriminator
-                (
-                    _,
-                    fake_logits,
-                    real_feature_maps,
-                    fake_feature_maps
-                ) = discriminators(audio, generated)
+                if step >= promonet.ADVERSARIAL_LOSS_START_STEP:
+
+                    # Forward pass through discriminator
+                    (
+                        _,
+                        fake_logits,
+                        real_feature_maps,
+                        fake_feature_maps
+                    ) = discriminators(audio, generated)
 
                 # Compute generator losses
                 generator_losses = 0.
-
-                # Maybe use sparse Mel loss
-                log_dynamic_range_compression_threshold = (
-                    promonet.LOG_DYNAMIC_RANGE_COMPRESSION_THRESHOLD
-                    if promonet.SPARSE_MEL_LOSS else None)
 
                 if promonet.MODEL == 'vits':
 
@@ -262,28 +277,45 @@ def train(
                         segment_size=promonet.convert.samples_to_frames(
                             promonet.CHUNK_SIZE))
 
-                # Compute target Mels
-                mels = promonet.preprocess.spectrogram.linear_to_mel(
-                    spectrograms,
-                    log_dynamic_range_compression_threshold)
+                if promonet.MEL_LOSS:
 
-                # Compute predicted Mels
-                generated_mels = promonet.preprocess.spectrogram.from_audio(
-                    generated,
-                    True,
-                    log_dynamic_range_compression_threshold)
-
-                # Maybe shift so clipping bound is zero
-                if promonet.SPARSE_MEL_LOSS:
-                    mels += promonet.LOG_DYNAMIC_RANGE_COMPRESSION_THRESHOLD
-                    generated_mels += \
+                    # Maybe use sparse Mel loss
+                    log_dynamic_range_compression_threshold = (
                         promonet.LOG_DYNAMIC_RANGE_COMPRESSION_THRESHOLD
+                        if promonet.SPARSE_MEL_LOSS else None)
 
-                # Mel loss
-                mel_loss = torch.nn.functional.l1_loss(
-                    mels,
-                    generated_mels)
-                generator_losses += promonet.MEL_LOSS_WEIGHT * mel_loss
+                    # Compute target Mels
+                    mels = promonet.preprocess.spectrogram.linear_to_mel(
+                        spectrograms,
+                        log_dynamic_range_compression_threshold)
+
+                    # Compute predicted Mels
+                    generated_mels = promonet.preprocess.spectrogram.from_audio(
+                        generated,
+                        True,
+                        log_dynamic_range_compression_threshold)
+
+                    # Maybe shift so clipping bound is zero
+                    if promonet.SPARSE_MEL_LOSS:
+                        mels += promonet.LOG_DYNAMIC_RANGE_COMPRESSION_THRESHOLD
+                        generated_mels += \
+                            promonet.LOG_DYNAMIC_RANGE_COMPRESSION_THRESHOLD
+
+                    # Mel loss
+                    mel_loss = torch.nn.functional.l1_loss(
+                        mels,
+                        generated_mels)
+                    generator_losses += promonet.MEL_LOSS_WEIGHT * mel_loss
+
+                # Spectral convergence loss
+                if promonet.SPECTRAL_CONVERGENCE_LOSS:
+                    spectral_loss = spectral_convergence(generated, audio)
+                    generator_losses += spectral_loss
+
+                # Waveform loss
+                if promonet.SIGNAL_LOSS:
+                    signal_loss = promonet.loss.signal(audio, generated)
+                    generator_losses += promonet.SIGNAL_LOSS_WEIGHT * signal_loss
 
                 # Get KL divergence loss between features and prior
                 if promonet.MODEL == 'vits':
@@ -296,20 +328,22 @@ def train(
                     generator_losses += \
                         promonet.KL_DIVERGENCE_LOSS_WEIGHT * kl_divergence_loss
 
-                # Get feature matching loss
-                feature_matching_loss = promonet.loss.feature_matching(
-                    real_feature_maps,
-                    fake_feature_maps)
-                generator_losses += (
-                    promonet.FEATURE_MATCHING_LOSS_WEIGHT *
-                    feature_matching_loss)
+                if step >= promonet.ADVERSARIAL_LOSS_START_STEP:
 
-                # Get adversarial loss
-                adversarial_loss, adversarial_losses = \
-                    promonet.loss.generator(
-                        [logit.float() for logit in fake_logits])
-                generator_losses += \
-                    promonet.ADVERSARIAL_LOSS_WEIGHT * adversarial_loss
+                    # Get feature matching loss
+                    feature_matching_loss = promonet.loss.feature_matching(
+                        real_feature_maps,
+                        fake_feature_maps)
+                    generator_losses += (
+                        promonet.FEATURE_MATCHING_LOSS_WEIGHT *
+                        feature_matching_loss)
+
+                    # Get adversarial loss
+                    adversarial_loss, adversarial_losses = \
+                        promonet.loss.generator(
+                            [logit.float() for logit in fake_logits])
+                    generator_losses += \
+                        promonet.ADVERSARIAL_LOSS_WEIGHT * adversarial_loss
 
             # Zero gradients
             generator_optimizer.zero_grad()
@@ -363,20 +397,27 @@ def train(
                 # Log training losses
                 scalars = {
                     'loss/generator/total': generator_losses}
-                scalars.update({
-                'loss/discriminator/total': discriminator_losses,
-                'loss/generator/feature-matching':
-                    feature_matching_loss,
-                'loss/generator/mels': mel_loss})
-                scalars.update(
-                    {f'loss/generator/adversarial-{i:02d}': value
-                    for i, value in enumerate(adversarial_losses)})
-                scalars.update(
-                    {f'loss/discriminator/real-{i:02d}': value
-                    for i, value in enumerate(real_discriminator_losses)})
-                scalars.update(
-                    {f'loss/discriminator/fake-{i:02d}': value
-                    for i, value in enumerate(fake_discriminator_losses)})
+                if promonet.MEL_LOSS:
+                    scalars.update({'loss/generator/mels': mel_loss})
+                if promonet.SIGNAL_LOSS:
+                    scalars.update({'loss/generator/signal': signal_loss})
+                if promonet.SPECTRAL_CONVERGENCE_LOSS:
+                    scalars.update({
+                        'loss/generator/spectral-convergence': spectral_loss})
+                if step >= promonet.ADVERSARIAL_LOSS_START_STEP:
+                    scalars.update({
+                    'loss/discriminator/total': discriminator_losses,
+                    'loss/generator/feature-matching':
+                        feature_matching_loss})
+                    scalars.update(
+                        {f'loss/generator/adversarial-{i:02d}': value
+                        for i, value in enumerate(adversarial_losses)})
+                    scalars.update(
+                        {f'loss/discriminator/real-{i:02d}': value
+                        for i, value in enumerate(real_discriminator_losses)})
+                    scalars.update(
+                        {f'loss/discriminator/fake-{i:02d}': value
+                        for i, value in enumerate(fake_discriminator_losses)})
                 if promonet.MODEL == 'vits':
                     scalars['loss/generator/kl-divergence'] = kl_divergence_loss
                 torchutil.tensorboard.update(directory, step, scalars=scalars)

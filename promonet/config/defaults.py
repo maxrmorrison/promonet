@@ -211,8 +211,17 @@ INPUT_FEATURES = ['loudness', 'pitch', 'periodicity', 'ppg']
 LRELU_SLOPE = .1
 
 # The model to use.
-# One of ['fargan', 'hifigan', 'psola', 'vits', 'vocos', 'world'].
+# One of ['cargan', 'fargan', 'hifigan', 'psola', 'vits', 'vocos', 'world'].
 MODEL = 'hifigan'
+
+# Number of previous samples to use
+CARGAN_INPUT_SIZE = 2 * HOPSIZE
+
+# Autoregressive hidden size
+CARGAN_HIDDEN_SIZE = 256
+
+# Number of autoregressive output channels
+CARGAN_OUTPUT_SIZE = 128
 
 # Number of samples per subframe
 FARGAN_SUBFRAME_SIZE = 64  # samples
@@ -280,6 +289,9 @@ PLOT_EXAMPLES = 10
 # Whether to use hinge loss instead of L2
 ADVERSARIAL_HINGE_LOSS = False
 
+# Step to start using adversarial loss
+ADVERSARIAL_LOSS_START_STEP = 0
+
 # Weight applied to the discriminator loss
 ADVERSARIAL_LOSS_WEIGHT = 1.
 
@@ -292,6 +304,9 @@ FEATURE_MATCHING_OMIT_FIRST = False
 # Weight applied to the KL divergence loss
 KL_DIVERGENCE_LOSS_WEIGHT = 1.
 
+# Whether to use mel spectrogram loss
+MEL_LOSS = True
+
 # Weight applied to the melspectrogram loss
 MEL_LOSS_WEIGHT = 45.
 
@@ -301,8 +316,17 @@ MULTI_MEL_LOSS = False
 # Window sizes to be used in the multi-scale mel loss
 MULTI_MEL_LOSS_WINDOWS = [32, 64, 128, 256, 512, 1024, 2048]
 
+# Whether to compare raw audio signals
+SIGNAL_LOSS = False
+
+# Weight applied to signal loss
+SIGNAL_LOSS_WEIGHT = .03
+
 # Whether to shift the Mels given to the Mel loss to have a minimum of zero
 SPARSE_MEL_LOSS = False
+
+# Whether to use multi-resolution spectral convergence loss
+SPECTRAL_CONVERGENCE_LOSS = False
 
 
 ###############################################################################
