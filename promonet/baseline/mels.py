@@ -57,7 +57,7 @@ def from_features(
             from_features.checkpoint != checkpoint or
             from_features.device != device
         ):
-            model = promonet.model.Generator().to(device)
+            model = promonet.model.MelGenerator().to(device)
             if type(checkpoint) is str:
                 checkpoint = Path(checkpoint)
             if checkpoint.is_dir():
@@ -95,16 +95,11 @@ def from_features(
         # Reconstruct
         with torchutil.inference.context(from_features.model):
             return from_features.model(
-                None,
-                None,
-                None,
-                None,
-                lengths,
+                spectrogram[None],
                 speakers,
                 spectral_balance_ratio,
-                loudness_ratio,
-                spectrograms=spectrogram[None]
-            )[0][0].to(torch.float32)
+                loudness_ratio
+            )[0].to(torch.float32)
 
 
 def from_file(

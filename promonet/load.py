@@ -68,12 +68,12 @@ def pitch_distribution(dataset=promonet.TRAINING_DATASET, partition='train'):
             'stats' /
             f'{dataset}-{promonet.PITCH_BINS}{key}.pt')
 
-        try:
+        if file.exists():
 
             # Load and cache distribution
             pitch_distribution.distribution = torch.load(file)
 
-        except FileNotFoundError:
+        else:
 
             # Get all voiced pitch frames
             allpitch = []
@@ -98,9 +98,9 @@ def pitch_distribution(dataset=promonet.TRAINING_DATASET, partition='train'):
 
             # Bucket
             indices = torch.linspace(
-                len(pitch) / promonet.PITCH_BINS,
+                len(pitch) / promonet.PITCH_BINS.item(),
                 len(pitch) - 1,
-                promonet.PITCH_BINS,
+                promonet.PITCH_BINS.item(),
                 dtype=torch.float64
             ).to(torch.long)
             pitch_distribution.distribution = pitch[indices]

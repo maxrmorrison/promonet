@@ -109,8 +109,7 @@ def datasets(datasets, adapt=promonet.ADAPTATION, gpu=None):
         results_directory = promonet.RESULTS_DIR / promonet.CONFIG / dataset
         results_directory.mkdir(exist_ok=True, parents=True)
         results = {'num_samples': 0, 'num_frames': 0}
-        if promonet.MODEL != 'vits':
-            results |= {key: value() for key, value in dataset_metrics.items()}
+        results |= {key: value() for key, value in dataset_metrics.items()}
 
         results_directory = promonet.RESULTS_DIR / promonet.CONFIG / dataset
         for file in results_directory.glob(f'*.json'):

@@ -80,7 +80,7 @@ class Dataset(torch.utils.data.Dataset):
         loudness = torch.load(loudness_file).to(torch.float32)
 
         # Chunk during training
-        if promonet.MODEL != 'vits' and self.partition.startswith('train'):
+        if self.partition.startswith('train'):
             frames = promonet.CHUNK_SIZE // promonet.HOPSIZE
             if audio.shape[1] < promonet.CHUNK_SIZE:
                 audio = torch.nn.functional.pad(

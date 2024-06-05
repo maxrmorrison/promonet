@@ -14,112 +14,143 @@ class HiFiGAN(torch.nn.Module):
 
     def __init__(self, initial_channel, gin_channels):
         super().__init__()
-        self.num_kernels = len(promonet.HIFIGAN_RESBLOCK_KERNEL_SIZES)
-        self.num_upsamples = len(promonet.HIFIGAN_UPSAMPLE_RATES)
 
-        # Maybe compute sampling rates of each layer
-        rates = torch.tensor(promonet.HIFIGAN_UPSAMPLE_RATES).flip([0])
-        rates = promonet.SAMPLE_RATE / torch.cumprod(rates, 0)
-        self.sampling_rates = rates.flip([0]).to(torch.int).tolist()
-
-        # Initial convolution
-        self.conv_pre = torch.nn.Conv1d(
+        # Input layer
+        self.input_feature_conv = torch.nn.Conv1d(
             initial_channel,
             promonet.HIFIGAN_UPSAMPLE_INITIAL_SIZE,
             7,
             1,
             padding=3)
 
-        self.ups = torch.nn.ModuleList()
-        self.resblocks = torch.nn.ModuleList()
-        self.activations = torch.nn.ModuleList()
-        iterator = enumerate(zip(
-            promonet.HIFIGAN_UPSAMPLE_RATES,
-            promonet.HIFIGAN_UPSAMPLE_KERNEL_SIZES))
-        for i, (upsample_rate, kernel_size) in iterator:
-            input_channels = promonet.HIFIGAN_UPSAMPLE_INITIAL_SIZE // (2 ** i)
-            output_channels = \
-                promonet.HIFIGAN_UPSAMPLE_INITIAL_SIZE // (2 ** (i + 1))
-
-            # Activations
-            self.activations.append(
-                torch.nn.LeakyReLU(promonet.LRELU_SLOPE))
-
-            # Upsampling layer
-            self.ups.append(torch.nn.utils.weight_norm(
-                torch.nn.ConvTranspose1d(
-                    input_channels,
-                    output_channels,
-                    kernel_size,
-                    upsample_rate,
-                    padding=(kernel_size - upsample_rate) // 2)))
-
-            # Residual block
-            res_iterator = zip(
-                promonet.HIFIGAN_RESBLOCK_KERNEL_SIZES,
-                promonet.HIFIGAN_RESBLOCK_DILATION_SIZES)
-            for kernel_size, dilation_rate in res_iterator:
-                self.resblocks.append(
-                    Block(output_channels, kernel_size, dilation_rate))
-
-        # Final activation
-        self.activations.append(
-            torch.nn.LeakyReLU(promonet.LRELU_SLOPE))
-
-        # Final conv
-        self.conv_post = torch.nn.Conv1d(
-            output_channels,
-            1,
-            7,
-            1,
-            3,
-            bias=False)
-
-        # Weight initialization
-        self.ups.apply(init_weights)
-
         # Speaker conditioning
-        self.cond = torch.nn.Conv1d(
+        self.input_speaker_conv = torch.nn.Conv1d(
             gin_channels,
             promonet.HIFIGAN_UPSAMPLE_INITIAL_SIZE,
             1)
 
-    def forward(self, x, g=None):
-        # Initial conv
-        x = self.conv_pre(x)
+        # Rest of the model
+        output_channels = (
+            promonet.HIFIGAN_UPSAMPLE_INITIAL_SIZE //
+            (2 ** len(promonet.HIFIGAN_UPSAMPLE_RATES)))
+        self.model = torch.nn.Sequential(
+
+            # MRF blocks
+            *[
+                MultiReceptiveFieldFusion(
+                    promonet.HIFIGAN_UPSAMPLE_INITIAL_SIZE // (2 ** i),
+                    promonet.HIFIGAN_UPSAMPLE_INITIAL_SIZE // (2 ** (i + 1)),
+                    upsample_kernel_size,
+                    upsample_rate
+                )
+                for i, (
+                    upsample_kernel_size,
+                    upsample_rate
+                ) in enumerate(zip(
+                    promonet.HIFIGAN_UPSAMPLE_KERNEL_SIZES,
+                    promonet.HIFIGAN_UPSAMPLE_RATES
+                ))
+            ],
+
+            # Last layer
+            torch.nn.LeakyReLU(promonet.LRELU_SLOPE),
+            torch.nn.Conv1d(output_channels, 1, 7, 1, 3, bias=False),
+
+            # Output activation
+            torch.nn.Tanh()
+        )
+
+    def forward(self, x, g, p):
+        # Input layer
+        x = self.input_feature_conv(x)
 
         # Speaker conditioning
-        if g is not None:
-            x = (x + self.cond(g))
+        x = x + self.input_speaker_conv(g)
 
-        for i in range(self.num_upsamples):
+        return self.model(x)
 
-            # Activation
-            x = self.activations[i](x)
+    def remove_weight_norm(self):
+        """Remove weight norm for scriptable inference"""
+        for layer in self.model:
+            if isinstance(layer, MultiReceptiveFieldFusion):
+                layer.remove_weight_norm()
 
-            # Upsampling
-            x = self.ups[i](x)
+
+###############################################################################
+# HiFi-GAN outermost block
+###############################################################################
+
+
+class MultiReceptiveFieldFusion(torch.nn.Module):
+
+    def __init__(
+        self,
+        input_channels,
+        output_channels,
+        upsample_kernel_size,
+        upsample_rate
+    ):
+        super().__init__()
+        self.model = torch.nn.Sequential(
+
+            # Input activation
+            torch.nn.LeakyReLU(promonet.LRELU_SLOPE),
+
+            # Upsampling layer
+            torch.nn.utils.weight_norm(
+                torch.nn.ConvTranspose1d(
+                    input_channels,
+                    output_channels,
+                    upsample_kernel_size,
+                    upsample_rate,
+                    padding=(upsample_kernel_size - upsample_rate) // 2)),
 
             # Residual block
-            for j in range(self.num_kernels):
-                if j:
-                    xs += self.resblocks[i * self.num_kernels + j](x)
-                else:
-                    xs = self.resblocks[i * self.num_kernels + j](x)
-            x = xs / self.num_kernels
+            ResidualBlock(output_channels))
 
-        # Final activation
-        x = self.activations[-1](x)
+        # Weight initialization
+        self.model[1].apply(init_weights)
 
-        # Final conv
-        x = self.conv_post(x)
+    def forward(self, x):
+        return self.model(x)
 
-        # Bound to [-1, 1]
-        return torch.tanh(x)
+    def remove_weight_norm(self):
+        """Remove weight norm for scriptable inference"""
+        torch.nn.utils.remove_weight_norm(self.model[1])
+        self.model[2].remove_weight_norm()
 
 
 ###############################################################################
 # HiFi-GAN residual block
+###############################################################################
+
+
+class ResidualBlock(torch.nn.Module):
+
+    def __init__(self, channels):
+        super().__init__()
+        self.num_kernels = len(promonet.HIFIGAN_RESBLOCK_KERNEL_SIZES)
+        self.model = torch.nn.ModuleList([
+            Block(channels, kernel_size, dilation_rate)
+            for kernel_size, dilation_rate in zip(
+                promonet.HIFIGAN_RESBLOCK_KERNEL_SIZES,
+                promonet.HIFIGAN_RESBLOCK_DILATION_SIZES
+            )
+        ])
+
+    def forward(self, x):
+        xs = None
+        for layer in self.model:
+            xs = layer(x) if xs is None else xs + layer(x)
+        return xs / self.num_kernels
+
+    def remove_weight_norm(self):
+        for layer in self.model:
+            layer.remove_weight_norm()
+
+
+###############################################################################
+# HiFi-GAN inner block
 ###############################################################################
 
 
@@ -164,7 +195,7 @@ class Block(torch.nn.Module):
             activation_fn(),
             activation_fn()])
 
-    def forward(self, x, x_mask=None):
+    def forward(self, x):
         iterator = zip(
             self.convs1,
             self.convs2,
@@ -172,17 +203,18 @@ class Block(torch.nn.Module):
             self.activations2)
         for c1, c2, a1, a2 in iterator:
             xt = a1(x)
-            if x_mask is not None:
-                xt = xt * x_mask
             xt = c1(xt)
             xt = a2(xt)
-            if x_mask is not None:
-                xt = xt * x_mask
             xt = c2(xt)
             x = xt + x
-        if x_mask is not None:
-            x = x * x_mask
         return x
+
+    def remove_weight_norm(self):
+        """Remove weight norm for scriptable inference"""
+        for layer in self.convs1:
+            torch.nn.utils.remove_weight_norm(layer)
+        for layer in self.convs2:
+            torch.nn.utils.remove_weight_norm(layer)
 
 
 def init_weights(m, mean=0.0, std=0.01):

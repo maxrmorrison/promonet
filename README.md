@@ -748,7 +748,7 @@ python -m promonet.evaluate \
 ## Citation
 
 ### IEEE
-M. Morrison, C. Churchwell, N. Pruyne, and B. Pardo, "Fine-Grained and Interpretable Neural Speech Editing," Submitted to Interspeech 2024, July 2024.
+M. Morrison, C. Churchwell, N. Pruyne, and B. Pardo, "Fine-Grained and Interpretable Neural Speech Editing," Interspeech, September 2024.
 
 
 ### BibTex
@@ -757,7 +757,7 @@ M. Morrison, C. Churchwell, N. Pruyne, and B. Pardo, "Fine-Grained and Interpret
 @inproceedings{morrison2024adaptive,
     title={Fine-Grained and Interpretable Neural Speech Editing},
     author={Morrison, Max and Churchwell, Cameron and Pruyne, Nathan and Pardo, Bryan},
-    booktitle={Submitted to Interspeech 2024},
+    booktitle={Interspeech},
     month={September},
     year={2024}
 }

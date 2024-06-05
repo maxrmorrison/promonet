@@ -54,17 +54,6 @@ def generator(discriminator_outputs):
     return sum(losses), losses
 
 
-def kl(prior, predicted_mean, predicted_logstd, true_logstd, lengths):
-    """KL-divergence loss"""
-    divergence = predicted_logstd - true_logstd - 0.5 + \
-        0.5 * ((prior - predicted_mean) ** 2) * \
-        torch.exp(-2. * predicted_logstd)
-    mask = torchutil.mask.from_lengths(
-        lengths
-    ).unsqueeze(1).to(divergence.dtype)
-    return torch.sum(divergence * mask) / torch.sum(mask)
-
-
 ###############################################################################
 # Spectral loss functions
 ###############################################################################

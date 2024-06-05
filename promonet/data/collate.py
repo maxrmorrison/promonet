@@ -93,7 +93,6 @@ def collate(batch):
         padded_pitch,
         padded_periodicity,
         padded_phonemes,
-        feature_lengths,
         speakers,
         spectral_balance_ratios,
         loudness_ratios,

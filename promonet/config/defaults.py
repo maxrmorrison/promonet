@@ -211,7 +211,7 @@ INPUT_FEATURES = ['loudness', 'pitch', 'periodicity', 'ppg']
 LRELU_SLOPE = .1
 
 # The model to use.
-# One of ['cargan', 'fargan', 'hifigan', 'psola', 'vits', 'vocos', 'world'].
+# One of ['cargan', 'fargan', 'hifigan', 'psola', 'vocos', 'world'].
 MODEL = 'hifigan'
 
 # Number of previous samples to use

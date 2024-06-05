@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import yapecs
 
 import promonet
@@ -11,6 +13,16 @@ import promonet
 def parse_args():
     """Parse command-line arguments"""
     parser = yapecs.ArgumentParser(description='Export torchscript model')
+    parser.add_argument(
+        '--checkpoint',
+        type=Path,
+        help='The generator checkpoint')
+    parser.add_argument(
+        '--output_file',
+        type=Path,
+        default='promonet-export.pt',
+        help='The torch file to write the exported model')
+
     return parser.parse_args()
 
 

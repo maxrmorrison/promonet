@@ -19,7 +19,7 @@ def from_audio(
     sample_rate: int = promonet.SAMPLE_RATE,
     gpu: Optional[int] = None,
     features: list = ['loudness', 'pitch', 'periodicity', 'ppg'],
-    loudness_bands: Optional[int] = promonet.LOUDNESS_BANDS,
+    loudness_bands: int = promonet.LOUDNESS_BANDS,
     max_harmonics=promonet.MAX_HARMONICS
 ) -> Tuple:
     """Preprocess audio
@@ -114,7 +114,7 @@ def from_file(
     file: Union[str, bytes, os.PathLike],
     gpu: Optional[int] = None,
     features: list = ['loudness', 'pitch', 'periodicity', 'ppg'],
-    loudness_bands: Optional[int] = promonet.LOUDNESS_BANDS,
+    loudness_bands: int = promonet.LOUDNESS_BANDS,
     max_harmonics=promonet.MAX_HARMONICS
 ) -> Tuple:
     """Preprocess audio on disk
@@ -154,7 +154,7 @@ def from_file_to_file(
     output_prefix: Optional[Union[str, os.PathLike]] = None,
     gpu: Optional[int] = None,
     features: list = ['loudness', 'pitch', 'periodicity', 'ppg'],
-    loudness_bands: Optional[int] = promonet.LOUDNESS_BANDS,
+    loudness_bands: int = promonet.LOUDNESS_BANDS,
     max_harmonics=promonet.MAX_HARMONICS
 ) -> None:
     """Preprocess audio on disk and save
@@ -208,7 +208,7 @@ def from_files_to_files(
     output_prefixes: Optional[List[Union[str, os.PathLike]]] = None,
     gpu: Optional[int] = None,
     features: list = ['loudness', 'pitch', 'periodicity', 'ppg'],
-    loudness_bands: Optional[int] = promonet.LOUDNESS_BANDS,
+    loudness_bands: int = promonet.LOUDNESS_BANDS,
     max_harmonics=promonet.MAX_HARMONICS
 ) -> None:
     """Preprocess multiple audio files on disk and save

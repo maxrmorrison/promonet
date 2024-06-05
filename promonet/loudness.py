@@ -88,7 +88,7 @@ def band_average(loudness, bands=promonet.LOUDNESS_BANDS):
         if bands == 1:
 
             # Average over all weighted frequencies
-            loudness = loudness.mean(axis=-2, keepdims=True)
+            loudness = loudness.mean(dim=-2, keepdim=True)
 
         else:
 
@@ -97,13 +97,13 @@ def band_average(loudness, bands=promonet.LOUDNESS_BANDS):
             if loudness.ndim == 2:
                 loudness = torch.stack(
                     [
-                        loudness[int(band * step):int((band + 1) * step)].mean(axis=-2)
-                        for band in range(bands)
+                        loudness[int(band * step):int((band + 1) * step)].mean(dim=-2)
+                        for band in range(int(bands))
                     ])
             else:
                 loudness = torch.stack(
                     [
-                        loudness[:, int(band * step):int((band + 1) * step)].mean(axis=-2)
+                        loudness[:, int(band * step):int((band + 1) * step)].mean(dim=-2)
                         for band in range(bands)
                     ],
                     dim=1)
@@ -141,9 +141,9 @@ def limit(audio, delay=40, attack_coef=.9, release_coef=.9995, threshold=.99):
     return audio[:, delay - 1:]
 
 
-def normalize(loudness, min_db=promonet.MIN_DB, ref_db=promonet.REF_DB):
+def normalize(loudness):
     """Normalize loudness to [-1., 1.]"""
-    return (loudness - min_db) / (ref_db - min_db)
+    return (loudness - promonet.MIN_DB) / (promonet.REF_DB - promonet.MIN_DB)
 
 
 def perceptual_weights():
@@ -156,7 +156,8 @@ def perceptual_weights():
     # defaulting to -100 db. That default is fine for our purposes.
     with warnings.catch_warnings():
         warnings.simplefilter('ignore', RuntimeWarning)
-        return librosa.A_weighting(frequencies)[:, None] - promonet.REF_DB
+        return (
+            librosa.A_weighting(frequencies)[:, None] - float(promonet.REF_DB))
 
 
 def scale(audio, target_loudness):

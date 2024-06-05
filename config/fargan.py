@@ -4,5 +4,5 @@ MODULE = 'promonet'
 CONFIG = 'fargan'
 
 # The model to use.
-# One of ['fargan', 'hifigan', 'psola', 'vits', 'vocos', 'world'].
+# One of ['fargan', 'hifigan', 'psola', 'vocos', 'world'].
 MODEL = 'fargan'

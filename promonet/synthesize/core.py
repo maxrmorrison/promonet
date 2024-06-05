@@ -218,7 +218,10 @@ def generate(
             generate.checkpoint != checkpoint or
             generate.device != device
         ):
-            model = promonet.model.Generator().to(device)
+            if promonet.SPECTROGRAM_ONLY:
+                model = promonet.model.MelGenerator().to(device)
+            else:
+                model = promonet.model.Generator().to(device)
             if type(checkpoint) is str:
                 checkpoint = Path(checkpoint)
             if checkpoint.is_dir():
@@ -264,4 +267,4 @@ def generate(
                 speakers,
                 spectral_balance_ratio,
                 loudness_ratio
-            )[0][0]
+            )[0]

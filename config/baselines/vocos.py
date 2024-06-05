@@ -25,7 +25,7 @@ COMPLEX_MULTIBAND_DISCRIMINATOR = False
 # Input features
 INPUT_FEATURES = ['spectrogram']
 
-# The model to use. One of ['hifigan', 'psola', 'vits', 'vocos', 'world'].
+# The model to use. One of ['hifigan', 'psola', 'vocos', 'world'].
 MODEL = 'vocos'
 
 # Whether to use the multi-resolution spectrogram discriminator from UnivNet

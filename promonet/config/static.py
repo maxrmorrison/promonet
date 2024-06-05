@@ -67,3 +67,11 @@ elif promonet.TRAINING_DATASET == 'vctk':
     NUM_SPEAKERS = 109
 else:
     raise ValueError(f'Dataset {promonet.TRAINING_DATASET} is not defined')
+
+# Number of previous samples
+if promonet.MODEL == 'cargan':
+    NUM_PREVIOUS_SAMPLES = promonet.CARGAN_INPUT_SIZE
+elif promonet.MODEL == 'fargan':
+    NUM_PREVIOUS_SAMPLES = promonet.FARGAN_SUBFRAME_SIZE
+else:
+    NUM_PREVIOUS_SAMPLES = 1

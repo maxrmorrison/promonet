@@ -294,18 +294,18 @@ class PPG(torchutil.metrics.Average):
             # these low-probability bins is typically a sign of noise
             # reconstruction--not pronunciation reconstruction.
             predicted = ppgs.sparsify(
-                    predicted.squeeze(0),
+                    predicted,
                     promonet.SPARSE_PPG_METHOD,
                     promonet.SPARSE_PPG_THRESHOLD)
             target = ppgs.sparsify(
-                    target.squeeze(0),
+                    target,
                     promonet.SPARSE_PPG_METHOD,
                     promonet.SPARSE_PPG_THRESHOLD)
 
             # Compute normalized Jensen-Shannon divergence between PPGs
             total = ppgs.distance(
-                predicted,
-                target,
+                predicted.squeeze(0),
+                target.squeeze(0),
                 reduction='sum',
                 exponent=self.exponent)
 

@@ -45,6 +45,10 @@ class FARGAN(torch.nn.Module):
 
         return signal.unsqueeze(1)
 
+    def remove_weight_norm(self):
+        """Remove weight norm for scriptable inference"""
+        self.subframe_network.remove_weight_norm()
+
     def step(self, features, global_features, previous_subframe, states):
         # Embed frame features
         features = self.input_network(
@@ -137,6 +141,17 @@ class SubframeNetwork(torch.nn.Module):
 
         return output, (gru1_state, gru2_state, gru3_state, subframe)
 
+    def remove_weight_norm(self):
+        """Remove weight norm for scriptable inference"""
+        for layer in (
+            self.framewise_convolution,
+            self.gru1_glu,
+            self.gru2_glu,
+            self.gru3_glu,
+            self.skip_glu
+        ):
+            layer.remove_weight_norm()
+
 
 class FramewiseConv(torch.nn.Module):
 
@@ -161,6 +176,14 @@ class FramewiseConv(torch.nn.Module):
     def forward(self, features, state):
         return self.model(torch.cat((features, state), -1))
 
+    def remove_weight_norm(self):
+        """Remove weight norm for scriptable inference"""
+        for module in self.modules():
+            if isinstance(module, torch.nn.Linear):
+                torch.nn.utils.remove_weight_norm(module)
+            elif isinstance(module, GLU):
+                module.remove_weight_norm()
+
 
 class GLU(torch.nn.Module):
     """Gated linear unit"""
@@ -175,6 +198,9 @@ class GLU(torch.nn.Module):
 
     def forward(self, x):
         return x * torch.sigmoid(self.gate(x))
+
+    def remove_weight_norm(self):
+        torch.nn.utils.remove_weight_norm(self.gate)
 
 
 ###############################################################################
