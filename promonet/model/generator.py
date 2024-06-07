@@ -286,7 +286,7 @@ class Generator(BaseGenerator):
 
         # Speaker
         speakers = speakers[:, None, None].repeat(1, 1, features.shape[-1])
-        features = torch.cat((features, speakers.to(torch.float)))
+        features = torch.cat((features, speakers.to(torch.float)), dim=1)
 
         # Spectral balance
         if promonet.AUGMENT_PITCH:

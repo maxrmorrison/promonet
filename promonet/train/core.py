@@ -1,4 +1,3 @@
-import functools
 import math
 
 import GPUtil
