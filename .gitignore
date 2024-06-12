@@ -8,18 +8,12 @@ data/cache/*
 !data/cache/.gitkeep
 data/datasets/*
 !data/datasets/.gitkeep
-data/sources/*
-!data/sources/.gitkeep
 eval/*
 !eval/objective/.gitkeep
-results/
+results/*
 !results/.gitkeep
-runs/
+runs/*
 !runs/.gitkeep
-
-promonet/model/align/*.c*
-promonet/config/secrets.py
-
 notebooks/*
 !notebooks/*.ipynb
 

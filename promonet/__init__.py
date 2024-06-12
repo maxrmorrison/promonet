@@ -20,7 +20,6 @@ from .config.static import *
 ###############################################################################
 
 
-from .core import *
 from .train import train
 from . import adapt
 from . import baseline
@@ -28,6 +27,7 @@ from . import convert
 from . import data
 from . import edit
 from . import evaluate
+from . import harmonics
 from . import load
 from . import loss
 from . import loudness
@@ -35,5 +35,4 @@ from . import model
 from . import partition
 from . import plot
 from . import preprocess
-from . import resemblyzer
 from . import synthesize

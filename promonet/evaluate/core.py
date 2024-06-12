@@ -25,9 +25,10 @@ import functools
 import json
 import shutil
 
+import ppgs
 import torch
-import torchutil
 import torchaudio
+import torchutil
 
 import promonet
 
@@ -37,10 +38,10 @@ import promonet
 ###############################################################################
 
 
-@torchutil.notify.on_return('evaluate')
-def datasets(datasets, checkpoint=None, gpu=None):
+@torchutil.notify('evaluate')
+def datasets(datasets, adapt=promonet.ADAPTATION, gpu=None):
     """Evaluate the performance of the model on datasets"""
-    aggregate_metrics = default_metrics(gpu)
+    aggregate_metrics = default_metrics()
 
     # Evaluate on each dataset
     for dataset in datasets:
@@ -49,8 +50,8 @@ def datasets(datasets, checkpoint=None, gpu=None):
         torchutil.time.reset()
 
         # Get adaptation partitions for this dataset
-        partitions = promonet.load.partition(dataset)
-        if promonet.ADAPTATION:
+        partitions = promonet.load.partition(dataset, adapt)
+        if adapt:
             train_partitions = sorted(list(
                 partition for partition in partitions.keys()
                 if 'train-adapt' in partition))
@@ -62,7 +63,7 @@ def datasets(datasets, checkpoint=None, gpu=None):
             test_partitions = ['test']
 
         # Per-dataset metrics
-        dataset_metrics = default_metrics(gpu)
+        dataset_metrics = default_metrics()
 
         # Evaluate on each partition
         iterator = zip(train_partitions, test_partitions)
@@ -74,57 +75,46 @@ def datasets(datasets, checkpoint=None, gpu=None):
             for index in indices:
 
                 # Output directory for checkpoints and logs
-                adapt_directory = (
-                    promonet.RUNS_DIR /
-                    promonet.CONFIG /
-                    'adapt' /
-                    dataset /
-                    index)
-                adapt_directory.mkdir(exist_ok=True, parents=True)
+                checkpoint_directory = promonet.RUNS_DIR / promonet.CONFIG
 
                 # Output directory for objective evaluation
                 objective_directory = (
                     promonet.EVAL_DIR /
                     'objective' /
                     promonet.CONFIG)
-                (objective_directory / index).mkdir(
-                    exist_ok=True,
-                    parents=True)
+                objective_directory.mkdir(exist_ok=True, parents=True)
 
                 # Output directory for subjective evaluation
                 subjective_directory = (
                     promonet.EVAL_DIR /
                     'subjective' /
                     promonet.CONFIG)
-                (subjective_directory / index).mkdir(
-                    exist_ok=True,
-                    parents=True)
+                subjective_directory.mkdir(exist_ok=True, parents=True)
 
                 # Evaluate a speaker
                 speaker(
                     dataset,
                     train_partition,
                     test_partition,
-                    checkpoint,
                     aggregate_metrics,
                     dataset_metrics,
-                    adapt_directory,
+                    checkpoint_directory,
                     objective_directory,
                     subjective_directory,
                     index,
+                    adapt,
                     gpu)
 
         # Aggregate results
-        results_directory = (
-            promonet.RESULTS_DIR /
-            promonet.CONFIG /
-            dataset)
+        results_directory = promonet.RESULTS_DIR / promonet.CONFIG / dataset
+        results_directory.mkdir(exist_ok=True, parents=True)
         results = {'num_samples': 0, 'num_frames': 0}
-        if promonet.MODEL != 'vits':
-            results['prosody'] = {
-                key: value() for key, value in dataset_metrics.items()}
+        results |= {key: value() for key, value in dataset_metrics.items()}
 
+        results_directory = promonet.RESULTS_DIR / promonet.CONFIG / dataset
         for file in results_directory.glob(f'*.json'):
+            if file.stem == 'results':
+                continue
             with open(file) as file:
                 result = json.load(file)
             results['num_samples'] += result['num_samples']
@@ -132,29 +122,14 @@ def datasets(datasets, checkpoint=None, gpu=None):
 
         # Parse benchmarking results
         results['benchmark'] = {'raw': torchutil.time.results()}
-
-        # Average benchmarking over samples
-        results['benchmark']['average'] = {
-            key: value / results['num_samples']
+        results['benchmark']['rtf'] = {
+            key: (results['num_samples'] / promonet.SAMPLE_RATE) / value
             for key, value in results['benchmark']['raw'].items()}
 
         # Print results and save to disk
-        print(results)
+        print(json.dumps(results, indent=4, sort_keys=True))
         with open(results_directory / f'results.json', 'w') as file:
             json.dump(results, file, indent=4, sort_keys=True)
-
-        # Plot speaker clusters
-        centers = {
-            index: torch.load(
-                objective_directory / f'{dataset}-{index}-speaker.pt')
-            for index in indices}
-        embeddings = {
-            index: [
-                torch.load(file) for file in objective_directory.glob(
-                    f'{dataset}-{index}-*-original-100-speaker.pt')]
-            for index in indices}
-        file = results_directory / f'speaker.pdf'
-        promonet.plot.speaker.from_embeddings(centers, embeddings, file=file)
 
 
 ###############################################################################
@@ -166,356 +141,484 @@ def speaker(
     dataset,
     train_partition,
     test_partition,
-    checkpoint,
     aggregate_metrics,
     dataset_metrics,
-    directory,
+    checkpoint_directory,
     objective_directory,
     subjective_directory,
     index,
-    gpu=None):
+    adapt=promonet.ADAPTATION,
+    gpu=None
+):
     """Evaluate one adaptation speaker in a dataset"""
-    if promonet.MODEL not in ['psola', 'world'] and promonet.ADAPTATION:
+    device = f'cuda:{gpu}' if gpu is not None else 'cpu'
+
+    if promonet.MODEL not in ['psola', 'world'] and adapt:
+        adapt_directory = checkpoint_directory / 'adapt' / dataset / index
+        adapt_directory.mkdir(exist_ok=True, parents=True)
 
         # Maybe resume adaptation
         generator_path = torchutil.checkpoint.latest_path(
-            directory,
+            adapt_directory,
             'generator-*.pt')
         discriminator_path = torchutil.checkpoint.latest_path(
-            directory,
+            adapt_directory,
             'discriminator-*.pt')
         if generator_path and discriminator_path:
-            checkpoint = directory
+            checkpoint_directory = adapt_directory
 
         # Perform speaker adaptation
         promonet.train(
+            adapt_directory,
             dataset,
-            directory,
             train_partition,
             test_partition,
-            checkpoint,
+            checkpoint_directory,
             gpu)
+        checkpoint_directory = adapt_directory
 
-        # Get generator checkpoint
-        checkpoint = torchutil.checkpoint.latest_path(
-            directory,
-            'generator-*.pt')
+    # Get generator checkpoint
+    checkpoint = torchutil.checkpoint.latest_path(
+        checkpoint_directory,
+        'generator-*.pt')
 
     # Stems to use for evaluation
     test_stems = sorted(promonet.load.partition(dataset)[test_partition])
     test_stems = [stem for stem in test_stems if stem.split('/')[0] == index]
-    speakers = [int(stem.split('/')[0]) for stem in test_stems]
+    if adapt:
+        speakers = [0] * len(test_stems)
+    else:
+        speakers = [int(stem.split('/')[0]) for stem in test_stems]
 
     # Directory to save original audio files
     original_subjective_directory = \
         promonet.EVAL_DIR / 'subjective' / 'original'
-    (original_subjective_directory / index).mkdir(exist_ok=True, parents=True)
+    original_subjective_directory.mkdir(exist_ok=True, parents=True)
 
     # Directory to save original prosody files
     original_objective_directory = \
         promonet.EVAL_DIR / 'objective' / 'original'
-    (original_objective_directory / index).mkdir(exist_ok=True, parents=True)
+    original_objective_directory.mkdir(exist_ok=True, parents=True)
 
     # Copy original files
+    audio_files = []
     for stem in test_stems:
         key = f'{dataset}-{stem.replace("/", "-")}-original-100'
 
-        # Copy audio file
+        # Trim to multiple of hopsize
         input_file = promonet.CACHE_DIR / dataset / f'{stem}-100.wav'
+        audio = promonet.load.audio(input_file)
+        trim = audio.shape[-1] % promonet.HOPSIZE
+        if trim > 0:
+            audio = audio[..., :-trim]
+
+        # Save to disk
         output_file = original_subjective_directory / f'{key}.wav'
-        shutil.copyfile(input_file, output_file)
+        torchaudio.save(output_file, audio, promonet.SAMPLE_RATE)
+        audio_files.append(output_file)
 
-        # Copy text file
-        input_file = promonet.CACHE_DIR / dataset / f'{stem}.txt'
-        output_file = original_objective_directory / f'{key}-text.txt'
-        shutil.copyfile(input_file, output_file)
+    # Original file prefixes
+    prefixes = [file.stem for file in audio_files]
 
-        # Copy prosody files
-        input_files = [
-            path for path in
-            (promonet.CACHE_DIR / dataset).glob(f'{stem}-100*')
-            if path.suffix != '.wav']
-        for input_file in input_files:
-            feature = input_file.stem.split('-')[-1]
-            output_file = (
-                original_objective_directory /
-                f'{key}-{feature}{input_file.suffix}')
-            shutil.copyfile(input_file, output_file)
+    # Preprocess
+    with torchutil.time.context('preprocess'):
+        promonet.preprocess.from_files_to_files(
+            audio_files,
+            [original_objective_directory / prefix for prefix in prefixes],
+            gpu=gpu,
+            features=[
+                'loudness',
+                'pitch',
+                'periodicity',
+                'ppg',
+                'text'
+            ],
+            loudness_bands=None)
 
     ##################
     # Reconstruction #
     ##################
 
+    original_audio_files = [
+        original_subjective_directory / f'{prefix}.wav'
+        for prefix in prefixes]
     files = {
-        'original': [
-            original_subjective_directory /
-            f'{dataset}-{stem.replace("/", "-")}-original-100.wav'
-            for stem in test_stems],
-        'reconstructed': [
-            subjective_directory /
-            f'{dataset}-{stem.replace("/", "-")}-original-100.wav'
-            for stem in test_stems]}
+        'reconstructed-100': [
+            subjective_directory / f'{prefix}.wav' for prefix in prefixes]}
+    viterbi = '-viterbi' if promonet.VITERBI_DECODE_PITCH else ''
     pitch_files = [
-        original_objective_directory /
-        f'{dataset}-{stem.replace("/", "-")}-original-100-pitch.pt'
-        for stem in test_stems]
-    promonet.synthesize.from_files_to_files(
-        pitch_files,
-        [
-            file.parent / file.name.replace('pitch', 'periodicity')
-            for file in pitch_files
-        ],
-        [
-            file.parent / file.name.replace('pitch', 'loudness')
-            for file in pitch_files
-        ],
-        [
-            file.parent / file.name.replace('pitch', 'ppg')
-            for file in pitch_files
-        ],
-        files['reconstructed'],
-        checkpoint=checkpoint,
-        speakers=(
-            [0] * len(test_stems) if promonet.ADAPTATION else speakers
-        ),
-        gpu=gpu)
-
-    # Perform speech editing only on speech editors
-    if promonet.MODEL in ['hifigan', 'vits']:
-
-        results = {}
-
-    else:
-
-        for ratio in promonet.EVALUATION_RATIOS:
-
-            ##################
-            # Pitch shifting #
-            ##################
-
-            key = f'shifted-{int(ratio * 100):03d}'
-            for stem in test_stems:
-                prefix = f'{dataset}-{stem.replace("/", "-")}'
-                file = (
+        original_objective_directory / f'{prefix}{viterbi}-pitch.pt'
+        for prefix in prefixes]
+    periodicity_files = [
+        original_objective_directory / f'{prefix}{viterbi}-periodicity.pt'
+        for prefix in prefixes]
+    loudness_files = [
+        original_objective_directory / f'{prefix}-loudness.pt'
+        for prefix in prefixes]
+    ppg_files = [
+        original_objective_directory / f'{prefix}{ppgs.representation_file_extension()}'
+        for prefix in prefixes]
+    if promonet.MODEL in ['psola', 'world']:
+        if promonet.MODEL == 'psola':
+            synthesis_fn = promonet.baseline.psola.from_files_to_files
+        elif promonet.MODEL == 'world':
+            synthesis_fn = functools.partial(
+                promonet.baseline.world.from_files_to_files,
+                pitch_files=[
                     original_objective_directory /
-                    f'{prefix}-original-100-pitch.pt')
+                    f'{prefix}{viterbi}-pitch.pt'
+                    for prefix in prefixes],
+                periodicity_files=[
+                    original_objective_directory /
+                    f'{prefix}{viterbi}-periodicity.pt'
+                    for prefix in prefixes])
+        synthesis_fn(original_audio_files, files['reconstructed-100'])
+    elif promonet.SPECTROGRAM_ONLY:
+        promonet.baseline.mels.from_files_to_files(
+            original_audio_files,
+            files['reconstructed-100'],
+            checkpoint=checkpoint,
+            speakers=speakers,
+            gpu=gpu)
+    else:
+        promonet.synthesize.from_files_to_files(
+            loudness_files,
+            pitch_files,
+            periodicity_files,
+            ppg_files,
+            files['reconstructed-100'],
+            checkpoint=checkpoint,
+            speakers=speakers,
+            gpu=gpu)
 
-                # Shift original pitch and save to disk
-                output_prefix = \
-                    original_objective_directory / f'{prefix}-{key}'
-                output_prefix.parent.mkdir(exist_ok=True, parents=True)
-                promonet.edit.from_file_to_file(
-                    file,
-                    file.parent / file.name.replace('pitch', 'periodicity'),
-                    file.parent / file.name.replace('pitch', 'loudness'),
-                    file.parent / file.name.replace('pitch', 'ppg'),
-                    output_prefix,
+    ###################
+    # Prosody editing #
+    ###################
+
+    for ratio in promonet.EVALUATION_RATIOS:
+
+        ##################
+        # Pitch shifting #
+        ##################
+
+        if 'pitch' in promonet.INPUT_FEATURES:
+
+            # Edit features
+            with torchutil.time.context('edit'):
+                key = f'shifted-{int(ratio * 100):03d}'
+                output_prefixes = [
+                    original_objective_directory /
+                    prefix.replace('original-100', key)
+                    for prefix in prefixes]
+                promonet.edit.from_files_to_files(
+                    loudness_files,
+                    pitch_files,
+                    periodicity_files,
+                    ppg_files,
+                    output_prefixes,
                     pitch_shift_cents=promonet.convert.ratio_to_cents(ratio))
 
-                # Copy text
-                shutil.copyfile(
-                    original_objective_directory /
-                    f'{prefix}-original-100-{feature}.txt',
-                    f'{output_prefix}-{feature}.txt')
-
             # Generate
             files[key] = [
-                subjective_directory /
-                f'{dataset}-{stem.replace("/", "-")}-{key}.wav'
-                for stem in test_stems]
-            pitch_files = [
-                original_objective_directory /
-                f'{dataset}-{stem.replace("/", "-")}-{key}-pitch.pt'
-                for stem in test_stems]
-            promonet.synthesize.from_files_to_files(
-                pitch_files,
-                [
-                    file.parent / file.name.replace('pitch', 'periodicity')
-                    for file in pitch_files
-                ],
-                [
-                    file.parent / file.name.replace('pitch', 'loudness')
-                    for file in pitch_files
-                ],
-                [
-                    file.parent / file.name.replace('pitch', 'ppg')
-                    for file in pitch_files
-                ],
-                files[key],
-                checkpoint=checkpoint,
-                speakers=(
-                    [0] * len(test_stems) if promonet.ADAPTATION else speakers
-                ),
-                gpu=gpu)
+                subjective_directory / f'{prefix.name}.wav'
+                for prefix in output_prefixes]
+            if promonet.MODEL in ['psola', 'world']:
+                if promonet.MODEL == 'psola':
+                    synthesis_fn = promonet.baseline.psola.from_files_to_files
+                elif promonet.MODEL == 'world':
+                    synthesis_fn = functools.partial(
+                        promonet.baseline.world.from_files_to_files,
+                        periodicity_files=[
+                            f'{prefix}{viterbi}-periodicity.pt'
+                            for prefix in output_prefixes])
+                synthesis_fn(
+                    original_audio_files,
+                    files[key],
+                    pitch_files=[f'{prefix}{viterbi}-pitch.pt' for prefix in output_prefixes])
+            else:
+                promonet.synthesize.from_files_to_files(
+                    [f'{prefix}-loudness.pt' for prefix in output_prefixes],
+                    [f'{prefix}{viterbi}-pitch.pt' for prefix in output_prefixes],
+                    [f'{prefix}{viterbi}-periodicity.pt' for prefix in output_prefixes],
+                    [f'{prefix}{ppgs.representation_file_extension()}' for prefix in output_prefixes],
+                    files[key],
+                    checkpoint=checkpoint,
+                    speakers=speakers,
+                    gpu=gpu)
 
-            ###################
-            # Time stretching #
-            ###################
+        ###################
+        # Time stretching #
+        ###################
 
-            key = f'stretched-{int(ratio * 100):03d}'
-            for stem in test_stems:
-                prefix = f'{dataset}-{stem.replace("/", "-")}'
-                file = (
+        if (
+            'ppg' in promonet.INPUT_FEATURES and
+            ppgs.REPRESENTATION_KIND == 'ppg'
+        ):
+
+            # Edit features
+            with torchutil.time.context('edit'):
+                key = f'stretched-{int(ratio * 100):03d}'
+                output_prefixes = [
                     original_objective_directory /
-                    f'{prefix}-original-100-ppg.pt')
-
-                # Stretch features and save to disk
-                output_prefix = \
-                    original_objective_directory / f'{prefix}-{key}'
-                output_prefix.parent.mkdir(exist_ok=True, parents=True)
-                promonet.edit.from_file_to_file(
-                    file.parent / file.name.replace('pitch', 'pitch'),
-                    file.parent / file.name.replace('pitch', 'periodicity'),
-                    file.parent / file.name.replace('pitch', 'loudness'),
-                    file,
-                    output_prefix,
+                    prefix.replace('original-100', key)
+                    for prefix in prefixes]
+                promonet.edit.from_files_to_files(
+                    loudness_files,
+                    pitch_files,
+                    periodicity_files,
+                    ppg_files,
+                    output_prefixes,
                     time_stretch_ratio=ratio,
-                    stretch_unvoiced=False)
-
-                # Copy text
-                shutil.copyfile(
-                    original_objective_directory /
-                    f'{prefix}-original-100-{feature}.txt',
-                    f'{output_prefix}-{feature}.txt')
+                    stretch_unvoiced=False,
+                    save_grid=True)
 
             # Generate
             files[key] = [
-                subjective_directory /
-                f'{dataset}-{stem.replace("/", "-")}-{key}.wav'
-                for stem in test_stems]
-            pitch_files = [
-                original_objective_directory /
-                f'{dataset}-{stem.replace("/", "-")}-{key}-pitch.pt'
-                for stem in test_stems]
-            promonet.synthesize.from_files_to_files(
-                pitch_files,
-                [
-                    file.parent / file.name.replace('pitch', 'periodicity')
-                    for file in pitch_files
-                ],
-                [
-                    file.parent / file.name.replace('pitch', 'loudness')
-                    for file in pitch_files
-                ],
-                [
-                    file.parent / file.name.replace('pitch', 'ppg')
-                    for file in pitch_files
-                ],
-                files[key],
-                checkpoint=checkpoint,
-                speakers=(
-                    [0] * len(test_stems) if promonet.ADAPTATION else speakers
-                ),
-                gpu=gpu)
+                subjective_directory / f'{prefix.name}.wav'
+                for prefix in output_prefixes]
+            if promonet.MODEL in ['psola', 'world']:
+                if promonet.MODEL == 'psola':
+                    synthesis_fn = promonet.baseline.psola.from_files_to_files
+                elif promonet.MODEL == 'world':
+                    synthesis_fn = functools.partial(
+                        promonet.baseline.world.from_files_to_files,
+                        pitch_files=[
+                            f'{prefix}{viterbi}-pitch.pt'
+                            for prefix in output_prefixes],
+                        periodicity_files=[
+                            f'{prefix}{viterbi}-periodicity.pt'
+                            for prefix in output_prefixes])
+                synthesis_fn(
+                    original_audio_files,
+                    files[key],
+                    grid_files=[f'{prefix}-grid.pt' for prefix in output_prefixes])
+            else:
+                promonet.synthesize.from_files_to_files(
+                    [f'{prefix}-loudness.pt' for prefix in output_prefixes],
+                    [f'{prefix}{viterbi}-pitch.pt' for prefix in output_prefixes],
+                    [f'{prefix}{viterbi}-periodicity.pt' for prefix in output_prefixes],
+                    [f'{prefix}{ppgs.representation_file_extension()}' for prefix in output_prefixes],
+                    files[key],
+                    checkpoint=checkpoint,
+                    speakers=speakers,
+                    gpu=gpu)
 
-            ####################
-            # Loudness scaling #
-            ####################
+        ####################
+        # Loudness scaling #
+        ####################
 
-            key = f'scaled-{int(ratio * 100):03d}'
-            for stem in test_stems:
-                prefix = f'{dataset}-{stem.replace("/", "-")}'
-                file = (
+        if 'loudness' in promonet.INPUT_FEATURES:
+
+            # Edit features
+            with torchutil.time.context('edit'):
+                key = f'scaled-{int(ratio * 100):03d}'
+                output_prefixes = [
                     original_objective_directory /
-                    f'{prefix}-original-100-loudness.pt')
-
-                # Scale original loudness and save to disk
-                output_prefix = (
-                    original_objective_directory /
-                    f'{prefix}-{key}')
-                promonet.edit.from_file_to_file(
-                    file.parent / file.name.replace('loudness', 'pitch'),
-                    file.parent / file.name.replace('loudness', 'periodicity'),
-                    file,
-                    file.parent / file.name.replace('loudness', 'ppg'),
-                    output_prefix,
+                    prefix.replace('original-100', key)
+                    for prefix in prefixes]
+                promonet.edit.from_files_to_files(
+                    loudness_files,
+                    pitch_files,
+                    periodicity_files,
+                    ppg_files,
+                    output_prefixes,
                     loudness_scale_db=promonet.convert.ratio_to_db(ratio))
 
-                # Copy text
+            # Generate
+            files[key] = [
+                subjective_directory / f'{prefix.name}.wav'
+                for prefix in output_prefixes]
+            if promonet.MODEL in ['psola', 'world']:
+                if promonet.MODEL == 'psola':
+                    synthesis_fn = promonet.baseline.psola.from_files_to_files
+                elif promonet.MODEL == 'world':
+                    synthesis_fn = functools.partial(
+                        promonet.baseline.world.from_files_to_files,
+                        pitch_files=[
+                            f'{prefix}{viterbi}-pitch.pt'
+                            for prefix in output_prefixes],
+                        periodicity_files=[
+                            f'{prefix}{viterbi}-periodicity.pt'
+                            for prefix in output_prefixes])
+                synthesis_fn(
+                    original_audio_files,
+                    files[key],
+                    loudness_files=[
+                        f'{prefix}-loudness.pt' for prefix in output_prefixes])
+            else:
+                promonet.synthesize.from_files_to_files(
+                    [f'{prefix}-loudness.pt' for prefix in output_prefixes],
+                    [f'{prefix}{viterbi}-pitch.pt' for prefix in output_prefixes],
+                    [f'{prefix}{viterbi}-periodicity.pt' for prefix in output_prefixes],
+                    [f'{prefix}{ppgs.representation_file_extension()}' for prefix in output_prefixes],
+                    files[key],
+                    checkpoint=checkpoint,
+                    speakers=speakers,
+                    gpu=gpu)
+
+        ############################
+        # Spectral balance editing #
+        ############################
+
+        if promonet.AUGMENT_PITCH and promonet.MODEL not in ['psola', 'world']:
+
+            # Copy features
+            key = f'balance-{int(ratio * 100):03d}'
+            output_prefixes = [
+                original_objective_directory /
+                prefix.replace('original-100', key)
+                for prefix in prefixes]
+            for (
+                loudness_file,
+                pitch_file,
+                periodicity_file,
+                ppg_file,
+                output_prefix
+            ) in zip(
+                loudness_files,
+                pitch_files,
+                periodicity_files,
+                ppg_files,
+                output_prefixes
+            ):
+                shutil.copyfile(loudness_file, f'{output_prefix}-loudness.pt')
                 shutil.copyfile(
-                    original_objective_directory /
-                    f'{prefix}-original-100-{feature}.txt',
-                    f'{output_prefix}-{feature}.txt')
+                    pitch_file,
+                    f'{output_prefix}{viterbi}-pitch.pt')
+                shutil.copyfile(
+                    periodicity_file,
+                    f'{output_prefix}{viterbi}-periodicity.pt')
+                shutil.copyfile(
+                    ppg_file,
+                    f'{output_prefix}{ppgs.representation_file_extension()}')
 
             # Generate
             files[key] = [
-                subjective_directory /
-                f'{dataset}-{stem.replace("/", "-")}-{key}.wav'
-                for stem in test_stems]
-            pitch_files = [
+                subjective_directory / f'{prefix.name}.wav'
+                for prefix in output_prefixes]
+            if promonet.SPECTROGRAM_ONLY:
+                promonet.baseline.mels.from_files_to_files(
+                    original_audio_files,
+                    files[key],
+                    speakers=speakers,
+                    checkpoint=checkpoint,
+                    spectral_balance_ratio=ratio,
+                    gpu=gpu)
+            else:
+                promonet.synthesize.from_files_to_files(
+                    [f'{prefix}-loudness.pt' for prefix in output_prefixes],
+                    [f'{prefix}{viterbi}-pitch.pt' for prefix in output_prefixes],
+                    [f'{prefix}{viterbi}-periodicity.pt' for prefix in output_prefixes],
+                    [f'{prefix}{ppgs.representation_file_extension()}' for prefix in output_prefixes],
+                    files[key],
+                    speakers=speakers,
+                    spectral_balance_ratio=ratio,
+                    checkpoint=checkpoint,
+                    gpu=gpu)
+
+        ###############################
+        # Perceptual loudness editing #
+        ###############################
+
+        if promonet.AUGMENT_LOUDNESS and promonet.MODEL not in ['psola', 'world']:
+
+            # Copy features
+            key = f'loudness-{int(ratio * 100):03d}'
+            output_prefixes = [
                 original_objective_directory /
-                f'{dataset}-{stem.replace("/", "-")}-{key}-pitch.pt'
-                for stem in test_stems]
-            promonet.synthesize.from_files_to_files(
+                prefix.replace('original-100', key)
+                for prefix in prefixes]
+            for (
+                loudness_file,
+                pitch_file,
+                periodicity_file,
+                ppg_file,
+                output_prefix
+            ) in zip(
+                loudness_files,
                 pitch_files,
-                [
-                    file.parent / file.name.replace('pitch', 'periodicity')
-                    for file in pitch_files
-                ],
-                [
-                    file.parent / file.name.replace('pitch', 'loudness')
-                    for file in pitch_files
-                ],
-                [
-                    file.parent / file.name.replace('pitch', 'ppg')
-                    for file in pitch_files
-                ],
-                files[key],
-                checkpoint=checkpoint,
-                speakers=(
-                    [0] * len(test_stems) if promonet.ADAPTATION else speakers
-                ),
-                gpu=gpu)
+                periodicity_files,
+                ppg_files,
+                output_prefixes
+            ):
+                shutil.copyfile(loudness_file, f'{output_prefix}-loudness.pt')
+                shutil.copyfile(
+                    pitch_file,
+                    f'{output_prefix}{viterbi}-pitch.pt')
+                shutil.copyfile(
+                    periodicity_file,
+                    f'{output_prefix}{viterbi}-periodicity.pt')
+                shutil.copyfile(
+                    ppg_file,
+                    f'{output_prefix}{ppgs.representation_file_extension()}')
+
+            # Generate
+            files[key] = [
+                subjective_directory / f'{prefix.name}.wav'
+                for prefix in output_prefixes]
+            if promonet.SPECTROGRAM_ONLY:
+                promonet.baseline.mels.from_files_to_files(
+                    original_audio_files,
+                    files[key],
+                    speakers=speakers,
+                    checkpoint=checkpoint,
+                    loudness_ratio=ratio,
+                    gpu=gpu)
+            else:
+                promonet.synthesize.from_files_to_files(
+                    [f'{prefix}-loudness.pt' for prefix in output_prefixes],
+                    [f'{prefix}{viterbi}-pitch.pt' for prefix in output_prefixes],
+                    [f'{prefix}{viterbi}-periodicity.pt' for prefix in output_prefixes],
+                    [f'{prefix}{ppgs.representation_file_extension()}' for prefix in output_prefixes],
+                    files[key],
+                    speakers=speakers,
+                    loudness_ratio=ratio,
+                    checkpoint=checkpoint,
+                    gpu=gpu)
 
     ############################
     # Speech -> representation #
     ############################
 
-    for audio_files in files.values():
+    for key, audio_files in files.items():
 
         # Infer speech representation
-        promonet.preprocess.from_files_to_files(
-            audio_files,
-            [
-                objective_directory / f'{file.stem}-ppg.pt'
-                for file in audio_files
-            ],
-            gpu=gpu
-        )
-
-        # Infer speaker embeddings
-        embedding_files = [
-            objective_directory / f'{file.stem}-speaker.pt'
-            for file in audio_files]
-        promonet.resemblyzer.from_files_to_files(
-            audio_files,
-            embedding_files,
-            gpu=gpu)
-
-    original_files = original_subjective_directory.glob(
-        f'{dataset}-{index}-*-original-100.wav')
-    speaker_embedding = promonet.resemblyzer.from_files(original_files, gpu)
-    torch.save(
-        speaker_embedding,
-        objective_directory / f'{dataset}-{index}-speaker.pt')
+        with torchutil.time.context('preprocess'):
+            promonet.preprocess.from_files_to_files(
+                audio_files,
+                [
+                    objective_directory / file.stem
+                    for file in audio_files
+                ],
+                gpu=gpu,
+                features=[
+                    'loudness',
+                    'pitch',
+                    'periodicity',
+                    'ppg',
+                    'text'
+                ],
+                loudness_bands=None)
 
     ############################
     # Evaluate prosody editing #
     ############################
 
-    if promonet.MODEL != 'vits':
+    with torchutil.time.context('evaluate'):
 
         # Setup speaker metrics
-        speaker_metrics = default_metrics(gpu)
+        speaker_metrics = default_metrics()
 
         # Iterate over edit conditions
         results = {'objective': {'raw': {}}}
         for key, value in files.items():
-            results['objective']['raw'][key] = []
+
             for file in value:
 
-                # Get prosody metrics
-                file_metrics = promonet.evaluate.Metrics(gpu)
+                # Setup file metrics
+                file_metrics = promonet.evaluate.Metrics()
+                if file.stem not in results['objective']['raw']:
+                    results['objective']['raw'][file.stem] = {}
 
                 # Get target filepath
                 target_prefix = original_objective_directory / file.stem
@@ -523,42 +626,44 @@ def speaker(
                 # Get predicted filepath
                 predicted_prefix = objective_directory / file.stem
 
+                # Load predicted and target features
+                loudness = promonet.loudness.band_average(
+                    torch.load(f'{predicted_prefix}-loudness.pt').to(device),
+                    1)
+                target_loudness = promonet.loudness.band_average(
+                    torch.load(f'{target_prefix}-loudness.pt').to(device),
+                    1)
+                args = (
+                    loudness,
+                    torch.load(f'{predicted_prefix}{viterbi}-pitch.pt').to(device),
+                    torch.load(f'{predicted_prefix}{viterbi}-periodicity.pt').to(device),
+                    promonet.load.ppg(
+                        f'{predicted_prefix}{ppgs.representation_file_extension()}',
+                        loudness.shape[-1]
+                    ).to(device),
+                    target_loudness,
+                    torch.load(f'{target_prefix}{viterbi}-pitch.pt').to(device),
+                    torch.load(f'{target_prefix}{viterbi}-periodicity.pt').to(device),
+                    promonet.load.ppg(
+                        f'{target_prefix}{ppgs.representation_file_extension()}',
+                        loudness.shape[-1]
+                    ).to(device),
+                    promonet.load.text(f'{predicted_prefix}.txt'),
+                    promonet.load.text(
+                        f'{target_prefix}.txt'.replace(key, 'original-100')))
+
                 # Update metrics
-                prosody_args = (
-                    torch.load(f'{predicted_prefix}-pitch.pt'),
-                    torch.load(f'{predicted_prefix}-periodicity.pt'),
-                    torch.load(f'{predicted_prefix}-loudness.pt'),
-                    torch.load(f'{predicted_prefix}-ppgs.pt'),
-                    torch.load(f'{target_prefix}-pitch.pt'),
-                    torch.load(f'{target_prefix}-periodicity.pt'),
-                    torch.load(f'{target_prefix}-loudness.pt'),
-                    torch.load(f'{target_prefix}-ppgs.pt'))
-
-                # Get target text and audio for WER
-                text = promonet.load.text(f'{target_prefix}-text.txt')
-                audio = promonet.load.audio(file)
-                wer_args = (text, audio)
-
-                # Get speaker embeddings
-                embedding = torch.load(f'{predicted_prefix}-speaker.pt').to(
-                    speaker_embedding.device)
-                speaker_sim_args = (speaker_embedding, embedding)
-
-                # Update metrics
-                condition = '-'.join(target_prefix.stem.split('-')[3:5])
-                args = (*prosody_args, wer_args, speaker_sim_args)
-                aggregate_metrics[condition].update(*args)
-                dataset_metrics[condition].update(*args)
-                speaker_metrics[condition].update(*args)
+                aggregate_metrics[key].update(*args)
+                dataset_metrics[key].update(*args)
+                speaker_metrics[key].update(*args)
                 file_metrics.update(*args)
 
-                # Get results for this file
-                results['objective']['raw'][key].append(
-                    (file.stem, file_metrics()))
+                # Save file results
+                results['objective']['raw'][file.stem][key] = file_metrics()
 
-        # Get results for this speaker
-        results['objective']['average'] = {
-            key: value() for key, value in speaker_metrics.items()}
+    # Get results for this speaker
+    results['objective']['average'] = {
+        key: value() for key, value in speaker_metrics.items()}
 
     # Get the total number of samples we have generated
     files = subjective_directory.glob(f'{dataset}-{index}-*.wav')
@@ -567,13 +672,8 @@ def speaker(
     results['num_frames'] = promonet.convert.samples_to_frames(
         results['num_samples'])
 
-    # Print results and save to disk
-    print(results)
-    file = (
-        promonet.RESULTS_DIR /
-        promonet.CONFIG /
-        dataset /
-        f'{index}.json')
+    # Save to disk
+    file = promonet.RESULTS_DIR / promonet.CONFIG / dataset / f'{index}.json'
     file.parent.mkdir(exist_ok=True, parents=True)
     with open(file, 'w') as file:
         json.dump(results, file, indent=4, sort_keys=True)
@@ -584,19 +684,38 @@ def speaker(
 ###############################################################################
 
 
-def default_metrics(gpu):
+def default_metrics():
     """Construct the default metrics dictionary for each condition"""
-    # Bind shared parameter
-    metric_fn = functools.partial(promonet.evaluate.Metrics, gpu)
-
     # Reconstruction metrics
-    metrics = {'original-100': metric_fn()}
+    metrics = {'reconstructed-100': promonet.evaluate.Metrics()}
 
-    if promonet.MODEL not in ['hifigan', 'vits']:
+    # Prosody editing metrics
+    if 'loudness' in promonet.INPUT_FEATURES:
+        for ratio in promonet.EVALUATION_RATIOS:
+            metrics[f'scaled-{int(ratio * 100):03d}'] = \
+                promonet.evaluate.Metrics()
+    if 'pitch' in promonet.INPUT_FEATURES:
+        for ratio in promonet.EVALUATION_RATIOS:
+            metrics[f'shifted-{int(ratio * 100):03d}'] = \
+                promonet.evaluate.Metrics()
+    if (
+        'ppg' in promonet.INPUT_FEATURES and
+        ppgs.REPRESENTATION_KIND == 'ppg'
+    ):
+        for ratio in promonet.EVALUATION_RATIOS:
+            metrics[f'stretched-{int(ratio * 100):03d}'] = \
+                promonet.evaluate.Metrics()
 
-        # Prosody editing metrics
-        for condition in ['scaled', 'shifted', 'stretched']:
-            for ratio in promonet.EVALUATION_RATIOS:
-                metrics[f'{condition}-{int(ratio * 100):03d}'] = metric_fn()
+    # Spectral balance editing metrics
+    if promonet.AUGMENT_PITCH and promonet.MODEL not in ['psola', 'world']:
+        for ratio in promonet.EVALUATION_RATIOS:
+            metrics[f'balance-{int(ratio * 100):03d}'] = \
+                promonet.evaluate.Metrics()
+
+    # Loudness editing metrics
+    if promonet.AUGMENT_LOUDNESS and promonet.MODEL not in ['psola', 'world']:
+        for ratio in promonet.EVALUATION_RATIOS:
+            metrics[f'loudness-{int(ratio * 100):03d}'] = \
+                promonet.evaluate.Metrics()
 
     return metrics

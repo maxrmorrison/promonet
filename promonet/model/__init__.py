@@ -1,11 +1,7 @@
+from . import export
 from .core import *
 from .discriminator import Discriminator
-from .duration import DurationPredictor
-from .generator import Generator
-from .snake import Snake
-from .vocoder import get_vocoder
-from .wavenet import WaveNet
-from . import flow
-from . import align
-from . import spline
-from . import transformer
+from .fargan import FARGAN
+from .generator import Generator, MelGenerator
+from .hifigan import HiFiGAN
+from .vocos import Vocos

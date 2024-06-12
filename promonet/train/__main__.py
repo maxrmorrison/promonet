@@ -1,34 +1,35 @@
+import argparse
 import shutil
 from pathlib import Path
-
-import yapecs
 
 import promonet
 
 
 ###############################################################################
-# Entry point
+# Training
 ###############################################################################
 
 
 def main(
     config,
-    dataset,
+    dataset=promonet.TRAINING_DATASET,
     train_partition='train',
     valid_partition='valid',
     adapt_from=False,
-    gpu=None):
+    gpu=None
+):
     # Create output directory
-    directory = promonet.RUNS_DIR / config.stem
+    directory = promonet.RUNS_DIR / promonet.CONFIG
     directory.mkdir(parents=True, exist_ok=True)
 
     # Save configuration
-    shutil.copyfile(config, directory / config.name)
+    if config is not None:
+        shutil.copyfile(config, directory / config.name)
 
     # Train
     promonet.train(
-        dataset,
         directory,
+        dataset,
         train_partition,
         valid_partition,
         adapt_from,
@@ -37,12 +38,11 @@ def main(
 
 def parse_args():
     """Parse command-line arguments"""
-    parser = yapecs.ArgumentParser(description='Train a model')
+    parser = argparse.ArgumentParser(description='Train a model')
     parser.add_argument(
         '--config',
         type=Path,
         nargs='+',
-        default=[promonet.DEFAULT_CONFIGURATION],
         help='The configuration file')
     parser.add_argument(
         '--dataset',
@@ -67,9 +67,9 @@ def parse_args():
 
     # Delete config files
     args = parser.parse_args()
-    args.config = args.config[0]
+    if args.config is not None:
+        args.config = args.config[0]
     return args
 
 
-if __name__ == '__main__':
-    main(**vars(parse_args()))
+main(**vars(parse_args()))

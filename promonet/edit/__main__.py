@@ -13,6 +13,12 @@ def parse_args():
     """Parse command-line arguments"""
     parser = yapecs.ArgumentParser(description='Edit speech representation')
     parser.add_argument(
+        '--loudness_files',
+        type=Path,
+        nargs='+',
+        required=True,
+        help='The loudness files to edit')
+    parser.add_argument(
         '--pitch_files',
         type=Path,
         nargs='+',
@@ -24,12 +30,6 @@ def parse_args():
         nargs='+',
         required=True,
         help='The periodicity files to edit')
-    parser.add_argument(
-        '--loudness_files',
-        type=Path,
-        nargs='+',
-        required=True,
-        help='The loudness files to edit')
     parser.add_argument(
         '--ppg_files',
         type=Path,
@@ -62,6 +62,10 @@ def parse_args():
         '--stretch_silence',
         action='store_true',
         help='If provided, applies time-stretching to silence frames')
+    parser.add_argument(
+        '--save_grid',
+        action='store_true',
+        help='If provided, also saves the time-stretch grid')
     return parser.parse_known_args()[0]
 
 

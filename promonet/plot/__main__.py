@@ -39,5 +39,4 @@ def parse_args():
     return parser.parse_args()
 
 
-if __name__ == '__main__':
-    promonet.plot.from_file_to_file(**vars(parse_args()))
+promonet.plot.from_file_to_file(**vars(parse_args()))

@@ -2,16 +2,16 @@
 Data partitions
 
 DAPS
-===
+====
 * train_adapt_{:02d} - Training dataset for speaker adaptation (10 speakers)
 * test_adapt_{:02d} - Test dataset for speaker adaptation
     (10 speakers; 10 examples per speaker; 4-10 seconds)
 
 LibriTTS
-====
+========
 * train - Training data
 * valid - Validation set of seen speakers for debugging and tensorboard
-    (10 examples)
+    (64 examples)
 * train_adapt_{:02d} - Training dataset for speaker adaptation (10 speakers)
 * test_adapt_{:02d} - Test dataset for speaker adaptation
     (10 speakers; 10 examples per speaker; 4-10 seconds)
@@ -20,12 +20,11 @@ VCTK
 ====
 * train - Training data
 * valid - Validation set of seen speakers for debugging and tensorboard
-    (10 examples; 4-10 seconds)
+    (64 examples; 4-10 seconds)
 * train_adapt_{:02d} - Training dataset for speaker adaptation (10 speakers)
 * test_adapt_{:02d} - Test dataset for speaker adaptation
     (10 speakers; 10 examples per speaker; 4-10 seconds)
 """
-import os
 import functools
 import itertools
 import json
@@ -120,10 +119,9 @@ def datasets(datasets):
     """Partition datasets and save to disk"""
     for name in datasets:
 
-        # Remove cached metadata that may become stale
-        metadata_files = (promonet.CACHE_DIR / name).glob('-lengths.json')
-        for metadata_file in metadata_files:
-            os.remove(metadata_file)
+        # Remove cached training statistics that may become stale
+        for stats_file in (promonet.ASSETS_DIR / 'stats').glob('*.pt'):
+            stats_file.unlink()
 
         # Partition
         if name == 'vctk':
@@ -152,7 +150,7 @@ def daps():
     # Get stems
     directory = promonet.CACHE_DIR / 'daps'
     stems = [
-        f'{file.parent.name}/{file.stem}'
+        f'{file.parent.name}/{file.stem[:6]}'
         for file in directory.rglob('*.txt')]
 
     # Create speaker adaptation partitions
@@ -167,7 +165,7 @@ def libritts():
     # Get list of speakers
     directory = promonet.CACHE_DIR / 'libritts'
     stems = {
-        f'{file.parent.name}/{file.stem}'
+        f'{file.parent.name}/{file.stem[:6]}'
         for file in directory.rglob('*.txt')}
 
     # Get speaker map
@@ -195,7 +193,7 @@ def libritts():
 
     # Get validation stems
     filter_fn = functools.partial(meets_length_criteria, directory)
-    valid_stems = list(filter(filter_fn, residual))[:10]
+    valid_stems = list(filter(filter_fn, residual))[:64]
 
     # Get training stems
     train_stems = [stem for stem in residual if stem not in valid_stems]
@@ -210,8 +208,12 @@ def vctk():
     # Get list of speakers
     directory = promonet.CACHE_DIR / 'vctk'
     stems = {
-        f'{file.parent.name}/{file.stem}'
+        f'{file.parent.name}/{file.stem[:6]}'
         for file in directory.rglob('*.txt')}
+
+    # Get file stem correspondence
+    with open(directory / 'correspondence.json') as file:
+        correspondence = json.load(file)
 
     # Create speaker adaptation partitions
     if promonet.ADAPTATION:
@@ -223,14 +225,18 @@ def vctk():
         # Get test partition indices
         test_stems = list(
             itertools.chain.from_iterable(adapt_partitions.values()))
+        test_correspondence = [correspondence[stem][:-1] for stem in test_stems]
 
         # Get residual indices
-        residual = [stem for stem in stems if stem not in test_stems]
+        residual = [
+            stem for stem in stems
+            if stem not in test_stems and
+            correspondence[stem][:-1] not in test_correspondence]
         random.shuffle(residual)
 
         # Get validation stems
         filter_fn = functools.partial(meets_length_criteria, directory)
-        valid_stems = list(filter(filter_fn, residual))[:10]
+        valid_stems = list(filter(filter_fn, residual))[:64]
 
         # Get training stems
         train_stems = [stem for stem in residual if stem not in valid_stems]
@@ -247,13 +253,17 @@ def vctk():
         for speaker, speaker_stems in test_speaker_stems.items():
             random.shuffle(speaker_stems)
             test_stems += list(filter(filter_fn, speaker_stems))[:10]
+        test_correspondence = [correspondence[stem][:-1] for stem in test_stems]
 
-        residual = [stem for stem in stems if stem not in test_stems]
+        residual = [
+            stem for stem in stems
+            if stem not in test_stems and
+            correspondence[stem][:-1] not in test_correspondence]
         random.shuffle(residual)
 
         # Get validation stems
         filter_fn = functools.partial(meets_length_criteria, directory)
-        valid_stems = list(filter(filter_fn, residual))[:10]
+        valid_stems = list(filter(filter_fn, residual))[:64]
 
         # Get training stems
         train_stems = [stem for stem in residual if stem not in valid_stems]

@@ -8,7 +8,7 @@ import promonet
 ###############################################################################
 
 
-@torchutil.notify.on_return('preprocess')
+@torchutil.notify('preprocess')
 def datasets(datasets, features=promonet.ALL_FEATURES, gpu=None):
     """Preprocess a dataset"""
     for dataset in datasets:
@@ -23,11 +23,17 @@ def datasets(datasets, features=promonet.ALL_FEATURES, gpu=None):
         # Preprocess input features
         if any(feature in features for feature in [
             'loudness',
-            'periodicity',
             'pitch',
-            'ppg'
+            'periodicity',
+            'ppg',
+            'text',
+            'harmonics'
         ]):
-            promonet.preprocess.from_files_to_files(audio_files, gpu=gpu)
+            promonet.preprocess.from_files_to_files(
+                audio_files,
+                gpu=gpu,
+                features=[f for f in features if f != 'spectrogram'],
+                loudness_bands=None)
 
         # Preprocess spectrograms
         if 'spectrogram' in features:

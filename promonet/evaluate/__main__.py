@@ -18,15 +18,14 @@ def parse_args():
         default=promonet.DATASETS,
         help='The datasets to evaluate')
     parser.add_argument(
-        '--checkpoint',
-        type=Path,
-        default=promonet.DEFAULT_CHECKPOINT,
-        help='The checkpoint to use')
+        '--adapt',
+        action='store_true',
+        help='Whether to perform speaker adaptation')
     parser.add_argument(
         '--gpu',
         type=int,
         help='The index of the gpu to use for evaluation')
-    return parser.parse_known_args()[0]
+    return parser.parse_args()
 
 
 promonet.evaluate.datasets(**vars(parse_args()))

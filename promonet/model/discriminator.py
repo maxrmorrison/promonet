@@ -4,7 +4,43 @@ import promonet
 
 
 ###############################################################################
-# Discriminator models
+# Aggregate discriminator
+###############################################################################
+
+
+class Discriminator(torch.nn.Module):
+
+    def __init__(self):
+        super().__init__()
+        discriminators = [DiscriminatorP(i) for i in [2, 3, 5, 7, 11]]
+        if promonet.MULTI_SCALE_DISCRIMINATOR:
+            discriminators.append(DiscriminatorS())
+        if promonet.MULTI_RESOLUTION_DISCRIMINATOR:
+            resolutions = [(1024, 120, 600), (2048, 240, 1200), (512, 50, 240)]
+            discriminators.extend(
+                [DiscriminatorR(i) for i in resolutions])
+        if promonet.COMPLEX_MULTIBAND_DISCRIMINATOR:
+            discriminators.append(DiscriminatorCMB())
+        self.discriminators = torch.nn.ModuleList(discriminators)
+
+    def forward(self, y, y_hat, **kwargs):
+        logits_real = []
+        logits_fake = []
+        feature_maps_real = []
+        feature_maps_fake = []
+        for discriminator in self.discriminators:
+            logit_real, feature_map_real = discriminator(y, **kwargs)
+            logit_fake, feature_map_fake = discriminator(y_hat, **kwargs)
+            logits_real.append(logit_real)
+            logits_fake.append(logit_fake)
+            feature_maps_real.append(feature_map_real)
+            feature_maps_fake.append(feature_map_fake)
+
+        return logits_real, logits_fake, feature_maps_real, feature_maps_fake
+
+
+###############################################################################
+# Individual discriminators
 ###############################################################################
 
 
@@ -25,50 +61,7 @@ class DiscriminatorP(torch.nn.Module):
             conv_fn(1024, 1024, (kernel_size, 1), 1, padding)])
         self.conv_post = conv_fn(1024, 1, (3, 1), 1, (1, 0))
 
-    def forward(
-        self,
-        x,
-        pitch=None,
-        periodicity=None,
-        loudness=None,
-        phonemes=None):
-        # Maybe add pitch conditioning
-        if promonet.CONDITION_DISCRIM:
-            pitch = torch.nn.functional.interpolate(
-                torch.log2(pitch)[:, None],
-                scale_factor=promonet.HOPSIZE,
-                mode='linear',
-                align_corners=False)
-            x = torch.cat((x, pitch), dim=1)
-
-        # Maybe add periodicity conditioning
-        if promonet.CONDITION_DISCRIM:
-            periodicity = torch.nn.functional.interpolate(
-                periodicity[:, None],
-                scale_factor=promonet.HOPSIZE,
-                mode='linear',
-                align_corners=False)
-            x = torch.cat((x, periodicity), dim=1)
-
-        # Maybe add loudness conditioning
-        if promonet.CONDITION_DISCRIM:
-            loudness = promonet.loudness.normalize(loudness)
-            loudness = torch.nn.functional.interpolate(
-                loudness[:, None],
-                scale_factor=promonet.HOPSIZE,
-                mode='linear',
-                align_corners=False)
-            x = torch.cat((x, loudness), dim=1)
-
-        # Maybe add ppg conditioning
-        if promonet.CONDITION_DISCRIM:
-            phonemes = torch.nn.functional.interpolate(
-                phonemes,
-                scale_factor=promonet.HOPSIZE,
-                mode='linear',
-                align_corners=False)
-            x = torch.cat((x, phonemes), dim=1)
-
+    def forward(self, x):
         feature_maps = []
 
         # 1d to 2d
@@ -106,52 +99,9 @@ class DiscriminatorR(torch.nn.Module):
         ])
         self.conv_post = conv_fn(32, 1, (3, 3), padding=(1, 1))
 
-    def forward(
-        self,
-        audio,
-        pitch=None,
-        periodicity=None,
-        loudness=None,
-        phonemes=None):
+    def forward(self, audio):
         # Compute spectral features
         features = self.spectrogram(audio)
-
-        # Maybe add pitch conditioning
-        if promonet.CONDITION_DISCRIM:
-            pitch = torch.nn.functional.interpolate(
-                torch.log2(pitch)[:, None],
-                size=features.shape[-1],
-                mode='linear',
-                align_corners=False)
-            features = torch.cat((features, pitch[:, None]), dim=2)
-
-        # Maybe add periodicity conditioning
-        if promonet.CONDITION_DISCRIM:
-            periodicity = torch.nn.functional.interpolate(
-                periodicity[:, None],
-                size=features.shape[-1],
-                mode='linear',
-                align_corners=False)
-            features = torch.cat((features, periodicity[:, None]), dim=2)
-
-        # Maybe add loudness conditioning
-        if promonet.CONDITION_DISCRIM:
-            loudness = promonet.loudness.normalize(loudness)
-            loudness = torch.nn.functional.interpolate(
-                loudness[:, None],
-                size=features.shape[-1],
-                mode='linear',
-                align_corners=False)
-            features = torch.cat((features, loudness[:, None]), dim=2)
-
-        # Maybe add ppg conditioning
-        if promonet.CONDITION_DISCRIM:
-            phonemes = torch.nn.functional.interpolate(
-                phonemes,
-                size=features.shape[-1],
-                mode='linear',
-                align_corners=False)
-            features = torch.cat((features, phonemes[:, None]), dim=2)
 
         # Forward pass and save activations
         fmap = []
@@ -183,6 +133,71 @@ class DiscriminatorR(torch.nn.Module):
         return torch.norm(x, p=2, dim=-1).unsqueeze(1)
 
 
+class DiscriminatorCMB(torch.nn.Module):
+
+    def __init__(
+        self,
+        bands=[(0.0, 0.1), (0.1, 0.25), (0.25, 0.5), (0.5, 0.75), (0.75, 1.0)],
+    ):
+        """Complex multi-band spectrogram discriminator"""
+        super().__init__()
+        self.window_length = promonet.WINDOW_SIZE
+        self.hop_size = promonet.HOPSIZE
+        self.sample_rate = promonet.SAMPLE_RATE
+
+        n_fft = promonet.NUM_FFT // 2 + 1
+        bands = [(int(b[0] * n_fft), int(b[1] * n_fft)) for b in bands]
+        self.bands = bands
+
+        ch = 32
+        convs = lambda: torch.nn.ModuleList(
+            [
+                WNConv2d(1, ch, (3, 9), (1, 1), padding=(1, 4)),
+                WNConv2d(ch, ch, (3, 9), (1, 2), padding=(1, 4)),
+                WNConv2d(ch, ch, (3, 9), (1, 2), padding=(1, 4)),
+                WNConv2d(ch, ch, (3, 9), (1, 2), padding=(1, 4)),
+                WNConv2d(ch, ch, (3, 3), (1, 1), padding=(1, 1)),
+            ]
+        )
+        self.band_convs = torch.nn.ModuleList([convs() for _ in range(len(self.bands))])
+        self.conv_post = WNConv2d(ch, 1, (3, 3), (1, 1), padding=(1, 1), act=False)
+
+    def spectrogram(self, x):
+        x = torch.nn.functional.pad(
+            x,
+            (int((self.window_length - self.hop_size) / 2), int((self.window_length - self.hop_size) / 2)),
+            mode='reflect')
+        x = torch.stft(
+            x.squeeze(1),
+            n_fft=self.window_length,
+            hop_length=self.hop_size,
+            win_length=self.window_length,
+            center=False,
+            return_complex=True)
+        x = torch.view_as_real(x)
+        x = torch.norm(x, p=2, dim=-1).unsqueeze(1)
+        x = torch.permute(x, (0, 1, 3, 2))
+
+        # Split into bands
+        return [x[..., b[0] : b[1]] for b in self.bands]
+
+    def forward(self, x):
+        # Compute complex spectrogram and split into bands
+        x_bands = self.spectrogram(x)
+
+        x, fmap = [], []
+        for band, stack in zip(x_bands, self.band_convs):
+            for layer in stack:
+                band = layer(band)
+                fmap.append(band)
+            x.append(band)
+        x = torch.cat(x, dim=-1)
+        x = self.conv_post(x)
+        fmap.append(x)
+
+        return torch.flatten(x, 1, -1), fmap
+
+
 class DiscriminatorS(torch.nn.Module):
     """Multi-scale waveform discriminator"""
 
@@ -199,50 +214,7 @@ class DiscriminatorS(torch.nn.Module):
             conv_fn(1024, 1024, 5, 1, padding=2), ])
         self.conv_post = conv_fn(1024, 1, 3, 1, padding=1)
 
-    def forward(
-        self,
-        x,
-        pitch=None,
-        periodicity=None,
-        loudness=None,
-        phonemes=None):
-        # Maybe add pitch conditioning
-        if promonet.CONDITION_DISCRIM:
-            pitch = torch.nn.functional.interpolate(
-                torch.log2(pitch)[:, None],
-                scale_factor=promonet.HOPSIZE,
-                mode='linear',
-                align_corners=False)
-            x = torch.cat((x, pitch), dim=1)
-
-        # Maybe add periodicity conditioning
-        if promonet.CONDITION_DISCRIM:
-            periodicity = torch.nn.functional.interpolate(
-                periodicity[:, None],
-                scale_factor=promonet.HOPSIZE,
-                mode='linear',
-                align_corners=False)
-            x = torch.cat((x, periodicity), dim=1)
-
-        # Maybe add loudness conditioning
-        if promonet.CONDITION_DISCRIM:
-            loudness = promonet.loudness.normalize(loudness)
-            loudness = torch.nn.functional.interpolate(
-                loudness[:, None],
-                scale_factor=promonet.HOPSIZE,
-                mode='linear',
-                align_corners=False)
-            x = torch.cat((x, loudness), dim=1)
-
-        # Maybe add ppg conditioning
-        if promonet.CONDITION_DISCRIM:
-            phonemes = torch.nn.functional.interpolate(
-                phonemes,
-                scale_factor=promonet.HOPSIZE,
-                mode='linear',
-                align_corners=False)
-            x = torch.cat((x, phonemes), dim=1)
-
+    def forward(self, x):
         # Forward pass and save activations
         feature_maps = []
         for layer in self.convs:
@@ -257,42 +229,17 @@ class DiscriminatorS(torch.nn.Module):
         return torch.flatten(x, 1, -1), feature_maps
 
 
-class Discriminator(torch.nn.Module):
-
-    def __init__(self):
-        super().__init__()
-        discriminators = [DiscriminatorP(i) for i in [2, 3, 5, 7, 11]]
-        if promonet.MULTI_SCALE_DISCRIMINATOR:
-            discriminators.append(DiscriminatorS())
-        if promonet.MULTI_RESOLUTION_DISCRIMINATOR:
-            resolutions = [(1024, 120, 600), (2048, 240, 1200), (512, 50, 240)]
-            discriminators.extend(
-                [DiscriminatorR(i) for i in resolutions])
-        self.discriminators = torch.nn.ModuleList(discriminators)
-
-    def forward(
-        self,
-        y,
-        y_hat,
-        **kwargs):
-        logits_real = []
-        logits_fake = []
-        feature_maps_real = []
-        feature_maps_fake = []
-        for discriminator in self.discriminators:
-            logit_real, feature_map_real = discriminator(y, **kwargs)
-            logit_fake, feature_map_fake = discriminator(y_hat, **kwargs)
-            logits_real.append(logit_real)
-            logits_fake.append(logit_fake)
-            feature_maps_real.append(feature_map_real)
-            feature_maps_fake.append(feature_map_fake)
-
-        return logits_real, logits_fake, feature_maps_real, feature_maps_fake
-
-
 ###############################################################################
 # Utilities
 ###############################################################################
+
+
+def WNConv2d(*args, **kwargs):
+    act = kwargs.pop("act", True)
+    conv = weight_norm_conv2d(*args, **kwargs)
+    if not act:
+        return conv
+    return torch.nn.Sequential(conv, torch.nn.LeakyReLU(0.1))
 
 
 def weight_norm_conv2d(*args, **kwargs):

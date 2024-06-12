@@ -1,8 +1,7 @@
+import functools
 import json
 
-import numpy as np
 import torch
-import torchaudio
 
 import promonet
 import ppgs
@@ -15,97 +14,14 @@ import ppgs
 
 class Dataset(torch.utils.data.Dataset):
 
-    def __init__(self, dataset, partition):
+    def __init__(self, dataset, partition, adapt=promonet.ADAPTATION):
         super().__init__()
-        self.metadata = Metadata(dataset, partition)
-        self.cache = self.metadata.cache
-        self.stems = self.metadata.stems
-        self.lengths = self.metadata.lengths
+        self.cache = promonet.CACHE_DIR / dataset
         self.partition = partition
-        self.dataset = dataset
-
-    def __getitem__(self, index):
-        stem = self.stems[index]
-        text = promonet.load.text(self.cache / f'{stem[:-4]}.txt')
-        audio = promonet.load.audio(self.cache / f'{stem}.wav')
-        pitch = torch.load(self.cache / f'{stem}-pitch.pt')
-        periodicity = torch.load(self.cache / f'{stem}-periodicity.pt')
-        loudness = torch.load(self.cache / f'{stem}-loudness.pt')
-        spectrogram = torch.load(self.cache / f'{stem}-spectrogram.pt')
-
-        # Get speaker index. Non-integer speaker names are assumed to be
-        # for speaker adaptation and therefore default to index zero.
-        if 'adapt' not in self.partition:
-            speaker = int(stem.split('/')[0])
-        else:
-            speaker = 0
-
-        # Load supervised or unsupervised phoneme features
-        if promonet.MODEL == 'vits':
-            phonemes = promonet.load.phonemes(
-                self.cache / f'{stem}-phonemes.pt',
-                interleave=True)
-        else:
-
-            # Load ppgs
-            phonemes = torch.load(self.cache / f'{stem}-ppg.pt')
-
-            # Maybe resample length
-            if phonemes.shape[1] != spectrogram.shape[-1]:
-                grid = promonet.edit.grid.of_length(
-                    phonemes,
-                    spectrogram.shape[-1])
-                phonemes = promonet.edit.grid.sample(
-                    phonemes,
-                    grid,
-                    promonet.PPG_INTERP_METHOD)
-
-        return (
-            text,
-            phonemes,
-            pitch,
-            periodicity,
-            loudness,
-            spectrogram,
-            audio,
-            torch.tensor(speaker, dtype=torch.long),
-            int(stem[-3:]) / 100.,
-            stem)
-
-    def __len__(self):
-        return len(self.stems)
-
-    def buckets(self):
-        """Partition indices into buckets based on length for sampling"""
-        # Get the size of a bucket
-        size = len(self) // promonet.BUCKETS
-
-        # Get indices in order of length
-        indices = np.argsort(self.lengths)
-
-        # Split into buckets based on length
-        buckets = [indices[i:i + size] for i in range(0, len(self), size)]
-
-        # Add max length of each bucket
-        return [(self.lengths[bucket[-1]], bucket) for bucket in buckets]
-
-
-###############################################################################
-# Metadata
-###############################################################################
-
-class Metadata:
-
-    def __init__(self, name, partition=None, overwrite_cache=False):
-        """Create a metadata object for the given dataset or sources"""
-        lengths = {}
-
-        # Create dataset from string identifier
-        self.name = name
-        self.cache = promonet.CACHE_DIR / self.name
+        self.viterbi = '-viterbi' if promonet.VITERBI_DECODE_PITCH else ''
 
         # Get stems corresponding to partition
-        partition_dict = promonet.load.partition(self.name)
+        partition_dict = promonet.load.partition(dataset, adapt)
         if partition is not None:
             stems = partition_dict[partition]
         else:
@@ -114,63 +30,117 @@ class Metadata:
 
         # For training, maybe add augmented data
         # This also applies to adaptation partitions: train-adapt-xx
-        if 'train' in partition and promonet.AUGMENT_PITCH:
-            with open(promonet.AUGMENT_DIR / f'{self.name}.json') as file:
-                ratios = json.load(file)
-            self.stems.extend([f'{stem}-{ratios[stem]}' for stem in stems])
+        if 'train' in partition:
+            if promonet.AUGMENT_PITCH:
+                with open(
+                    promonet.AUGMENT_DIR / f'{dataset}-pitch.json'
+                ) as file:
+                    ratios = json.load(file)
+                self.stems.extend([f'{stem}-p{ratios[stem]}' for stem in stems])
+            if promonet.AUGMENT_LOUDNESS:
+                with open(
+                    promonet.AUGMENT_DIR / f'{dataset}-loudness.json'
+                ) as file:
+                    ratios = json.load(file)
+                self.stems.extend([
+                    f'{stem}-l{ratios[stem]}' for stem in stems
+                    if (self.cache / f'{stem}-l{ratios[stem]}.wav').exists()])
 
-        # Maybe limit the maximum length during training to improve
-        # GPU utilization
-        if (
-            ('train' in partition or 'valid' in partition) and
-            promonet.MAX_TEXT_LENGTH is not None
-        ):
-            self.stems = [
-                stem for stem in self.stems if (
-                    # len(
-                    #     promonet.load.phonemes(
-                    #         self.cache / f'{stem}-phonemes.pt')
-                    # ) < promonet.MAX_TEXT_LENGTH and
-                    promonet.convert.samples_to_frames(
-                        torchaudio.info(
-                            self.cache / f'{stem}.wav').num_frames
-                    ) < promonet.MAX_FRAME_LENGTH
-                )
-            ]
+        # Omit files where the 50 Hz hum dominates the pitch estimation
+        self.stems = [
+            stem for stem in self.stems
+            if (
+                2 ** torch.log2(
+                    torch.load(self.cache / f'{stem}{self.viterbi}-pitch.pt')
+                ).mean()
+            ) > 60.]
 
-        # Get audio filenames
-        self.audio_files = [
-            self.cache / (stem + '.wav') for stem in self.stems]
+    def __getitem__(self, index):
+        stem = self.stems[index]
+        text = promonet.load.text(self.cache / f'{stem.split("-")[0]}.txt')
+        audio = promonet.load.audio(
+            self.cache / f'{stem}.wav').to(torch.float32)
+        pitch = torch.load(
+            self.cache / f'{stem}{self.viterbi}-pitch.pt').to(torch.float32)
+        periodicity = torch.load(
+            self.cache / f'{stem}{self.viterbi}-periodicity.pt'
+        ).to(torch.float32)
+        spectrogram = torch.load(
+            self.cache / f'{stem}-spectrogram.pt').to(torch.float32)
+        phonemes = promonet.load.ppg(
+            self.cache / f'{stem}{ppgs.representation_file_extension()}',
+            resample_length=spectrogram.shape[-1]
+        ).to(torch.float32)
 
-        # Get filename of cached lengths
-        if partition is not None:
-            lengths_file = self.cache / f'{partition}-lengths.json'
+        # For loudness augmentation, use original loudness to disentangle
+        if stem.split('-')[-1].startswith('l'):
+            loudness_file = self.cache / f'{stem[:-4]}100-loudness.pt'
         else:
-            lengths_file = self.cache / 'lengths.json'
+            loudness_file = self.cache / f'{stem}-loudness.pt'
+        loudness = torch.load(loudness_file).to(torch.float32)
 
-        # Maybe remove existing cache data
-        if overwrite_cache:
-            lengths_file.unlink(missing_ok=True)
+        # Chunk during training
+        if self.partition.startswith('train'):
+            frames = promonet.CHUNK_SIZE // promonet.HOPSIZE
+            if audio.shape[1] < promonet.CHUNK_SIZE:
+                audio = torch.nn.functional.pad(
+                    audio,
+                    (0, promonet.CHUNK_SIZE - audio.shape[1]),
+                    mode='reflect')
+                pad_frames = frames - pitch.shape[1]
+                pad_fn = functools.partial(
+                    torch.nn.functional.pad,
+                    pad=(0, pad_frames),
+                    mode='reflect')
+                pitch = pad_fn(pitch)
+                periodicity = pad_fn(periodicity)
+                loudness = pad_fn(loudness)
+                spectrogram = pad_fn(spectrogram)
+                phonemes = pad_fn(phonemes)
+            else:
+                start_frame = torch.randint(pitch.shape[-1] - frames + 1, (1,)).item()
+                start_sample = start_frame * promonet.HOPSIZE
+                audio = audio[
+                    :, start_sample:start_sample + promonet.CHUNK_SIZE]
+                pitch = pitch[:, start_frame:start_frame + frames]
+                periodicity = periodicity[:, start_frame:start_frame + frames]
+                loudness = loudness[:, start_frame:start_frame + frames]
+                spectrogram = spectrogram[:, start_frame:start_frame + frames]
+                phonemes = phonemes[:, start_frame:start_frame + frames]
 
-        # Load from cache
-        if lengths_file.exists():
-            with open(lengths_file, 'r') as file:
-                lengths = json.load(file)
+        # Get speaker index. Non-integer speaker names are assumed to be
+        # for speaker adaptation and therefore default to index zero.
+        if 'adapt' not in self.partition:
+            speaker = int(stem.split('/')[0])
+        else:
+            speaker = 0
 
-        if not lengths:
+        # Data augmentation ratios
+        augmentation = stem[-4:]
+        if augmentation.startswith('-'):
+            spectral_balance_ratios, loudness_ratio = 1., 1.
+        elif augmentation.startswith('p'):
+            spectral_balance_ratios = int(stem[-3:]) / 100.
+            loudness_ratio = 1.
+        elif augmentation.startswith('l'):
+            spectral_balance_ratios = 1.
+            loudness_ratio = int(stem[-3:]) / 100.
+        else:
+            raise ValueError(
+                f'Unrecognized augmentation string {augmentation}')
 
-            # Compute length in frames
-            for stem, audio_file in zip(self.stems, self.audio_files):
-                lengths[stem] = \
-                    torchaudio.info(audio_file).num_frames // ppgs.HOPSIZE
-
-            # Maybe cache lengths
-            if self.cache is not None:
-                with open(lengths_file, 'w+') as file:
-                    json.dump(lengths, file)
-
-        # Match ordering
-        self.lengths = [lengths[stem] for stem in self.stems]
+        return (
+            text,
+            loudness,
+            pitch,
+            periodicity,
+            phonemes,
+            spectrogram,
+            audio,
+            torch.tensor(speaker, dtype=torch.long),
+            spectral_balance_ratios,
+            loudness_ratio,
+            stem)
 
     def __len__(self):
         return len(self.stems)
