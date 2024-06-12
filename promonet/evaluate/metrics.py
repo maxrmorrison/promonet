@@ -1,7 +1,6 @@
 import math
 
 import jiwer
-import numpy as np
 import penn
 import ppgs
 import torch
@@ -23,7 +22,6 @@ class Metrics:
         self.pitch = Pitch()
         self.ppg = PPG()
         self.wer = WER()
-        self.speaker_similarity = SpeakerSimilarity()
         # self.balance = SpectralBalance()
 
     def __call__(self):
@@ -34,8 +32,6 @@ class Metrics:
         } | self.loudness()
         # if self.balance.pitch.count:
         #     result |= self.balance()
-        if self.speaker_similarity.count:
-            result['speaker_similarity'] = self.speaker_similarity()
         if self.wer.count:
             result['wer'] = self.wer()
         return result
@@ -52,8 +48,6 @@ class Metrics:
         target_ppg,
         predicted_text=None,
         target_text=None,
-        predicted_speaker=None,
-        target_speaker=None,
         # predicted_harmonics=None,
         # target_harmonics=None,
         # predicted_spectrogram=None,
@@ -69,8 +63,6 @@ class Metrics:
         self.ppg.update(predicted_ppg, target_ppg)
         if predicted_text is not None and target_text is not None:
             self.wer.update(predicted_text, target_text)
-        if predicted_speaker is not None and target_speaker is not None:
-            self.speaker_similarity.update(predicted_speaker, target_speaker)
         # if predicted_harmonics is not None and target_harmonics is not None:
         #     self.balance.update(
         #         predicted_harmonics,
@@ -87,7 +79,6 @@ class Metrics:
         self.pitch.reset()
         self.ppg.reset()
         self.wer.reset()
-        self.speaker_similarity.reset()
 
 
 ###############################################################################
@@ -198,9 +189,8 @@ class Loudness:
             target_loudness = target_loudness.squeeze(0)
 
         # Maybe average
-        if promonet.LOUDNESS_BANDS > 1:
-            predicted_loudness = predicted_loudness.mean(dim=-2, keepdim=True)
-            target_loudness = target_loudness.mean(dim=-2, keepdim=True)
+        predicted_loudness = predicted_loudness.mean(dim=-2, keepdim=True)
+        target_loudness = target_loudness.mean(dim=-2, keepdim=True)
 
         # Update
         loud = torch.logical_and(
@@ -318,16 +308,3 @@ class WER(torchutil.metrics.Average):
     def update(self, predicted, target):
         wer = jiwer.wer(target, predicted)
         super().update(torch.tensor(wer), 1)
-
-
-###############################################################################
-# Speaker metrics
-###############################################################################
-
-
-class SpeakerSimilarity(torchutil.metrics.Average):
-    """Speaker similarity metric"""
-    def update(self, predicted, target):
-        super().update(
-            torch.nn.functional.cosine_similarity(predicted, target, 0),
-            1)

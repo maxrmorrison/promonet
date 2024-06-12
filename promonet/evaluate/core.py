@@ -600,14 +600,6 @@ def speaker(
                 ],
                 loudness_bands=None)
 
-    # Infer speaker embeddings of original audio
-    original_files = list(
-        original_subjective_directory.glob(
-            f'{dataset}-{index}-*-original-100.wav'))
-    original_embedding_files = [
-        original_objective_directory / f'{file.stem}-speaker.pt'
-        for file in original_files]
-
     ############################
     # Evaluate prosody editing #
     ############################
@@ -658,11 +650,7 @@ def speaker(
                     ).to(device),
                     promonet.load.text(f'{predicted_prefix}.txt'),
                     promonet.load.text(
-                        f'{target_prefix}.txt'.replace(key, 'original-100')),
-                    torch.load(f'{predicted_prefix}-speaker.pt').to(device),
-                    torch.load(
-                        f'{target_prefix}-speaker.pt'.replace(key, 'original-100')
-                    ).to(device))
+                        f'{target_prefix}.txt'.replace(key, 'original-100')))
 
                 # Update metrics
                 aggregate_metrics[key].update(*args)

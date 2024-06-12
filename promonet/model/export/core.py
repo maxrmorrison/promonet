@@ -8,7 +8,7 @@ import promonet
 ###############################################################################
 
 
-def from_file_to_file(checkpoint=None, output_file='promonet-export.pt'):
+def from_file_to_file(checkpoint=None, output_file='promonet-export.ts'):
     """Load model from checkpoint and export to torchscript"""
     model = promonet.model.Generator()
     if checkpoint is not None:

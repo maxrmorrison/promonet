@@ -1,5 +1,3 @@
-import torch
-
 MODULE = 'promonet'
 
 # Configuration name
@@ -12,7 +10,7 @@ AUGMENT_LOUDNESS = False
 AUGMENT_PITCH = False
 
 # Number of bands of A-weighted loudness
-LOUDNESS_BANDS = torch.tensor([1])
+LOUDNESS_BANDS = 1
 
 # Type of sparsification used for ppgs
 # One of ['constant', 'percentile', 'topk', None]

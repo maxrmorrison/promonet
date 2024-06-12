@@ -77,7 +77,7 @@ def pitch_distribution(dataset=promonet.TRAINING_DATASET, partition='train'):
 
             # Get all voiced pitch frames
             allpitch = []
-            dataset = promonet.data.Dataset(dataset, 'train')
+            dataset = promonet.data.Dataset(dataset, partition)
             viterbi = '-viterbi' if promonet.VITERBI_DECODE_PITCH else ''
             for stem in torchutil.iterator(
                 dataset.stems,
@@ -98,9 +98,9 @@ def pitch_distribution(dataset=promonet.TRAINING_DATASET, partition='train'):
 
             # Bucket
             indices = torch.linspace(
-                len(pitch) / promonet.PITCH_BINS.item(),
+                len(pitch) / promonet.PITCH_BINS,
                 len(pitch) - 1,
-                promonet.PITCH_BINS.item(),
+                promonet.PITCH_BINS,
                 dtype=torch.float64
             ).to(torch.long)
             pitch_distribution.distribution = pitch[indices]

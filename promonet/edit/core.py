@@ -38,7 +38,7 @@ def from_features(
         ppg: PPG to edit
         pitch_shift_cents: Amount of pitch-shifting in cents
         time_stretch_ratio: Amount of time-stretching. Faster when above one.
-        loudness_scale_db: Amount of loudness scaling in dB
+        loudness_scale_db: Loudness ratio editing in dB (not recommended; use loudness)
         stretch_unvoiced: If true, applies time-stretching to unvoiced frames
         stretch_silence: If true, applies time-stretching to silent frames
         return_grid: If true, also returns the time-stretch grid
@@ -156,7 +156,7 @@ def from_file(
         ppg_file: PPG file to edit
         pitch_shift_cents: Amount of pitch-shifting in cents
         time_stretch_ratio: Amount of time-stretching. Faster when above one.
-        loudness_scale_db: Amount of loudness scaling in dB
+        loudness_scale_db: Loudness ratio editing in dB (not recommended; use loudness)
         stretch_unvoiced: If true, applies time-stretching to unvoiced frames
         stretch_silence: If true, applies time-stretching to silent frames
         return_grid: If true, also returns the time-stretch grid
@@ -201,7 +201,7 @@ def from_file_to_file(
         output_prefix: File to save output, minus extension
         pitch_shift_cents: Amount of pitch-shifting in cents
         time_stretch_ratio: Amount of time-stretching. Faster when above one.
-        loudness_scale_db: Amount of loudness scaling in dB
+        loudness_scale_db: Loudness ratio editing in dB (not recommended; use loudness)
         stretch_unvoiced: If true, applies time-stretching to unvoiced frames
         stretch_silence: If true, applies time-stretching to silent frames
         save_grid: If true, also saves the time-stretch grid
@@ -252,7 +252,7 @@ def from_files_to_files(
         output_prefixes: Files to save output, minus extension
         pitch_shift_cents: Amount of pitch-shifting in cents
         time_stretch_ratio: Amount of time-stretching. Faster when above one.
-        loudness_scale_db: Amount of loudness scaling in dB
+        loudness_scale_db: Loudness ratio editing in dB (not recommended; use loudness)
         stretch_unvoiced: If true, applies time-stretching to unvoiced frames
         stretch_silence: If true, applies time-stretching to silent frames
         save_grid: If true, also saves the time-stretch grid

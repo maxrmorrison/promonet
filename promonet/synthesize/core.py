@@ -42,6 +42,10 @@ def from_features(
         generated: The generated speech
     """
     device = torch.device('cpu' if gpu is None else f'cuda:{gpu}')
+
+    if loudness.ndim == 2:
+        loudness = loudness[None]
+
     return generate(
         loudness.to(device),
         pitch.to(device),
@@ -235,12 +239,6 @@ def generate(
 
     with torchutil.time.context('generate'):
 
-        # Default length is the entire sequence
-        lengths = torch.tensor(
-            (pitch.shape[-1],),
-            dtype=torch.long,
-            device=device)
-
         # Specify speaker
         speakers = torch.full((1,), speaker, dtype=torch.long, device=device)
 
@@ -263,8 +261,8 @@ def generate(
                 pitch,
                 periodicity,
                 ppg,
-                lengths,
                 speakers,
                 spectral_balance_ratio,
-                loudness_ratio
+                loudness_ratio,
+                generate.model.default_previous_samples
             )[0]

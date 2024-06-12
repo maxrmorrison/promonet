@@ -153,7 +153,7 @@ class Generator(BaseGenerator):
                     bins = torch.clip(bins, 0, promonet.PITCH_BINS - 1)
                 else:
                     normalized = (
-                        (torch.log2(hz)[:, None] - promonet.LOG_FMIN) /
+                        (torch.log2(hz) - promonet.LOG_FMIN) /
                         (promonet.LOG_FMAX - promonet.LOG_FMIN))
                     bins = (
                         (promonet.PITCH_BINS - 1) * normalized).to(torch.long)

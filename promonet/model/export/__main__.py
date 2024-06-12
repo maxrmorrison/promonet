@@ -20,7 +20,7 @@ def parse_args():
     parser.add_argument(
         '--output_file',
         type=Path,
-        default='promonet-export.pt',
+        default='promonet-export.ts',
         help='The torch file to write the exported model')
 
     return parser.parse_args()
