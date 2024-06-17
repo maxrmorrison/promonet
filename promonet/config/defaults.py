@@ -223,11 +223,17 @@ CARGAN_HIDDEN_SIZE = 256
 # Number of autoregressive output channels
 CARGAN_OUTPUT_SIZE = 128
 
-# Number of samples per subframe
-FARGAN_SUBFRAME_SIZE = 64  # samples
+# Whether to use additive noise with FARGAN
+FARGAN_ADDITIVE_NOISE = True
+
+# Number of previous frames used for lookback in FARGAN
+FARGAN_PREVIOUS_FRAMES = 2  # frames
 
 # Number of subframes per frame
 FARGAN_SUBFRAMES = 4  # subframes
+
+# Number of samples per subframe
+FARGAN_SUBFRAME_SIZE = HOPSIZE // FARGAN_SUBFRAMES  # samples
 
 # Kernel sizes of residual block
 HIFIGAN_RESBLOCK_KERNEL_SIZES = [3, 7, 11]

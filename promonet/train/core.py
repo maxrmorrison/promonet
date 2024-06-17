@@ -119,7 +119,8 @@ def train(
 
     # Maybe setup spectral convergence loss
     if promonet.SPECTRAL_CONVERGENCE_LOSS:
-        spectral_convergence = promonet.loss.MultiResolutionSTFTLoss(device)
+        spectral_convergence = \
+            promonet.loss.MultiResolutionSpectralConvergence(device)
 
     # Setup progress bar
     progress = torchutil.iterator(
@@ -183,26 +184,31 @@ def train(
             # Bundle training input
             if promonet.MODEL == 'cargan':
                 previous_samples = audio[..., :promonet.CARGAN_INPUT_SIZE]
-                previous_frames = promonet.CARGAN_INPUT_SIZE // promonet.HOPSIZE
+                slice_frames = promonet.CARGAN_INPUT_SIZE // promonet.HOPSIZE
+            elif promonet.MODEL == 'fargan':
+                previous_samples = audio[
+                    ...,
+                    :promonet.HOPSIZE * promonet.FARGAN_PREVIOUS_FRAMES]
+                slice_frames = 0
             else:
                 previous_samples = torch.zeros(
                     promonet.HOPSIZE,
                     dtype=audio.dtype,
                     device=audio.device)
-                previous_frames = 0
+                slice_frames = 0
             if promonet.SPECTROGRAM_ONLY:
                 generator_input = (
-                    spectrograms[..., previous_frames:],
+                    spectrograms[..., slice_frames:],
                     speakers,
                     spectral_balance_ratios,
                     loudness_ratios,
                     previous_samples)
             else:
                 generator_input = (
-                    loudness[..., previous_frames:],
-                    pitch[..., previous_frames:],
-                    periodicity[..., previous_frames:],
-                    ppg[..., previous_frames:],
+                    loudness[..., slice_frames:],
+                    pitch[..., slice_frames:],
+                    periodicity[..., slice_frames:],
+                    ppg[..., slice_frames:],
                     speakers,
                     spectral_balance_ratios,
                     loudness_ratios,
@@ -217,8 +223,16 @@ def train(
                 # Forward pass through generator
                 generated = generator(*generator_input)
 
-                if previous_frames > 0:
+                # Evaluate the boundary of autoregressive models
+                if promonet.MODEL == 'cargan':
                     generated = torch.cat((previous_samples, generated), dim=1)
+                elif promonet.MODEL == 'fargan':
+                    generated = torch.cat(
+                        (
+                            previous_samples,
+                            generated[..., :previous_samples.shape[-1]]
+                        ),
+                        dim=1)
 
                 if step >= promonet.ADVERSARIAL_LOSS_START_STEP:
 

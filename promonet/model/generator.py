@@ -183,6 +183,11 @@ class Generator(BaseGenerator):
         if self.use_periodicity:
             features = torch.cat((features, periodicity[:, None]), dim=1)
 
+        # Append period for FARGAN pitch lookup
+        if promonet.MODEL == 'fargan':
+            period = (promonet.SAMPLE_RATE / hz)
+            features = torch.cat((features, pitch[:, None]), dim=1)
+
         return features
 
     ###########################################################################
