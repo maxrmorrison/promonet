@@ -40,7 +40,7 @@ class BaseGenerator(torch.nn.Module):
         # Default value for previous samples
         self.register_buffer(
             'default_previous_samples',
-            torch.zeros(promonet.NUM_PREVIOUS_SAMPLES))
+            torch.zeros(1, 1, promonet.NUM_PREVIOUS_SAMPLES))
 
     def prepare_global_features(
         self,

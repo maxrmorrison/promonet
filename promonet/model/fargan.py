@@ -68,8 +68,8 @@ class FARGAN(torch.nn.Module):
 
         Arguments
             features
-                Frame features
-                shape=(batch, promonet.NUM_FEATURES)
+                Frame features concatenated with pitch periods
+                shape=(batch, promonet.NUM_FEATURES + 1)
             global_features
                 Global input features
                 shape=(batch, promonet.GLOBAL_CHANNELS)
@@ -106,7 +106,7 @@ class FARGAN(torch.nn.Module):
 
         # Iterate over subframes
         for subframe in features.reshape(
-            feature.shape[0],
+            features.shape[0],
             2 * promonet.FARGAN_SUBFRAME_SIZE,
             promonet.FARGAN_SUBFRAMES
         ).permute(2, 0, 1):
@@ -163,20 +163,31 @@ class SubframeNetwork(torch.nn.Module):
 
     def __init__(self):
         super().__init__()
-        channels = promonet.FARGAN_SUBFRAME_SIZE
         self.framewise_convolution = FramewiseConv()
-        self.gru1 = torch.nn.GRUCell(2 * channels, channels, bias=False)
-        self.gru2 = torch.nn.GRUCell(2 * channels, channels, bias=False)
-        self.gru3 = torch.nn.GRUCell(2 * channels, channels, bias=False)
-        self.gru1_glu = GLU(channels)
-        self.gru2_glu = GLU(channels)
-        self.gru3_glu = GLU(channels)
-        self.skip_glu = GLU(2 * channels)
-        self.skip_dense = torch.nn.Linear(
-            5 * channels,
-            2 * channels,
+        self.gru1 = torch.nn.GRUCell(
+            promonet.HOPSIZE + 2 * promonet.FARGAN_SUBFRAME_SIZE,
+            promonet.HOPSIZE,
             bias=False)
-        self.output_layer = torch.nn.Linear(2 * channels, channels, bias=False)
+        self.gru2 = torch.nn.GRUCell(
+            promonet.HOPSIZE + 2 * promonet.FARGAN_SUBFRAME_SIZE,
+            promonet.HOPSIZE,
+            bias=False)
+        self.gru3 = torch.nn.GRUCell(
+            promonet.HOPSIZE + 2 * promonet.FARGAN_SUBFRAME_SIZE,
+            promonet.HOPSIZE,
+            bias=False)
+        self.gru1_glu = GLU(promonet.HOPSIZE)
+        self.gru2_glu = GLU(promonet.HOPSIZE)
+        self.gru3_glu = GLU(promonet.HOPSIZE)
+        self.skip_glu = GLU(promonet.HOPSIZE)
+        self.skip_dense = torch.nn.Linear(
+            4 * promonet.HOPSIZE + 2 * promonet.FARGAN_SUBFRAME_SIZE,
+            promonet.HOPSIZE,
+            bias=False)
+        self.output_layer = torch.nn.Linear(
+            promonet.HOPSIZE,
+            promonet.FARGAN_SUBFRAME_SIZE,
+            bias=False)
         self.apply(init_weights)
 
     def forward(self, features, previous_samples, period, states):
@@ -204,44 +215,71 @@ class SubframeNetwork(torch.nn.Module):
                 Recurrent model state
         """
         # Make stochastic
-        features_noise = additive_noise(features)
+        features_noise = additive_noise(features, self.training)
         previous_subframe_noise = additive_noise(
-            previous_samples[:, -promonet.FARGAN_SUBFRAME_SIZE:])
+            previous_samples[:, 0, -promonet.FARGAN_SUBFRAME_SIZE:],
+            self.training)
 
         # Extract a subframe one or two pitch periods ago
-        lookback_index = previous_samples.shape[-1] - period + torch.arange(
+        lookback_index = previous_samples.shape[-1] - period[:, None] + torch.arange(
             promonet.FARGAN_SUBFRAME_SIZE + 4,
             device=features.device
-        ) - 2
-        lookback_index -= period * (
+        )[None] - 2
+        lookback_index -= period[:, None] * (
             lookback_index >= previous_samples.shape[-1])
         pitch_lookback = additive_noise(
-            torch.gather(previous_samples, 1, lookback_index))
+            torch.gather(previous_samples.squeeze(1), 1, lookback_index),
+            self.training)
 
         # Embed subframe features
         subframe_input_features = torch.cat(
             (features_noise, previous_subframe_noise, pitch_lookback),
             dim=1)
         fwconv_out = additive_noise(
-            self.framewise_convolution(subframe_input_features, states[3]))
+            self.framewise_convolution(subframe_input_features, states[3]),
+            self.training)
 
         # GRU layer 1
         gru1_state = self.gru1(
-            torch.cat([fwconv_out, previous_samples], 1),
+            torch.cat(
+                [
+                    fwconv_out,
+                    pitch_lookback[:, 2:-2],
+                    previous_subframe_noise
+                ],
+                dim=1),
             states[0])
-        gru1_out = additive_noise(self.gru1_glu(additive_noise(gru1_state)))
+        gru1_out = additive_noise(
+            self.gru1_glu(additive_noise(gru1_state, self.training)),
+            self.training)
 
         # GRU layer 2
         gru2_state = self.gru2(
-            torch.cat([gru1_out, previous_samples], 1),
+            torch.cat(
+                [
+                    gru1_out,
+                    pitch_lookback[:, 2:-2],
+                    previous_subframe_noise
+                ],
+                dim=1),
             states[1])
-        gru2_out = additive_noise(self.gru2_glu(additive_noise(gru2_state)))
+        gru2_out = additive_noise(
+            self.gru2_glu(additive_noise(gru2_state, self.training)),
+            self.training)
 
         # GRU layer 3
         gru3_state = self.gru3(
-            torch.cat([gru2_out, previous_samples], 1),
+            torch.cat(
+                [
+                    gru2_out,
+                    pitch_lookback[:, 2:-2],
+                    previous_subframe_noise
+                ],
+                dim=1),
             states[2])
-        gru3_out = additive_noise(self.gru3_glu(additive_noise(gru3_state)))
+        gru3_out = additive_noise(
+            self.gru3_glu(additive_noise(gru3_state, self.training)),
+            self.training)
 
         # Skip connection
         skip_features = torch.cat(
@@ -250,17 +288,22 @@ class SubframeNetwork(torch.nn.Module):
                 gru2_out,
                 gru3_out,
                 fwconv_out,
-                previous_samples
+                pitch_lookback[:, 2:-2],
+                previous_subframe_noise
             ],
-            1
-        )
+            dim=1)
         skip_out = self.skip_glu(
-            additive_noise(torch.tanh(self.skip_dense(skip_features))))
+            additive_noise(
+                torch.tanh(self.skip_dense(skip_features)),
+                self.training))
 
         # Output layer
         output = torch.tanh(self.output_layer(skip_out))
 
-        return output, (gru1_state, gru2_state, gru3_state, features)
+        # Updated recurrent state
+        states = (gru1_state, gru2_state, gru3_state, subframe_input_features)
+
+        return output, states
 
     def remove_weight_norm(self):
         """Remove weight norm for scriptable inference"""
@@ -283,11 +326,11 @@ class FramewiseConv(torch.nn.Module):
         self.model = torch.nn.Sequential(
             torch.nn.utils.weight_norm(
                 torch.nn.Linear(
-                    4 * promonet.FARGAN_SUBFRAME_SIZE + 4,
-                    promonet.FARGAN_SUBFRAME_SIZE,
+                    2 * (4 * promonet.FARGAN_SUBFRAME_SIZE + 4),
+                    promonet.HOPSIZE,
                     bias=False)),
             torch.nn.Tanh(),
-            GLU(promonet.FARGAN_SUBFRAME_SIZE))
+            GLU(promonet.HOPSIZE))
 
         # Initialize weights
         for m in self.modules():
@@ -329,9 +372,9 @@ class GLU(torch.nn.Module):
 ###############################################################################
 
 
-def additive_noise(x):
+def additive_noise(x, training):
     """Add uniform random noise to the signal"""
-    if promonet.FARGAN_ADDITIVE_NOISE:
+    if training and promonet.FARGAN_ADDITIVE_NOISE:
         return torch.clamp(
             x + (1. / 127.) * (torch.rand_like(x) - .5),
             min=-1.,
@@ -342,10 +385,13 @@ def additive_noise(x):
 def initialize_recurrent_state(batch_size, device):
     """Initialize tensors for causal inference"""
     return (
-        torch.zeros(batch_size, promonet.FARGAN_SUBFRAME_SIZE, device=device),
-        torch.zeros(batch_size, promonet.FARGAN_SUBFRAME_SIZE, device=device),
-        torch.zeros(batch_size, promonet.FARGAN_SUBFRAME_SIZE, device=device),
-        torch.zeros(batch_size, promonet.FARGAN_SUBFRAME_SIZE, device=device))
+        torch.zeros(batch_size, promonet.HOPSIZE, device=device),
+        torch.zeros(batch_size, promonet.HOPSIZE, device=device),
+        torch.zeros(batch_size, promonet.HOPSIZE, device=device),
+        torch.zeros(
+            batch_size,
+            4 * promonet.FARGAN_SUBFRAME_SIZE + 4,
+            device=device))
 
 
 def init_weights(module):
