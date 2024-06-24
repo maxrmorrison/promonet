@@ -27,7 +27,8 @@ def datasets(datasets, features=promonet.ALL_FEATURES, gpu=None):
             'periodicity',
             'ppg',
             'text',
-            'harmonics'
+            'harmonics',
+            'speaker'
         ]):
             promonet.preprocess.from_files_to_files(
                 audio_files,

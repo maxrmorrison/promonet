@@ -120,7 +120,7 @@ def train(
     # Maybe setup spectral convergence loss
     if promonet.SPECTRAL_CONVERGENCE_LOSS:
         spectral_convergence = \
-            promonet.loss.MultiResolutionSpectralConvergence(device)
+            promonet.train.loss.MultiResolutionSpectralConvergence(device)
 
     # Setup progress bar
     progress = torchutil.iterator(
@@ -230,9 +230,9 @@ def train(
                     generated = torch.cat(
                         (
                             previous_samples,
-                            generated[..., :previous_samples.shape[-1]]
+                            generated[..., previous_samples.shape[-1]:]
                         ),
-                        dim=1)
+                        dim=2)
 
                 if step >= promonet.ADVERSARIAL_LOSS_START_STEP:
 
@@ -246,7 +246,7 @@ def train(
                         discriminator_losses,
                         real_discriminator_losses,
                         fake_discriminator_losses
-                    ) = promonet.loss.discriminator(
+                    ) = promonet.train.loss.discriminator(
                         [logit.float() for logit in real_logits],
                         [logit.float() for logit in fake_logits])
 
@@ -312,13 +312,13 @@ def train(
 
                 # Waveform loss
                 if promonet.SIGNAL_LOSS:
-                    signal_loss = promonet.loss.signal(audio, generated)
+                    signal_loss = promonet.train.loss.signal(audio, generated)
                     generator_losses += promonet.SIGNAL_LOSS_WEIGHT * signal_loss
 
                 if step >= promonet.ADVERSARIAL_LOSS_START_STEP:
 
                     # Get feature matching loss
-                    feature_matching_loss = promonet.loss.feature_matching(
+                    feature_matching_loss = promonet.train.loss.feature_matching(
                         real_feature_maps,
                         fake_feature_maps)
                     generator_losses += (
@@ -327,7 +327,7 @@ def train(
 
                     # Get adversarial loss
                     adversarial_loss, adversarial_losses = \
-                        promonet.loss.generator(
+                        promonet.train.loss.generator(
                             [logit.float() for logit in fake_logits])
                     generator_losses += \
                         promonet.ADVERSARIAL_LOSS_WEIGHT * adversarial_loss
@@ -599,11 +599,11 @@ def evaluate(directory, step, generator, loader, gpu, evaluation_steps=None):
         if i < promonet.PLOT_EXAMPLES:
             figures[key] = promonet.plot.from_features(
                 generated,
-                promonet.loudness.band_average(predicted_loudness, 1),
+                promonet.preprocess.loudness.band_average(predicted_loudness, 1),
                 predicted_pitch,
                 predicted_periodicity,
                 predicted_ppg,
-                promonet.loudness.band_average(loudness, 1),
+                promonet.preprocess.loudness.band_average(loudness, 1),
                 pitch,
                 periodicity,
                 ppg)
@@ -654,11 +654,11 @@ def evaluate(directory, step, generator, loader, gpu, evaluation_steps=None):
                 if i < promonet.PLOT_EXAMPLES:
                     figures[key] = promonet.plot.from_features(
                         shifted,
-                        promonet.loudness.band_average(predicted_loudness, 1),
+                        promonet.preprocess.loudness.band_average(predicted_loudness, 1),
                         predicted_pitch,
                         predicted_periodicity,
                         predicted_ppg,
-                        promonet.loudness.band_average(loudness, 1),
+                        promonet.preprocess.loudness.band_average(loudness, 1),
                         shifted_pitch,
                         periodicity,
                         ppg)
@@ -719,11 +719,11 @@ def evaluate(directory, step, generator, loader, gpu, evaluation_steps=None):
                 if i < promonet.PLOT_EXAMPLES:
                     figures[key] = promonet.plot.from_features(
                         stretched,
-                        promonet.loudness.band_average(predicted_loudness, 1),
+                        promonet.preprocess.loudness.band_average(predicted_loudness, 1),
                         predicted_pitch,
                         predicted_periodicity,
                         predicted_ppg,
-                        promonet.loudness.band_average(stretched_loudness, 1),
+                        promonet.preprocess.loudness.band_average(stretched_loudness, 1),
                         stretched_pitch,
                         stretched_periodicity,
                         stretched_ppg)
@@ -775,11 +775,11 @@ def evaluate(directory, step, generator, loader, gpu, evaluation_steps=None):
                 if i < promonet.PLOT_EXAMPLES:
                     figures[key] = promonet.plot.from_features(
                         scaled,
-                        promonet.loudness.band_average(predicted_loudness, 1),
+                        promonet.preprocess.loudness.band_average(predicted_loudness, 1),
                         predicted_pitch,
                         predicted_periodicity,
                         predicted_ppg,
-                        promonet.loudness.band_average(scaled_loudness, 1),
+                        promonet.preprocess.loudness.band_average(scaled_loudness, 1),
                         pitch,
                         periodicity,
                         ppg)

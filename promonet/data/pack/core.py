@@ -39,7 +39,7 @@ def from_features(
     features = torch.zeros((loudness.shape[0], 0, loudness.shape[2]))
 
     # Loudness
-    averaged = promonet.loudness.band_average(loudness)
+    averaged = promonet.preprocess.loudness.band_average(loudness)
     features = torch.cat((features, averaged), dim=1)
 
     # Pitch

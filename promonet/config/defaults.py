@@ -67,7 +67,9 @@ ALL_FEATURES = [
     'periodicity',
     'ppg',
     'spectrogram',
-    'text']
+    'text',
+    'harmonics',
+    'speaker']
 
 # Whether to use loudness augmentation
 AUGMENT_LOUDNESS = True
@@ -226,6 +228,9 @@ CARGAN_OUTPUT_SIZE = 128
 # Whether to use additive noise with FARGAN
 FARGAN_ADDITIVE_NOISE = True
 
+# Whether to use gain normalization in the subframe network
+FARGAN_GAIN_NORMALIZATION = False
+
 # Number of previous frames used for lookback in FARGAN
 FARGAN_PREVIOUS_FRAMES = 2  # frames
 
@@ -267,6 +272,12 @@ VOCOS_POINTWISE_CHANNELS = 1536
 
 # Number of neural network layers in Vocos
 VOCOS_LAYERS = 6
+
+# Number of channels of WavLM x-vector embedding
+WAVLM_EMBEDDING_CHANNELS = 512
+
+# Whether to use WavLM x-vectors for zero-shot speaker conditioning
+ZERO_SHOT = False
 
 
 ###############################################################################

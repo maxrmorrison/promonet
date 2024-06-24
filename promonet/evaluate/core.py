@@ -627,10 +627,10 @@ def speaker(
                 predicted_prefix = objective_directory / file.stem
 
                 # Load predicted and target features
-                loudness = promonet.loudness.band_average(
+                loudness = promonet.preprocess.loudness.band_average(
                     torch.load(f'{predicted_prefix}-loudness.pt').to(device),
                     1)
-                target_loudness = promonet.loudness.band_average(
+                target_loudness = promonet.preprocess.loudness.band_average(
                     torch.load(f'{target_prefix}-loudness.pt').to(device),
                     1)
                 args = (

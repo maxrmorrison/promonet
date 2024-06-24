@@ -78,10 +78,16 @@ def collate(batch):
         # Prepare audio
         padded_audio[i, :, :lengths[index]] = audio[index]
 
+    # Collate speaker IDs or embeddings
+    if promonet.ZERO_SHOT:
+        speakers = torch.cat(speakers)
+    else:
+        speakers = torch.tensor(speakers, dtype=torch.long)
+
     # Sort stuff
     text = [text[i] for i in sorted_indices]
     stems = [stems[i] for i in sorted_indices]
-    speakers = torch.tensor(speakers, dtype=torch.long)[sorted_indices]
+    speakers = speakers[sorted_indices]
     spectral_balance_ratios = torch.tensor(
         spectral_balance_ratios, dtype=torch.float)[sorted_indices]
     loudness_ratios = torch.tensor(

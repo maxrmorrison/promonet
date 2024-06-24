@@ -56,7 +56,7 @@ def from_audio(
 
         # Scale loudness
         if loudness is not None:
-            audio = promonet.loudness.scale(audio, loudness)
+            audio = promonet.preprocess.loudness.scale(audio, loudness)
 
         # Maybe pad or trim
         frames = promonet.convert.samples_to_frames(audio.shape[1])

@@ -27,10 +27,7 @@ from . import convert
 from . import data
 from . import edit
 from . import evaluate
-from . import harmonics
 from . import load
-from . import loss
-from . import loudness
 from . import model
 from . import partition
 from . import plot

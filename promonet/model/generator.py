@@ -1,6 +1,5 @@
 import ppgs
 import torch
-import torchutil
 
 import promonet
 
@@ -33,9 +32,14 @@ class BaseGenerator(torch.nn.Module):
                 f'Generator model {promonet.MODEL} is not defined')
 
         # Speaker embedding
-        self.speaker_embedding = torch.nn.Embedding(
-            promonet.NUM_SPEAKERS,
-            promonet.SPEAKER_CHANNELS)
+        if promonet.ZERO_SHOT:
+            self.speaker_embedding = torch.nn.Linear(
+                promonet.WAVLM_EMBEDDING_CHANNELS,
+                promonet.SPEAKER_CHANNELS)
+        else:
+            self.speaker_embedding = torch.nn.Embedding(
+                promonet.NUM_SPEAKERS,
+                promonet.SPEAKER_CHANNELS)
 
         # Default value for previous samples
         self.register_buffer(
@@ -48,7 +52,7 @@ class BaseGenerator(torch.nn.Module):
         spectral_balance_ratios,
         loudness_ratios
     ):
-        # Encode speaker ID
+        # Encode speaker
         global_features = self.speaker_embedding(speakers).unsqueeze(-1)
 
         # Maybe add augmentation ratios
@@ -174,7 +178,7 @@ class Generator(BaseGenerator):
                     for band in range(bands)
                 ],
                 dim=1)
-            normalized = promonet.loudness.normalize(averaged)
+            normalized = promonet.preprocess.loudness.normalize(averaged)
             if normalized.ndim == 2:
                 normalized = normalized[None]
             features = torch.cat((features, normalized), dim=1)
@@ -185,8 +189,10 @@ class Generator(BaseGenerator):
 
         # Append period for FARGAN pitch lookup
         if promonet.MODEL == 'fargan':
-            period = (promonet.SAMPLE_RATE / hz)
-            features = torch.cat((features, pitch[:, None]), dim=1)
+            period = (
+                promonet.SAMPLE_RATE /
+                torch.clip(pitch, promonet.FMIN, promonet.FMAX))
+            features = torch.cat((features, period[:, None]), dim=1)
 
         return features
 
@@ -196,20 +202,17 @@ class Generator(BaseGenerator):
 
     def export(self, output_file):
         """Export model using torchscript"""
-        # Switch to evaluation mode
-        with torchutil.inference.context(self):
+        # Remove weight normalization
+        self.remove_weight_norm()
 
-            # Remove weight normalization
-            self.remove_weight_norm()
+        # Register packed inference method
+        self.register()
 
-            # Register packed inference method
-            self.register()
+        # Run torchscript
+        scripted = torch.jit.script(self)
 
-            # Run torchscript
-            scripted = torch.jit.script(self)
-
-            # Save
-            scripted.save(output_file)
+        # Save
+        scripted.save(output_file)
 
     @torch.jit.export
     def get_attributes(self):
@@ -267,7 +270,7 @@ class Generator(BaseGenerator):
 
         # Loudness
         if self.use_loudness:
-            averaged = promonet.loudness.band_average(loudness)
+            averaged = promonet.preprocess.loudness.band_average(loudness)
             features = torch.cat((features, averaged), dim=1)
 
         # Pitch

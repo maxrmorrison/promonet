@@ -97,9 +97,9 @@ def from_audio(
 
     # Maybe scale loudness
     if loudness is not None:
-        vocoded = promonet.loudness.scale(
+        vocoded = promonet.preprocess.loudness.scale(
             vocoded,
-            promonet.loudness.band_average(loudness, 1))
+            promonet.preprocess.loudness.band_average(loudness, 1))
 
     return vocoded.to(torch.float32)
 

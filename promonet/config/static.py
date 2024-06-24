@@ -72,6 +72,6 @@ else:
 if promonet.MODEL == 'cargan':
     NUM_PREVIOUS_SAMPLES = promonet.CARGAN_INPUT_SIZE
 elif promonet.MODEL == 'fargan':
-    NUM_PREVIOUS_SAMPLES = promonet.FARGAN_SUBFRAME_SIZE
+    NUM_PREVIOUS_SAMPLES = promonet.HOPSIZE * promonet.FARGAN_PREVIOUS_FRAMES
 else:
     NUM_PREVIOUS_SAMPLES = 1

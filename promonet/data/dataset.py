@@ -108,12 +108,19 @@ class Dataset(torch.utils.data.Dataset):
                 spectrogram = spectrogram[:, start_frame:start_frame + frames]
                 phonemes = phonemes[:, start_frame:start_frame + frames]
 
-        # Get speaker index. Non-integer speaker names are assumed to be
-        # for speaker adaptation and therefore default to index zero.
-        if 'adapt' not in self.partition:
-            speaker = int(stem.split('/')[0])
+        if promonet.ZERO_SHOT:
+
+            # Load speaker embedding
+            speaker = torch.load(self.cache / f'{stem}-speaker.pt')
+
         else:
-            speaker = 0
+
+            # Get speaker index. Non-integer speaker names are assumed to be
+            # for speaker adaptation and therefore default to index zero.
+            if 'adapt' not in self.partition:
+                speaker = int(stem.split('/')[0])
+            else:
+                speaker = 0
 
         # Data augmentation ratios
         augmentation = stem[-4:]

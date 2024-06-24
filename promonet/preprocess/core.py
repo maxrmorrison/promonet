@@ -35,7 +35,8 @@ def from_audio(
                 'periodicity',
                 'ppg',
                 'text',
-                'harmonics']
+                'harmonics',
+                'speaker']
         loudness_bands: The number of A-weighted loudness bands
         max_harmonics: The maximum number of speech harmonics
 
@@ -46,6 +47,7 @@ def from_audio(
         ppg: The phonetic posteriorgram
         text: The text transcript
         harmonics: The speech harmonic contours
+        speaker: The WavLM x-vector embeddings
     """
     result = []
 
@@ -53,7 +55,10 @@ def from_audio(
     if 'loudness' in features:
         device = f'cuda:{gpu}' if gpu is not None else 'cpu'
         result.append(
-            promonet.loudness.from_audio(audio, loudness_bands).to(device))
+            promonet.preprocess.loudness.from_audio(
+                audio,
+                loudness_bands
+            ).to(device))
 
     # Estimate pitch and periodicity
     if 'pitch' in features or 'periodicity' in features:
@@ -101,11 +106,19 @@ def from_audio(
 
     # Compute harmonics
     if 'harmonics' in features:
-        harmonics = promonet.harmonics.from_audio(
+        harmonics = promonet.preprocess.harmonics.from_audio(
             audio,
             sample_rate,
             max_harmonics=max_harmonics)
         result.append(harmonics)
+
+    # Compute speaker embeddings
+    if 'speaker' in features:
+        speaker = promonet.preprocess.speaker.from_audio(
+            audio,
+            sample_rate,
+            gpu=gpu)
+        result.append(speaker)
 
     return (*result,)
 
@@ -201,6 +214,9 @@ def from_file_to_file(
     if 'harmonics' in features:
         torch.save(features[0], f'{output_prefix}-harmonics.pt')
         del features[0]
+    if 'speaker' in features:
+        torch.save(features[0], f'{output_prefix}-speaker.pt')
+        del features[0]
 
 
 def from_files_to_files(
@@ -266,7 +282,7 @@ def from_files_to_files(
 
     # Preprocess loudness
     if 'loudness' in features:
-        promonet.loudness.from_files_to_files(
+        promonet.preprocess.loudness.from_files_to_files(
             files,
             [f'{prefix}-loudness.pt' for prefix in output_prefixes],
             bands=loudness_bands)
@@ -280,10 +296,18 @@ def from_files_to_files(
 
     # Compute harmonics
     if 'harmonics' in features:
-        promonet.harmonics.from_files_to_files(
+        promonet.preprocess.harmonics.from_files_to_files(
             files,
             [f'{prefix}-harmonics.pt' for prefix in output_prefixes],
             pitch_files=[f'{prefix}-pitch.pt' for prefix in pitch_prefixes],
-            output_feature_files=[f'{prefix}-harmonicfeatures.pt' for prefix in output_prefixes],
+            output_feature_files=[
+                f'{prefix}-harmonicfeatures.pt' for prefix in output_prefixes],
             gpu=gpu,
             max_harmonics=max_harmonics)
+
+    # Compute speaker embeddings
+    if 'speaker' in features:
+        promonet.preprocess.speaker.from_files_to_files(
+            files,
+            [f'{prefix}-speaker.pt' for prefix in output_prefixes],
+            gpu=gpu)
