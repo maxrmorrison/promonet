@@ -1,15 +1,16 @@
-<h1 align="center">Prosody Modification Network (ProMoNet)</h1>
+<h1 align="center">Prosody and Pronunciation Modification Network (ProMoNet)</h1>
 <div align="center">
 
 [![PyPI](https://img.shields.io/pypi/v/promonet.svg)](https://pypi.python.org/pypi/promonet)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![Downloads](https://pepy.tech/badge/promonet)](https://pepy.tech/project/promonet)
 
-</div>
+Official code for the paper _Fine-Grained and Interpretable Neural Speech Editing_
 
-Official code for the paper _Adaptive Neural Speech Editing_
-[[paper]](https://www.maxrmorrison.com/pdfs/morrison2024adaptive.pdf)
-[[companion website]](https://www.maxrmorrison.com/sites/promonet/)
+[[paper]](https://www.maxrmorrison.com/pdfs/morrison2024fine.pdf)
+[[website]](https://www.maxrmorrison.com/sites/promonet/)
+
+</div>
 
 
 ## Table of contents
@@ -57,10 +58,13 @@ Official code for the paper _Adaptive Neural Speech Editing_
 
 `pip install promonet`
 
+We are working on adding [`torbi`, our fast Viterbi decoding implementation](https://github.com/maxrmorrison/torbi) to PyTorch. Until then, you must manually download and install `torbi`. You can track the progress of incorporation into PyTorch [here](https://github.com/pytorch/pytorch/issues/121160).
+
 
 ## Usage
 
-To use `promonet` for speech editing, you must first perform speaker
+Our included model checkpoint allows speech editing and synthesis for VCTK speakers.
+To use `promonet` with other speakers, you must first perform speaker
 adaptation on a dataset of recordings of the target speaker. You can then use
 the resulting model checkpoint to perform speech editing in the target
 speaker's voice. All of this can be done using either the API or CLI.
@@ -96,7 +100,7 @@ audio = promonet.load.audio('test.wav')
 gpu = 0
 
 # Get prosody features to edit
-pitch, periodicity, loudness, ppg = promonet.preprocess.from_audio(
+loudness, pitch, periodicity, ppg = promonet.preprocess.from_audio(
     audio,
     promonet.SAMPLE_RATE,
     gpu)
@@ -126,7 +130,7 @@ stretched = promonet.synthesize.from_features(
     checkpoint=checkpoint,
     gpu=gpu)
 
-# Perform loudness-scaling
+# Perform loudness editing
 scaled = promonet.synthesize.from_features(
     *promonet.edit.from_features(
         loudness,
@@ -137,24 +141,13 @@ scaled = promonet.synthesize.from_features(
     checkpoint=checkpoint,
     gpu=gpu)
 
-# Edit formants (> 1 for Alvin and the Chipmunks; < 1 for Patrick Star)
+# Edit spectral balance (> 1 for Alvin and the Chipmunks; < 1 for Patrick Star)
 alvin = promonet.synthesize.from_features(
     loudness,
     pitch,
     periodicity,
     ppg,
-    formant_ratio=ratio,
-    checkpoint=checkpoint,
-    gpu=gpu)
-
-# Edit perceptual loudness (> 1 for louder; < 1 quieter)
-# For more intuitive control in dB units, use promonet.convert.db_to_ratio(dB)
-louder = promonet.synthesize.from_features(
-    loudness,
-    pitch,
-    periodicity,
-    ppg,
-    loudness_ratio=ratio,
+    spectral_balance_ratio=ratio,
     checkpoint=checkpoint,
     gpu=gpu)
 ```
@@ -316,7 +309,7 @@ def from_features(
         ppg: PPG to edit
         pitch_shift_cents: Amount of pitch-shifting in cents
         time_stretch_ratio: Amount of time-stretching. Faster when above one.
-        loudness_scale_db: Amount of loudness scaling in dB
+        loudness_scale_db: Loudness ratio editing in dB (not recommended; use loudness)
 
     Returns
         edited_loudness, edited_pitch, edited_periodicity, edited_ppg
@@ -345,7 +338,7 @@ def from_file(
         ppg_file: PPG file to edit
         pitch_shift_cents: Amount of pitch-shifting in cents
         time_stretch_ratio: Amount of time-stretching. Faster when above one.
-        loudness_scale_db: Amount of loudness scaling in dB
+        loudness_scale_db: Loudness ratio editing in dB (not recommended; use loudness)
 
     Returns
         edited_loudness, edited_pitch, edited_periodicity, edited_ppg
@@ -376,7 +369,7 @@ def from_file_to_file(
         output_prefix: File to save output, minus extension
         pitch_shift_cents: Amount of pitch-shifting in cents
         time_stretch_ratio: Amount of time-stretching. Faster when above one.
-        loudness_scale_db: Amount of loudness scaling in dB
+        loudness_scale_db: Loudness ratio editing in dB (not recommended; use loudness)
     """
 ```
 
@@ -404,7 +397,7 @@ def from_files_to_files(
         output_prefixes: Files to save output, minus extension
         pitch_shift_cents: Amount of pitch-shifting in cents
         time_stretch_ratio: Amount of time-stretching. Faster when above one.
-        loudness_scale_db: Amount of loudness scaling in dB
+        loudness_scale_db: Loudness ratio editing in dB (not recommended; use loudness)
     """
 ```
 
@@ -420,7 +413,7 @@ def from_features(
     periodicity: torch.Tensor,
     ppg: torch.Tensor,
     speaker: Optional[Union[int, torch.Tensor]] = 0,
-    formant_ratio: float = 1.,
+    spectral_balance_ratio: float = 1.,
     checkpoint: Union[str, os.PathLike] = promonet.DEFAULT_CHECKPOINT,
     gpu: Optional[int] = None) -> torch.Tensor:
     """Perform speech synthesis
@@ -431,7 +424,7 @@ def from_features(
         periodicity: The periodicity contour
         ppg: The phonetic posteriorgram
         speaker: The speaker index
-        formant_ratio: > 1 for Alvin and the Chipmunks; < 1 for Patrick Star
+        spectral_balance_ratio: > 1 for Alvin and the Chipmunks; < 1 for Patrick Star
         checkpoint: The generator checkpoint
         gpu: The GPU index
 
@@ -623,7 +616,7 @@ optional arguments:
   --time_stretch_ratio TIME_STRETCH_RATIO
     Amount of time-stretching. Faster when above one.
   --loudness_scale_db LOUDNESS_SCALE_DB
-    Amount of loudness scaling in dB
+    Loudness ratio editing in dB (not recommended; use loudness)
 ```
 
 
@@ -748,18 +741,17 @@ python -m promonet.evaluate \
 ## Citation
 
 ### IEEE
-M. Morrison, C. Churchwell, N. Pruyne, and B. Pardo, "Adaptive Neural Speech Prosody Editing," Submitted
-to ICML 2024, July 2024.
+M. Morrison, C. Churchwell, N. Pruyne, and B. Pardo, "Fine-Grained and Interpretable Neural Speech Editing," Interspeech, September 2024.
 
 
 ### BibTex
 
 ```
 @inproceedings{morrison2024adaptive,
-    title={Adaptive Neural Speech Prosody Editing},
+    title={Fine-Grained and Interpretable Neural Speech Editing},
     author={Morrison, Max and Churchwell, Cameron and Pruyne, Nathan and Pardo, Bryan},
-    booktitle={Submitted to ICML 2024},
-    month={July},
+    booktitle={Interspeech},
+    month={September},
     year={2024}
 }
 ```

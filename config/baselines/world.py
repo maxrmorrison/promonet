@@ -8,7 +8,6 @@ CONFIG = 'world'
 #     'hifigan',
 #     'psola',
 #     'two-stage',
-#     'vits',
 #     'vocoder',
 #     'world'
 # ]

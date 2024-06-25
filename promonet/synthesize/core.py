@@ -20,7 +20,7 @@ def from_features(
     periodicity: Optional[torch.Tensor] = None,
     ppg: Optional[torch.Tensor] = None,
     speaker: Optional[Union[int, torch.Tensor]] = 0,
-    formant_ratio: float = 1.,
+    spectral_balance_ratio: float = 1.,
     loudness_ratio: float = 1.,
     checkpoint: Union[str, os.PathLike] = promonet.DEFAULT_CHECKPOINT,
     gpu: Optional[int] = None
@@ -33,7 +33,7 @@ def from_features(
         periodicity: The periodicity contour
         ppg: The phonetic posteriorgram
         speaker: The speaker index
-        formant_ratio: > 1 for Alvin and the Chipmunks; < 1 for Patrick Star
+        spectral_balance_ratio: > 1 for Alvin and the Chipmunks; < 1 for Patrick Star
         loudness_ratio: > 1 for louder; < 1 for quieter
         checkpoint: The generator checkpoint
         gpu: The GPU index
@@ -42,13 +42,17 @@ def from_features(
         generated: The generated speech
     """
     device = torch.device('cpu' if gpu is None else f'cuda:{gpu}')
+
+    if loudness.ndim == 2:
+        loudness = loudness[None]
+
     return generate(
         loudness.to(device) if loudness is not None else None,
         pitch.to(device) if pitch is not None else None,
         periodicity.to(device) if periodicity is not None else None,
         ppg.to(device) if ppg is not None else None,
         speaker,
-        formant_ratio,
+        spectral_balance_ratio,
         loudness_ratio,
         checkpoint
     ).to(torch.float32)
@@ -60,7 +64,7 @@ def from_file(
     periodicity_file: Optional[Union[str, os.PathLike]] = None,
     ppg_file: Optional[Union[str, os.PathLike]] = None,
     speaker: Optional[Union[int, torch.Tensor]] = 0,
-    formant_ratio: float = 1.,
+    spectral_balance_ratio: float = 1.,
     loudness_ratio: float = 1.,
     checkpoint: Union[str, os.PathLike] = promonet.DEFAULT_CHECKPOINT,
     gpu: Optional[int] = None
@@ -73,7 +77,7 @@ def from_file(
         periodicity_file: The periodicity file
         ppg_file: The phonetic posteriorgram file
         speaker: The speaker index
-        formant_ratio: > 1 for Alvin and the Chipmunks; < 1 for Patrick Star
+        spectral_balance_ratio: > 1 for Alvin and the Chipmunks; < 1 for Patrick Star
         loudness_ratio: > 1 for louder; < 1 for quieter
         checkpoint: The generator checkpoint
         gpu: The GPU index
@@ -96,7 +100,7 @@ def from_file(
         periodicity,
         ppg,
         speaker,
-        formant_ratio,
+        spectral_balance_ratio,
         loudness_ratio,
         checkpoint,
         gpu)
@@ -109,7 +113,7 @@ def from_file_to_file(
     ppg_file: Optional[Union[str, os.PathLike]] = None,
     output_file: Optional[Union[str, os.PathLike]] = None,
     speaker: Optional[Union[int, torch.Tensor]] = 0,
-    formant_ratio: float = 1.,
+    spectral_balance_ratio: float = 1.,
     loudness_ratio: float = 1.,
     checkpoint: Union[str, os.PathLike] = promonet.DEFAULT_CHECKPOINT,
     gpu: Optional[int] = None
@@ -123,7 +127,7 @@ def from_file_to_file(
         ppg_file: The phonetic posteriorgram file
         output_file: The file to save generated speech audio
         speaker: The speaker index
-        formant_ratio: > 1 for Alvin and the Chipmunks; < 1 for Patrick Star
+        spectral_balance_ratio: > 1 for Alvin and the Chipmunks; < 1 for Patrick Star
         loudness_ratio: > 1 for louder; < 1 for quieter
         checkpoint: The generator checkpoint
         gpu: The GPU index
@@ -135,7 +139,7 @@ def from_file_to_file(
         periodicity_file,
         ppg_file,
         speaker,
-        formant_ratio,
+        spectral_balance_ratio,
         loudness_ratio,
         checkpoint,
         gpu
@@ -155,7 +159,7 @@ def from_files_to_files(
     ppg_files: List[Union[str, os.PathLike]] = None,
     output_files: List[Union[str, os.PathLike]] = None,
     speakers: Optional[Union[List[int], torch.Tensor]] = None,
-    formant_ratio: float = 1.,
+    spectral_balance_ratio: float = 1.,
     loudness_ratio: float = 1.,
     checkpoint: Union[str, os.PathLike] = promonet.DEFAULT_CHECKPOINT,
     gpu: Optional[int] = None
@@ -169,7 +173,7 @@ def from_files_to_files(
         ppg_files: The phonetic posteriorgram files
         output_files: The files to save generated speech audio
         speakers: The speaker indices
-        formant_ratio: > 1 for Alvin and the Chipmunks; < 1 for Patrick Star
+        spectral_balance_ratio: > 1 for Alvin and the Chipmunks; < 1 for Patrick Star
         loudness_ratio: > 1 for louder; < 1 for quieter
         checkpoint: The generator checkpoint
         gpu: The GPU index
@@ -202,7 +206,7 @@ def from_files_to_files(
     for item in iterator:
         from_file_to_file(
             *item,
-            formant_ratio=formant_ratio,
+            spectral_balance_ratio=spectral_balance_ratio,
             loudness_ratio=loudness_ratio,
             checkpoint=checkpoint,
             gpu=gpu)
@@ -219,7 +223,7 @@ def generate(
     periodicity=None,
     ppg=None,
     speaker=0,
-    formant_ratio: float = 1.,
+    spectral_balance_ratio: float = 1.,
     loudness_ratio: float = 1.,
     checkpoint=promonet.DEFAULT_CHECKPOINT
 ) -> torch.Tensor:
@@ -236,7 +240,10 @@ def generate(
             generate.checkpoint != checkpoint or
             generate.device != device
         ):
-            model = promonet.model.Generator().to(device)
+            if promonet.SPECTROGRAM_ONLY:
+                model = promonet.model.MelGenerator().to(device)
+            else:
+                model = promonet.model.Generator().to(device)
             if type(checkpoint) is str:
                 checkpoint = Path(checkpoint)
             if checkpoint.is_dir():
@@ -250,18 +257,12 @@ def generate(
 
     with torchutil.time.context('generate'):
 
-        # Default length is the entire sequence
-        lengths = torch.tensor(
-            (pitch.shape[-1],),
-            dtype=torch.long,
-            device=device)
-
         # Specify speaker
         speakers = torch.full((1,), speaker, dtype=torch.long, device=device)
 
         # Format ratio
-        formant_ratio = torch.tensor(
-            [formant_ratio],
+        spectral_balance_ratio = torch.tensor(
+            [spectral_balance_ratio],
             dtype=torch.float,
             device=device)
 
@@ -278,8 +279,8 @@ def generate(
                 pitch,
                 periodicity,
                 ppg,
-                lengths,
                 speakers,
-                formant_ratio,
-                loudness_ratio
-            )[0][0]
+                spectral_balance_ratio,
+                loudness_ratio,
+                generate.model.default_previous_samples
+            )[0]

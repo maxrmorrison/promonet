@@ -1,21 +1,21 @@
 # Runs all experiments in the paper
-# "Adaptive Neural Speech Prosody Editing"
+# "Fine-Grained and Interpretable Neural Speech Editing"
 
 # Args
 # $1 - index of GPU to use
 
 # Download datasets
-python -m promonet.data.download
+# python -m promonet.data.download --datasets daps vctk
 
 # Setup experiments
-python -m promonet.data.augment
-python -m promonet.data.preprocess --gpu $1
-python -m promonet.partition
+# python -m promonet.data.augment --datasets daps vctk
+# python -m promonet.data.preprocess --gpu $1 --datasets daps vctk
+# python -m promonet.partition --datasets daps vctk
 
 # First pass experiments trainings and evaluations
-python -m promonet.train --config config/augment-multiband-varpitch-256.py --gpu $1
-python -m promonet.evaluate --config config/augment-multiband-varpitch-256.py --gpu $1
+python -m promonet.train --gpu $1
+python -m promonet.evaluate --gpu $1 --datasets vctk
 
 # DSP-based baseline evaluations
-# python -m promonet.evaluate --config config/baselines/psola.py --gpu $1
-# python -m promonet.evaluate --config config/baselines/world.py --gpu $1
+python -m promonet.evaluate --config config/baselines/psola.py --gpu $1 --datasets vctk
+python -m promonet.evaluate --config config/baselines/world.py --gpu $1 --datasets vctk

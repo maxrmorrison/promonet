@@ -1,9 +1,7 @@
 import functools
 import json
 
-import numpy as np
 import torch
-import torchaudio
 
 import promonet
 import ppgs
@@ -82,7 +80,7 @@ class Dataset(torch.utils.data.Dataset):
         loudness = torch.load(loudness_file).to(torch.float32)
 
         # Chunk during training
-        if promonet.MODEL != 'vits' and self.partition.startswith('train'):
+        if self.partition.startswith('train'):
             frames = promonet.CHUNK_SIZE // promonet.HOPSIZE
             if audio.shape[1] < promonet.CHUNK_SIZE:
                 audio = torch.nn.functional.pad(
@@ -110,22 +108,29 @@ class Dataset(torch.utils.data.Dataset):
                 spectrogram = spectrogram[:, start_frame:start_frame + frames]
                 phonemes = phonemes[:, start_frame:start_frame + frames]
 
-        # Get speaker index. Non-integer speaker names are assumed to be
-        # for speaker adaptation and therefore default to index zero.
-        if 'adapt' not in self.partition:
-            speaker = int(stem.split('/')[0])
+        if promonet.ZERO_SHOT:
+
+            # Load speaker embedding
+            speaker = torch.load(self.cache / f'{stem}-speaker.pt')
+
         else:
-            speaker = 0
+
+            # Get speaker index. Non-integer speaker names are assumed to be
+            # for speaker adaptation and therefore default to index zero.
+            if 'adapt' not in self.partition:
+                speaker = int(stem.split('/')[0])
+            else:
+                speaker = 0
 
         # Data augmentation ratios
         augmentation = stem[-4:]
         if augmentation.startswith('-'):
-            formant_ratio, loudness_ratio = 1., 1.
+            spectral_balance_ratios, loudness_ratio = 1., 1.
         elif augmentation.startswith('p'):
-            formant_ratio = int(stem[-3:]) / 100.
+            spectral_balance_ratios = int(stem[-3:]) / 100.
             loudness_ratio = 1.
         elif augmentation.startswith('l'):
-            formant_ratio = 1.
+            spectral_balance_ratios = 1.
             loudness_ratio = int(stem[-3:]) / 100.
         else:
             raise ValueError(
@@ -140,7 +145,7 @@ class Dataset(torch.utils.data.Dataset):
             spectrogram,
             audio,
             torch.tensor(speaker, dtype=torch.long),
-            formant_ratio,
+            spectral_balance_ratios,
             loudness_ratio,
             stem)
 

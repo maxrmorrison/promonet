@@ -13,14 +13,14 @@ import promonet
 def from_audio(audio, sample_rate, ratio):
     """Perform volume data augmentation on audio"""
     # Augment audio
-    augmented = promonet.loudness.shift(
+    augmented = promonet.preprocess.loudness.shift(
         audio,
         promonet.convert.ratio_to_db(ratio))
 
     # Resample ratio if the audio clips
     while ((augmented <= -1.) | (augmented >= 1.)).any():
         ratio = promonet.data.augment.sample(1)[0]
-        augmented = promonet.loudness.shift(
+        augmented = promonet.preprocess.loudness.shift(
             audio,
             promonet.convert.ratio_to_db(ratio))
 

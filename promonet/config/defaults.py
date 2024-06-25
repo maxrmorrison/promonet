@@ -30,8 +30,8 @@ FMAX = 550.  # Hz
 # Audio hopsize
 HOPSIZE = 256  # samples
 
-# Maximum number of speech formants
-MAX_FORMANTS = 3
+# Maximum number of speech harmonics
+MAX_HARMONICS = 3
 
 # Minimum decibel level
 MIN_DB = -100.
@@ -66,7 +66,10 @@ ALL_FEATURES = [
     'pitch',
     'periodicity',
     'ppg',
-    'spectrogram']
+    'spectrogram',
+    'text',
+    'harmonics',
+    'speaker']
 
 # Whether to use loudness augmentation
 AUGMENT_LOUDNESS = True
@@ -209,8 +212,33 @@ INPUT_FEATURES = ['loudness', 'pitch', 'periodicity', 'ppg']
 # (Negative) slope of leaky ReLU activations
 LRELU_SLOPE = .1
 
-# The model to use. One of ['hifigan', 'psola', 'vits', 'vocos', 'world'].
+# The model to use.
+# One of ['cargan', 'fargan', 'hifigan', 'psola', 'vocos', 'world'].
 MODEL = 'hifigan'
+
+# Number of previous samples to use
+CARGAN_INPUT_SIZE = 2 * HOPSIZE
+
+# Autoregressive hidden size
+CARGAN_HIDDEN_SIZE = 256
+
+# Number of autoregressive output channels
+CARGAN_OUTPUT_SIZE = 128
+
+# Whether to use additive noise with FARGAN
+FARGAN_ADDITIVE_NOISE = True
+
+# Whether to use gain normalization in the subframe network
+FARGAN_GAIN_NORMALIZATION = False
+
+# Number of previous frames used for lookback in FARGAN
+FARGAN_PREVIOUS_FRAMES = 2  # frames
+
+# Number of subframes per frame
+FARGAN_SUBFRAMES = 4  # subframes
+
+# Number of samples per subframe
+FARGAN_SUBFRAME_SIZE = HOPSIZE // FARGAN_SUBFRAMES  # samples
 
 # Kernel sizes of residual block
 HIFIGAN_RESBLOCK_KERNEL_SIZES = [3, 7, 11]
@@ -245,6 +273,12 @@ VOCOS_POINTWISE_CHANNELS = 1536
 # Number of neural network layers in Vocos
 VOCOS_LAYERS = 6
 
+# Number of channels of WavLM x-vector embedding
+WAVLM_EMBEDDING_CHANNELS = 512
+
+# Whether to use WavLM x-vectors for zero-shot speaker conditioning
+ZERO_SHOT = False
+
 
 ###############################################################################
 # Logging parameters
@@ -272,6 +306,9 @@ PLOT_EXAMPLES = 10
 # Whether to use hinge loss instead of L2
 ADVERSARIAL_HINGE_LOSS = False
 
+# Step to start using adversarial loss
+ADVERSARIAL_LOSS_START_STEP = 0
+
 # Weight applied to the discriminator loss
 ADVERSARIAL_LOSS_WEIGHT = 1.
 
@@ -284,6 +321,9 @@ FEATURE_MATCHING_OMIT_FIRST = False
 # Weight applied to the KL divergence loss
 KL_DIVERGENCE_LOSS_WEIGHT = 1.
 
+# Whether to use mel spectrogram loss
+MEL_LOSS = True
+
 # Weight applied to the melspectrogram loss
 MEL_LOSS_WEIGHT = 45.
 
@@ -293,8 +333,17 @@ MULTI_MEL_LOSS = False
 # Window sizes to be used in the multi-scale mel loss
 MULTI_MEL_LOSS_WINDOWS = [32, 64, 128, 256, 512, 1024, 2048]
 
+# Whether to compare raw audio signals
+SIGNAL_LOSS = False
+
+# Weight applied to signal loss
+SIGNAL_LOSS_WEIGHT = .03
+
 # Whether to shift the Mels given to the Mel loss to have a minimum of zero
 SPARSE_MEL_LOSS = False
+
+# Whether to use multi-resolution spectral convergence loss
+SPECTRAL_CONVERGENCE_LOSS = False
 
 
 ###############################################################################

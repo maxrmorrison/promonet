@@ -27,13 +27,9 @@ from . import convert
 from . import data
 from . import edit
 from . import evaluate
-from . import formants
 from . import load
-from . import loss
-from . import loudness
 from . import model
 from . import partition
 from . import plot
 from . import preprocess
-from . import speaker
 from . import synthesize

@@ -19,10 +19,13 @@ def audio(file):
     audio, sample_rate = torchaudio.load(file)
 
     # Resample
-    return torchaudio.functional.resample(
+    audio = torchaudio.functional.resample(
         audio,
         sample_rate,
         promonet.SAMPLE_RATE)
+
+    # Ensure mono
+    return audio.mean(dim=0, keepdims=True)
 
 
 def features(prefix):
@@ -65,16 +68,16 @@ def pitch_distribution(dataset=promonet.TRAINING_DATASET, partition='train'):
             'stats' /
             f'{dataset}-{promonet.PITCH_BINS}{key}.pt')
 
-        try:
+        if file.exists():
 
             # Load and cache distribution
             pitch_distribution.distribution = torch.load(file)
 
-        except FileNotFoundError:
+        else:
 
             # Get all voiced pitch frames
             allpitch = []
-            dataset = promonet.data.Dataset(dataset, 'train')
+            dataset = promonet.data.Dataset(dataset, partition)
             viterbi = '-viterbi' if promonet.VITERBI_DECODE_PITCH else ''
             for stem in torchutil.iterator(
                 dataset.stems,

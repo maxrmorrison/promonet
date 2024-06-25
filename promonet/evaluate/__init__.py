@@ -1,2 +1,2 @@
 from .core import *
-from .metrics import Metrics, Formant, spectral_centroid
+from .metrics import Metrics, SpectralBalance, spectral_centroid

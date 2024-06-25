@@ -23,7 +23,8 @@ def from_audio(
     loudness, pitch, periodicity, ppg = promonet.preprocess.from_audio(
         audio,
         features=features,
-        gpu=gpu)
+        gpu=gpu,
+        loudness_bands=1)
     if target_audio is None:
         target_loudness = None
         target_pitch = None
@@ -61,22 +62,30 @@ def from_features(
     target_pitch=None,
     target_periodicity=None,
     target_ppg=None,
-    features=promonet.DEFAULT_PLOT_FEATURES
+    features=promonet.DEFAULT_PLOT_FEATURES,
+    highlight=None,
+    ppg_threshold=.05
 ):
     """Plot speech representation"""
-    height_ratios = [3 * (feature == 'ppg') + 1 for feature in features]
+    height_ratios = [3. * (feature == 'ppg') + 1. for feature in features]
     figure, axes = plt.subplots(
         len(features),
         1,
-        figsize=(6, 1.5 * len(features)),
+        figsize=(6, 2 * len(features)),
         gridspec_kw={'height_ratios': height_ratios})
-    figure.subplots_adjust(hspace=.5)
+    try:
+        iter(axes)
+        figure.subplots_adjust(hspace=.5)
+    except TypeError:
+        axes = [axes]
 
     # Plot audio
     i = 0
+    duration = promonet.convert.frames_to_seconds(pitch.shape[-1])
     for feature in features:
         if feature == 'audio':
-            axes[i].plot(audio.squeeze().cpu(), color='black', linewidth=.5)
+            times = torch.linspace(0, duration, audio.shape[-1])
+            axes[i].plot(times, audio.squeeze().cpu(), color='black', linewidth=.5)
             axes[i].set_xmargin(0.)
             axes[i].spines['top'].set_visible(False)
             axes[i].spines['right'].set_visible(False)
@@ -85,21 +94,21 @@ def from_features(
             axes[i].set_xticks([])
             axes[i].set_ylim([-1., 1.])
             axes[i].tick_params(axis=u'both', which=u'both', length=0)
-            axes[i].set_xlabel('Audio', fontsize=12)
+            axes[i].set_title('Audio', fontsize=12)
             for tick in [-1., 1.]:
-                axes[i].hlines(tick, xmin=0., xmax=audio.shape[-1], color='#aaaa', linestyle='--')
+                axes[i].hlines(tick, xmin=0., xmax=duration, color='#aaaa', linestyle='--')
             i += 1
 
         # Plot PPGs
         if feature == 'ppg':
             ppg = ppg.squeeze()
-            probable = ppg > .05
+            probable = ppg > ppg_threshold
             if target_ppg is not None:
                 target_ppg = target_ppg.squeeze()
-                probable = probable | (target_ppg > .05)
+                probable = probable | (target_ppg > ppg_threshold)
             used = probable.sum(-1) > 0
             ppg = ppg[used]
-            ppg[ppg < .05] = 0.
+            ppg[ppg < ppg_threshold] = 0.
 
             cmap = matplotlib.colors.LinearSegmentedColormap.from_list(
                 'cmap',
@@ -108,39 +117,51 @@ def from_features(
             cmap._init()
             alphas = torch.linspace(0, 1. if target_ppg is None else .5, cmap.N + 3)
             cmap._lut[:, -1] = alphas
+            extent = [0, duration, len(ppg)-.5, -.5]
 
             if target_ppg is not None:
                 target_ppg = target_ppg[used]
-                target_ppg[target_ppg < .05] = 0.
+                target_ppg[target_ppg < ppg_threshold] = 0.
                 target_cmap = matplotlib.colors.LinearSegmentedColormap.from_list(
                     'target_cmap',
                     ['none', 'red'],
                     256)
                 target_cmap._init()
                 target_cmap._lut[:, -1] = alphas
-                axes[i].imshow(target_ppg.cpu(), aspect='auto', interpolation='none', cmap=target_cmap)
+                axes[i].imshow(
+                    target_ppg.cpu(),
+                    aspect='auto',
+                    interpolation='none',
+                    cmap=target_cmap,
+                    extent=extent)
 
-            axes[i].imshow(ppg.cpu(), aspect='auto', interpolation='none', cmap=cmap)
+            axes[i].imshow(
+                ppg.cpu(),
+                aspect='auto',
+                interpolation='none',
+                cmap=cmap,
+                extent=extent)
             axes[i].set_xmargin(0.)
             axes[i].spines['top'].set_visible(False)
             axes[i].spines['right'].set_visible(False)
             axes[i].spines['bottom'].set_visible(False)
             axes[i].spines['left'].set_visible(False)
-            axes[i].set_xlabel('Sparse phonetic posteriorgram (Section 2.1)', fontsize=12)
+            axes[i].set_title('Sparse phonetic posteriorgram (SPPG)', fontsize=12)
             axes[i].set_xticks([])
             axes[i].tick_params(axis=u'both', which=u'both', length=0)
             yticks = torch.arange(len(ppg))
             axes[i].set_yticks(yticks, [ppgs.PHONEMES[i] for i, u in enumerate(used) if u])
             for tick in (yticks - .5).tolist() + [yticks[-1] + .5]:
-                axes[i].hlines(tick, xmin=0., xmax=ppg.shape[-1], color='#aaaa', linestyle='--')
+                axes[i].hlines(tick, xmin=0., xmax=duration, color='#aaaa', linestyle='--')
             i += 1
 
         # Plot pitch
         if feature == 'pitch':
-            axes[i].plot(pitch.squeeze().cpu(), color='black', linewidth=1.)
+            times = torch.linspace(0, duration, pitch.shape[-1])
+            axes[i].plot(times, pitch.squeeze().cpu(), color='black', linewidth=1.)
             ymin, ymax = pitch.min(), pitch.max()
             if target_pitch is not None:
-                axes[i].plot(target_pitch.squeeze().cpu(), color='green', linewidth=1.)
+                axes[i].plot(times, target_pitch.squeeze().cpu(), color='green', linewidth=1.)
                 ymin = min(target_pitch.min(), ymin)
                 ymax = max(target_pitch.max(), ymax)
                 if target_periodicity is not None:
@@ -157,7 +178,7 @@ def from_features(
                         (cents > promonet.ERROR_THRESHOLD_PITCH))
                     pitch_errors = target_pitch.clone()
                     pitch_errors[~errors] = float('nan')
-                    axes[i].plot(pitch_errors.squeeze().cpu(), color='red', linewidth=1.)
+                    axes[i].plot(times, pitch_errors.squeeze().cpu(), color='red', linewidth=1.)
             axes[i].set_xmargin(0.)
             axes[i].spines['top'].set_visible(False)
             axes[i].spines['right'].set_visible(False)
@@ -177,18 +198,20 @@ def from_features(
             yticks = torch.arange(ymin, ymax + ystep, ystep)
             axes[i].set_yticks(yticks)
             for tick in yticks:
-                axes[i].hlines(tick, xmin=0., xmax=pitch.shape[-1], color='#aaaa', linestyle='--')
-            axes[i].set_xlabel('Viterbi-decoded pitch (Hz) (Section 2.2)', fontsize=12)
+                axes[i].hlines(tick, xmin=0., xmax=duration, color='#aaaa', linestyle='--')
+            axes[i].set_title('Viterbi-decoded pitch (Hz)', fontsize=12)
             i += 1
 
         # Plot periodicity
         if feature == 'periodicity':
-            axes[i].plot(periodicity.squeeze().cpu(), color='black', linewidth=1.)
+            times = torch.linspace(0, duration, periodicity.shape[-1])
+            axes[i].plot(times, periodicity.squeeze().cpu(), color='black', linewidth=1.)
             ymin, ymax = periodicity.min(), periodicity.max()
             if target_periodicity is not None:
                 ymin = min(target_periodicity.min(), ymin)
                 ymax = max(target_periodicity.max(), ymax)
                 axes[i].plot(
+                    times,
                     target_periodicity.squeeze().cpu(),
                     color='green',
                     linewidth=1.)
@@ -198,6 +221,7 @@ def from_features(
                 periodicity_errors = target_periodicity.clone()
                 periodicity_errors[~errors] = float('nan')
                 axes[i].plot(
+                    times,
                     periodicity_errors.squeeze().cpu(),
                     color='red',
                     linewidth=1.)
@@ -214,18 +238,20 @@ def from_features(
             yticks = torch.arange(ymin, ymax + ystep, ystep)
             axes[i].set_yticks(yticks)
             for tick in yticks:
-                axes[i].hlines(tick, xmin=0., xmax=periodicity.shape[-1], color='#aaaa', linestyle='--')
-            axes[i].set_xlabel('Entropy-based periodicity (Section 2.3)', fontsize=12)
+                axes[i].hlines(tick, xmin=0., xmax=duration, color='#aaaa', linestyle='--')
+            axes[i].set_title('Entropy-based periodicity', fontsize=12)
             i += 1
 
         # Plot loudness
         if feature == 'loudness':
-            axes[i].plot(loudness.squeeze().cpu(), color='black', linewidth=1.)
+            times = torch.linspace(0, duration, loudness.shape[-1])
+            axes[i].plot(times, loudness.squeeze().cpu(), color='black', linewidth=1.)
             ymin, ymax = loudness.min(), loudness.max()
             if target_loudness is not None:
                 ymin = min(target_loudness.min(), ymin)
                 ymax = max(target_loudness.max(), ymax)
                 axes[i].plot(
+                    times,
                     target_loudness.squeeze().cpu(),
                     color='green',
                     linewidth=1.)
@@ -235,6 +261,7 @@ def from_features(
                 loudness_errors = target_loudness.clone()
                 loudness_errors[~errors] = float('nan')
                 axes[i].plot(
+                    times,
                     loudness_errors.squeeze().cpu(),
                     color='red',
                     linewidth=1.)
@@ -251,9 +278,55 @@ def from_features(
             yticks = torch.arange(ymin, ymax + ystep, ystep)
             axes[i].set_yticks(yticks)
             for tick in yticks:
-                axes[i].hlines(tick, xmin=0., xmax=loudness.shape[-1], color='#aaaa', linestyle='--')
-            axes[i].set_xlabel('A-weighted loudness (dBA) (Section 2.4)', fontsize=12)
+                axes[i].hlines(tick, xmin=0., xmax=duration, color='#aaaa', linestyle='--')
+            axes[i].set_title('A-weighted loudness (dBA)', fontsize=12)
             i += 1
+
+    axes[-1].set_xlabel('Time (seconds)', fontsize=14)
+    axes[-1].set_xticks(range(int(duration) + 1))
+    axes[-1].tick_params(axis=u'x', which=u'both', length=6)
+
+    # Handle highlighting
+    if highlight is not None:
+        if highlight == 'duration':
+            axes[-1].set_xlabel('Time (seconds)', fontsize=14, fontweight='bold')
+            axes[-1].set_xticks(range(int(duration) + 1))
+            for label in axes[-1].get_xticklabels():
+                label.set_fontweight('bold')
+            axes[-1].tick_params(axis=u'x', which=u'both', length=6, width=2)
+        else:
+            i = features.index(highlight)
+            extent = axes[i].get_window_extent()
+            if i > 0:
+                extent_up = axes[i - 1].get_window_extent()
+                pad_up = (extent_up.y0 - extent.y0 - extent_up.height) / 2
+            else:
+                pad_up = 0
+            if i < len(features) - 1:
+                extent_down = axes[i + 1].get_window_extent()
+                pad_down = (extent_down.y0 - extent.y0 - extent.height) / 2
+            else:
+                pad_down = 0
+            if highlight == 'ppg':
+                y0 = (sum(height_ratios[i + 1:]) + .75) / sum(height_ratios)
+                height = .67 * height_ratios[i] / sum(height_ratios)
+            else:
+                y0 = (sum(height_ratios[i + 1:]) + .5 * height_ratios[i] + .2) / sum(height_ratios)
+                height = height_ratios[i] / sum(height_ratios)
+            rectangle = plt.Rectangle(
+                (0., y0),
+                1.,
+                height,
+                fill=True,
+                color='#FFFF7F',
+                zorder=-1,
+                transform=figure.transFigure,
+                figure=figure)
+            axes[i].patch.set_facecolor('#FFFF7F')
+            for label in axes[i].get_yticklabels():
+                label.set_fontweight('bold')
+            axes[i].set_title(axes[i].get_title(), fontweight='bold')
+            figure.patches.extend([rectangle])
 
     return figure
 

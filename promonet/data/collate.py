@@ -20,7 +20,7 @@ def collate(batch):
         spectrograms,
         audio,
         speakers,
-        formant_ratios,
+        spectral_balance_ratios,
         loudness_ratios,
         stems
     ) = zip(*batch)
@@ -78,12 +78,18 @@ def collate(batch):
         # Prepare audio
         padded_audio[i, :, :lengths[index]] = audio[index]
 
+    # Collate speaker IDs or embeddings
+    if promonet.ZERO_SHOT:
+        speakers = torch.cat(speakers)
+    else:
+        speakers = torch.tensor(speakers, dtype=torch.long)
+
     # Sort stuff
     text = [text[i] for i in sorted_indices]
     stems = [stems[i] for i in sorted_indices]
-    speakers = torch.tensor(speakers, dtype=torch.long)[sorted_indices]
-    formant_ratios = torch.tensor(
-        formant_ratios, dtype=torch.float)[sorted_indices]
+    speakers = speakers[sorted_indices]
+    spectral_balance_ratios = torch.tensor(
+        spectral_balance_ratios, dtype=torch.float)[sorted_indices]
     loudness_ratios = torch.tensor(
         loudness_ratios, dtype=torch.float)[sorted_indices]
 
@@ -93,9 +99,8 @@ def collate(batch):
         padded_pitch,
         padded_periodicity,
         padded_phonemes,
-        feature_lengths,
         speakers,
-        formant_ratios,
+        spectral_balance_ratios,
         loudness_ratios,
         padded_spectrograms,
         padded_audio,

@@ -79,11 +79,11 @@ def hz_to_bins(
     if promonet.VARIABLE_PITCH_BINS:
         distribution = promonet.load.pitch_distribution().to(hz.device)
         bins = torch.searchsorted(distribution, hz)
-        return torch.clip(bins, 0, promonet.PITCH_BINS - 1)
+        return torch.clip(bins, 0, num_bins.item() - 1)
 
     # Normalize to [0, 1]
-    logfmin = torch.log2(torch.tensor(fmin))
-    logfmax = torch.log2(torch.tensor(fmax))
+    logfmin = torch.log2(fmin)
+    logfmax = torch.log2(fmax)
     centered = torch.log2(hz) - logfmin
     normalized = centered / (logfmax - logfmin)
 

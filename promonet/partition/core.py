@@ -2,13 +2,13 @@
 Data partitions
 
 DAPS
-===
+====
 * train_adapt_{:02d} - Training dataset for speaker adaptation (10 speakers)
 * test_adapt_{:02d} - Test dataset for speaker adaptation
     (10 speakers; 10 examples per speaker; 4-10 seconds)
 
 LibriTTS
-====
+========
 * train - Training data
 * valid - Validation set of seen speakers for debugging and tensorboard
     (64 examples)
@@ -150,7 +150,7 @@ def daps():
     # Get stems
     directory = promonet.CACHE_DIR / 'daps'
     stems = [
-        f'{file.parent.name}/{file.stem}'
+        f'{file.parent.name}/{file.stem[:6]}'
         for file in directory.rglob('*.txt')]
 
     # Create speaker adaptation partitions
@@ -165,7 +165,7 @@ def libritts():
     # Get list of speakers
     directory = promonet.CACHE_DIR / 'libritts'
     stems = {
-        f'{file.parent.name}/{file.stem}'
+        f'{file.parent.name}/{file.stem[:6]}'
         for file in directory.rglob('*.txt')}
 
     # Get speaker map
@@ -208,7 +208,7 @@ def vctk():
     # Get list of speakers
     directory = promonet.CACHE_DIR / 'vctk'
     stems = {
-        f'{file.parent.name}/{file.stem}'
+        f'{file.parent.name}/{file.stem[:6]}'
         for file in directory.rglob('*.txt')}
 
     # Get file stem correspondence

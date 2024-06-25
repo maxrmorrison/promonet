@@ -13,7 +13,7 @@ import promonet
 
 
 ###############################################################################
-# Extract formants
+# Extract harmonics
 ###############################################################################
 
 
@@ -23,11 +23,11 @@ def from_audio(
     pitch: Optional[torch.Tensor] = None,
     features: str = 'stft',
     decoder: str = 'viterbi',
-    max_formants: int = promonet.MAX_FORMANTS,
+    max_harmonics: int = promonet.MAX_HARMONICS,
     return_features: bool = False,
     gpu=None
 ) -> torch.Tensor:
-    """Compute speech formant contours
+    """Compute speech harmonic contours
 
     Arguments
         audio
@@ -38,20 +38,20 @@ def from_audio(
         pitch
             Optional pitch contour prior
         features
-            The features to use for formant analysis.
+            The features to use for harmonic analysis.
             One of ['lpc', 'posteriorgram', 'stft'].
-        decider
+        decoder
             The decoding method. One of ['peak', 'viterbi'].
-        max_formants
-            The number of formants to compute
+        max_harmonics
+            The number of harmonics to compute
         return_features
             Whether to return the features used for analysis
         gpu
             The GPU index; defaults to CPU
 
     Returns
-        Speech formants; NaNs indicate number of formants < max_formants
-        shape=(max_formants, promonet.convert.samples_to_frames(samples))
+        Speech harmonics; NaNs indicate number of harmonics < max_harmonics
+        shape=(max_harmonics, promonet.convert.samples_to_frames(samples))
     """
     # Preprocess
     if features == 'lpc':
@@ -63,28 +63,28 @@ def from_audio(
 
     # Decode
     if decoder == 'peak':
-        formants = peak_pick(frames, frequencies, max_formants)
+        harmonics = peak_pick(frames, frequencies, max_harmonics)
     elif decoder == 'viterbi':
-        formants = viterbi(
+        harmonics = viterbi(
             frames,
             frequencies,
             pitch=pitch,
-            max_formants=max_formants,
+            max_harmonics=max_harmonics,
             gpu=gpu)
 
     if return_features:
-        return formants, frames.T
-    return formants
+        return harmonics, frames.T
+    return harmonics
 
 
 def from_file(
     file: Union[str, bytes, os.PathLike],
     pitch_file: Optional[Union[str, bytes, os.PathLike]] = None,
-    max_formants: int = promonet.MAX_FORMANTS,
+    max_harmonics: int = promonet.MAX_HARMONICS,
     return_features: bool = False,
     gpu=None
 ) -> torch.Tensor:
-    """Compute speech formant contours from audio file
+    """Compute speech harmonic contours from audio file
 
 
     Arguments
@@ -92,22 +92,22 @@ def from_file(
             The speech audio file
         pitch_file
             Optional pitch contour prior
-        max_formants
-            The number of formants to compute
+        max_harmonics
+            The number of harmonics to compute
         return_features
             Whether to return the features used for analysis
         gpu
             The GPU index; defaults to CPU
 
     Returns
-        Speech formants; NaNs indicate number of formants < max_formants
-        shape=(max_formants, promonet.convert.samples_to_frames(samples))
+        Speech harmonics; NaNs indicate number of harmonics < max_harmonics
+        shape=(max_harmonics, promonet.convert.samples_to_frames(samples))
     """
     pitch = None if pitch_file is None else torch.load(pitch_file)
     return from_audio(
         promonet.load.audio(file),
         pitch=pitch,
-        max_formants=max_formants,
+        max_harmonics=max_harmonics,
         return_features=return_features,
         gpu=gpu)
 
@@ -117,10 +117,10 @@ def from_file_to_file(
     output_file: Union[str, bytes, os.PathLike],
     pitch_file: Optional[Union[str, bytes, os.PathLike]] = None,
     output_feature_file: Optional[Union[str, bytes, os.PathLike]] = None,
-    max_formants: int = promonet.MAX_FORMANTS,
+    max_harmonics: int = promonet.MAX_HARMONICS,
     gpu=None
 ) -> None:
-    """Compute speech formant contours from audio file and save
+    """Compute speech harmonic contours from audio file and save
 
 
     Arguments
@@ -132,15 +132,15 @@ def from_file_to_file(
             Optional pitch contour prior
         output_feature_file
             Optional location to save the features used for analysis
-        max_formants
-            The number of formants to compute
+        max_harmonics
+            The number of harmonics to compute
         gpu
             The GPU index; defaults to CPU
     """
     result = from_file(
         file,
         pitch_file=pitch_file,
-        max_formants=max_formants,
+        max_harmonics=max_harmonics,
         return_features=output_feature_file is not None,
         gpu=gpu)
     if output_feature_file is not None:
@@ -153,10 +153,10 @@ def from_files_to_files(
     output_files: List[Union[str, bytes, os.PathLike]],
     pitch_files: Optional[List[Union[str, bytes, os.PathLike]]] = None,
     output_feature_files: Optional[List[Union[str, bytes, os.PathLike]]] = None,
-    max_formants: int = promonet.MAX_FORMANTS,
+    max_harmonics: int = promonet.MAX_HARMONICS,
     gpu=None
 ) -> None:
-    """Compute speech formant contours from audio files and save
+    """Compute speech harmonic contours from audio files and save
 
     Arguments
         files
@@ -167,8 +167,8 @@ def from_files_to_files(
             Optional pitch contour priors
         output_feature_files
             Optional locations to save the features used for analysis
-        max_formants
-            The number of formants to compute
+        max_harmonics
+            The number of harmonics to compute
         gpu
             The GPU index; defaults to CPU
     """
@@ -187,7 +187,7 @@ def from_files_to_files(
             output_file,
             pitch_file,
             output_feature_file,
-            max_formants,
+            max_harmonics,
             gpu=gpu)
 
 
@@ -196,30 +196,30 @@ def from_files_to_files(
 ###############################################################################
 
 
-def peak_pick(frames, frequencies, max_formants=promonet.MAX_FORMANTS):
-    """Decode formants via peak-picking"""
+def peak_pick(frames, frequencies, max_harmonics=promonet.MAX_HARMONICS):
+    """Decode harmonics via peak-picking"""
     # Find peaks
     peaks = [scipy.signal.find_peaks(frame)[0] for frame in frames]
 
     # Decode
-    formants = torch.full((max_formants, len(frames)), float('nan'))
+    harmonics = torch.full((max_harmonics, len(frames)), float('nan'))
     for i, peak in enumerate(peaks):
         for j, p in enumerate(sorted(peak)):
-            if j >= max_formants:
+            if j >= max_harmonics:
                 continue
-            formants[j, i] = frequencies[p]
+            harmonics[j, i] = frequencies[p]
 
-    return formants
+    return harmonics
 
 
 def viterbi(
     frames,
     frequencies,
     pitch=None,
-    max_formants=promonet.MAX_FORMANTS,
-    formant_width_ratio=0.8,
+    max_harmonics=promonet.MAX_HARMONICS,
+    harmonic_width_ratio=0.8,
     gpu=None):
-    """Decode formants via Viterbi decoding"""
+    """Decode harmonics via Viterbi decoding"""
     device = 'cpu' if gpu is None else f'cuda:{gpu}'
 
     # Normalize
@@ -244,27 +244,27 @@ def viterbi(
 
     # Maybe use more accurate external pitch esitimator for F0
     i = 0
-    formants = torch.full((max_formants, len(x)), float('nan'), device=device)
+    harmonics = torch.full((max_harmonics, len(x)), float('nan'), device=device)
     if pitch is not None:
-        formants[0] = pitch.squeeze(0)
+        harmonics[0] = pitch.squeeze(0)
         i += 1
 
         # Mask
         x = torch.clone(frames)
-        indices = torch.searchsorted(frequencies, formants[0])
-        min_formant_idxs = torch.searchsorted(
+        indices = torch.searchsorted(frequencies, harmonics[0])
+        min_harmonic_idxs = torch.searchsorted(
             frequencies,
-            formants[0] * (1. + formant_width_ratio))
-        max_formant_idxs = torch.searchsorted(
+            harmonics[0] * (1. + harmonic_width_ratio))
+        max_harmonic_idxs = torch.searchsorted(
             frequencies,
-            formants[0] * (1. + 1. / formant_width_ratio))
+            harmonics[0] * (1. + 1. / harmonic_width_ratio))
         for j in range(len(indices)):
-            x[j, :min_formant_idxs[j]] = -float('inf')
-            x[j, max_formant_idxs[j]:] = -float('inf')
+            x[j, :min_harmonic_idxs[j]] = -float('inf')
+            x[j, max_harmonic_idxs[j]:] = -float('inf')
         x = torch.softmax(x, dim=1)
 
     # Iteratively decode F1, F2, ...
-    while i < max_formants:
+    while i < max_harmonics:
 
         # Decode
         indices = torbi.from_probabilities(
@@ -274,27 +274,27 @@ def viterbi(
             log_probs=False,
             gpu=gpu
         )[0].to(torch.long)
-        formants[i] = frequencies[indices]
+        harmonics[i] = frequencies[indices]
 
         i += 1
 
-        if i == max_formants:
+        if i == max_harmonics:
             break
 
         # Mask
         x = torch.clone(frames)
-        min_formant_idxs = torch.searchsorted(
+        min_harmonic_idxs = torch.searchsorted(
             frequencies,
-            formants[0] * (i + formant_width_ratio))
-        max_formant_idxs = torch.searchsorted(
+            harmonics[0] * (i + harmonic_width_ratio))
+        max_harmonic_idxs = torch.searchsorted(
             frequencies,
-            formants[0] * (i + 1. / formant_width_ratio))
+            harmonics[0] * (i + 1. / harmonic_width_ratio))
         for j in range(len(indices)):
-            x[j, :min_formant_idxs[j]] = -float('inf')
-            x[j, max_formant_idxs[j]:] = -float('inf')
+            x[j, :min_harmonic_idxs[j]] = -float('inf')
+            x[j, max_harmonic_idxs[j]:] = -float('inf')
         x = torch.softmax(x, dim=1)
 
-    return formants
+    return harmonics
 
 
 ###############################################################################
@@ -388,7 +388,7 @@ def stft(
         target_sample_rate)
 
     # Pad audio
-    num_fft = 4 * promonet.NUM_FFT
+    num_fft = 4096
     hopsize = int(promonet.HOPSIZE * target_sample_rate / sample_rate)
     size = (
         hopsize * (frames - (audio.shape[-1] // hopsize)) // 2 +

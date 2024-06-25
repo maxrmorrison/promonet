@@ -109,8 +109,7 @@ def datasets(datasets, adapt=promonet.ADAPTATION, gpu=None):
         results_directory = promonet.RESULTS_DIR / promonet.CONFIG / dataset
         results_directory.mkdir(exist_ok=True, parents=True)
         results = {'num_samples': 0, 'num_frames': 0}
-        if promonet.MODEL != 'vits':
-            results |= {key: value() for key, value in dataset_metrics.items()}
+        results |= {key: value() for key, value in dataset_metrics.items()}
 
         results_directory = promonet.RESULTS_DIR / promonet.CONFIG / dataset
         for file in results_directory.glob(f'*.json'):
@@ -457,14 +456,14 @@ def speaker(
                     speakers=speakers,
                     gpu=gpu)
 
-        ###################
-        # Formant editing #
-        ###################
+        ############################
+        # Spectral balance editing #
+        ############################
 
         if promonet.AUGMENT_PITCH and promonet.MODEL not in ['psola', 'world']:
 
             # Copy features
-            key = f'formant-{int(ratio * 100):03d}'
+            key = f'balance-{int(ratio * 100):03d}'
             output_prefixes = [
                 original_objective_directory /
                 prefix.replace('original-100', key)
@@ -503,7 +502,7 @@ def speaker(
                     files[key],
                     speakers=speakers,
                     checkpoint=checkpoint,
-                    formant_ratio=ratio,
+                    spectral_balance_ratio=ratio,
                     gpu=gpu)
             else:
                 promonet.synthesize.from_files_to_files(
@@ -513,7 +512,7 @@ def speaker(
                     [f'{prefix}{ppgs.representation_file_extension()}' for prefix in output_prefixes],
                     files[key],
                     speakers=speakers,
-                    formant_ratio=ratio,
+                    spectral_balance_ratio=ratio,
                     checkpoint=checkpoint,
                     gpu=gpu)
 
@@ -601,27 +600,6 @@ def speaker(
                 ],
                 loudness_bands=None)
 
-        # Infer speaker embeddings
-        embedding_files = [
-            objective_directory / f'{file.stem}-speaker.pt'
-            for file in audio_files]
-        promonet.speaker.from_files_to_files(
-            audio_files,
-            embedding_files,
-            gpu=gpu)
-
-    # Infer speaker embeddings of original audio
-    original_files = list(
-        original_subjective_directory.glob(
-            f'{dataset}-{index}-*-original-100.wav'))
-    original_embedding_files = [
-        original_objective_directory / f'{file.stem}-speaker.pt'
-        for file in original_files]
-    promonet.speaker.from_files_to_files(
-        original_files,
-        original_embedding_files,
-        gpu=gpu)
-
     ############################
     # Evaluate prosody editing #
     ############################
@@ -649,10 +627,10 @@ def speaker(
                 predicted_prefix = objective_directory / file.stem
 
                 # Load predicted and target features
-                loudness = promonet.loudness.band_average(
+                loudness = promonet.preprocess.loudness.band_average(
                     torch.load(f'{predicted_prefix}-loudness.pt').to(device),
                     1)
-                target_loudness = promonet.loudness.band_average(
+                target_loudness = promonet.preprocess.loudness.band_average(
                     torch.load(f'{target_prefix}-loudness.pt').to(device),
                     1)
                 args = (
@@ -672,11 +650,7 @@ def speaker(
                     ).to(device),
                     promonet.load.text(f'{predicted_prefix}.txt'),
                     promonet.load.text(
-                        f'{target_prefix}.txt'.replace(key, 'original-100')),
-                    torch.load(f'{predicted_prefix}-speaker.pt').to(device),
-                    torch.load(
-                        f'{target_prefix}-speaker.pt'.replace(key, 'original-100')
-                    ).to(device))
+                        f'{target_prefix}.txt'.replace(key, 'original-100')))
 
                 # Update metrics
                 aggregate_metrics[key].update(*args)
@@ -732,10 +706,10 @@ def default_metrics():
             metrics[f'stretched-{int(ratio * 100):03d}'] = \
                 promonet.evaluate.Metrics()
 
-    # Formant editing metrics
+    # Spectral balance editing metrics
     if promonet.AUGMENT_PITCH and promonet.MODEL not in ['psola', 'world']:
         for ratio in promonet.EVALUATION_RATIOS:
-            metrics[f'formant-{int(ratio * 100):03d}'] = \
+            metrics[f'balance-{int(ratio * 100):03d}'] = \
                 promonet.evaluate.Metrics()
 
     # Loudness editing metrics

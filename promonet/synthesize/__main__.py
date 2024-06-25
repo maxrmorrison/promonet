@@ -49,7 +49,7 @@ def parse_args():
         nargs='+',
         help='The IDs of the speakers for voice conversion')
     parser.add_argument(
-        '--formant_ratio',
+        '--spectral_balance_ratio',
         type=float,
         default=1.,
         help='> 1 for Alvin and the Chipmunks; < 1 for Patrick Star')

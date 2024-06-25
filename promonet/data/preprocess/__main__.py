@@ -18,7 +18,7 @@ def parse_args():
         help='The datasets to preprocess')
     parser.add_argument(
         '--features',
-        default=promonet.ALL_FEATURES,
+        default=['loudness', 'pitch', 'periodicity', 'ppg'],
         choices=promonet.ALL_FEATURES,
         nargs='+',
         help='The features to preprocess')
