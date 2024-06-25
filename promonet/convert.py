@@ -18,7 +18,10 @@ def db_to_ratio(db):
 
 def ratio_to_db(ratio):
     """Convert perceptual loudness ratio to decibels"""
-    return 10 * math.log2(ratio)
+    if isinstance(ratio, torch.Tensor):
+        return 10 * torch.log2(ratio)
+    else:
+        return 10 * math.log2(ratio)
 
 
 ###############################################################################
@@ -36,7 +39,7 @@ def bins_to_hz(
         # Get bin boundaries
         distribution = torch.cat([
             promonet.load.pitch_distribution(),
-            torch.tensor(torch.FMAX)])
+            torch.tensor([promonet.FMAX])])
 
         # Compute offset in Hz
         offset = 2 ** (

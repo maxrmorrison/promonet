@@ -242,9 +242,9 @@ def linear_time_stretch(
 
     # Apply time stretch to all channels of spectrogram and aperiodicity
     for i in range(frequencies):
-        spectrogram[:, i] = scipy.interp(
+        spectrogram[:, i] = np.interp(
             grid, prev_grid, prev_spectrogram[:, i])
-        aperiodicity[:, i] = scipy.interp(
+        aperiodicity[:, i] = np.interp(
             grid, prev_grid, prev_aperiodicity[:, i])
 
     return pitch, spectrogram, aperiodicity
@@ -263,10 +263,10 @@ def linear_time_stretch_pitch(pitch, prev_grid, grid, next_frames):
         np.where(unvoiced)[0], np.where(~unvoiced)[0], pitch[~unvoiced])
 
     # Apply time stretch to pitch in base-2 log-space
-    pitch = 2 ** scipy.interp(grid, prev_grid, np.log2(pitch))
+    pitch = 2 ** np.interp(grid, prev_grid, np.log2(pitch))
 
     # Apply time stretch to unvoiced sequence
-    unvoiced = scipy.interp(grid, prev_grid, unvoiced)
+    unvoiced = np.interp(grid, prev_grid, unvoiced)
 
     # Reapply unvoiced tokens
     pitch[unvoiced > .5] = 0.

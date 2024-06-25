@@ -35,7 +35,8 @@ MULTI_SCALE_DISCRIMINATOR = True
 SPARSE_PPG_METHOD = None
 
 # Number of training steps
-STEPS = 250000
+# STEPS = 250000
+STEP = 800000
 
 # Whether to use variable-width pitch bins
 VARIABLE_PITCH_BINS = False

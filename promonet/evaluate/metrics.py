@@ -19,6 +19,8 @@ class Metrics:
 
     def __init__(self):
         self.loudness = Loudness()
+        self.loudness_above = Loudness(mode='above')
+        self.loudness_below = Loudness(mode='below')
         self.periodicity = torchutil.metrics.RMSE()
         self.pitch = Pitch()
         self.ppg = PPG()
@@ -29,6 +31,8 @@ class Metrics:
     def __call__(self):
         result = {
             'loudness': self.loudness(),
+            'loudness-above-silence': self.loudness_above(),
+            'loudness-below-silence': self.loudness_below(),
             'pitch': self.pitch(),
             'periodicity': self.periodicity(),
             'ppg': self.ppg()}
@@ -60,6 +64,8 @@ class Metrics:
         # target_spectrogram=None,
     ):
         self.loudness.update(predicted_loudness, target_loudness)
+        self.loudness_above.update(predicted_loudness, target_loudness)
+        self.loudness_below.update(predicted_loudness, target_loudness)
         self.periodicity.update(predicted_periodicity, target_periodicity)
         self.pitch.update(
             predicted_pitch,
@@ -177,14 +183,29 @@ def spectral_centroid(spectrogram):
 
 
 class Loudness(torchutil.metrics.RMSE):
-
     """Evaluates the average difference in framewise A-weighted loudness"""
+
+    def __init__(self, mode=None, threshold=-60):
+        super().__init__()
+        self.mode = mode
+        self.threshold = threshold
 
     def update(self, predicted_loudness, target_loudness):
         if promonet.LOUDNESS_BANDS > 1:
             predicted_loudness = predicted_loudness.mean(dim=-2, keepdim=True)
             target_loudness = target_loudness.mean(dim=-2, keepdim=True)
+        predicted_loudness = predicted_loudness.squeeze()
+        target_loudness = target_loudness.squeeze()
+        if self.mode == 'above':
+            keep_indices = torch.argwhere(((target_loudness>=self.threshold).to(bool) & (predicted_loudness>=self.threshold).to(bool)))
+            predicted_loudness = predicted_loudness[keep_indices]
+            target_loudness = target_loudness[keep_indices]
+        elif self.mode == 'below':
+            keep_indices = torch.argwhere(((target_loudness<self.threshold).to(bool) | (predicted_loudness<self.threshold).to(bool)))
+            predicted_loudness = predicted_loudness[keep_indices]
+            target_loudness = target_loudness[keep_indices]
         super().update(predicted_loudness, target_loudness)
+
 
 
 class Pitch(torchutil.metrics.L1):
