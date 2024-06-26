@@ -361,7 +361,7 @@ CHUNK_SIZE = 16384
 GRADIENT_CLIP_GENERATOR = None
 
 # Number of training steps
-STEPS = 800000
+STEPS = 400000
 
 # Number of adaptation steps
 ADAPTATION_STEPS = 10000

@@ -15,10 +15,10 @@ import promonet
 
 
 def from_features(
-    loudness: Optional[torch.Tensor] = None,
-    pitch: Optional[torch.Tensor] = None,
-    periodicity: Optional[torch.Tensor] = None,
-    ppg: Optional[torch.Tensor] = None,
+    loudness: torch.Tensor,
+    pitch: torch.Tensor,
+    periodicity: torch.Tensor,
+    ppg: torch.Tensor,
     speaker: Optional[Union[int, torch.Tensor]] = 0,
     spectral_balance_ratio: float = 1.,
     loudness_ratio: float = 1.,
@@ -47,10 +47,10 @@ def from_features(
         loudness = loudness[None]
 
     return generate(
-        loudness.to(device) if loudness is not None else None,
-        pitch.to(device) if pitch is not None else None,
-        periodicity.to(device) if periodicity is not None else None,
-        ppg.to(device) if ppg is not None else None,
+        loudness.to(device),
+        pitch.to(device),
+        periodicity.to(device),
+        ppg.to(device),
         speaker,
         spectral_balance_ratio,
         loudness_ratio,
@@ -59,10 +59,10 @@ def from_features(
 
 
 def from_file(
-    loudness_file: Optional[Union[str, os.PathLike]] = None,
-    pitch_file: Optional[Union[str, os.PathLike]] = None,
-    periodicity_file: Optional[Union[str, os.PathLike]] = None,
-    ppg_file: Optional[Union[str, os.PathLike]] = None,
+    loudness_file: Union[str, os.PathLike],
+    pitch_file: Union[str, os.PathLike],
+    periodicity_file: Union[str, os.PathLike],
+    ppg_file: Union[str, os.PathLike],
     speaker: Optional[Union[int, torch.Tensor]] = 0,
     spectral_balance_ratio: float = 1.,
     loudness_ratio: float = 1.,
@@ -88,17 +88,17 @@ def from_file(
     device = torch.device('cpu' if gpu is None else f'cuda:{gpu}')
 
     # Load features
-    loudness = torch.load(loudness_file).to(device) if loudness_file is not None else None
-    pitch = torch.load(pitch_file).to(device) if pitch_file is not None else None
-    periodicity = torch.load(periodicity_file).to(device) if periodicity_file is not None else None
-    ppg = promonet.load.ppg(ppg_file, resample_length=pitch.shape[-1])[None].to(device) if ppg_file is not None else None
+    loudness = torch.load(loudness_file)
+    pitch = torch.load(pitch_file)
+    periodicity = torch.load(periodicity_file)
+    ppg = promonet.load.ppg(ppg_file, resample_length=pitch.shape[-1])[None]
 
     # Generate
     return from_features(
-        loudness,
-        pitch,
-        periodicity,
-        ppg,
+        loudness.to(device),
+        pitch.to(device),
+        periodicity.to(device),
+        ppg.to(device),
         speaker,
         spectral_balance_ratio,
         loudness_ratio,
@@ -107,11 +107,11 @@ def from_file(
 
 
 def from_file_to_file(
-    loudness_file: Optional[Union[str, os.PathLike]] = None,
-    pitch_file: Optional[Union[str, os.PathLike]] = None,
-    periodicity_file: Optional[Union[str, os.PathLike]] = None,
-    ppg_file: Optional[Union[str, os.PathLike]] = None,
-    output_file: Optional[Union[str, os.PathLike]] = None,
+    loudness_file: Union[str, os.PathLike],
+    pitch_file: Union[str, os.PathLike],
+    periodicity_file: Union[str, os.PathLike],
+    ppg_file: Union[str, os.PathLike],
+    output_file: Union[str, os.PathLike],
     speaker: Optional[Union[int, torch.Tensor]] = 0,
     spectral_balance_ratio: float = 1.,
     loudness_ratio: float = 1.,
@@ -146,18 +146,16 @@ def from_file_to_file(
     ).to('cpu')
 
     # Save
-    if output_file is None:
-        raise ValueError('output_file cannot be None')
     output_file.parent.mkdir(exist_ok=True, parents=True)
     torchaudio.save(output_file, generated, promonet.SAMPLE_RATE)
 
 
 def from_files_to_files(
-    loudness_files: List[Union[str, os.PathLike]] = None,
-    pitch_files: List[Union[str, os.PathLike]] = None,
-    periodicity_files: List[Union[str, os.PathLike]] = None,
-    ppg_files: List[Union[str, os.PathLike]] = None,
-    output_files: List[Union[str, os.PathLike]] = None,
+    loudness_files: List[Union[str, os.PathLike]],
+    pitch_files: List[Union[str, os.PathLike]],
+    periodicity_files: List[Union[str, os.PathLike]],
+    ppg_files: List[Union[str, os.PathLike]],
+    output_files: List[Union[str, os.PathLike]],
     speakers: Optional[Union[List[int], torch.Tensor]] = None,
     spectral_balance_ratio: float = 1.,
     loudness_ratio: float = 1.,
@@ -180,20 +178,6 @@ def from_files_to_files(
     """
     if speakers is None:
         speakers = [0] * len(pitch_files)
-
-    if output_files is None:
-        raise ValueError('output_files cannot be None')
-
-    num_files = len(output_files)
-
-    if loudness_files is None:
-        loudness_files = [None] * num_files
-    if pitch_files is None:
-        pitch_files = [None] * num_files
-    if periodicity_files is None:
-        periodicity_files = [None] * num_files
-    if ppg_files is None:
-        ppg_files = [None] * num_files
 
     # Generate
     iterator = zip(
@@ -218,18 +202,16 @@ def from_files_to_files(
 
 
 def generate(
-    loudness=None,
-    pitch=None,
-    periodicity=None,
-    ppg=None,
+    loudness,
+    pitch,
+    periodicity,
+    ppg,
     speaker=0,
     spectral_balance_ratio: float = 1.,
     loudness_ratio: float = 1.,
     checkpoint=promonet.DEFAULT_CHECKPOINT
 ) -> torch.Tensor:
     """Generate speech from phoneme and prosody features"""
-    if pitch is None:
-        raise ValueError('pitch cannot be None')
     device = pitch.device
 
     with torchutil.time.context('load'):

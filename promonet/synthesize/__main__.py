@@ -17,7 +17,7 @@ def parse_args():
         '--loudness_files',
         type=Path,
         nargs='+',
-        default=None,
+        required=True,
         help='The loudness files')
     parser.add_argument(
         '--pitch_files',
@@ -29,13 +29,13 @@ def parse_args():
         '--periodicity_files',
         type=Path,
         nargs='+',
-        default=None,
+        required=True,
         help='The periodicity files')
     parser.add_argument(
         '--ppg_files',
         type=Path,
         nargs='+',
-        default=None,
+        required=True,
         help='The phonetic posteriorgram files')
     parser.add_argument(
         '--output_files',
