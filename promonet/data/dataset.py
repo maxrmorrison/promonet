@@ -121,6 +121,7 @@ class Dataset(torch.utils.data.Dataset):
                 speaker = int(stem.split('/')[0])
             else:
                 speaker = 0
+            speaker = torch.tensor(speaker, dtype=torch.long)
 
         # Data augmentation ratios
         augmentation = stem[-4:]
@@ -144,7 +145,7 @@ class Dataset(torch.utils.data.Dataset):
             phonemes,
             spectrogram,
             audio,
-            torch.tensor(speaker, dtype=torch.long),
+            speaker,
             spectral_balance_ratios,
             loudness_ratio,
             stem)

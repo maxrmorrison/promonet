@@ -213,7 +213,7 @@ INPUT_FEATURES = ['loudness', 'pitch', 'periodicity', 'ppg']
 LRELU_SLOPE = .1
 
 # The model to use.
-# One of ['cargan', 'fargan', 'hifigan', 'psola', 'vocos', 'world'].
+# One of ['cargan', 'fargan', 'hifigan', 'vocos', 'world'].
 MODEL = 'hifigan'
 
 # Number of previous samples to use
@@ -354,8 +354,8 @@ SPECTRAL_CONVERGENCE_LOSS = False
 # Batch size
 BATCH_SIZE = 64
 
-# Size in samples of discriminator inputs
-CHUNK_SIZE = 16384
+# Training sequence length
+CHUNK_SIZE = 16384  # samples
 
 # Gradients above this value are clipped to this value
 GRADIENT_CLIP_GENERATOR = None

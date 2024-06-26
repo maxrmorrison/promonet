@@ -120,7 +120,7 @@ def train(
     # Maybe setup spectral convergence loss
     if promonet.SPECTRAL_CONVERGENCE_LOSS:
         spectral_convergence = \
-            promonet.train.loss.MultiResolutionSpectralConvergence(device)
+            promonet.loss.MultiResolutionSpectralConvergence(device)
 
     # Setup progress bar
     progress = torchutil.iterator(
@@ -149,7 +149,6 @@ def train(
                 audio,
                 _
             ) = batch
-
 
             # Skip examples that are too short
             if audio.shape[-1] < promonet.CHUNK_SIZE:
@@ -246,7 +245,7 @@ def train(
                         discriminator_losses,
                         real_discriminator_losses,
                         fake_discriminator_losses
-                    ) = promonet.train.loss.discriminator(
+                    ) = promonet.loss.discriminator(
                         [logit.float() for logit in real_logits],
                         [logit.float() for logit in fake_logits])
 
@@ -312,13 +311,13 @@ def train(
 
                 # Waveform loss
                 if promonet.SIGNAL_LOSS:
-                    signal_loss = promonet.train.loss.signal(audio, generated)
+                    signal_loss = promonet.loss.signal(audio, generated)
                     generator_losses += promonet.SIGNAL_LOSS_WEIGHT * signal_loss
 
                 if step >= promonet.ADVERSARIAL_LOSS_START_STEP:
 
                     # Get feature matching loss
-                    feature_matching_loss = promonet.train.loss.feature_matching(
+                    feature_matching_loss = promonet.loss.feature_matching(
                         real_feature_maps,
                         fake_feature_maps)
                     generator_losses += (
@@ -327,7 +326,7 @@ def train(
 
                     # Get adversarial loss
                     adversarial_loss, adversarial_losses = \
-                        promonet.train.loss.generator(
+                        promonet.loss.generator(
                             [logit.float() for logit in fake_logits])
                     generator_losses += \
                         promonet.ADVERSARIAL_LOSS_WEIGHT * adversarial_loss

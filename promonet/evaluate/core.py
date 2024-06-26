@@ -153,7 +153,7 @@ def speaker(
     """Evaluate one adaptation speaker in a dataset"""
     device = f'cuda:{gpu}' if gpu is not None else 'cpu'
 
-    if promonet.MODEL not in ['psola', 'world'] and adapt:
+    if promonet.MODEL != 'world' and adapt:
         adapt_directory = checkpoint_directory / 'adapt' / dataset / index
         adapt_directory.mkdir(exist_ok=True, parents=True)
 
@@ -258,20 +258,17 @@ def speaker(
     ppg_files = [
         original_objective_directory / f'{prefix}{ppgs.representation_file_extension()}'
         for prefix in prefixes]
-    if promonet.MODEL in ['psola', 'world']:
-        if promonet.MODEL == 'psola':
-            synthesis_fn = promonet.baseline.psola.from_files_to_files
-        elif promonet.MODEL == 'world':
-            synthesis_fn = functools.partial(
-                promonet.baseline.world.from_files_to_files,
-                pitch_files=[
-                    original_objective_directory /
-                    f'{prefix}{viterbi}-pitch.pt'
-                    for prefix in prefixes],
-                periodicity_files=[
-                    original_objective_directory /
-                    f'{prefix}{viterbi}-periodicity.pt'
-                    for prefix in prefixes])
+    if promonet.MODEL == 'world':
+        synthesis_fn = functools.partial(
+            promonet.baseline.world.from_files_to_files,
+            pitch_files=[
+                original_objective_directory /
+                f'{prefix}{viterbi}-pitch.pt'
+                for prefix in prefixes],
+            periodicity_files=[
+                original_objective_directory /
+                f'{prefix}{viterbi}-periodicity.pt'
+                for prefix in prefixes])
         synthesis_fn(original_audio_files, files['reconstructed-100'])
     elif promonet.SPECTROGRAM_ONLY:
         promonet.baseline.mels.from_files_to_files(
@@ -322,15 +319,12 @@ def speaker(
             files[key] = [
                 subjective_directory / f'{prefix.name}.wav'
                 for prefix in output_prefixes]
-            if promonet.MODEL in ['psola', 'world']:
-                if promonet.MODEL == 'psola':
-                    synthesis_fn = promonet.baseline.psola.from_files_to_files
-                elif promonet.MODEL == 'world':
-                    synthesis_fn = functools.partial(
-                        promonet.baseline.world.from_files_to_files,
-                        periodicity_files=[
-                            f'{prefix}{viterbi}-periodicity.pt'
-                            for prefix in output_prefixes])
+            if promonet.MODEL == 'world':
+                synthesis_fn = functools.partial(
+                    promonet.baseline.world.from_files_to_files,
+                    periodicity_files=[
+                        f'{prefix}{viterbi}-periodicity.pt'
+                        for prefix in output_prefixes])
                 synthesis_fn(
                     original_audio_files,
                     files[key],
@@ -376,18 +370,15 @@ def speaker(
             files[key] = [
                 subjective_directory / f'{prefix.name}.wav'
                 for prefix in output_prefixes]
-            if promonet.MODEL in ['psola', 'world']:
-                if promonet.MODEL == 'psola':
-                    synthesis_fn = promonet.baseline.psola.from_files_to_files
-                elif promonet.MODEL == 'world':
-                    synthesis_fn = functools.partial(
-                        promonet.baseline.world.from_files_to_files,
-                        pitch_files=[
-                            f'{prefix}{viterbi}-pitch.pt'
-                            for prefix in output_prefixes],
-                        periodicity_files=[
-                            f'{prefix}{viterbi}-periodicity.pt'
-                            for prefix in output_prefixes])
+            if promonet.MODEL == 'world':
+                synthesis_fn = functools.partial(
+                    promonet.baseline.world.from_files_to_files,
+                    pitch_files=[
+                        f'{prefix}{viterbi}-pitch.pt'
+                        for prefix in output_prefixes],
+                    periodicity_files=[
+                        f'{prefix}{viterbi}-periodicity.pt'
+                        for prefix in output_prefixes])
                 synthesis_fn(
                     original_audio_files,
                     files[key],
@@ -428,18 +419,15 @@ def speaker(
             files[key] = [
                 subjective_directory / f'{prefix.name}.wav'
                 for prefix in output_prefixes]
-            if promonet.MODEL in ['psola', 'world']:
-                if promonet.MODEL == 'psola':
-                    synthesis_fn = promonet.baseline.psola.from_files_to_files
-                elif promonet.MODEL == 'world':
-                    synthesis_fn = functools.partial(
-                        promonet.baseline.world.from_files_to_files,
-                        pitch_files=[
-                            f'{prefix}{viterbi}-pitch.pt'
-                            for prefix in output_prefixes],
-                        periodicity_files=[
-                            f'{prefix}{viterbi}-periodicity.pt'
-                            for prefix in output_prefixes])
+            if promonet.MODEL == 'world':
+                synthesis_fn = functools.partial(
+                    promonet.baseline.world.from_files_to_files,
+                    pitch_files=[
+                        f'{prefix}{viterbi}-pitch.pt'
+                        for prefix in output_prefixes],
+                    periodicity_files=[
+                        f'{prefix}{viterbi}-periodicity.pt'
+                        for prefix in output_prefixes])
                 synthesis_fn(
                     original_audio_files,
                     files[key],
@@ -460,7 +448,7 @@ def speaker(
         # Spectral balance editing #
         ############################
 
-        if promonet.AUGMENT_PITCH and promonet.MODEL not in ['psola', 'world']:
+        if promonet.AUGMENT_PITCH and promonet.MODEL != 'world':
 
             # Copy features
             key = f'balance-{int(ratio * 100):03d}'
@@ -520,7 +508,7 @@ def speaker(
         # Perceptual loudness editing #
         ###############################
 
-        if promonet.AUGMENT_LOUDNESS and promonet.MODEL not in ['psola', 'world']:
+        if promonet.AUGMENT_LOUDNESS and promonet.MODEL != 'world':
 
             # Copy features
             key = f'loudness-{int(ratio * 100):03d}'
@@ -707,13 +695,13 @@ def default_metrics():
                 promonet.evaluate.Metrics()
 
     # Spectral balance editing metrics
-    if promonet.AUGMENT_PITCH and promonet.MODEL not in ['psola', 'world']:
+    if promonet.AUGMENT_PITCH and promonet.MODEL != 'world':
         for ratio in promonet.EVALUATION_RATIOS:
             metrics[f'balance-{int(ratio * 100):03d}'] = \
                 promonet.evaluate.Metrics()
 
     # Loudness editing metrics
-    if promonet.AUGMENT_LOUDNESS and promonet.MODEL not in ['psola', 'world']:
+    if promonet.AUGMENT_LOUDNESS and promonet.MODEL != 'world':
         for ratio in promonet.EVALUATION_RATIOS:
             metrics[f'loudness-{int(ratio * 100):03d}'] = \
                 promonet.evaluate.Metrics()

@@ -29,7 +29,7 @@ def from_audio(audio, sample_rate=promonet.SAMPLE_RATE, gpu=None):
     torchaudio.functional.resample(audio, sample_rate, WAVLM_SAMPLE_RATE)
 
     # Embed
-    return infer(audio[0], gpu)[0]
+    return infer(audio[0], gpu)
 
 
 def from_file(file, gpu=None):
@@ -85,7 +85,7 @@ def infer(audio, gpu=None):
     embeddings = infer.model(
         features['input_values'].to(device),
         features['attention_mask'].to(device)
-    ).embeddings
+    ).embeddings.detach()
 
     # Normalize
     return torch.nn.functional.normalize(embeddings, dim=-1)

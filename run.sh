@@ -17,5 +17,4 @@ python -m promonet.train --gpu $1
 python -m promonet.evaluate --gpu $1 --datasets vctk
 
 # DSP-based baseline evaluations
-python -m promonet.evaluate --config config/baselines/psola.py --gpu $1 --datasets vctk
 python -m promonet.evaluate --config config/baselines/world.py --gpu $1 --datasets vctk

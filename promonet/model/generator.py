@@ -250,9 +250,6 @@ class Generator(BaseGenerator):
         # Loudness ratio
         labels.append('loudness ratio')
 
-        # TEMPORARY
-        # [print(label) for label in labels]
-
         return labels
 
     def pack_features(

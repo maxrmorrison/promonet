@@ -80,7 +80,7 @@ def collate(batch):
 
     # Collate speaker IDs or embeddings
     if promonet.ZERO_SHOT:
-        speakers = torch.cat(speakers)
+        speakers = torch.stack(speakers)
     else:
         speakers = torch.tensor(speakers, dtype=torch.long)
 

@@ -20,7 +20,7 @@ from .config.static import *
 ###############################################################################
 
 
-from .train import train
+from .train import loss, train
 from . import adapt
 from . import baseline
 from . import convert
