@@ -171,7 +171,7 @@ def from_features(
                     target_voicing = penn.voicing.threshold(
                         target_periodicity,
                         promonet.VOICING_THRESHOLD)
-                    cents = 1200 * torch.abs(torch.log2(pitch) - torch.log2(target_pitch))
+                    cents = 1200 * torch.abs(torch.log2(pitch.to(torch.float32)) - torch.log2(target_pitch.to(torch.float32)))
                     errors = (
                         voicing &
                         target_voicing &
