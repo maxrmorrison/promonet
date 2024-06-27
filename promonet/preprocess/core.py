@@ -79,7 +79,10 @@ def from_audio(
             decoder=decoder,
             interp_unvoiced_at=voicing_threshold,
             gpu=gpu)
-        result.extend([pitch, periodicity])
+        if 'pitch' in features:
+            result.append(pitch)
+        if 'periodicity' in features:
+            result.append(periodicity)
 
     # Infer ppg
     if 'ppg' in features:
@@ -188,35 +191,35 @@ def from_file_to_file(
         max_harmonics: The maximum number of speech harmonics
     """
     # Preprocess
-    features = from_file(file, gpu, features, loudness_bands, max_harmonics)
+    inferred_features = from_file(file, gpu, features, loudness_bands, max_harmonics)
 
     # Save
     if output_prefix is None:
         output_prefix = file.parent / file.stem
     if 'loudness' in features:
-        torch.save(features[0], f'{output_prefix}-loudness.pt')
-        del features[0]
+        torch.save(inferred_features[0], f'{output_prefix}-loudness.pt')
+        del inferred_features[0]
     if 'pitch' in features:
-        torch.save(features[0], f'{output_prefix}-pitch.pt')
-        del features[0]
+        torch.save(inferred_features[0], f'{output_prefix}-pitch.pt')
+        del inferred_features[0]
     if 'periodicity' in features:
-        torch.save(features[0], f'{output_prefix}-periodicity.pt')
-        del features[0]
+        torch.save(inferred_features[0], f'{output_prefix}-periodicity.pt')
+        del inferred_features[0]
     if 'ppg' in features:
         torch.save(
-            features[0],
+            inferred_features[0],
             f'{output_prefix}{ppgs.representation_file_extension()}')
-        del features[0]
+        del inferred_features[0]
     if 'text' in features:
         with open(f'{output_prefix}.txt', 'w') as file:
-            file.write(features[0])
-        del features[0]
+            file.write(inferred_features[0])
+        del inferred_features[0]
     if 'harmonics' in features:
-        torch.save(features[0], f'{output_prefix}-harmonics.pt')
-        del features[0]
+        torch.save(inferred_features[0], f'{output_prefix}-harmonics.pt')
+        del inferred_features[0]
     if 'speaker' in features:
-        torch.save(features[0], f'{output_prefix}-speaker.pt')
-        del features[0]
+        torch.save(inferred_features[0], f'{output_prefix}-speaker.pt')
+        del inferred_features[0]
 
 
 def from_files_to_files(
