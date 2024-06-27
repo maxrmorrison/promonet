@@ -1,5 +1,4 @@
 import torch
-import torchutil
 
 import promonet
 
