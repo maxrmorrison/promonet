@@ -1,11 +1,7 @@
-import functools
-
-import torch
-
 MODULE = 'promonet'
 
 # Configuration name
-CONFIG = 'mels-ours'
+CONFIG = 'mels'
 
 # Batch size
 BATCH_SIZE = 64
