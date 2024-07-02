@@ -32,9 +32,6 @@ PARTITION_DIR = (
     'partitions' /
     ('adaptation' if promonet.ADAPTATION else 'multispeaker'))
 
-# Default checkpoint for generation
-DEFAULT_CHECKPOINT = promonet.ASSETS_DIR / 'checkpoints'
-
 
 ###############################################################################
 # Model parameters

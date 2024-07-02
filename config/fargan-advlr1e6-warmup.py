@@ -5,14 +5,17 @@ import torch
 MODULE = 'promonet'
 
 # Configuration name
-CONFIG = 'fargan-lerp-advlr1e6'
+CONFIG = 'fargan-advlr1e6-warmup'
 
 # The model to use.
 # One of ['fargan', 'hifigan', 'vocos', 'world'].
 MODEL = 'fargan'
 
 # Step to start using adversarial loss
-ADVERSARIAL_LOSS_START_STEP = 240000
+ADVERSARIAL_LOSS_START_STEP = 270000
+
+# Step to start training discriminator
+DISCRIMINATOR_START_STEP = 240000
 
 # Training batch size
 BATCH_SIZE = 128
@@ -30,12 +33,5 @@ OPTIMIZER = functools.partial(
     betas=(.9, .999),
     eps=1e-9)
 
-# Type of interpolation method to use to scale PPG features
-# Available method are ['linear', 'nearest', 'slerp']
-PPG_INTERP_METHOD = 'linear'
-
 # Whether to use multi-resolution spectral convergence loss
 SPECTRAL_CONVERGENCE_LOSS = True
-
-# Number of training steps
-STEPS = 750000

@@ -102,8 +102,8 @@ PITCH_EMBEDDING_SIZE = 64
 PPG_CHANNELS = 40
 
 # Type of interpolation method to use to scale PPG features
-# Available method are ['linear', 'nearest', 'slerp']
-PPG_INTERP_METHOD = 'slerp'
+# Available method are ['linear', 'nearest']
+PPG_INTERP_METHOD = 'linear'
 
 # Whether to shift Mel inputs to have a minimum of zero
 SPARSE_MELS = False
@@ -312,6 +312,9 @@ ADVERSARIAL_LOSS_START_STEP = 0
 # Weight applied to the discriminator loss
 ADVERSARIAL_LOSS_WEIGHT = 1.
 
+# Step to start training discriminator
+DISCRIMINATOR_START_STEP = 0
+
 # Weight applied to the feature matching loss
 FEATURE_MATCHING_LOSS_WEIGHT = 1.
 
@@ -361,7 +364,7 @@ CHUNK_SIZE = 16384  # samples
 GRADIENT_CLIP_GENERATOR = None
 
 # Number of training steps
-STEPS = 400000
+STEPS = 800000
 
 # Number of adaptation steps
 ADAPTATION_STEPS = 10000

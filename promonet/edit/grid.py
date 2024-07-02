@@ -41,10 +41,6 @@ def sample(sequence, grid, method='linear'):
     elif method == 'nearest':
         return sequence[..., torch.round(grid).to(torch.long)]
 
-    # Spherical linear interpolation
-    elif method == 'slerp':
-        return ppgs.edit.grid.sample(sequence, grid)
-
     else:
         raise ValueError(f'Grid sampling method {method} is not defined')
 

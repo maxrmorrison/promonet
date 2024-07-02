@@ -233,7 +233,7 @@ def train(
                         ),
                         dim=2)
 
-                if step >= promonet.ADVERSARIAL_LOSS_START_STEP:
+                if step >= promonet.DISCRIMINATOR_START_STEP:
 
                     # Forward pass through discriminators
                     real_logits, fake_logits, _, _ = discriminators(
@@ -250,7 +250,7 @@ def train(
                         [logit.float() for logit in fake_logits])
 
             # Backward pass through discriminators
-            if step >= promonet.ADVERSARIAL_LOSS_START_STEP:
+            if step >= promonet.DISCRIMINATOR_START_STEP:
                 discriminator_optimizer.zero_grad()
                 scaler.scale(discriminator_losses).backward()
                 scaler.step(discriminator_optimizer)

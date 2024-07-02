@@ -165,7 +165,7 @@ See the [`ppgs.edit`](https://github.com/interactiveaudiolab/ppgs#ppgsedit) subm
 def speaker(
     name: str,
     files: List[Path],
-    checkpoint: Path = promonet.DEFAULT_CHECKPOINT,
+    checkpoint: Path = None,
     gpu: Optional[int] = None
 ) -> Path:
     """Perform speaker adaptation
@@ -173,7 +173,7 @@ def speaker(
     Args:
         name: The name of the speaker
         files: The audio files to use for adaptation
-        checkpoint: The model checkpoint
+        checkpoint: The model checkpoint directory
         gpu: The gpu to run adaptation on
 
     Returns:
@@ -412,9 +412,9 @@ def from_features(
     pitch: torch.Tensor,
     periodicity: torch.Tensor,
     ppg: torch.Tensor,
-    speaker: Optional[Union[int, torch.Tensor]] = 0,
+    speaker: Union[int, torch.Tensor] = 0,
     spectral_balance_ratio: float = 1.,
-    checkpoint: Union[str, os.PathLike] = promonet.DEFAULT_CHECKPOINT,
+    checkpoint: Optional[Union[str, os.PathLike]] = None,
     gpu: Optional[int] = None) -> torch.Tensor:
     """Perform speech synthesis
 
@@ -442,8 +442,8 @@ def from_file(
     pitch_file: Union[str, os.PathLike],
     periodicity_file: Union[str, os.PathLike],
     ppg_file: Union[str, os.PathLike],
-    speaker: Optional[Union[int, torch.Tensor]] = 0,
-    checkpoint: Union[str, os.PathLike] = promonet.DEFAULT_CHECKPOINT,
+    speaker: Union[int, torch.Tensor] = 0,
+    checkpoint: Optional[Union[str, os.PathLike]] = None,
     gpu: Optional[int] = None
 ) -> torch.Tensor:
     """Perform speech synthesis from features on disk
@@ -472,8 +472,8 @@ def from_file_to_file(
     periodicity_file: Union[str, os.PathLike],
     ppg_file: Union[str, os.PathLike],
     output_file: Union[str, os.PathLike],
-    speaker: Optional[Union[int, torch.Tensor]] = 0,
-    checkpoint: Union[str, os.PathLike] = promonet.DEFAULT_CHECKPOINT,
+    speaker: Union[int, torch.Tensor] = 0,
+    checkpoint: Optional[Union[str, os.PathLike]] = None,
     gpu: Optional[int] = None
 ) -> None:
     """Perform speech synthesis from features on disk and save
@@ -501,7 +501,7 @@ def from_files_to_files(
     ppg_files: List[Union[str, os.PathLike]],
     output_files: List[Union[str, os.PathLike]],
     speakers: Optional[Union[List[int], torch.Tensor]] = None,
-    checkpoint: Union[str, os.PathLike] = promonet.DEFAULT_CHECKPOINT,
+    checkpoint: Optional[Union[str, os.PathLike]] = None,
     gpu: Optional[int] = None
 ) -> None:
     """Perform batched speech synthesis from features on disk and save
@@ -542,7 +542,7 @@ optional arguments:
   --files FILES [FILES ...]
     The audio files to use for adaptation
   --checkpoint CHECKPOINT
-    The model checkpoint
+    The model checkpoint directory
   --gpu GPU
     The gpu to run adaptation on
 ```
@@ -734,7 +734,7 @@ Also performs benchmarking of generation speed. Results are stored in `eval/`.
 python -m promonet.evaluate \
     --config <name> \
     --datasets <datasets> \
-    --gpus <gpus>
+    --gpu <gpu>
 ```
 
 
