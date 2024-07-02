@@ -84,8 +84,11 @@ name = 'max'
 # Audio files for adaptation
 files = [...]
 
+# GPU index to perform adaptation and editing on
+gpu = 0
+
 # Perform speaker adaptation
-checkpoint = promonet.adapt.speaker(name, files)
+checkpoint = promonet.adapt.speaker(name, files, gpu=gpu)
 
 
 ###############################################################################
@@ -93,19 +96,16 @@ checkpoint = promonet.adapt.speaker(name, files)
 ###############################################################################
 
 
-# Load audio for prosody editing
+# Load speech to edit
 audio = promonet.load.audio('test.wav')
 
-# GPU index to perform editing on
-gpu = 0
-
-# Get prosody features to edit
+# Get features to edit
 loudness, pitch, periodicity, ppg = promonet.preprocess.from_audio(
     audio,
     promonet.SAMPLE_RATE,
     gpu)
 
-# We'll use a ratio of 2.0 for all prosody editing examples
+# We'll use a ratio of 2.0 for all editing examples
 ratio = 2.0
 
 # Perform pitch-shifting
