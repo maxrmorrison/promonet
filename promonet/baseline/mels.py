@@ -18,7 +18,7 @@ def from_audio(
     speaker=0,
     spectral_balance_ratio: float = 1.,
     loudness_ratio: float = 1.,
-    checkpoint=promonet.DEFAULT_CHECKPOINT,
+    checkpoint=None,
     gpu=None
 ):
     """Perform Mel spectrogram reconstruction"""
@@ -44,7 +44,7 @@ def from_features(
     speaker=0,
     spectral_balance_ratio: float = 1.,
     loudness_ratio: float = 1.,
-    checkpoint=promonet.DEFAULT_CHECKPOINT
+    checkpoint=None
 ):
     """Perform Mel spectrogram reconstruction"""
     device = spectrogram.device
@@ -107,7 +107,7 @@ def from_file(
     speaker=0,
     spectral_balance_ratio: float = 1.,
     loudness_ratio: float = 1.,
-    checkpoint=promonet.DEFAULT_CHECKPOINT,
+    checkpoint=None,
     gpu=None
 ):
     """Perform Mel reconstruction from audio file"""
@@ -126,7 +126,7 @@ def from_file_to_file(
     speaker=0,
     spectral_balance_ratio: float = 1.,
     loudness_ratio: float = 1.,
-    checkpoint=promonet.DEFAULT_CHECKPOINT,
+    checkpoint=None,
     gpu=None
 ):
     """Perform Mel reconstruction from audio file and save"""
@@ -149,7 +149,7 @@ def from_files_to_files(
     speakers=None,
     spectral_balance_ratio: float = 1.,
     loudness_ratio: float = 1.,
-    checkpoint=promonet.DEFAULT_CHECKPOINT,
+    checkpoint=None,
     gpu=None
 ):
     """Perform Mel reconstruction from audio files and save"""

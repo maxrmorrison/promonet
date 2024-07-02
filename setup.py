@@ -14,6 +14,7 @@ setup(
     url='https://github.com/maxrmorrison/promonet',
     install_requires=[
         'GPUtil',
+        'huggingface-hub',
         'jiwer',
         'librosa',
         'matplotlib',

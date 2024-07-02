@@ -25,8 +25,7 @@ def parse_args():
     parser.add_argument(
         '--checkpoint',
         type=Path,
-        default=promonet.DEFAULT_CHECKPOINT,
-        help='The model checkpoint')
+        help='The model checkpoint directory')
     parser.add_argument(
         '--gpu',
         type=int,

@@ -1,7 +1,7 @@
-import json
 from pathlib import Path
 from typing import List, Optional
 
+import huggingface_hub
 import torch
 import torchaudio
 import torchutil
@@ -17,7 +17,7 @@ import promonet
 def speaker(
     name: str,
     files: List[Path],
-    checkpoint: Path = promonet.DEFAULT_CHECKPOINT,
+    checkpoint: Optional[Path] = None,
     gpu: Optional[int] = None
 ) -> Path:
     """Perform speaker adaptation
@@ -25,7 +25,7 @@ def speaker(
     Args:
         name: The name of the speaker
         files: The audio files to use for adaptation
-        checkpoint: The model checkpoint
+        checkpoint: The model checkpoint directory
         gpu: The gpu to run adaptation on
 
     Returns:
@@ -79,6 +79,16 @@ def speaker(
         'discriminator-*.pt')
     if generator_path and discriminator_path:
         checkpoint = directory
+
+    # Maybe download checkpoint
+    if checkpoint is None:
+        generator_checkpoint = huggingface_hub.hf_hub_download(
+            'maxrmorrison/promonet',
+            f'generator-00{promonet.STEPS}.pt')
+        huggingface_hub.hf_hub_download(
+            'maxrmorrison/promonet',
+            f'discriminator-00{promonet.STEPS}.pt')
+        checkpoint = Path(generator_checkpoint).parent
 
     # Perform adaptation and return generator checkpoint
     return promonet.train(

@@ -2,6 +2,7 @@ import os
 from typing import List, Optional, Union
 from pathlib import Path
 
+import huggingface_hub
 import torch
 import torchaudio
 import torchutil
@@ -19,10 +20,10 @@ def from_features(
     pitch: torch.Tensor,
     periodicity: torch.Tensor,
     ppg: torch.Tensor,
-    speaker: Optional[Union[int, torch.Tensor]] = 0,
+    speaker: Union[int, torch.Tensor] = 0,
     spectral_balance_ratio: float = 1.,
     loudness_ratio: float = 1.,
-    checkpoint: Union[str, os.PathLike] = promonet.DEFAULT_CHECKPOINT,
+    checkpoint: Optional[Union[str, os.PathLike]] = None,
     gpu: Optional[int] = None
 ) -> torch.Tensor:
     """Perform speech synthesis
@@ -63,10 +64,10 @@ def from_file(
     pitch_file: Union[str, os.PathLike],
     periodicity_file: Union[str, os.PathLike],
     ppg_file: Union[str, os.PathLike],
-    speaker: Optional[Union[int, torch.Tensor]] = 0,
+    speaker: Union[int, torch.Tensor] = 0,
     spectral_balance_ratio: float = 1.,
     loudness_ratio: float = 1.,
-    checkpoint: Union[str, os.PathLike] = promonet.DEFAULT_CHECKPOINT,
+    checkpoint: Optional[Union[str, os.PathLike]] = None,
     gpu: Optional[int] = None
 ) -> torch.Tensor:
     """Perform speech synthesis from features on disk
@@ -112,10 +113,10 @@ def from_file_to_file(
     periodicity_file: Union[str, os.PathLike],
     ppg_file: Union[str, os.PathLike],
     output_file: Union[str, os.PathLike],
-    speaker: Optional[Union[int, torch.Tensor]] = 0,
+    speaker: Union[int, torch.Tensor] = 0,
     spectral_balance_ratio: float = 1.,
     loudness_ratio: float = 1.,
-    checkpoint: Union[str, os.PathLike] = promonet.DEFAULT_CHECKPOINT,
+    checkpoint: Optional[Union[str, os.PathLike]] = None,
     gpu: Optional[int] = None
 ) -> None:
     """Perform speech synthesis from features on disk and save
@@ -159,7 +160,7 @@ def from_files_to_files(
     speakers: Optional[Union[List[int], torch.Tensor]] = None,
     spectral_balance_ratio: float = 1.,
     loudness_ratio: float = 1.,
-    checkpoint: Union[str, os.PathLike] = promonet.DEFAULT_CHECKPOINT,
+    checkpoint: Optional[Union[str, os.PathLike]] = None,
     gpu: Optional[int] = None
 ) -> None:
     """Perform batched speech synthesis from features on disk and save
@@ -209,7 +210,7 @@ def generate(
     speaker=0,
     spectral_balance_ratio: float = 1.,
     loudness_ratio: float = 1.,
-    checkpoint=promonet.DEFAULT_CHECKPOINT
+    checkpoint=None
 ) -> torch.Tensor:
     """Generate speech from phoneme and prosody features"""
     device = pitch.device
@@ -226,12 +227,17 @@ def generate(
                 model = promonet.model.MelGenerator().to(device)
             else:
                 model = promonet.model.Generator().to(device)
-            if type(checkpoint) is str:
-                checkpoint = Path(checkpoint)
-            if checkpoint.is_dir():
-                checkpoint = torchutil.checkpoint.latest_path(
-                    checkpoint,
-                    'generator-*.pt')
+            if checkpoint is None:
+                checkpoint = huggingface_hub.hf_hub_download(
+                    'maxrmorrison/promonet',
+                    f'generator-00{promonet.STEPS}.pt')
+            else:
+                if type(checkpoint) is str:
+                    checkpoint = Path(checkpoint)
+                if checkpoint.is_dir():
+                    checkpoint = torchutil.checkpoint.latest_path(
+                        checkpoint,
+                        'generator-*.pt')
             model, *_ = torchutil.checkpoint.load(checkpoint, model)
             generate.model = model
             generate.checkpoint = checkpoint

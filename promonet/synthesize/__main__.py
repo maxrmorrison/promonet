@@ -56,7 +56,6 @@ def parse_args():
     parser.add_argument(
         '--checkpoint',
         type=Path,
-        default=promonet.DEFAULT_CHECKPOINT,
         help='The generator checkpoint')
     parser.add_argument(
         '--gpu',
