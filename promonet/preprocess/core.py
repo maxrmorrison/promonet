@@ -145,7 +145,8 @@ def from_file(
                 'periodicity',
                 'ppg',
                 'text',
-                'harmonics']
+                'harmonics',
+                'speaker']
         loudness_bands: The number of A-weighted loudness bands
         max_harmonics: The maximum number of speech harmonics
 
@@ -186,7 +187,8 @@ def from_file_to_file(
                 'periodicity',
                 'ppg',
                 'text',
-                'harmonic']
+                'harmonics',
+                'speaker']
         loudness_bands: The number of A-weighted loudness bands
         max_harmonics: The maximum number of speech harmonics
     """
@@ -243,7 +245,8 @@ def from_files_to_files(
                 'periodicity',
                 'ppg',
                 'text',
-                'harmonics']
+                'harmonics',
+                'speaker']
         loudness_bands: The number of A-weighted loudness bands
         max_harmonics: The maximum number of speech harmonics
     """

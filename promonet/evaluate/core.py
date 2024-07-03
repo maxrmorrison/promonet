@@ -59,8 +59,10 @@ def datasets(datasets, adapt=promonet.ADAPTATION, gpu=None):
                 partition for partition in partitions.keys()
                 if 'test-adapt' in partition))
         else:
-            train_partitions = [None]
-            test_partitions = ['test']
+            test_partitions = sorted(list(
+                partition for partition in partitions.keys()
+                if 'test' in partition))
+            train_partitions = [None] * len(test_partitions)
 
         # Per-dataset metrics
         dataset_metrics = default_metrics()
@@ -231,7 +233,8 @@ def speaker(
                 'pitch',
                 'periodicity',
                 'ppg',
-                'text'
+                'text',
+                'speaker'
             ],
             loudness_bands=None)
 
@@ -258,6 +261,10 @@ def speaker(
     ppg_files = [
         original_objective_directory / f'{prefix}{ppgs.representation_file_extension()}'
         for prefix in prefixes]
+    if promonet.ZERO_SHOT:
+        speakers = [
+            original_objective_directory / f'{prefix}-speaker.pt'
+            for prefix in prefixes]
     if promonet.MODEL == 'world':
         synthesis_fn = functools.partial(
             promonet.baseline.world.from_files_to_files,
