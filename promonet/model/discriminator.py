@@ -26,7 +26,11 @@ class Discriminator(torch.nn.Module):
         if promonet.COMPLEX_MULTIBAND_DISCRIMINATOR:
             discriminators.append(DiscriminatorCMB())
         if promonet.FARGAN_DISCRIMINATOR:
-            discriminators.append(DiscriminatorTFDMR())
+            fft_sizes = [64, 128, 256, 512, 1024, 2048]
+            resolutions = [[n_fft, n_fft // 4, n_fft] for n_fft in fft_sizes]
+            discriminators.extend([
+                DiscriminatorMagFree(resolutions[i])
+                for i in range(len(resolutions))])
         self.discriminators = torch.nn.ModuleList(discriminators)
 
     def forward(self, y, y_hat, **kwargs):
@@ -240,24 +244,6 @@ class DiscriminatorS(torch.nn.Module):
 ###############################################################################
 
 
-class DiscriminatorTFDMR(torch.nn.Module):
-
-    def __init__(self,
-        fft_sizes=[64, 128, 256, 512, 1024, 2048],
-    ):
-        super().__init__()
-        resolutions = [[n_fft, n_fft // 4, n_fft] for n_fft in fft_sizes]
-        self.discriminators = torch.nn.ModuleList([
-            DiscriminatorMagFree(resolutions[i])
-            for i in range(len(resolutions))])
-
-    def forward(self, y):
-        outputs = []
-        for disc in self.discriminators:
-            outputs.append(disc(y))
-        return torch.flatten(outputs[-1], 1, -1), outputs[:-1]
-
-
 class SpecDiscriminatorBase(torch.nn.Module):
 
     def __init__(self, layers, resolution):
@@ -277,7 +263,7 @@ class SpecDiscriminatorBase(torch.nn.Module):
         for layer in self.layers:
             x = layer(x)
             output.append(x)
-        return output
+        return torch.flatten(output[-1], 1, -1), output[:-1]
 
     def init_weights(self):
         for m in self.modules():

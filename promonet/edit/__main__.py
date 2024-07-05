@@ -66,7 +66,7 @@ def parse_args():
         '--save_grid',
         action='store_true',
         help='If provided, also saves the time-stretch grid')
-    return parser.parse_known_args()[0]
+    return parser.parse_args()
 
 
 promonet.edit.from_files_to_files(**vars(parse_args()))
