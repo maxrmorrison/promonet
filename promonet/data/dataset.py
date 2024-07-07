@@ -1,5 +1,6 @@
 import functools
 import json
+import random
 
 import torch
 
@@ -54,6 +55,13 @@ class Dataset(torch.utils.data.Dataset):
                     torch.load(self.cache / f'{stem}{self.viterbi}-pitch.pt')
                 ).mean()
             ) > 60.]
+        self.speaker_stems = {}
+        for stem in self.stems:
+            speaker = stem.split('/')[0]
+            if speaker not in self.speaker_stems:
+                self.speaker_stems[speaker] = [stem]
+            else:
+                self.speaker_stems[speaker].append(stem)
 
     def __getitem__(self, index):
         stem = self.stems[index]
@@ -111,7 +119,13 @@ class Dataset(torch.utils.data.Dataset):
         if promonet.ZERO_SHOT:
 
             # Load speaker embedding
-            speaker = torch.load(self.cache / f'{stem}-speaker.pt')
+            if promonet.ZERO_SHOT_SHUFFLE and 'train' in self.partition:
+                random_speaker_stem = stem
+                while random_speaker_stem == stem:
+                    random_speaker_stem = random.choice(self.speaker_stems[stem.split('/')[0]])
+                speaker = torch.load(self.cache / f'{random_speaker_stem}-speaker.pt')
+            else:
+                speaker = torch.load(self.cache / f'{stem}-speaker.pt')
 
         else:
 

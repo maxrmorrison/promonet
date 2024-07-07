@@ -61,7 +61,7 @@ def parse_args():
         '--gpu',
         type=int,
         help='The GPU index')
-    return parser.parse_known_args()[0]
+    return parser.parse_args()
 
 
 promonet.synthesize.from_files_to_files(**vars(parse_args()))

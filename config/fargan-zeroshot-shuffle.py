@@ -1,34 +1,29 @@
-import functools
-
-import torch
-
 MODULE = 'promonet'
 
 # Configuration name
-CONFIG = 'fargan-advlr1e6'
+CONFIG = 'fargan-zeroshot-shuffle'
 
 # The model to use.
 # One of ['fargan', 'hifigan', 'vocos', 'world'].
 MODEL = 'fargan'
 
 # Step to start using adversarial loss
-ADVERSARIAL_LOSS_START_STEP = 240000
+ADVERSARIAL_LOSS_START_STEP = 250000
 
 # Training batch size
-BATCH_SIZE = 128
+BATCH_SIZE = 256
 
 # Training sequence length
-CHUNK_SIZE = 16384  # samples
+CHUNK_SIZE = 4096  # samples
 
 # Whether to use mel spectrogram loss
 MEL_LOSS = False
 
-# Training optimizer
-OPTIMIZER = functools.partial(
-    torch.optim.AdamW,
-    lr=2e-6,
-    betas=(.9, .999),
-    eps=1e-9)
-
 # Whether to use multi-resolution spectral convergence loss
 SPECTRAL_CONVERGENCE_LOSS = True
+
+# Whether to use WavLM x-vectors for zero-shot speaker conditioning
+ZERO_SHOT = True
+
+# Whether to shuffle speaker embeddings during training
+ZERO_SHOT_SHUFFLE = True

@@ -170,6 +170,9 @@ RUNS_DIR = ROOT_DIR / 'runs'
 # Whether to use the complex multi-band discriminator from RVQGAN
 COMPLEX_MULTIBAND_DISCRIMINATOR = True
 
+# Whether to use the multi-period waveform discriminator from HiFi-GAN
+MULTI_PERIOD_DISCRIMINATOR = True
+
 # Whether to use the multi-resolution spectrogram discriminator from UnivNet
 MULTI_RESOLUTION_DISCRIMINATOR = False
 
@@ -228,6 +231,9 @@ CARGAN_OUTPUT_SIZE = 128
 # Whether to use additive noise with FARGAN
 FARGAN_ADDITIVE_NOISE = True
 
+# Whether to use the same discriminator as FARGAN
+FARGAN_DISCRIMINATOR = False
+
 # Whether to use gain normalization in the subframe network
 FARGAN_GAIN_NORMALIZATION = False
 
@@ -278,6 +284,9 @@ WAVLM_EMBEDDING_CHANNELS = 512
 
 # Whether to use WavLM x-vectors for zero-shot speaker conditioning
 ZERO_SHOT = False
+
+# Whether to shuffle speaker embeddings during training
+ZERO_SHOT_SHUFFLE = False
 
 
 ###############################################################################
