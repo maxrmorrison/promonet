@@ -24,7 +24,7 @@ def from_audio(audio, speaker=0, spectral_balance_ratio=1., gpu=None):
         speaker = promonet.preprocess.from_audio(
             audio,
             features=['speaker'],
-            gpu=gpu)
+            gpu=gpu)[0].cpu()
 
     # Pack features
     return from_features(
@@ -71,10 +71,10 @@ def from_features(
 
     # Speaker
     if promonet.ZERO_SHOT:
-        speaker = speaker[None, :, None]
+        speaker = speaker[:, :, None]
     else:
-        speaker = torch.tensor([speaker])[:, None, None]
-    speaker = speaker.repeat(1, 1, features.shape[-1]).to(torch.float)
+        speaker = torch.tensor([speaker])[:, None, None].to(torch.float)
+    speaker = speaker.repeat(1, 1, features.shape[-1])
     features = torch.cat((features, speaker), dim=1)
 
     # Spectral balance
@@ -101,12 +101,7 @@ def from_file_to_file(
     """Convert audio file to packed features and save"""
     # Default to audio_file with .csv extension
     if output_file is None:
-        output_format = 'csv'
-    else:
-        output_format = output_file.suffix[1:]
-        if output_format not in ['csv', 'pt']:
-            raise ValueError(f'Output Format "{output_format}" is not supported')
-    output_file = audio_file.with_suffix(f'.{output_format}')
+        output_file = audio_file.with_suffix(f'.csv')
 
     # Pack features
     audio = promonet.load.audio(audio_file)
@@ -117,9 +112,9 @@ def from_file_to_file(
         gpu)
 
     # Save
-    if output_format == 'pt':
+    if output_file.suffix == '.pt':
         torch.save(features, output_file)
-    elif output_format == 'csv':
+    elif output_file.suffix == '.csv':
         features = features.cpu().numpy()[0]
 
         # Speaker labels
@@ -154,6 +149,11 @@ def from_file_to_file(
             csv_writer = csv.writer(csv_file)
             csv_writer.writerow(labels)
             for i in range(features.shape[-1]):
-                row = [timecodes[i], *features[:,i].tolist()]
-                row = [(f"{int(r)}" if i == 51 else f"{r:.8f}") for i,r in enumerate(row)]
+                row = [timecodes[i], *features[:, i].tolist()]
+                row = [
+                    (f'{int(r)}' if i == 51 else f"{r:.8f}")
+                    for i,r in enumerate(row)]
                 csv_writer.writerow(row)
+    else:
+        raise ValueError(
+            f'Output file type {output_file.suffix} is not supported')
