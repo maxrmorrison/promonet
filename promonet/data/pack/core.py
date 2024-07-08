@@ -19,6 +19,13 @@ def from_audio(audio, speaker=0, spectral_balance_ratio=1., gpu=None):
         audio,
         gpu=gpu)
 
+    # Maybe use zero-shot speaker embedding
+    if promonet.ZERO_SHOT:
+        speaker = promonet.preprocess.from_audio(
+            audio,
+            features=['speaker'],
+            gpu=gpu)
+
     # Pack features
     return from_features(
         loudness[None].cpu(),
@@ -63,7 +70,10 @@ def from_features(
     features = torch.cat((features, ppg), dim=1)
 
     # Speaker
-    speaker = torch.tensor([speaker])[:, None, None]
+    if promonet.ZERO_SHOT:
+        speaker = speaker[None, :, None]
+    else:
+        speaker = torch.tensor([speaker])[:, None, None]
     speaker = speaker.repeat(1, 1, features.shape[-1]).to(torch.float)
     features = torch.cat((features, speaker), dim=1)
 
@@ -84,8 +94,8 @@ def from_features(
 
 def from_file_to_file(
     audio_file,
-    output_file = None,
-    speaker = 0,
+    output_file=None,
+    speaker=0,
     spectral_balance_ratio=1.,
     gpu=None):
     """Convert audio file to packed features and save"""
@@ -97,7 +107,7 @@ def from_file_to_file(
         if output_format not in ['csv', 'pt']:
             raise ValueError(f'Output Format "{output_format}" is not supported')
     output_file = audio_file.with_suffix(f'.{output_format}')
-    
+
     # Pack features
     audio = promonet.load.audio(audio_file)
     features = from_audio(
@@ -105,29 +115,40 @@ def from_file_to_file(
         speaker,
         spectral_balance_ratio,
         gpu)
-    
+
     # Save
     if output_format == 'pt':
         torch.save(features, output_file)
     elif output_format == 'csv':
         features = features.cpu().numpy()[0]
-        
+
+        # Speaker labels
+        if promonet.ZERO_SHOT:
+            speaker_label = [
+                f'speaker-{i}'
+                for i in range(promonet.WAVLM_EMBEDDING_CHANNELS)]
+        else:
+            speaker_label = ['speaker']
+
         # Representation labels for header
         labels = [
             *[f'loudness-{i}' for i in range(promonet.LOUDNESS_BANDS)],                 # Loudness (8)
             'pitch',                                                                    # Pitch
             'periodicity',                                                              # Periodicity
             *[f'ppg-{i} ({ppgs.PHONEMES[i]})' for i in range(promonet.PPG_CHANNELS)],   # PPG (40)
-            'speaker',                                                                  # Speaker id
+            *speaker_label,                                                             # Speaker id
             'spectral balance',                                                         # Spectral Balance
             'loudness ratio'                                                            # Loudness Ratio
         ]
         labels = ['timecode', *labels]                                                  # Start of frame time (seconds)
-        
+
         # Generate timecode information (frame beginning)
-        timecodes = np.arange(0.0, audio.shape[-1] / promonet.SAMPLE_RATE, promonet.HOPSIZE / promonet.SAMPLE_RATE)
+        timecodes = np.arange(
+            0.0,
+            audio.shape[-1] / promonet.SAMPLE_RATE,
+            promonet.HOPSIZE / promonet.SAMPLE_RATE)
         timecodes = timecodes[:features.shape[-1]]
-        
+
         # Save to CSV
         with open(output_file, 'w') as csv_file:
             csv_writer = csv.writer(csv_file)

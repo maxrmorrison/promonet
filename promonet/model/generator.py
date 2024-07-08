@@ -242,7 +242,12 @@ class Generator(BaseGenerator):
             for i in range(promonet.PPG_CHANNELS)]
 
         # Speaker
-        labels.append('speaker')
+        if promonet.ZERO_SHOT:
+            labels += [
+                f'speaker-{i}'
+                for i in range(promonet.WAVLM_EMBEDDING_CHANNELS)]
+        else:
+            labels.append('speaker')
 
         # Spectral balance
         labels.append('spectral balance')
@@ -290,8 +295,12 @@ class Generator(BaseGenerator):
         features = torch.cat((features, ppg), dim=1)
 
         # Speaker
-        speakers = speakers[:, None, None].repeat(1, 1, features.shape[-1])
-        features = torch.cat((features, speakers.to(torch.float)), dim=1)
+        if promonet.ZERO_SHOT:
+            speakers = speakers[:, :, None]
+        else:
+            speakers = speakers[:, None, None].to(torch.float)
+        speaker = speaker.repeat(1, 1, features.shape[-1])
+        features = torch.cat((features, speakers), dim=1)
 
         # Spectral balance
         if promonet.AUGMENT_PITCH:
@@ -401,8 +410,13 @@ class Generator(BaseGenerator):
         i += promonet.PPG_CHANNELS
 
         # Speaker
-        speakers = x[:, i:i + 1, 0].to(torch.long).squeeze(1)
-        i += 1
+        if promonet.ZERO_SHOT:
+            speakers = \
+                x[:, i:i + promonet.WAVLM_EMBEDDING_CHANNELS, 0]
+            i += promonet.WAVLM_EMBEDDING_CHANNELS
+        else:
+            speakers = x[:, i:i + 1, 0].to(torch.long).squeeze(1)
+            i += 1
 
         # Spectral balance
         spectral_balance_ratios = x[:, i:i + 1, 0].squeeze(1)
