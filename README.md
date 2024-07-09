@@ -58,7 +58,7 @@ Official code for the paper _Fine-Grained and Interpretable Neural Speech Editin
 
 `pip install promonet`
 
-We are working on adding [`torbi`, our fast Viterbi decoding implementation](https://github.com/maxrmorrison/torbi) to PyTorch. Until then, you must manually download and install `torbi`. You can track the progress of incorporation into PyTorch [here](https://github.com/pytorch/pytorch/issues/121160).
+We are working on adding [`torbi`, our fast Viterbi decoding implementation](https://github.com/maxrmorrison/torbi) to PyTorch, which is used during pitch estimation. Until then, you must manually download and install `torbi` as well as the development (`dev`) branch of the pitch estimator [`penn`](https://github.com/interactiveaudiolab/penn). You can track the progress of incorporation of Viterbi decoding into PyTorch [here](https://github.com/pytorch/pytorch/issues/121160).
 
 
 ## Usage
