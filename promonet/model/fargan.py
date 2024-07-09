@@ -45,30 +45,52 @@ class FARGAN(torch.nn.Module):
         signal = torch.zeros((features.shape[0], 0), device=device)
 
         # Initialize recurrent state
-        states = initialize_recurrent_state(features.shape[0], device)
+        self.states = self.initialize_recurrent_state(features.shape[0], device)
+        previous_samples = previous_samples
 
         # Iterate over frames
         for feature in features.permute(2, 0, 1):
-            frame, previous_samples, states = self.step(
-                feature,
-                global_features.squeeze(2),
-                previous_samples,
-                states)
+            frame = self.step(feature, global_features.squeeze(2))
             signal = torch.cat([signal, frame], 1)
 
         return signal.unsqueeze(1)
+
+    def initialize_recurrent_state(
+        self,
+        batch_size: int,
+        device: torch.device
+    ):
+        """Initialize tensors for causal inference"""
+        return (
+            torch.zeros(batch_size, promonet.HOPSIZE, device=device),
+            torch.zeros(batch_size, promonet.HOPSIZE, device=device),
+            torch.zeros(batch_size, promonet.HOPSIZE, device=device),
+            torch.zeros(
+                batch_size,
+                4 * promonet.FARGAN_SUBFRAME_SIZE + 4,
+                device=device))
 
     def remove_weight_norm(self):
         """Remove weight norm for scriptable inference"""
         self.subframe_network.remove_weight_norm()
 
-    def step(
-        self,
-        features,
-        global_features,
-        previous_samples,
-        states: Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]
-    ):
+    def register_inference_buffers(self):
+        """Create buffers used for monophonic causal inference"""
+        # Create buffer that stores previous samples
+        self.register_buffer(
+            'previous_samples',
+            torch.zeros(1, 1, promonet.NUM_PREVIOUS_SAMPLES))
+
+        # Create buffer that stores recurrent state
+        self.register_buffer('state0', torch.zeros(1, promonet.HOPSIZE))
+        self.register_buffer('state1', torch.zeros(1, promonet.HOPSIZE))
+        self.register_buffer('state2', torch.zeros(1, promonet.HOPSIZE))
+        self.register_buffer(
+            'state3',
+            torch.zeros(1, 4 * promonet.FARGAN_SUBFRAME_SIZE + 4))
+        self.states = (self.state0, self.state1, self.state2, self.state3)
+
+    def step(self, features, global_features):
         """Generate one frame
 
         Arguments
@@ -78,21 +100,11 @@ class FARGAN(torch.nn.Module):
             global_features
                 Global input features
                 shape=(batch, promonet.GLOBAL_CHANNELS)
-            previous_samples
-                Previous waveform context
-                shape=(batch, 1, promonet.NUM_PREVIOUS_SAMPLES)
-            states
-                Recurrent model state
 
         Returns
             signal
                 Generated frame
                 shape=(batch, promonet.HOPSIZE)
-            previous_samples
-                Previous waveform context
-                shape=(batch, 1, promonet.NUM_PREVIOUS_SAMPLES)
-            states
-                Recurrent model state
         """
         # Separate pitch period
         period = torch.round(features[:, -1]).to(torch.long)
@@ -113,22 +125,22 @@ class FARGAN(torch.nn.Module):
         ).permute(2, 0, 1):
 
             # Compute subframe samples
-            subframe, states = self.subframe_network(
+            subframe, self.states = self.subframe_network(
                 subframe,
-                previous_samples,
                 period,
-                states)
+                self.previous_samples,
+                self.states)
             signal = torch.cat([signal, subframe], dim=1)
 
             # Update previous samples
-            previous_samples = torch.cat(
+            self.previous_samples = torch.cat(
                 [
-                    previous_samples[:, :, promonet.FARGAN_SUBFRAME_SIZE:],
+                    self.previous_samples[:, :, promonet.FARGAN_SUBFRAME_SIZE:],
                     subframe[:, None]
                 ],
                 dim=2)
 
-        return signal, previous_samples, states
+        return signal
 
 
 ###############################################################################
@@ -199,8 +211,8 @@ class SubframeNetwork(torch.nn.Module):
     def forward(
         self,
         features,
-        previous_samples,
         period,
+        previous_samples,
         states: Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]
     ):
         """
@@ -208,12 +220,12 @@ class SubframeNetwork(torch.nn.Module):
             features
                 Input subframe features
                 shape=(batch, 2 * promonet.FARGAN_SUBFRAME_SIZE)
-            previous_samples
-                Previous waveform context
-                shape=(batch, 1, promonet.NUM_PREVIOUS_SAMPLES)
             period
                 Pitch period
                 shape=(batch, 1)
+            previous_samples
+                Previous waveform context
+                shape=(batch, 1, promonet.NUM_PREVIOUS_SAMPLES)
             states
                 Recurrent model state
 
@@ -330,7 +342,11 @@ class SubframeNetwork(torch.nn.Module):
             output = output * gain
 
         # Updated recurrent state
-        states = (gru1_state, gru2_state, gru3_state, subframe_input_features)
+        states = (
+            gru1_state,
+            gru2_state,
+            gru3_state,
+            subframe_input_features)
 
         return output, states
 
@@ -401,18 +417,6 @@ def additive_noise(x, training: bool):
             min=-1.,
             max=1.)
     return x
-
-
-def initialize_recurrent_state(batch_size: int, device: torch.device):
-    """Initialize tensors for causal inference"""
-    return (
-        torch.zeros(batch_size, promonet.HOPSIZE, device=device),
-        torch.zeros(batch_size, promonet.HOPSIZE, device=device),
-        torch.zeros(batch_size, promonet.HOPSIZE, device=device),
-        torch.zeros(
-            batch_size,
-            4 * promonet.FARGAN_SUBFRAME_SIZE + 4,
-            device=device))
 
 
 def init_weights(module):

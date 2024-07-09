@@ -41,7 +41,7 @@ class BaseGenerator(torch.nn.Module):
                 promonet.NUM_SPEAKERS,
                 promonet.SPEAKER_CHANNELS)
 
-        # Default value for previous samples
+        # Previous samples and cached default value
         self.register_buffer(
             'default_previous_samples',
             torch.zeros(1, 1, promonet.NUM_PREVIOUS_SAMPLES))
@@ -206,7 +206,10 @@ class Generator(BaseGenerator):
         self.remove_weight_norm()
 
         # Register packed inference method
-        self.register()
+        if promonet.MODEL == 'fargan':
+            self.register_step()
+        else:
+            self.register_inference()
 
         # Run torchscript
         scripted = torch.jit.script(self)
@@ -319,7 +322,7 @@ class Generator(BaseGenerator):
 
     @torch.jit.export
     def packed_inference(self, x):
-        """Export function
+        """Perform inference from packed features
 
         Arguments
             x
@@ -351,12 +354,46 @@ class Generator(BaseGenerator):
             self.default_previous_samples
         ).to(torch.float)
 
-    def register(
+    @torch.jit.export
+    def packed_step(self, x):
+        """Perform one step of inference from packed features
+
+        Arguments
+            x
+                One frame of input features
+
+        Returns
+            audio
+                One frame of synthesized speech
+        """
+        (
+            loudness,
+            pitch,
+            periodicity,
+            ppg,
+            speakers,
+            spectral_balance_ratios,
+            loudness_ratios
+        ) = self.unpack_features(x)
+
+        # Prepare input features
+        features = self.prepare_features(loudness, pitch, periodicity, ppg)
+        global_features = self.prepare_global_features(
+            speakers,
+            spectral_balance_ratios,
+            loudness_ratios)
+
+        # Causal inference step
+        return self.model.step(
+            features.permute(2, 0, 1)[0],
+            global_features.squeeze(2))
+
+    def register_inference(
         self,
         method_name: str = 'packed_inference',
         test_buffer_size: int = 8192
     ):
-        """Register a class method for use by IRCAM's nn~"""
+        """Register inference method for use by IRCAM's nn~"""
         # Get semantic labels for each input channel
         labels = self.labels()
 
@@ -374,6 +411,37 @@ class Generator(BaseGenerator):
         y = getattr(self, method_name)(x)
         assert (
             tuple(y.shape) == (1, 1, test_buffer_size) and
+            y.dtype == torch.float)
+
+        # Register packed inference method
+        self._methods = [method_name]
+
+    def register_step(
+        self,
+        method_name: str = 'packed_step',
+        test_buffer_size: int = 256
+    ):
+        """Register causal inference method for use by IRCAM's nn~"""
+        # Get semantic labels for each input channel
+        labels = self.labels()
+
+        # Create buffer that stores input/output sizes
+        self.register_buffer(
+            f'{method_name}_params',
+            torch.tensor([len(labels), promonet.HOPSIZE, 1, 1]))
+
+        # Create buffers for recurrent state
+        self.model.register_inference_buffers()
+
+        # Label each input/output channel
+        setattr(self, f'{method_name}_input_labels', labels)
+        setattr(self, f'{method_name}_output_labels', ['output audio'])
+
+        # Test packed inference
+        x = torch.zeros(1, len(labels), test_buffer_size // promonet.HOPSIZE)
+        y = getattr(self, method_name)(x)
+        assert (
+            tuple(y.shape) == (1, test_buffer_size) and
             y.dtype == torch.float)
 
         # Register packed inference method
