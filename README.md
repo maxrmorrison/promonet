@@ -60,6 +60,16 @@ Official code for the paper _Fine-Grained and Interpretable Neural Speech Editin
 
 We are working on adding [`torbi`, our fast Viterbi decoding implementation](https://github.com/maxrmorrison/torbi) to PyTorch. This Viterbi decoding implementation is used to significantly speed-up pitch estimation. Until then, you must manually download and install `torbi` as well as the development (`dev`) branch of the pitch estimator [`penn`](https://github.com/interactiveaudiolab/penn). You can track the progress of incorporation of Viterbi decoding into PyTorch [here](https://github.com/pytorch/pytorch/issues/121160).
 
+```bash
+# Install torbi
+git clone git@github.com:maxrmorrison/torbi
+pip install torbi/
+
+# Install the development branch of penn
+git clone -b dev git@github.com:interactiveaudiolab/penn
+pip install penn/
+```
+
 
 ## Usage
 
