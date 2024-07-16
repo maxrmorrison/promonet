@@ -248,7 +248,7 @@ class Generator(BaseGenerator):
         if promonet.ZERO_SHOT:
             labels += [
                 f'speaker-{i}'
-                for i in range(promonet.WAVLM_EMBEDDING_CHANNELS)]
+                for i in range(promonet.SPEAKER_CHANNELS)]
         else:
             labels.append('speaker')
 
@@ -378,15 +378,24 @@ class Generator(BaseGenerator):
 
         # Prepare input features
         features = self.prepare_features(loudness, pitch, periodicity, ppg)
-        global_features = self.prepare_global_features(
-            speakers,
-            spectral_balance_ratios,
-            loudness_ratios)
+
+        # Prepare global features
+        global_features = speakers
+
+        # Maybe add augmentation ratios
+        if promonet.AUGMENT_PITCH:
+            global_features = torch.cat(
+                (global_features, spectral_balance_ratios[:, None]),
+                dim=1)
+
+        # Maybe add augmentation ratios
+        if promonet.AUGMENT_LOUDNESS:
+            global_features = torch.cat(
+                (global_features, loudness_ratios[:, None]),
+                dim=1)
 
         # Causal inference step
-        return self.model.step(
-            features.permute(2, 0, 1)[0],
-            global_features.squeeze(2))
+        return self.model.step(features.permute(2, 0, 1)[0], global_features)
 
     def register_inference(
         self,
@@ -480,8 +489,8 @@ class Generator(BaseGenerator):
         # Speaker
         if promonet.ZERO_SHOT:
             speakers = \
-                x[:, i:i + promonet.WAVLM_EMBEDDING_CHANNELS, 0]
-            i += promonet.WAVLM_EMBEDDING_CHANNELS
+                x[:, i:i + promonet.SPEAKER_CHANNELS, 0]
+            i += promonet.SPEAKER_CHANNELS
         else:
             speakers = x[:, i:i + 1, 0].to(torch.long).squeeze(1)
             i += 1

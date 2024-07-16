@@ -46,7 +46,7 @@ class FARGAN(torch.nn.Module):
 
         # Initialize recurrent state
         self.states = self.initialize_recurrent_state(features.shape[0], device)
-        previous_samples = previous_samples
+        self.previous_samples = previous_samples
 
         # Iterate over frames
         for feature in features.permute(2, 0, 1):

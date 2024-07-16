@@ -35,6 +35,10 @@ def parse_args():
         default=1.,
         help='> 1 for Alvin and the Chipmunks; < 1 for Patrick Star')
     parser.add_argument(
+        '--checkpoint',
+        type=Path,
+        help='The generator checkpoint')
+    parser.add_argument(
         '--gpu',
         type=int,
         help='The GPU index')

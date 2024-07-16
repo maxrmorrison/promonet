@@ -1,5 +1,6 @@
 import ppgs
 import torch
+import torchutil
 
 import csv
 import numpy as np
@@ -12,7 +13,13 @@ import promonet
 ###############################################################################
 
 
-def from_audio(audio, speaker=0, spectral_balance_ratio=1., gpu=None):
+def from_audio(
+    audio,
+    speaker=0,
+    spectral_balance_ratio=1.,
+    checkpoint=None,
+    gpu=None
+):
     """Convert audio to packed features"""
     # Preprocess audio
     loudness, pitch, periodicity, ppg = promonet.preprocess.from_audio(
@@ -26,13 +33,19 @@ def from_audio(audio, speaker=0, spectral_balance_ratio=1., gpu=None):
             features=['speaker'],
             gpu=gpu)[0].cpu()
 
+        # Compress speaker embedding
+        device = pitch.device
+        model = promonet.model.Generator().to(device)
+        model, *_ = torchutil.checkpoint.load(checkpoint, model)
+        speaker = model.speaker_embedding(speaker.to(device))
+
     # Pack features
     return from_features(
         loudness[None].cpu(),
         pitch[None].cpu(),
         periodicity[None].cpu(),
         ppg.cpu(),
-        speaker,
+        speaker.cpu(),
         spectral_balance_ratio,
         1.)
 
@@ -97,7 +110,9 @@ def from_file_to_file(
     output_file=None,
     speaker=0,
     spectral_balance_ratio=1.,
-    gpu=None):
+    checkpoint=None,
+    gpu=None
+):
     """Convert audio file to packed features and save"""
     # Default to audio_file with .csv extension
     if output_file is None:
@@ -109,6 +124,7 @@ def from_file_to_file(
         audio,
         speaker,
         spectral_balance_ratio,
+        checkpoint,
         gpu)
 
     # Save
@@ -121,7 +137,7 @@ def from_file_to_file(
         if promonet.ZERO_SHOT:
             speaker_label = [
                 f'speaker-{i}'
-                for i in range(promonet.WAVLM_EMBEDDING_CHANNELS)]
+                for i in range(promonet.SPEAKER_CHANNELS)]
         else:
             speaker_label = ['speaker']
 
