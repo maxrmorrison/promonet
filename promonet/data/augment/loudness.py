@@ -15,14 +15,14 @@ def from_audio(audio, sample_rate, ratio):
     # Augment audio
     augmented = promonet.preprocess.loudness.shift(
         audio,
-        promonet.convert.ratio_to_db(ratio))
+        promonet.convert.ratio_to_db(ratio.item()))
 
     # Resample ratio if the audio clips
     while ((augmented <= -1.) | (augmented >= 1.)).any():
         ratio = promonet.data.augment.sample(1)[0]
         augmented = promonet.preprocess.loudness.shift(
             audio,
-            promonet.convert.ratio_to_db(ratio))
+            promonet.convert.ratio_to_db(ratio.item()))
 
     # Resample to promonet sample rate
     augmented = resampy.resample(augmented, sample_rate, promonet.SAMPLE_RATE)
@@ -50,12 +50,14 @@ def from_file_to_file(audio_file, output_file, ratio):
 
 def from_files_to_files(audio_files, output_files, ratios):
     """Perform volume data augmentation on audio files and save"""
-    return torchutil.multiprocess_iterator(
-        wrapper,
+    new_ratios = []
+    for item in torchutil.iterator(
         zip(audio_files, output_files, ratios),
         'Augmenting loudness',
-        total=len(audio_files),
-        num_workers=promonet.NUM_WORKERS)
+        total=len(audio_files)
+    ):
+        new_ratios.append(from_file_to_file(*item))
+    return ratios
 
 
 ###############################################################################

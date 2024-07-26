@@ -253,7 +253,11 @@ def generate(
         if promonet.ZERO_SHOT:
             speakers = speaker.to(device)
         else:
-            speakers = torch.full((1,), speaker, dtype=torch.long, device=device)
+            speakers = torch.full(
+                (1,),
+                speaker,
+                dtype=torch.long,
+                device=device)
 
         # Format ratio
         spectral_balance_ratio = torch.tensor(
