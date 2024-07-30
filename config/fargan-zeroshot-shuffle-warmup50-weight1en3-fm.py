@@ -1,7 +1,7 @@
 MODULE = 'promonet'
 
 # Configuration name
-CONFIG = 'fargan-zeroshot-shuffle-warmup50-weight1en2-fdisc'
+CONFIG = 'fargan-zeroshot-shuffle-warmup50-weight1en3-fm'
 
 # The model to use.
 # One of ['fargan', 'hifigan', 'vocos', 'world'].
@@ -11,7 +11,7 @@ MODEL = 'fargan'
 ADVERSARIAL_LOSS_START_STEP = 300000
 
 # Weight applied to the discriminator loss
-ADVERSARIAL_LOSS_WEIGHT = .01
+ADVERSARIAL_LOSS_WEIGHT = .001
 
 # Training batch size
 BATCH_SIZE = 256
@@ -19,20 +19,14 @@ BATCH_SIZE = 256
 # Training sequence length
 CHUNK_SIZE = 4096  # samples
 
-# Whether to use the complex multi-band discriminator from RVQGAN
-COMPLEX_MULTIBAND_DISCRIMINATOR = False
-
 # Step to start training discriminator
 DISCRIMINATOR_START_STEP = 250000
 
-# Whether to use the same discriminator as FARGAN
-FARGAN_DISCRIMINATOR = True
+# Weight applied to the feature matching loss
+FEATURE_MATCHING_LOSS_WEIGHT = .001
 
 # Whether to use mel spectrogram loss
 MEL_LOSS = False
-
-# Whether to use the multi-period waveform discriminator from HiFi-GAN
-MULTI_PERIOD_DISCRIMINATOR = False
 
 # Whether to use multi-resolution spectral convergence loss
 SPECTRAL_CONVERGENCE_LOSS = True

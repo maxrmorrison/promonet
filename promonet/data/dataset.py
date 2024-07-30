@@ -55,13 +55,16 @@ class Dataset(torch.utils.data.Dataset):
                     torch.load(self.cache / f'{stem}{self.viterbi}-pitch.pt')
                 ).mean()
             ) > 60.]
-        self.speaker_stems = {}
-        for stem in self.stems:
-            speaker = stem.split('/')[0]
-            if speaker not in self.speaker_stems:
-                self.speaker_stems[speaker] = [stem]
-            else:
-                self.speaker_stems[speaker].append(stem)
+
+        # Group by speaker for zero-shot embedding swapping
+        if promonet.ZERO_SHOT:
+            self.speaker_stems = {}
+            for stem in self.stems:
+                speaker = stem.split('/')[0]
+                if speaker not in self.speaker_stems:
+                    self.speaker_stems[speaker] = [stem]
+                else:
+                    self.speaker_stems[speaker].append(stem)
 
     def __getitem__(self, index):
         stem = self.stems[index]

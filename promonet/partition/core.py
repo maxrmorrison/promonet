@@ -168,6 +168,11 @@ def libritts():
         f'{file.parent.name}/{file.stem[:6]}'
         for file in directory.rglob('*.txt')}
 
+    # Remove stems less than one second long
+    stems = {
+        stem for stem in stems
+        if audio_file_duration(directory / f'{stem}.wav') > 1.}
+
     # Get speaker map
     with open(directory / 'speakers.json') as file:
         speaker_map = json.load(file)
@@ -306,8 +311,13 @@ def adaptation_partitions(directory, stems, speakers):
     return adaptation_partition
 
 
+def audio_file_duration(file):
+    """Compute audio file duration in seconds using only metadata"""
+    info = torchaudio.info(file)
+    return info.num_frames / info.sample_rate
+
+
 def meets_length_criteria(directory, stem):
     """Returns True if the audio file duration is within the length criteria"""
-    info = torchaudio.info(directory / f'{stem}.wav')
-    duration = info.num_frames / info.sample_rate
+    duration = audio_file_duration(directory / f'{stem}.wav')
     return MIN_TEST_SAMPLE_LENGTH <= duration <= MAX_TEST_SAMPLE_LENGTH

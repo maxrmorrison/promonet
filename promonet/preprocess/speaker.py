@@ -53,7 +53,10 @@ def from_files_to_files(files, output_files, gpu=None):
         'WavLM x-vectors',
         total=len(files)
     ):
-        from_file_to_file(file, output_file, gpu)
+        try:
+            from_file_to_file(file, output_file, gpu)
+        except RuntimeError as error:
+            print(f'Skipping short audio file {file}')
 
 
 ###############################################################################
