@@ -5,7 +5,7 @@
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![Downloads](https://pepy.tech/badge/promonet)](https://pepy.tech/project/promonet)
 
-Official code for the paper _Fine-Grained and Interpretable Neural Speech Editing_
+A versatile speech editor for changing the prosody (pitch, duration, and loudness), pronunciation, or speaker identity (voice conversion) of recorded speech. Official code for the paper _Fine-Grained and Interpretable Neural Speech Editing_.
 
 [[paper]](https://www.maxrmorrison.com/pdfs/morrison2024fine.pdf)
 [[website]](https://www.maxrmorrison.com/sites/promonet/)
