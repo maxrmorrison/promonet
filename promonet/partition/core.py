@@ -31,6 +31,7 @@ import json
 import random
 
 import torchaudio
+import torchutil
 
 import promonet
 
@@ -102,19 +103,11 @@ VCTK_ADAPTATION_SPEAKERS = [
 
 
 ###############################################################################
-# Partition
+# Interface
 ###############################################################################
 
 
-def adaptation(name):
-    """Partition dataset for speaker adaptation"""
-    directory = promonet.CACHE_DIR / name
-    train = [
-        f'{file.parent.name}/{file.stem}'
-        for file in directory.rglob('*.wav')]
-    return {'train': train, 'valid': []}
-
-
+@torchutil.notify('partition')
 def datasets(datasets):
     """Partition datasets and save to disk"""
     for name in datasets:
@@ -143,6 +136,20 @@ def datasets(datasets):
         file.parent.mkdir(exist_ok=True, parents=True)
         with open(file, 'w') as file:
             json.dump(partition, file, indent=4)
+
+
+###############################################################################
+# Individual datasets
+###############################################################################
+
+
+def adaptation(name):
+    """Partition dataset for speaker adaptation"""
+    directory = promonet.CACHE_DIR / name
+    train = [
+        f'{file.parent.name}/{file.stem}'
+        for file in directory.rglob('*.wav')]
+    return {'train': train, 'valid': []}
 
 
 def daps():
