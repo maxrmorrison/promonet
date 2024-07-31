@@ -47,6 +47,11 @@ class Dataset(torch.utils.data.Dataset):
                     f'{stem}-l{ratios[stem]}' for stem in stems
                     if (self.cache / f'{stem}-l{ratios[stem]}.wav').exists()])
 
+        # Omit files exceeding PPG maximum length (5000 frames)
+        self.stems = [
+            stem for stem in self.stems
+            if (self.cache / f'{stem}-ppg.pt').exists()]
+
         # Omit files where the 50 Hz hum dominates the pitch estimation
         self.stems = [
             stem for stem in self.stems
@@ -129,6 +134,7 @@ class Dataset(torch.utils.data.Dataset):
                 speaker = torch.load(self.cache / f'{random_speaker_stem}-speaker.pt')
             else:
                 speaker = torch.load(self.cache / f'{stem}-speaker.pt')
+            speaker = speaker.squeeze(0)
 
         else:
 
