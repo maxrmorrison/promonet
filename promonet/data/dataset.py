@@ -128,9 +128,7 @@ class Dataset(torch.utils.data.Dataset):
 
             # Load speaker embedding
             if promonet.ZERO_SHOT_SHUFFLE and 'train' in self.partition:
-                random_speaker_stem = stem
-                while random_speaker_stem == stem:
-                    random_speaker_stem = random.choice(self.speaker_stems[stem.split('/')[0]])
+                random_speaker_stem = random.choice(self.speaker_stems[stem.split('/')[0]])
                 speaker = torch.load(self.cache / f'{random_speaker_stem}-speaker.pt')
             else:
                 speaker = torch.load(self.cache / f'{stem}-speaker.pt')
