@@ -39,6 +39,10 @@ import promonet
 @torchutil.notify('download')
 def datasets(datasets):
     """Download datasets"""
+    # Format cremad dataset
+    if 'cremad' in datasets:
+        cremad()
+
     # Download and format daps dataset
     if 'daps' in datasets:
         daps()
@@ -50,6 +54,79 @@ def datasets(datasets):
     # Download and format vctk dataset
     if 'vctk' in datasets:
         vctk()
+
+
+def cremad():
+    """Format crema-d dataset. Assumes dataset is already downloaded."""
+    data_directory = promonet.DATA_DIR / 'cremad'
+
+    # Get audio files
+    audio_files = sorted([
+        path.resolve() for path in data_directory.rglob('*.wav')])
+
+    # Map emotion labels
+    emotion_map = {
+        'ANG': 'anger',
+        'DIS': 'disgust',
+        'FEA': 'fear',
+        'HAP': 'happy',
+        'NEU': 'neutral',
+        'SAD': 'sad'}
+
+    # Write audio to cache
+    emotions = {}
+    speaker_count = {}
+    cache_directory = promonet.CACHE_DIR / 'cremad'
+    cache_directory.mkdir(exist_ok=True, parents=True)
+    with torchutil.paths.chdir(cache_directory):
+
+        # Iterate over files
+        for audio_file in torchutil.iterator(
+            audio_files,
+            'Formatting cremad',
+            total=len(audio_files)
+        ):
+            parts = audio_file.stem.split('_')
+
+            # Get speaker ID
+            speaker = Path(parts[0])
+            if speaker not in speaker_count:
+
+                # Each entry is (index, count)
+                speaker_count[speaker] = [len(speaker_count), 0]
+
+            # Update speaker and get current entry
+            speaker_count[speaker][1] += 1
+            index, count = speaker_count[speaker]
+
+            # Load audio
+            audio, sample_rate = torchaudio.load(audio_file)
+
+            # If audio is too quiet, increase the volume
+            maximum = torch.abs(audio).max()
+            if maximum < .35:
+                audio *= .35 / maximum
+
+            # Save at original sampling rate
+            speaker_directory = cache_directory / f'{index:04d}'
+            speaker_directory.mkdir(exist_ok=True, parents=True)
+            output_file = Path(f'{count:06d}.wav')
+            torchaudio.save(
+                speaker_directory / output_file,
+                audio,
+                sample_rate)
+
+            # Save at system sample rate
+            audio = resample(audio, sample_rate)
+            torchaudio.save(
+                speaker_directory / f'{output_file.stem}-100.wav',
+                audio,
+                promonet.SAMPLE_RATE)
+
+            # Save emotion label
+            emotions[f'{index:04d}/{count:06d}'] = emotion_map[parts[2]]
+        with open('emotions.json', 'w') as file:
+            json.dump(emotions, file, sort_keys=True, indent=4)
 
 
 def daps():
