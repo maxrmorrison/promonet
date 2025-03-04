@@ -12,7 +12,7 @@ import promonet
 
 def main(
     config,
-    dataset=promonet.TRAINING_DATASET,
+    datasets=[promonet.TRAINING_DATASET],
     train_partition='train',
     valid_partition='valid',
     adapt_from=False,
@@ -29,7 +29,7 @@ def main(
     # Train
     promonet.train(
         directory,
-        dataset,
+        datasets,
         train_partition,
         valid_partition,
         adapt_from,
@@ -45,8 +45,9 @@ def parse_args():
         nargs='+',
         help='The configuration file')
     parser.add_argument(
-        '--dataset',
-        default=promonet.TRAINING_DATASET,
+        '--datasets',
+        nargs='+',
+        default=[promonet.TRAINING_DATASET],
         help='The dataset to train on')
     parser.add_argument(
         '--train_partition',

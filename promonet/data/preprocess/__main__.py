@@ -1,7 +1,7 @@
 import yapecs
 
 import promonet
-
+from pathlib import Path
 
 ###############################################################################
 # Preprocess datasets
@@ -22,6 +22,11 @@ def parse_args():
         choices=promonet.ALL_FEATURES,
         nargs='+',
         help='The features to preprocess')
+    parser.add_argument(
+        '--cache_dir',
+        default=promonet.CACHE_DIR,
+        type=Path,
+        help='The configuration file')
     parser.add_argument(
         '--gpu',
         type=int,

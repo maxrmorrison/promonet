@@ -108,8 +108,19 @@ VCTK_ADAPTATION_SPEAKERS = [
 
 
 @torchutil.notify('partition')
-def datasets(datasets):
+def datasets(
+    datasets, 
+    cache_dir=promonet.CACHE_DIR, 
+    assets_dir=promonet.ASSETS_DIR
+):  
     """Partition datasets and save to disk"""
+    promonet.CACHE_DIR = cache_dir
+    promonet.ASSETS_DIR = assets_dir
+    promonet.PARTITION_DIR = (
+        promonet.ASSETS_DIR /
+        'partitions' /
+        ('adaptation' if promonet.ADAPTATION else 'multispeaker')
+    )
     for name in datasets:
 
         # Remove cached training statistics that may become stale
@@ -123,6 +134,16 @@ def datasets(datasets):
             partition = daps()
         elif name == 'libritts':
             partition = libritts()
+            
+        # Additions for singing/emotion related training data:
+        elif name == 'choirset':
+            partition = choirset()
+        elif name == 'choralsinging':
+            partition = choralsinging()
+        elif name == 'cremad':
+            partition = cremad()
+        elif name == 'vocalset':
+            partition = vocalset()
 
         # All other datasets are assumed to be for speaker adaptation
         else:
@@ -282,6 +303,181 @@ def vctk():
 
         return {'train': train_stems, 'valid': valid_stems, 'test': test_stems}
 
+def choirset():
+    """Partition choirset dataset"""
+    print("Partitioning ChoirSet Dataset")
+    # The number of usable audio samples is small in choirset
+    
+    directory = promonet.CACHE_DIR / 'choirset'
+    stems = {
+        f'{file.parent.name}/{file.stem[:6]}'
+        for file in directory.rglob('*-100.wav')
+    }
+    
+    # Get file stem correspondence
+    with open(directory / 'correspondence.json') as file:
+        correspondence = json.load(file)
+        
+    # [NOTE] This dataset is way too small for adaptation
+    
+    # [NOTE] Using most of these for training, so empty test and validation stems
+    test_stems = []
+    test_correspondence = []
+    residual = [
+        stem for stem in stems
+        if stem not in test_stems and 
+        correspondence[stem][:-1] not in test_correspondence
+    ]
+    random.shuffle(residual)
+    
+    # [NOTE] Empty validation stems
+    valid_stems = []
+    
+    # Get training stems
+    train_stems = [stem for stem in residual if stem not in valid_stems]
+    
+    return {'train': train_stems, 'valid': valid_stems, 'test': test_stems}
+
+def choralsinging():
+    """Partition Choral Singing Dataset"""
+    print("Partitioning Choral Singing Dataset")
+    
+    directory = promonet.CACHE_DIR / 'choralsinging'
+    stems = {
+        f'{file.parent.name}/{file.stem[:6]}'
+        for file in directory.rglob('*-100.wav')
+    }
+
+    # Get file stem correspondence
+    with open(directory / 'correspondence.json') as file:
+        correspondence = json.load(file)
+        
+    # Test stems
+    CHORALSINGING_TEST_SPEAKERS = [
+        "0003", # Alto 4
+        "0007", # Bass 4
+        "0011", # Sop. 4
+        "0015", # Ten. 4
+    ]
+    test_speaker_stems = {
+        speaker : [stem for stem in stems if stem.split('/')[0] == speaker]
+        for speaker in CHORALSINGING_TEST_SPEAKERS
+    }
+    filter_fn = functools.partial(meets_length_criteria, directory)
+    test_stems = []
+    for speaker, speaker_stems in test_speaker_stems.items():
+        random.shuffle(speaker_stems)
+        test_stems += list(filter(filter_fn, speaker_stems))[:10]
+    test_correspondence = [correspondence[stem][:-1] for stem in test_stems]
+    
+    residual = [
+        stem for stem in stems
+        if stem not in test_stems and
+        correspondence[stem][:-1] not in test_correspondence]
+    random.shuffle(residual)
+    
+    # Get validation stems
+    filter_fn = functools.partial(meets_length_criteria, directory)
+    valid_stems = list(filter(filter_fn, residual))[:64]
+    
+    # Get training stems
+    train_stems = [stem for stem in residual if stem not in valid_stems]
+
+    return {'train': train_stems, 'valid': valid_stems, 'test': test_stems}
+    
+def cremad():
+    """Partition CREMA-D Dataset"""
+    print("Partitioning CREMA-D Dataset")
+    
+    directory = promonet.CACHE_DIR / 'cremad'
+    stems = {
+        f'{file.parent.name}/{file.stem[:6]}'
+        for file in directory.rglob('*-100.wav')
+    }
+    
+    # Get file stem correspondence
+    with open(directory / 'correspondence.json') as file:
+        correspondence = json.load(file)
+        
+    # Test stems
+    CREMAD_TEST_SPEAKERS = [
+        # Male
+        "0014", "0033", "0050", "0087",
+        # Female
+        "0006", "0023", "0048", "0057"
+    ]
+    test_speaker_stems = {
+        speaker : [stem for stem in stems if stem.split('/')[0] == speaker]
+        for speaker in CREMAD_TEST_SPEAKERS
+    }
+    filter_fn = functools.partial(meets_length_criteria, directory)
+    test_stems = []
+    for speaker, speaker_stems in test_speaker_stems.items():
+        random.shuffle(speaker_stems)
+        test_stems += list(filter(filter_fn, speaker_stems))[:10]
+    test_correspondence = [correspondence[stem][:-1] for stem in test_stems]
+    
+    residual = [
+        stem for stem in stems
+        if stem not in test_stems and
+        correspondence[stem][:-1] not in test_correspondence]
+    random.shuffle(residual)
+    
+    # Get validation stems
+    filter_fn = functools.partial(meets_length_criteria, directory)
+    valid_stems = list(filter(filter_fn, residual))[:64]
+    
+    # Get training stems
+    train_stems = [stem for stem in residual if stem not in valid_stems]
+
+    return {'train': train_stems, 'valid': valid_stems, 'test': test_stems}
+
+def vocalset():
+    """Partition VocalSet Dataset"""
+    print("Partitioning VocalSet")
+    
+    directory = promonet.CACHE_DIR / 'vocalset'
+    stems = {
+        f'{file.parent.name}/{file.stem[:6]}'
+        for file in directory.rglob('*-100.wav')
+    }
+    
+    # Get file stem correspondence
+    with open(directory / 'correspondence.json') as file:
+        correspondence = json.load(file)
+        
+    # Test stems
+    VOCALSET_TEST_SPEAKERS = [
+        # Male
+        "0013", "0016", "0018",
+        # Female
+        "0002", "0006", "0008"
+    ]
+    test_speaker_stems = {
+        speaker : [stem for stem in stems if stem.split('/')[0] == speaker]
+        for speaker in VOCALSET_TEST_SPEAKERS
+    }
+    filter_fn = functools.partial(meets_length_criteria, directory)
+    test_stems = []
+    for speaker, speaker_stems in test_speaker_stems.items():
+        random.shuffle(speaker_stems)
+        test_stems += list(filter(filter_fn, speaker_stems))[:10]
+    test_correspondence = [correspondence[stem][:-1] for stem in test_stems]
+    
+    residual = [
+        stem for stem in stems
+        if stem not in test_stems and
+        correspondence[stem][:-1] not in test_correspondence]
+    random.shuffle(residual)
+    
+    # Get validation stems
+    filter_fn = functools.partial(meets_length_criteria, directory)
+    valid_stems = list(filter(filter_fn, residual))[:64]
+    
+    # Get training stems
+    train_stems = [stem for stem in residual if stem not in valid_stems]
+
+    return {'train': train_stems, 'valid': valid_stems, 'test': test_stems}
 
 ###############################################################################
 # Utilities

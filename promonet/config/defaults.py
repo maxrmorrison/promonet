@@ -84,7 +84,7 @@ AUGMENTATION_RATIO_MAX = 2.
 AUGMENTATION_RATIO_MIN = .5
 
 # Names of all datasets
-DATASETS = ['cremad', 'daps', 'libritts', 'vctk']
+DATASETS = ['cremad', 'daps', 'libritts', 'vctk', 'choirset', 'choralsinging', 'vocalset']
 
 # Number of bands of A-weighted loudness
 LOUDNESS_BANDS = 8

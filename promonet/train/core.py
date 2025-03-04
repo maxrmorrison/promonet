@@ -16,7 +16,7 @@ import promonet
 @torchutil.notify('train')
 def train(
     directory,
-    dataset=promonet.TRAINING_DATASET,
+    datasets=[promonet.TRAINING_DATASET],
     train_partition='train',
     valid_partition='valid',
     adapt_from=None,
@@ -33,15 +33,14 @@ def train(
     #######################
     # Create data loaders #
     #######################
-
     torch.manual_seed(promonet.RANDOM_SEED)
     train_loader = promonet.data.loader(
-        dataset,
+        datasets,
         train_partition,
         adapt_from is not None,
         gpu)
     valid_loader = promonet.data.loader(
-        dataset,
+        datasets,
         valid_partition,
         adapt_from is not None,
         gpu)

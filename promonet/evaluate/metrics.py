@@ -306,5 +306,8 @@ class PPG(torchutil.metrics.Average):
 class WER(torchutil.metrics.Average):
     """Word error rate"""
     def update(self, predicted, target):
-        wer = jiwer.wer(target, predicted)
+        try:
+            wer = jiwer.wer(target, predicted)
+        except ValueError:
+            wer = 1.0
         super().update(torch.tensor(wer), 1)

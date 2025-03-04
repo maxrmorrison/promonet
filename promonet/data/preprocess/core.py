@@ -9,16 +9,23 @@ import promonet
 
 
 @torchutil.notify('preprocess')
-def datasets(datasets, features=promonet.ALL_FEATURES, gpu=None):
+def datasets(
+    datasets, 
+    features=promonet.ALL_FEATURES, 
+    cache_dir=promonet.CACHE_DIR, 
+    gpu=None
+):
+    promonet.CACHE_DIR = cache_dir
+    print(promonet.CACHE_DIR)
     """Preprocess a dataset"""
     for dataset in datasets:
-
+        print(f"preprocessing {dataset}")
         # Get cache directory
         directory = promonet.CACHE_DIR / dataset
 
         # Get text and audio files for this speaker
         audio_files = sorted(list(directory.rglob('*.wav')))
-        audio_files = [file for file in audio_files if '-' in file.stem]
+        # audio_files = [file for file in audio_files if '-' in file.stem]
 
         # Preprocess input features
         if any(feature in features for feature in [
