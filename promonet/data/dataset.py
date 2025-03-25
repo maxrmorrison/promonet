@@ -47,6 +47,11 @@ class Dataset(torch.utils.data.Dataset):
                     f'{stem}-l{ratios[stem]}' for stem in stems
                     if (self.cache / f'{stem}-l{ratios[stem]}.wav').exists()])
 
+        # Omit files exceeding PPG maximum length (5000 frames)
+        self.stems = [
+            stem for stem in self.stems
+            if (self.cache / f'{stem}-ppg.pt').exists()]
+
         # Omit files where the 50 Hz hum dominates the pitch estimation
         self.stems = [
             stem for stem in self.stems
@@ -55,13 +60,16 @@ class Dataset(torch.utils.data.Dataset):
                     torch.load(self.cache / f'{stem}{self.viterbi}-pitch.pt')
                 ).mean()
             ) > 60.]
-        self.speaker_stems = {}
-        for stem in self.stems:
-            speaker = stem.split('/')[0]
-            if speaker not in self.speaker_stems:
-                self.speaker_stems[speaker] = [stem]
-            else:
-                self.speaker_stems[speaker].append(stem)
+
+        # Group by speaker for zero-shot embedding swapping
+        if promonet.ZERO_SHOT:
+            self.speaker_stems = {}
+            for stem in self.stems:
+                speaker = stem.split('/')[0]
+                if speaker not in self.speaker_stems:
+                    self.speaker_stems[speaker] = [stem]
+                else:
+                    self.speaker_stems[speaker].append(stem)
 
     def __getitem__(self, index):
         stem = self.stems[index]
@@ -120,12 +128,11 @@ class Dataset(torch.utils.data.Dataset):
 
             # Load speaker embedding
             if promonet.ZERO_SHOT_SHUFFLE and 'train' in self.partition:
-                random_speaker_stem = stem
-                while random_speaker_stem == stem:
-                    random_speaker_stem = random.choice(self.speaker_stems[stem.split('/')[0]])
+                random_speaker_stem = random.choice(self.speaker_stems[stem.split('/')[0]])
                 speaker = torch.load(self.cache / f'{random_speaker_stem}-speaker.pt')
             else:
                 speaker = torch.load(self.cache / f'{stem}-speaker.pt')
+            speaker = speaker.squeeze(0)
 
         else:
 

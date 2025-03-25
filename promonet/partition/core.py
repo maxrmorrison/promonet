@@ -31,6 +31,7 @@ import json
 import random
 
 import torchaudio
+import torchutil
 
 import promonet
 
@@ -102,19 +103,11 @@ VCTK_ADAPTATION_SPEAKERS = [
 
 
 ###############################################################################
-# Partition
+# Interface
 ###############################################################################
 
 
-def adaptation(name):
-    """Partition dataset for speaker adaptation"""
-    directory = promonet.CACHE_DIR / name
-    train = [
-        f'{file.parent.name}/{file.stem}'
-        for file in directory.rglob('*.wav')]
-    return {'train': train, 'valid': []}
-
-
+@torchutil.notify('partition')
 def datasets(datasets):
     """Partition datasets and save to disk"""
     for name in datasets:
@@ -145,6 +138,20 @@ def datasets(datasets):
             json.dump(partition, file, indent=4)
 
 
+###############################################################################
+# Individual datasets
+###############################################################################
+
+
+def adaptation(name):
+    """Partition dataset for speaker adaptation"""
+    directory = promonet.CACHE_DIR / name
+    train = [
+        f'{file.parent.name}/{file.stem}'
+        for file in directory.rglob('*.wav')]
+    return {'train': train, 'valid': []}
+
+
 def daps():
     """Partition the DAPS dataset"""
     # Get stems
@@ -167,6 +174,11 @@ def libritts():
     stems = {
         f'{file.parent.name}/{file.stem[:6]}'
         for file in directory.rglob('*.txt')}
+
+    # Remove stems less than one second long
+    stems = {
+        stem for stem in stems
+        if audio_file_duration(directory / f'{stem}.wav') > 1.}
 
     # Get speaker map
     with open(directory / 'speakers.json') as file:
@@ -306,8 +318,13 @@ def adaptation_partitions(directory, stems, speakers):
     return adaptation_partition
 
 
+def audio_file_duration(file):
+    """Compute audio file duration in seconds using only metadata"""
+    info = torchaudio.info(file)
+    return info.num_frames / info.sample_rate
+
+
 def meets_length_criteria(directory, stem):
     """Returns True if the audio file duration is within the length criteria"""
-    info = torchaudio.info(directory / f'{stem}.wav')
-    duration = info.num_frames / info.sample_rate
+    duration = audio_file_duration(directory / f'{stem}.wav')
     return MIN_TEST_SAMPLE_LENGTH <= duration <= MAX_TEST_SAMPLE_LENGTH

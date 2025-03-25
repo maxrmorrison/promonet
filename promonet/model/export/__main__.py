@@ -21,7 +21,7 @@ def parse_args():
         '--output_file',
         type=Path,
         default='promonet-export.ts',
-        help='The torch file to write the exported model')
+        help='The torchscript file to write the exported model')
 
     return parser.parse_args()
 

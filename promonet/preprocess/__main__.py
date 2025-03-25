@@ -26,7 +26,7 @@ def parse_args():
     parser.add_argument(
         '--features',
         default=promonet.INPUT_FEATURES,
-        choices=promonet.INPUT_FEATURES,
+        choices=promonet.ALL_FEATURES,
         nargs='+',
         help='The features to preprocess')
     parser.add_argument(
