@@ -60,6 +60,9 @@ WINDOW_SIZE = 1024
 # Whether to perform speaker adaptation (instead of multi-speaker)
 ADAPTATION = False
 
+ADAPTATION_SPEAKER_INDEX = 0
+ADAPTATION_SPEAKER_INDEX = int(os.getenv('promonet_ADAPTATION_SPEAKER_INDEX', ADAPTATION_SPEAKER_INDEX))
+
 # All features considered during preprocessing
 ALL_FEATURES = [
     'loudness',
@@ -84,7 +87,7 @@ AUGMENTATION_RATIO_MAX = 2.
 AUGMENTATION_RATIO_MIN = .5
 
 # Names of all datasets
-DATASETS = ['cremad', 'daps', 'libritts', 'vctk']
+DATASETS = ['daps', 'libritts', 'vctk']
 
 # Number of bands of A-weighted loudness
 LOUDNESS_BANDS = 8
@@ -148,9 +151,15 @@ ASSETS_DIR = Path(__file__).parent.parent / 'assets'
 
 # Location of preprocessed features
 CACHE_DIR = ROOT_DIR / 'data' / 'cache'
+CACHE_DIR = Path(os.getenv('promonet_CACHE_DIR', CACHE_DIR))
+assert CACHE_DIR.exists()
+print(f'using cache dir {CACHE_DIR}')
 
 # Location of datasets on disk
 DATA_DIR = ROOT_DIR / 'data' / 'datasets'
+DATA_DIR = Path(os.getenv('promonet_DATA_DIR', DATA_DIR))
+assert DATA_DIR.exists()
+print(f'using datasets dir {DATA_DIR}')
 
 # Location to save evaluation artifacts
 EVAL_DIR = ROOT_DIR / 'eval'
@@ -384,7 +393,7 @@ ADAPTATION_STEPS = 10000
 #     NUM_WORKERS = int(os.cpu_count() / max(1, len(GPUtil.getGPUs())))
 # except ValueError:
 #     NUM_WORKERS = os.cpu_count()
-NUM_WORKERS = 10
+NUM_WORKERS = 16
 
 # Training optimizer
 OPTIMIZER = functools.partial(

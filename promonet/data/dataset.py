@@ -7,6 +7,8 @@ import torch
 import promonet
 import ppgs
 
+import tqdm
+import concurrent.futures
 
 ###############################################################################
 # Dataset
@@ -44,22 +46,40 @@ class Dataset(torch.utils.data.Dataset):
                 ) as file:
                     ratios = json.load(file)
                 self.stems.extend([
-                    f'{stem}-l{ratios[stem]}' for stem in stems
+                    f'{stem}-l{ratios[stem]}' for stem in tqdm.tqdm(stems, total=len(stems), desc='scanning stems')
                     if (self.cache / f'{stem}-l{ratios[stem]}.wav').exists()])
 
+        print(len(self.stems))
         # Omit files exceeding PPG maximum length (5000 frames)
         self.stems = [
-            stem for stem in self.stems
+            stem for stem in tqdm.tqdm(self.stems, total=len(self.stems), desc='scanning for ppg files')
             if (self.cache / f'{stem}-ppg.pt').exists()]
 
         # Omit files where the 50 Hz hum dominates the pitch estimation
-        self.stems = [
-            stem for stem in self.stems
-            if (
-                2 ** torch.log2(
-                    torch.load(self.cache / f'{stem}{self.viterbi}-pitch.pt')
-                ).mean()
-            ) > 60.]
+        import warnings
+        def guarded_check(stem):
+            try:
+                return stem, (
+                    2 ** torch.log2(
+                        torch.load(self.cache / f'{stem}{self.viterbi}-pitch.pt')
+                    ).mean()
+                ) > 60.
+            except:
+                warnings.warn(f'Stem {stem} seems to be corrupted?')
+                return stem, False
+
+        def parallel_filter_stems(stems, guarded_check, num_threads):
+            with concurrent.futures.ThreadPoolExecutor(max_workers=num_threads) as executor:
+                futures = [executor.submit(guarded_check, stem) for stem in stems]
+                results = [future.result()[0] for future in tqdm.tqdm(concurrent.futures.as_completed(futures), total=len(stems), desc='filtering stems') if future.result()[1]]
+            return results
+
+        # self.stems = [
+        #     stem for stem in tqdm.tqdm(self.stems, total=len(self.stems), desc='filtering stems')
+        #     if guarded_check(stem)]
+        self.stems = parallel_filter_stems(self.stems, guarded_check, promonet.NUM_WORKERS)
+
+        print(len(self.stems))
 
         # Group by speaker for zero-shot embedding swapping
         if promonet.ZERO_SHOT:
@@ -141,7 +161,7 @@ class Dataset(torch.utils.data.Dataset):
             if 'adapt' not in self.partition:
                 speaker = int(stem.split('/')[0])
             else:
-                speaker = 0
+                speaker = promonet.ADAPTATION_SPEAKER_INDEX
             speaker = torch.tensor(speaker, dtype=torch.long)
 
         # Data augmentation ratios
