@@ -58,9 +58,8 @@ def speaker(
         promonet.data.augment.from_files_to_files(files, name)
 
     # Preprocess features
-    promonet.data.preprocess.from_files_to_files(
-        cache,
-        cache.rglob('*.wav'),
+    promonet.preprocess.from_files_to_files(
+        list(cache.rglob('*.wav')),
         gpu=gpu)
 
     # Partition (all files are used for training)
