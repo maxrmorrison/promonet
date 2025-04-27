@@ -113,7 +113,7 @@ def datasets(datasets):
     for name in datasets:
 
         # Remove cached training statistics that may become stale
-        for stats_file in (promonet.ASSETS_DIR / 'stats').glob('*.pt'):
+        for stats_file in (promonet.ASSETS_DIR / 'stats').glob(f'{name}-*.pt'):
             stats_file.unlink()
 
         # Partition
