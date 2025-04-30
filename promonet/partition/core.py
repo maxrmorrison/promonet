@@ -147,8 +147,9 @@ def adaptation(name):
     """Partition dataset for speaker adaptation"""
     directory = promonet.CACHE_DIR / 'adapt' / name
     train = [
-        f'{file.parent.name}/{file.stem}'
-        for file in directory.rglob('*.wav')]
+        f'{file.parent.name}/{str(file.stem).removesuffix("-100")}'
+        # f'{str(file.stem).removesuffix("-100")}'
+        for file in directory.rglob('*-100.wav')]
     return {'train': train, 'valid': []}
 
 

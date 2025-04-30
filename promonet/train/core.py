@@ -407,17 +407,18 @@ def train(
                 torchutil.tensorboard.update(directory, step, scalars=scalars)
 
                 # Evaluate on validation data
-                with torchutil.inference.context(generator):
-                    evaluation_steps = (
-                        None if step == steps
-                        else promonet.DEFAULT_EVALUATION_STEPS)
-                    evaluate(
-                        directory,
-                        step,
-                        generator,
-                        valid_loader,
-                        gpu,
-                        evaluation_steps)
+                if not promonet.ADAPTATION:
+                    with torchutil.inference.context(generator):
+                        evaluation_steps = (
+                            None if step == steps
+                            else promonet.DEFAULT_EVALUATION_STEPS)
+                        evaluate(
+                            directory,
+                            step,
+                            generator,
+                            valid_loader,
+                            gpu,
+                            evaluation_steps)
 
             ###################
             # Save checkpoint #
@@ -446,9 +447,9 @@ def train(
                 break
 
             # Raise if GPU tempurature exceeds 80 C
-            if any(gpu.temperature > 80. for gpu in GPUtil.getGPUs()):
-                raise RuntimeError(
-                    f'GPU is overheating. Terminating training.')
+            # if any(gpu.temperature > 80. for gpu in GPUtil.getGPUs()):
+            #     raise RuntimeError(
+            #         f'GPU is overheating. Terminating training.')
 
             ###########
             # Updates #

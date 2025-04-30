@@ -36,6 +36,7 @@ def speaker(
     cache.mkdir(exist_ok=True, parents=True)
 
     # Preprocess audio
+    output_files = []
     for i, file in enumerate(files):
 
         # Convert to 22.05k
@@ -47,10 +48,23 @@ def speaker(
             audio *= .35 / maximum
 
         # Save to cache
+        output_file = cache / f'{i:06d}-100.wav'
+        output_files.append(output_file)
         torchaudio.save(
             cache / f'{i:06d}-100.wav',
             audio,
             promonet.SAMPLE_RATE)
+
+    # from this point on we want to deal with the files in cache, not the original files
+    files = output_files
+
+    promonet.preprocess.from_files_to_files(
+        files,
+        output_prefixes=[file.parent / file.stem.split("-")[0] for file in files],
+        gpu=gpu,
+        features=[
+            'text',
+        ])
 
     if promonet.AUGMENT_PITCH or promonet.AUGMENT_LOUDNESS:
 
@@ -60,10 +74,17 @@ def speaker(
     # Preprocess features
     promonet.preprocess.from_files_to_files(
         list(cache.rglob('*.wav')),
-        gpu=gpu)
+        gpu=gpu,
+        features=[
+            'loudness',
+            'pitch',
+            'periodicity',
+            'ppg',
+            'spectrogram'
+        ])
 
     # Partition (all files are used for training)
-    promonet.partition.dataset(name)
+    promonet.partition.datasets([name])
 
     # Directory to save configuration, checkpoints, and logs
     directory = promonet.RUNS_DIR / promonet.CONFIG / 'adapt' / name

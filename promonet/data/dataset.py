@@ -19,11 +19,15 @@ class Dataset(torch.utils.data.Dataset):
 
     def __init__(self, dataset, partition, adapt=promonet.ADAPTATION):
         super().__init__()
-        self.cache = promonet.CACHE_DIR / dataset
-        if not self.cache.exists():
-            self.cache = promonet.CACHE_DIR / 'adapt' / dataset
-        if not self.cache.exists():
-            raise FileNotFoundError(f"Could not find cache dir {self.cache} for dataset {dataset}")
+        self.adapt = adapt
+        if adapt:
+            self.cache = promonet.CACHE_DIR / 'adapt'
+        else:
+            self.cache = promonet.CACHE_DIR / dataset
+        # if not self.cache.exists():
+        #     self.cache = promonet.CACHE_DIR / 'adapt' / dataset
+        # if not self.cache.exists():
+        #     raise FileNotFoundError(f"Could not find cache dir {self.cache} for dataset {dataset}")
         self.partition = partition
         self.viterbi = '-viterbi' if promonet.VITERBI_DECODE_PITCH else ''
 
@@ -58,6 +62,13 @@ class Dataset(torch.utils.data.Dataset):
         self.stems = [
             stem for stem in tqdm.tqdm(self.stems, total=len(self.stems), desc='scanning for ppg files')
             if (self.cache / f'{stem}-ppg.pt').exists()]
+
+        print(len(self.stems))
+        if adapt:
+            self.stems = [
+                stem for stem in tqdm.tqdm(self.stems, total=len(self.stems), desc='excluding too-short audio files')
+                    if promonet.load.audio(self.cache / f'{stem}.wav').shape[-1] > (promonet.CHUNK_SIZE // 2)]
+        print('after filtering short files:', len(self.stems))
 
         # Omit files where the 50 Hz hum dominates the pitch estimation
         import warnings
@@ -162,7 +173,7 @@ class Dataset(torch.utils.data.Dataset):
 
             # Get speaker index. Non-integer speaker names are assumed to be
             # for speaker adaptation and therefore default to index zero.
-            if 'adapt' not in self.partition:
+            if 'adapt' not in self.partition and not self.adapt:
                 speaker = int(stem.split('/')[0])
             else:
                 speaker = promonet.ADAPTATION_SPEAKER_INDEX

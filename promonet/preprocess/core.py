@@ -317,3 +317,12 @@ def from_files_to_files(
             files,
             [f'{prefix}-speaker.pt' for prefix in output_prefixes],
             gpu=gpu)
+        
+    # Preprocess spectrograms
+    if 'spectrogram' in features:
+        spectrogram_files = [
+            file.parent / f'{file.stem}-spectrogram.pt'
+            for file in files]
+        promonet.preprocess.spectrogram.from_files_to_files(
+            files,
+            spectrogram_files)
