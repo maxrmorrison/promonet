@@ -20,6 +20,10 @@ class Dataset(torch.utils.data.Dataset):
     def __init__(self, dataset, partition, adapt=promonet.ADAPTATION):
         super().__init__()
         self.cache = promonet.CACHE_DIR / dataset
+        if not self.cache.exists():
+            self.cache = promonet.CACHE_DIR / 'adapt' / dataset
+        if not self.cache.exists():
+            raise FileNotFoundError(f"Could not find cache dir {self.cache} for dataset {dataset}")
         self.partition = partition
         self.viterbi = '-viterbi' if promonet.VITERBI_DECODE_PITCH else ''
 
