@@ -67,7 +67,7 @@ class Dataset(torch.utils.data.Dataset):
         if adapt:
             self.stems = [
                 stem for stem in tqdm.tqdm(self.stems, total=len(self.stems), desc='excluding too-short audio files')
-                    if promonet.load.audio(self.cache / f'{stem}.wav').shape[-1] > (promonet.CHUNK_SIZE // 2)]
+                    if promonet.load.audio(self.cache / f'{stem}.wav').shape[-1] > (promonet.CHUNK_SIZE // 2 + promonet.HOPSIZE)]
         print('after filtering short files:', len(self.stems))
 
         # Omit files where the 50 Hz hum dominates the pitch estimation
